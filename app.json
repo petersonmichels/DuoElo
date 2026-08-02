@@ -1,0 +1,32 @@
+{
+  "expo": {
+    "name": "DuoElo",
+    "slug": "duelo",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./duoelo_browser_icon.jpg",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/images/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "usesAppleSignIn": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./duoelo_browser_icon.jpg",
+        "backgroundColor": "#ffffff"
+      }
+    },
+    "web": {
+      "favicon": "./duoelo_browser_icon.jpg"
+    },
+    "plugins": [
+      "expo-apple-authentication",
+      "@react-native-google-signin/google-signin"
+    ]
+  }
+}

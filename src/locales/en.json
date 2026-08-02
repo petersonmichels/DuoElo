@@ -1,0 +1,18 @@
+{
+  "diagnosis": {
+    "zone": {
+      "green": {
+        "title": "Green Zone: Secure Bond",
+        "message": "Your relationship has a solid foundation. Your journey will focus on preventive maintenance and creating physical micro-connections to further shield your bond."
+      },
+      "yellow": {
+        "title": "Yellow Zone: Active Alert",
+        "message": "We identified patterns of harsh communication and overload. Your marriage needs attention, but science proves it is fully reversible with 5 minutes of daily dedication."
+      },
+      "red": {
+        "title": "Red Zone: Critical Risk",
+        "message": "Your relationship is on high alert and predictors of detachment are active. Don't despair: your emergency rescue path is ready, focused on simple, frictionless steps."
+      }
+    }
+  }
+}

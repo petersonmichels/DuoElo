@@ -1,0 +1,18 @@
+{
+  "diagnosis": {
+    "zone": {
+      "green": {
+        "title": "Grüne Zone: Sichere Bindung",
+        "message": "Ihre Beziehung hat eine solide Grundlage. Der Fokus Ihrer Reise wird auf präventiver Pflege und der Schaffung physischer Mikro-Verbindungen liegen, um Ihr Duo Elo weiter zu schützen."
+      },
+      "yellow": {
+        "title": "Gelbe Zone: Aktiver Alarm",
+        "message": "Wir haben Muster von harter Kommunikation und Überlastung identifiziert. Ihre Ehe erfordert Aufmerksamkeit, aber die Wissenschaft beweist, dass dies mit 5 Minuten täglichem Einsatz vollständig reversibel ist."
+      },
+      "red": {
+        "title": "Rote Zone: Kritisches Risiko",
+        "message": "Ihre Beziehung ist in höchster Alarmbereitschaft und die Prädiktoren für Distanzierung sind aktiv. Verzweifeln Sie nicht: Ihr Notfall-Rettungsweg ist bereit und konzentriert sich auf einfache, reibungslose Schritte."
+      }
+    }
+  }
+}

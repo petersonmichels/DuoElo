@@ -1,0 +1,18 @@
+{
+  "diagnosis": {
+    "zone": {
+      "green": {
+        "title": "Zona Verde: Vínculo Seguro",
+        "message": "Su relación tiene bases sólidas. El enfoque de su viaje será el mantenimiento preventivo y la creación de microconexiones físicas para blindar aún más su vínculo."
+      },
+      "yellow": {
+        "title": "Zona Amarilla: Alerta Activa",
+        "message": "Identificamos patrones de comunicación áspera y sobrecarga. Su matrimonio necesita atención, pero la ciencia demuestra que es totalmente reversible con 5 minutos de dedicación diaria."
+      },
+      "red": {
+        "title": "Zona Roja: Riesgo Crítico",
+        "message": "Su relación está en alerta máxima y los predictores de distanciamiento están activos. No se desespere: su ruta de rescate de emergencia está lista, enfocada en pasos simples y sin fricción."
+      }
+    }
+  }
+}

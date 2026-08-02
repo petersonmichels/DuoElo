@@ -1,0 +1,18 @@
+{
+  "diagnosis": {
+    "zone": {
+      "green": {
+        "title": "Zone Verte : Lien Sécurisé",
+        "message": "Votre relation repose sur des bases solides. L'objectif de votre parcours sera l'entretien préventif et la création de micro-connexions physiques pour protéger encore plus votre Duo Elo."
+      },
+      "yellow": {
+        "title": "Zone Jaune : Alerte Active",
+        "message": "Nous avons identifié des schémas de communication dure et de surcharge. Votre mariage nécessite de l'attention, mais la science prouve qu'il est totalement réversible avec 5 minutes de dévouement quotidien."
+      },
+      "red": {
+        "title": "Zone Rouge : Risque Critique",
+        "message": "Votre relation est en alerte maximale et les facteurs d'éloignement sont actifs. Ne désespérez pas : votre parcours de sauvetage d'urgence est prêt, axé sur des étapes simples et sans friction."
+      }
+    }
+  }
+}

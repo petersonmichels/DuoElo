@@ -1,0 +1,18 @@
+{
+  "diagnosis": {
+    "zone": {
+      "green": {
+        "title": "Zona Verde: Vínculo Seguro",
+        "message": "Seu relacionamento apresenta bases sólidas. O foco da sua jornada será a manutenção preventiva e a criação de micro-conexões físicas para blindar ainda mais o seu Duo Elo."
+      },
+      "yellow": {
+        "title": "Zona Amarela: Alerta Ativo",
+        "message": "Identificamos padrões de comunicação ácida e sobrecarga. O seu casamento precisa de atenção, mas a ciência prova que é totalmente reversível com 5 minutos de dedicação diária."
+      },
+      "red": {
+        "title": "Zona Vermelha: Risco Crítico",
+        "message": "Seu relacionamento está em alerta máximo e os preditores de afastamento estão ativos. Não se desespere: sua trilha emergencial de resgate imediato está pronta, focada em passos simples e sem atrito."
+      }
+    }
+  }
+}
