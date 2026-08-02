@@ -1,15 +1,20 @@
 import { FontAwesome5 } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
-import { useEffect, useState } from "react";
+import { signOut } from "firebase/auth";
+import { doc, getDoc, setDoc } from "firebase/firestore";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   Image,
+  KeyboardAvoidingView,
+  Platform,
   SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -19,12 +24,47 @@ import { auth, db } from "../config/firebase";
 export default function ProfileScreen({ navigation }: any) {
   const [photoURL, setPhotoURL] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
 
-  // Busca a foto do Firebase assim que a tela abre
+  // Campos de Faturamento Internacional
+  const [fullName, setFullName] = useState("");
+  const [documentId, setDocumentId] = useState("");
+  const [phone, setPhone] = useState("");
+  const [street, setStreet] = useState("");
+  const [city, setCity] = useState("");
+  const [region, setRegion] = useState("");
+  const [zipCode, setZipCode] = useState("");
+  const [country, setCountry] = useState("");
+
+  // 🔥 ESTADO DA MENSAGEM FLUTUANTE (TOAST)
+  const [toastMessage, setToastMessage] = useState("");
+  const toastAnim = useRef(new Animated.Value(-100)).current;
+
+  // Função para exibir a mensagem flutuante
+  const showToast = (message: string) => {
+    setToastMessage(message);
+    Animated.timing(toastAnim, {
+      toValue: Platform.OS === "ios" ? 50 : 30, // Desce a notificação
+      duration: 400,
+      useNativeDriver: false, // Evita warning na web
+    }).start(() => {
+      setTimeout(() => {
+        Animated.timing(toastAnim, {
+          toValue: -100, // Esconde a notificação de novo
+          duration: 400,
+          useNativeDriver: false,
+        }).start();
+      }, 3000); // Fica na tela por 3 segundos
+    });
+  };
+
   useEffect(() => {
     const fetchUserData = async () => {
       const userId = auth.currentUser?.uid;
-      if (!userId) return;
+      if (!userId) {
+        setLoading(false);
+        return;
+      }
 
       try {
         const userRef = doc(db, "users", userId);
@@ -33,6 +73,15 @@ export default function ProfileScreen({ navigation }: any) {
         if (docSnap.exists()) {
           const data = docSnap.data();
           setPhotoURL(data.photoURL || null);
+
+          setFullName(data.fullName || "");
+          setDocumentId(data.documentId || "");
+          setPhone(data.phone || "");
+          setStreet(data.street || "");
+          setCity(data.city || "");
+          setRegion(data.region || "");
+          setZipCode(data.zipCode || "");
+          setCountry(data.country || "");
         }
       } catch (error) {
         console.error("Erro ao buscar perfil:", error);
@@ -44,7 +93,6 @@ export default function ProfileScreen({ navigation }: any) {
     fetchUserData();
   }, []);
 
-  // Abre a galeria e já salva a foto cortada no Firebase
   const handlePickImage = async () => {
     const permissionResult =
       await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -57,26 +105,43 @@ export default function ProfileScreen({ navigation }: any) {
       return;
     }
 
+    // 🔧 Atualizado para a nova API do Expo e com compressão agressiva
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true, // Habilita a tela de corte
-      aspect: [1, 1], // Força ser quadrado
-      quality: 0.2, // Comprime para não pesar o banco de dados
-      base64: true, // Salva o formato diretamente no código
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.05, // 🔥 COMPRESSÃO SEVERA: Evita o erro de limite de Payload do Firebase!
+      base64: true,
     });
 
     if (!result.canceled && result.assets[0].base64) {
-      const imageUri = `data:image/jpeg;base64,${result.assets[0].base64}`;
-      setPhotoURL(imageUri); // Atualiza na tela na mesma hora
+      const base64String = result.assets[0].base64;
 
-      // Salva no banco de dados
+      // Proteção extra: O Firestore só aceita ~1MB por documento.
+      // O tamanho do base64 em bytes é aprox. length * 0.75
+      const sizeInBytes = base64String.length * 0.75;
+      if (sizeInBytes > 900000) {
+        // Se for maior que ~900KB
+        Alert.alert(
+          "Imagem muito grande",
+          "Mesmo com a compressão, a imagem ainda é pesada. Escolha uma foto menor.",
+        );
+        return;
+      }
+
+      const imageUri = `data:image/jpeg;base64,${base64String}`;
+      setPhotoURL(imageUri);
+
       const userId = auth.currentUser?.uid;
       if (userId) {
         try {
-          await updateDoc(doc(db, "users", userId), {
-            photoURL: imageUri,
-          });
-          Alert.alert("Sucesso!", "Sua foto de perfil foi atualizada.");
+          // 🔧 setDoc com merge salva de forma segura blindando contra contas fantasmas
+          await setDoc(
+            doc(db, "users", userId),
+            { photoURL: imageUri },
+            { merge: true },
+          );
+          showToast("Foto de perfil atualizada!"); // 🔥 FEEDBACK PREMIUM
         } catch (error) {
           Alert.alert("Erro", "Não foi possível salvar a foto.");
           console.error(error);
@@ -85,11 +150,60 @@ export default function ProfileScreen({ navigation }: any) {
     }
   };
 
-  const handleLogout = () => {
-    Alert.alert("Sair", "Tem certeza que deseja desconectar?", [
-      { text: "Cancelar", style: "cancel" },
-      { text: "Sair", style: "destructive", onPress: () => auth.signOut() },
-    ]);
+  const handleSaveBillingData = async () => {
+    const userId = auth.currentUser?.uid;
+    if (!userId) return;
+
+    setIsSaving(true);
+    try {
+      // 🔧 setDoc blindado
+      await setDoc(
+        doc(db, "users", userId),
+        {
+          fullName,
+          documentId,
+          phone,
+          street,
+          city,
+          region,
+          zipCode,
+          country,
+        },
+        { merge: true },
+      );
+      showToast("Dados salvos com sucesso!"); // 🔥 FEEDBACK PREMIUM
+    } catch (error) {
+      Alert.alert("Erro", "Não foi possível salvar os dados. Tente novamente.");
+      console.error(error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // 🔥 FUNÇÃO DE LOGOUT BLINDADA
+  const handleLogout = async () => {
+    const executeSignOut = async () => {
+      try {
+        await signOut(auth);
+      } catch (error) {
+        console.log("Erro ao sair (conta pode ter sido excluída):", error);
+        Alert.alert(
+          "Sessão Encerrada",
+          "Sua conta foi desconectada ou excluída com sucesso.",
+        );
+      }
+    };
+
+    if (Platform.OS === "web") {
+      if (window.confirm("Tem certeza que deseja desconectar?")) {
+        await executeSignOut();
+      }
+    } else {
+      Alert.alert("Sair", "Tem certeza que deseja desconectar?", [
+        { text: "Cancelar", style: "cancel" },
+        { text: "Sair", style: "destructive", onPress: executeSignOut },
+      ]);
+    }
   };
 
   if (loading) {
@@ -107,65 +221,217 @@ export default function ProfileScreen({ navigation }: any) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Meu Perfil</Text>
-      </View>
+      {/* 🔥 MENSAGEM FLUTUANTE DE SUCESSO (TOAST) */}
+      <Animated.View style={[styles.toastContainer, { top: toastAnim }]}>
+        <FontAwesome5 name="check-circle" solid size={20} color="#FFF" />
+        <Text style={styles.toastText}>{toastMessage}</Text>
+      </Animated.View>
 
-      <ScrollView contentContainerStyle={styles.content}>
-        {/* Avatar e Informações Básicas */}
-        <View style={styles.profileCard}>
-          {/* 🔥 AVATAR CLICÁVEL PARA UPLOAD DE FOTO */}
-          <TouchableOpacity
-            style={styles.avatarContainer}
-            activeOpacity={0.8}
-            onPress={handlePickImage}
-          >
-            {photoURL ? (
-              <Image source={{ uri: photoURL }} style={styles.avatarImage} />
-            ) : (
-              <FontAwesome5 name="user" size={40} color="#CE82FF" />
-            )}
-
-            {/* Ícone indicando que dá pra editar */}
-            <View style={styles.cameraBadge}>
-              <FontAwesome5 name="camera" size={12} color="#FFF" />
-            </View>
-          </TouchableOpacity>
-
-          <Text style={styles.emailText}>{auth.currentUser?.email}</Text>
-          <Text style={styles.memberText}>Membro DuoElo</Text>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1 }}
+      >
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Meu Perfil</Text>
         </View>
 
-        <Text style={styles.sectionTitle}>Conta</Text>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.profileCard}>
+            <TouchableOpacity
+              style={styles.avatarContainer}
+              activeOpacity={0.8}
+              onPress={handlePickImage}
+            >
+              {photoURL ? (
+                // 🔧 resizeMode="cover" passado como prop para remover warning web
+                <Image
+                  source={{ uri: photoURL }}
+                  style={styles.avatarImage}
+                  resizeMode="cover"
+                />
+              ) : (
+                <FontAwesome5 name="user" size={40} color="#CE82FF" />
+              )}
+              <View style={styles.cameraBadge}>
+                <FontAwesome5 name="camera" size={12} color="#FFF" />
+              </View>
+            </TouchableOpacity>
 
-        {/* Botão de Configurações */}
-        <TouchableOpacity style={styles.optionButton}>
-          <View style={styles.optionIcon}>
-            <FontAwesome5 name="cog" size={20} color="#7F8C8D" />
+            <Text style={styles.emailText}>
+              {auth.currentUser?.email || "Usuário"}
+            </Text>
+            <Text style={styles.memberText}>Membro DuoElo</Text>
+
+            {/* 🔥 CÓDIGO DO USUÁRIO ADICIONADO AQUI */}
+            <View style={styles.myCodeBadge}>
+              <Text style={styles.myCodeBadgeText}>
+                Seu Código:{" "}
+                {auth.currentUser?.uid.substring(0, 6).toUpperCase()}
+              </Text>
+            </View>
           </View>
-          <Text style={styles.optionText}>Configurações</Text>
-          <FontAwesome5 name="chevron-right" size={16} color="#BDC3C7" />
-        </TouchableOpacity>
 
-        {/* Botão de Segurança */}
-        <TouchableOpacity style={styles.optionButton}>
-          <View style={styles.optionIcon}>
-            <FontAwesome5 name="shield-alt" size={20} color="#7F8C8D" />
+          <Text style={styles.sectionTitle}>Dados de Faturamento</Text>
+          <Text style={styles.sectionSubtitle}>
+            Necessário para emissão de nota fiscal / invoice
+          </Text>
+
+          <View style={styles.formCard}>
+            <View style={styles.inputGroup}>
+              <FontAwesome5
+                name="user-tag"
+                size={16}
+                color="#AFAFAF"
+                style={styles.inputIcon}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Nome Completo"
+                placeholderTextColor="#AFAFAF"
+                value={fullName}
+                onChangeText={setFullName}
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <FontAwesome5
+                name="id-card"
+                size={16}
+                color="#AFAFAF"
+                style={styles.inputIcon}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Documento (CPF / NIF / Tax ID)"
+                placeholderTextColor="#AFAFAF"
+                value={documentId}
+                onChangeText={setDocumentId}
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <FontAwesome5
+                name="phone"
+                size={16}
+                color="#AFAFAF"
+                style={styles.inputIcon}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Telefone / WhatsApp"
+                placeholderTextColor="#AFAFAF"
+                keyboardType="phone-pad"
+                value={phone}
+                onChangeText={setPhone}
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <FontAwesome5
+                name="map-marker-alt"
+                size={16}
+                color="#AFAFAF"
+                style={styles.inputIcon}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Endereço (Rua, Número, Bairro)"
+                placeholderTextColor="#AFAFAF"
+                value={street}
+                onChangeText={setStreet}
+              />
+            </View>
+
+            <View style={styles.rowInputs}>
+              <View style={[styles.inputGroup, { flex: 1, marginRight: 10 }]}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Cidade"
+                  placeholderTextColor="#AFAFAF"
+                  value={city}
+                  onChangeText={setCity}
+                />
+              </View>
+              <View style={[styles.inputGroup, { flex: 1 }]}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Estado/Província"
+                  placeholderTextColor="#AFAFAF"
+                  value={region}
+                  onChangeText={setRegion}
+                />
+              </View>
+            </View>
+
+            <View style={styles.rowInputs}>
+              <View style={[styles.inputGroup, { flex: 1, marginRight: 10 }]}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="CEP / Postal"
+                  placeholderTextColor="#AFAFAF"
+                  value={zipCode}
+                  onChangeText={setZipCode}
+                />
+              </View>
+              <View style={[styles.inputGroup, { flex: 1 }]}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="País"
+                  placeholderTextColor="#AFAFAF"
+                  value={country}
+                  onChangeText={setCountry}
+                />
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={styles.saveBtn}
+              activeOpacity={0.8}
+              onPress={handleSaveBillingData}
+              disabled={isSaving}
+            >
+              {isSaving ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <>
+                  <FontAwesome5 name="save" size={16} color="#FFF" />
+                  <Text style={styles.saveBtnText}>Salvar Dados</Text>
+                </>
+              )}
+            </TouchableOpacity>
           </View>
-          <Text style={styles.optionText}>Segurança e Privacidade</Text>
-          <FontAwesome5 name="chevron-right" size={16} color="#BDC3C7" />
-        </TouchableOpacity>
 
-        <Text style={styles.sectionTitle}>Acesso</Text>
+          <Text style={styles.sectionTitle}>Conta</Text>
 
-        {/* Botão de Sair */}
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <FontAwesome5 name="sign-out-alt" size={20} color="#E74C3C" />
-          <Text style={styles.logoutText}>Sair da Conta</Text>
-        </TouchableOpacity>
-      </ScrollView>
+          <TouchableOpacity style={styles.optionButton}>
+            <View style={styles.optionIcon}>
+              <FontAwesome5 name="cog" size={20} color="#7F8C8D" />
+            </View>
+            <Text style={styles.optionText}>Configurações</Text>
+            <FontAwesome5 name="chevron-right" size={16} color="#BDC3C7" />
+          </TouchableOpacity>
 
-      {/* MENU INFERIOR FIXO */}
+          <TouchableOpacity style={styles.optionButton}>
+            <View style={styles.optionIcon}>
+              <FontAwesome5 name="shield-alt" size={20} color="#7F8C8D" />
+            </View>
+            <Text style={styles.optionText}>Segurança e Privacidade</Text>
+            <FontAwesome5 name="chevron-right" size={16} color="#BDC3C7" />
+          </TouchableOpacity>
+
+          <Text style={styles.sectionTitle}>Acesso</Text>
+
+          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+            <FontAwesome5 name="sign-out-alt" size={20} color="#E74C3C" />
+            <Text style={styles.logoutText}>Sair da Conta</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </KeyboardAvoidingView>
+
       <View style={styles.bottomMenu}>
         <TouchableOpacity
           style={styles.menuItem}
@@ -184,6 +450,24 @@ export default function ProfileScreen({ navigation }: any) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#FAFAFA" },
+
+  // 🔥 ESTILO DO TOAST FLUTUANTE
+  toastContainer: {
+    position: "absolute",
+    left: 20,
+    right: 20,
+    backgroundColor: "#4BDE95",
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 16,
+    borderRadius: 12,
+    zIndex: 9999,
+    boxShadow: "0px 4px 10px rgba(0,0,0,0.15)",
+    elevation: 6,
+    gap: 12,
+  },
+  toastText: { color: "#FFF", fontSize: 16, fontWeight: "bold" },
+
   header: {
     padding: 20,
     backgroundColor: "#FFF",
@@ -224,7 +508,6 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
     borderRadius: 40,
-    resizeMode: "cover",
   },
   cameraBadge: {
     position: "absolute",
@@ -245,16 +528,68 @@ const styles = StyleSheet.create({
     color: "#333",
     marginBottom: 4,
   },
-  memberText: { fontSize: 14, color: "#7F8C8D" },
+  memberText: { fontSize: 14, color: "#7F8C8D", marginBottom: 15 },
+  myCodeBadge: {
+    backgroundColor: "#FFF0E5",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  myCodeBadgeText: { color: "#FF9600", fontWeight: "bold", fontSize: 12 },
 
   sectionTitle: {
     fontSize: 16,
     fontWeight: "bold",
     color: "#95A5A6",
-    marginBottom: 10,
     marginTop: 10,
     textTransform: "uppercase",
   },
+  sectionSubtitle: {
+    fontSize: 12,
+    color: "#AFAFAF",
+    marginBottom: 15,
+    marginTop: 4,
+  },
+
+  formCard: {
+    backgroundColor: "#FFF",
+    padding: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#E5E5E5",
+    marginBottom: 30,
+  },
+  inputGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F8F9FA",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E5E5E5",
+    marginBottom: 12,
+    paddingHorizontal: 15,
+  },
+  rowInputs: { flexDirection: "row", justifyContent: "space-between" },
+  inputIcon: { width: 24, textAlign: "center" },
+  input: {
+    flex: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 5,
+    fontSize: 15,
+    color: "#333",
+  },
+
+  saveBtn: {
+    flexDirection: "row",
+    backgroundColor: "#2C3E50",
+    paddingVertical: 16,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 10,
+  },
+  saveBtnText: { color: "#FFF", fontSize: 16, fontWeight: "bold" },
 
   optionButton: {
     flexDirection: "row",

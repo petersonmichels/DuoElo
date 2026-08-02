@@ -1,5 +1,6 @@
 import { FontAwesome5 } from "@expo/vector-icons";
 import { ResizeMode, Video } from "expo-av";
+import * as Clipboard from "expo-clipboard";
 import {
   collection,
   doc,
@@ -7,13 +8,12 @@ import {
   increment,
   onSnapshot,
   query,
-  updateDoc,
+  setDoc,
   where,
 } from "firebase/firestore";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Animated,
   Image,
   Linking,
@@ -25,7 +25,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 
@@ -83,12 +83,12 @@ const FloatingHearts = () => {
           Animated.timing(anim, {
             toValue: 1,
             duration: 2200,
-            useNativeDriver: true,
+            useNativeDriver: false,
           }),
           Animated.timing(anim, {
             toValue: 0,
             duration: 0,
-            useNativeDriver: true,
+            useNativeDriver: false,
           }),
         ]),
       );
@@ -129,35 +129,68 @@ const FloatingHearts = () => {
   };
 
   return (
-    <View style={styles.floatingHeartsContainer} pointerEvents="none">
+    <>
       {renderHeart(anim1, -15, 14)}
       {renderHeart(anim2, 10, 18)}
       {renderHeart(anim3, -5, 12)}
-    </View>
+    </>
   );
 };
 
 export default function HomeScreen({ navigation }: any) {
+  const [currentUid, setCurrentUid] = useState<string | null>(null);
   const [userData, setUserData] = useState<any>(null);
+  const [partnerData, setPartnerData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+
   const [weekThemes, setWeekThemes] = useState<any>({});
   const [visibleWeek, setVisibleWeek] = useState(1);
   const weekPositions = useRef<{ [key: number]: number }>({}).current;
+  const nodesWrapperY = useRef<number>(0);
 
-  // Modals e Missões
   const [activeMission, setActiveMission] = useState<any>(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isFetchingMission, setIsFetchingMission] = useState(false);
+  const [isReviewMode, setIsReviewMode] = useState(false);
+
   const [isJourneyVideoVisible, setIsJourneyVideoVisible] = useState(false);
   const [userLang, setUserLang] = useState("pt-BR");
   const [isLangModalVisible, setIsLangModalVisible] = useState(false);
 
-  // Estados do Sistema de Convite e Menus Deslizantes
   const [isInviteModalVisible, setIsInviteModalVisible] = useState(false);
-  const [isResetModalVisible, setIsResetModalVisible] = useState(false);
   const [isHardResetModalVisible, setIsHardResetModalVisible] = useState(false);
   const [inviteCodeInput, setInviteCodeInput] = useState("");
   const [inviteSent, setInviteSent] = useState(false);
+  const [isMatching, setIsMatching] = useState(false);
+
+  const [customAlert, setCustomAlert] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    icon: "info-circle",
+    color: "#CE82FF",
+    confirmText: "",
+    onConfirm: null as any,
+  });
+
+  const showCustomAlert = (
+    title: string,
+    message: string,
+    icon = "info-circle",
+    color = "#CE82FF",
+    confirmText = "",
+    onConfirm: any = null,
+  ) => {
+    setCustomAlert({
+      visible: true,
+      title,
+      message,
+      icon,
+      color,
+      confirmText,
+      onConfirm,
+    });
+  };
 
   const scrollViewRef = useRef<ScrollView>(null);
   const activeNodeY = useRef<number>(0);
@@ -171,9 +204,15 @@ export default function HomeScreen({ navigation }: any) {
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    const userId = auth.currentUser?.uid;
-    if (userId) {
-      const userRef = doc(db, "users", userId);
+    const unsubscribeAuth = auth.onAuthStateChanged((user) => {
+      setCurrentUid(user?.uid || null);
+    });
+    return () => unsubscribeAuth();
+  }, []);
+
+  useEffect(() => {
+    if (currentUid) {
+      const userRef = doc(db, "users", currentUid);
       const unsubscribe = onSnapshot(userRef, (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
@@ -183,8 +222,40 @@ export default function HomeScreen({ navigation }: any) {
         setLoading(false);
       });
       return () => unsubscribe();
+    } else {
+      setUserData(null);
+      setPartnerData(null);
     }
-  }, []);
+  }, [currentUid]);
+
+  useEffect(() => {
+    if (currentUid && userData) {
+      if (!userData.myInviteCode) {
+        const generatedCode = currentUid.substring(0, 6).toUpperCase();
+        setDoc(
+          doc(db, "users", currentUid),
+          {
+            myInviteCode: generatedCode,
+          },
+          { merge: true },
+        ).catch((e) => console.log("Erro na auto-cura:", e));
+      }
+    }
+  }, [currentUid, userData]);
+
+  useEffect(() => {
+    if (userData && userData.partnerId) {
+      const partnerRef = doc(db, "users", userData.partnerId);
+      const unsubscribePartner = onSnapshot(partnerRef, (docSnap) => {
+        if (docSnap.exists()) {
+          setPartnerData(docSnap.data());
+        }
+      });
+      return () => unsubscribePartner();
+    } else {
+      setPartnerData(null);
+    }
+  }, [userData?.partnerId]);
 
   useEffect(() => {
     if (!userData) return;
@@ -212,12 +283,12 @@ export default function HomeScreen({ navigation }: any) {
         Animated.timing(floatAnim, {
           toValue: -6,
           duration: 1200,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
         Animated.timing(floatAnim, {
           toValue: 0,
           duration: 1200,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
       ]),
     ).start();
@@ -227,28 +298,42 @@ export default function HomeScreen({ navigation }: any) {
         Animated.timing(pulseAnim, {
           toValue: 1.08,
           duration: 1000,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
         Animated.timing(pulseAnim, {
           toValue: 1,
           duration: 1000,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
       ]),
     ).start();
   }, [floatAnim, pulseAnim]);
 
   const hasCompletedAnamnesis = userData?.hasCompletedAnamnesis || false;
+  const isPremium = userData?.isPremium || false;
   const hasPartner = !!userData?.partnerId;
   const currentTaskStep = userData?.currentTaskStep || 0;
   const currentStep = (userData?.currentPhase || 1) - 1;
   const isJourneyFinished = currentStep >= totalStepsInModule;
-  const myInviteCode =
-    auth.currentUser?.uid?.substring(0, 6).toUpperCase() || "DUE-123";
+  const myInviteCode = currentUid?.substring(0, 6).toUpperCase() || "DUE-123";
+
+  const isTrailUnlocked = hasCompletedAnamnesis && isPremium;
+
+  const today = new Date();
+  const lastTaskDateObj = userData?.lastTaskDate
+    ? new Date(userData.lastTaskDate)
+    : null;
+  const hasCompletedTaskToday =
+    lastTaskDateObj &&
+    lastTaskDateObj.getDate() === today.getDate() &&
+    lastTaskDateObj.getMonth() === today.getMonth() &&
+    lastTaskDateObj.getFullYear() === today.getFullYear();
 
   const handleScroll = (event: any) => {
     const offsetY = event.nativeEvent.contentOffset.y;
-    const triggerLine = offsetY + 150;
+    const relativeY = offsetY - nodesWrapperY.current;
+    const triggerLine = relativeY + 250;
+
     let active = 1;
     const weeks = Object.keys(weekPositions)
       .map(Number)
@@ -260,23 +345,40 @@ export default function HomeScreen({ navigation }: any) {
     if (visibleWeek !== active) setVisibleWeek(active);
 
     if (activeNodeY.current > 0) {
-      if (offsetY - activeNodeY.current > 150) setArrowDirection("up");
-      else if (activeNodeY.current - offsetY > 550) setArrowDirection("down");
-      else setArrowDirection(null);
+      if (relativeY > activeNodeY.current + 100) {
+        setArrowDirection("up");
+      } else if (relativeY + 450 < activeNodeY.current) {
+        setArrowDirection("down");
+      } else {
+        setArrowDirection(null);
+      }
     }
   };
 
   const scrollToActiveNode = () => {
     if (scrollViewRef.current && activeNodeY.current > 0) {
+      const absoluteY = activeNodeY.current + nodesWrapperY.current;
       scrollViewRef.current.scrollTo({
-        y: Math.max(0, activeNodeY.current - 250),
+        y: Math.max(0, absoluteY - 250),
         animated: true,
       });
     }
   };
 
-  const handleHardReset = () => {
-    setIsHardResetModalVisible(true);
+  const handleHardReset = () => setIsHardResetModalVisible(true);
+
+  const handleCopyCode = async () => {
+    try {
+      await Clipboard.setStringAsync(myInviteCode);
+      showCustomAlert(
+        "Código Copiado! ✂️",
+        "Cole no WhatsApp ou envie para o celular do seu parceiro(a) para conectarem as contas.",
+        "copy",
+        "#4BDE95",
+      );
+    } catch (error) {
+      console.error("Erro ao copiar", error);
+    }
   };
 
   const handleSendInvite = async () => {
@@ -289,9 +391,11 @@ export default function HomeScreen({ navigation }: any) {
         await Linking.openURL(whatsappUrl);
         setInviteSent(true);
       } else {
-        Alert.alert(
-          "Erro",
-          "WhatsApp não instalado. Envie o código manualmente!",
+        showCustomAlert(
+          "Atenção",
+          "WhatsApp não instalado neste dispositivo. Copie e envie o código manualmente!",
+          "exclamation-triangle",
+          "#FF9600",
         );
         setInviteSent(true);
       }
@@ -300,27 +404,129 @@ export default function HomeScreen({ navigation }: any) {
     }
   };
 
-  const handleLinkPartnerCode = () => {
-    if (inviteCodeInput.length < 5) {
-      Alert.alert("Atenção", "Digite um código válido.");
+  const handleLinkPartnerCode = async () => {
+    const cleanCode = inviteCodeInput.trim().toUpperCase();
+
+    if (cleanCode.length < 5) {
+      showCustomAlert(
+        "Código Inválido",
+        "Digite um código válido com pelo menos 5 caracteres.",
+        "exclamation-circle",
+        "#FF9600",
+      );
       return;
     }
-    Alert.alert("Match", "Buscando parceiro...");
-    setIsInviteModalVisible(false);
+
+    if (!currentUid) return;
+    setIsMatching(true);
+
+    try {
+      const q = query(
+        collection(db, "users"),
+        where("myInviteCode", "==", cleanCode),
+      );
+      const querySnapshot = await getDocs(q);
+
+      if (querySnapshot.empty) {
+        showCustomAlert(
+          "Match Não Encontrado",
+          "Não encontramos nenhuma conta com esse código. Verifique se o seu parceiro já acessou o app.",
+          "search-minus",
+          "#FF9600",
+        );
+        setIsMatching(false);
+        return;
+      }
+
+      const partnerDoc = querySnapshot.docs[0];
+      const partnerDataDb = partnerDoc.data();
+      const partnerId = partnerDoc.id;
+
+      if (partnerId === currentUid) {
+        showCustomAlert(
+          "Ação Bloqueada",
+          "Você não pode usar o seu próprio código!",
+          "ban",
+          "#FF4B4B",
+        );
+        setIsMatching(false);
+        return;
+      }
+
+      const isPartnerPremium = partnerDataDb?.isPremium || false;
+
+      await setDoc(
+        doc(db, "users", currentUid),
+        {
+          partnerId: partnerId,
+          isPremium: isPartnerPremium ? true : userData?.isPremium || false,
+        },
+        { merge: true },
+      );
+
+      await setDoc(
+        doc(db, "users", partnerId),
+        {
+          partnerId: currentUid,
+        },
+        { merge: true },
+      );
+
+      setIsInviteModalVisible(false);
+      setInviteCodeInput("");
+
+      showCustomAlert(
+        "Match Realizado! ❤️",
+        `Você e o parceiro agora estão oficialmente conectados!`,
+        "heart",
+        "#FF7EB3",
+      );
+    } catch (error) {
+      console.error("Erro ao fazer match:", error);
+      showCustomAlert(
+        "Erro de Conexão",
+        "Ocorreu um problema ao tentar conectar as contas. Tente novamente.",
+        "times-circle",
+        "#FF4B4B",
+      );
+    } finally {
+      setIsMatching(false);
+    }
   };
 
   const handleOpenMission = async (
     stepIndex: number,
     isActuallyLocked: boolean,
+    isWaiting: boolean,
+    isCompleted: boolean,
   ) => {
     if (!hasCompletedAnamnesis) {
-      Alert.alert(
-        "Trilha Bloqueada 🔒",
-        "Faça a avaliação para desbloquear a jornada.",
+      showCustomAlert(
+        "Avaliação Pendente",
+        "Faça a avaliação primeiro para descobrirmos o diagnóstico exato da sua relação.",
+        "clipboard-list",
+        "#FF9600",
+      );
+      navigation.navigate("Anamnesis");
+      return;
+    }
+
+    if (!isPremium) {
+      navigation.navigate("Paywall");
+      return;
+    }
+
+    if (isActuallyLocked) return;
+
+    if (isWaiting && !isCompleted) {
+      showCustomAlert(
+        "Tudo no seu tempo ⏳",
+        "Você já concluiu a missão de hoje! Volte amanhã para continuarmos fortalecendo o seu elo.",
+        "hourglass-half",
+        "#CE82FF",
       );
       return;
     }
-    if (isActuallyLocked) return;
 
     const fetchMissionData = async () => {
       setIsFetchingMission(true);
@@ -335,12 +541,24 @@ export default function HomeScreen({ navigation }: any) {
 
         if (!querySnapshot.empty) {
           setActiveMission(querySnapshot.docs[0].data());
+          setIsReviewMode(isCompleted);
           setIsModalVisible(true);
-          if (currentTaskStep === 0) {
-            const userId = auth.currentUser?.uid;
-            if (userId)
-              await updateDoc(doc(db, "users", userId), { currentTaskStep: 1 });
+
+          if (!isCompleted && currentTaskStep === 0) {
+            if (currentUid)
+              await setDoc(
+                doc(db, "users", currentUid),
+                { currentTaskStep: 1 },
+                { merge: true },
+              );
           }
+        } else {
+          showCustomAlert(
+            "Missão em Construção 🚧",
+            "A missão desta fase está sendo preparada com muito carinho e estará disponível em breve!",
+            "hard-hat",
+            "#FF9600",
+          );
         }
       } catch (error) {
         console.error(error);
@@ -349,30 +567,71 @@ export default function HomeScreen({ navigation }: any) {
       }
     };
 
-    if (!hasPartner) {
-      Alert.alert(
+    if (!hasPartner && !isCompleted) {
+      showCustomAlert(
         "Modo Solo Ativado 👤",
-        "Você pode fazer esta atividade sozinho(a), mas a verdadeira transformação acontece quando os dois participam. Convide seu parceiro(a) o quanto antes!",
-        [
-          { text: "Cancelar", style: "cancel" },
-          { text: "Continuar Missão", onPress: fetchMissionData },
-        ],
+        "Você pode fazer esta atividade sozinho(a), mas a verdadeira transformação acontece quando os dois participam juntos. Deseja continuar a missão?",
+        "user",
+        "#CE82FF",
+        "Continuar Missão",
+        fetchMissionData,
       );
     } else {
       fetchMissionData();
     }
   };
 
-  const handleCompleteMission = async () => {
-    const userId = auth.currentUser?.uid;
-    if (!userId || !activeMission) return;
+  const handleCompleteMission = async (journalText: string = "") => {
+    if (!currentUid || !activeMission) return;
     try {
-      await updateDoc(doc(db, "users", userId), {
+      const todayDate = new Date();
+      const lastDate = userData?.lastTaskDate
+        ? new Date(userData.lastTaskDate)
+        : null;
+      let newStreak = userData?.streak || 0;
+
+      if (lastDate) {
+        const todayZero = new Date(
+          todayDate.getFullYear(),
+          todayDate.getMonth(),
+          todayDate.getDate(),
+        );
+        const lastZero = new Date(
+          lastDate.getFullYear(),
+          lastDate.getMonth(),
+          lastDate.getDate(),
+        );
+        const diffDays =
+          (todayZero.getTime() - lastZero.getTime()) / (1000 * 3600 * 24);
+
+        if (diffDays === 1) {
+          newStreak += 1;
+        } else if (diffDays > 1) {
+          newStreak = 1;
+        }
+      } else {
+        newStreak = 1;
+      }
+
+      const updates: any = {
         currentPhase: increment(1),
         totalPE: increment(activeMission.pointsPE || 50),
         lastTaskDate: new Date().toISOString(),
         currentTaskStep: 0,
-      });
+        streak: newStreak,
+      };
+
+      await setDoc(doc(db, "users", currentUid), updates, { merge: true });
+
+      if (journalText.trim().length > 0) {
+        const journalRef = doc(collection(db, "users", currentUid, "journals"));
+        await setDoc(journalRef, {
+          phase: activeMission.phase || currentStep + 1,
+          text: journalText,
+          date: new Date().toISOString(),
+        });
+      }
+
       setIsModalVisible(false);
       setActiveMission(null);
     } catch (error) {
@@ -393,20 +652,37 @@ export default function HomeScreen({ navigation }: any) {
     );
   }
 
-  const bannerWeekTheme = weekThemes[visibleWeek] || "";
+  const getThemeForWeek = (weekNum: number) => {
+    const priorityModules = userData?.priorityModules || [];
+    if (priorityModules.length >= 3) {
+      if (weekNum <= 4) return priorityModules[0];
+      if (weekNum <= 8) return priorityModules[1];
+      return priorityModules[2];
+    } else if (priorityModules.length > 0) {
+      return priorityModules[0];
+    }
+    return weekThemes[weekNum] || "Fortalecendo o Elo";
+  };
+
+  const bannerWeekTheme = getThemeForWeek(visibleWeek);
+
   const currentFlag =
     SUPPORTED_LANGUAGES.find((l) => l.code === userLang)?.flag || "🇧🇷";
   const userPhoto = userData?.photoURL || userData?.photoUrl;
-  const partnerPhoto = userData?.partnerPhotoURL || userData?.partnerPhotoUrl;
+  const partnerPhoto =
+    partnerData?.photoURL || partnerData?.photoUrl || userData?.partnerPhotoURL;
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* --- TOP BAR --- */}
       <View style={styles.topBar}>
         <View style={styles.miniAvatarsContainer}>
           <View style={[styles.miniAvatar, { zIndex: 2, overflow: "hidden" }]}>
             {userPhoto ? (
-              <Image source={{ uri: userPhoto }} style={styles.avatarImage} />
+              <Image
+                source={{ uri: userPhoto }}
+                style={styles.avatarImage}
+                resizeMode="cover"
+              />
             ) : (
               <FontAwesome5 name="user-alt" size={16} color="#AFAFAF" />
             )}
@@ -422,6 +698,7 @@ export default function HomeScreen({ navigation }: any) {
               <Image
                 source={{ uri: partnerPhoto }}
                 style={styles.avatarImage}
+                resizeMode="cover"
               />
             ) : (
               <FontAwesome5
@@ -441,7 +718,6 @@ export default function HomeScreen({ navigation }: any) {
           >
             <FontAwesome5 name="eraser" size={20} color="#AFAFAF" />
           </TouchableOpacity>
-
           <TouchableOpacity
             style={styles.topBarItem}
             onPress={() => setIsLangModalVisible(true)}
@@ -449,46 +725,36 @@ export default function HomeScreen({ navigation }: any) {
             <Text style={styles.flagEmoji}>{currentFlag}</Text>
           </TouchableOpacity>
           <View style={styles.topBarItem}>
+            <FontAwesome5 name="heart" solid size={20} color="#FF7EB3" />
+            <Text style={[styles.topBarText, { color: "#FF7EB3" }]}>
+              {userData?.totalPE || 0}
+            </Text>
+          </View>
+          <View style={styles.topBarItem}>
             <FontAwesome5 name="fire" size={20} color="#FF9600" />
             <Text style={[styles.topBarText, { color: "#FF9600" }]}>
               {userData?.streak || 0}
             </Text>
           </View>
-          <TouchableOpacity
-            style={styles.topBarItem}
-            onPress={() => {
-              if (!hasCompletedAnamnesis) {
-                Alert.alert(
-                  "Aviso",
-                  "Você ainda não completou a avaliação inicial.",
-                );
-              } else if (currentStep > 0 || currentTaskStep > 0) {
-                Alert.alert(
-                  "Ação Bloqueada 🔒",
-                  "Sua jornada já começou. Não é possível reiniciar a avaliação.",
-                );
-              } else {
-                setIsResetModalVisible(true);
-              }
-            }}
-          >
-            <FontAwesome5 name="sync-alt" size={20} color="#CE82FF" />
-          </TouchableOpacity>
         </View>
       </View>
 
       <View style={styles.fixedHeaderBannerContainer}>
-        <TouchableOpacity style={styles.fixedHeaderBanner} activeOpacity={0.9}>
+        <TouchableOpacity
+          style={styles.fixedHeaderBanner}
+          activeOpacity={0.9}
+          onPress={scrollToActiveNode}
+        >
           <View style={styles.bannerLeftContent}>
             <Text style={styles.bannerSectionTitle}>SEMANA {visibleWeek}</Text>
             <Text style={styles.bannerThemeTitle} numberOfLines={1}>
-              {hasCompletedAnamnesis ? bannerWeekTheme : "Trilha Oculta 🔒"}
+              {isTrailUnlocked ? bannerWeekTheme : "Trilha Oculta 🔒"}
             </Text>
           </View>
           <View style={styles.bannerRightDivider} />
           <View style={styles.bannerRightIcon}>
             <FontAwesome5
-              name={hasCompletedAnamnesis ? "book-open" : "lock"}
+              name={isTrailUnlocked ? "book-open" : "lock"}
               size={26}
               color="#FFF"
             />
@@ -508,10 +774,12 @@ export default function HomeScreen({ navigation }: any) {
           <View style={styles.anamnesisNodeContainer}>
             {!hasCompletedAnamnesis && (
               <Animated.View
-                pointerEvents="none"
                 style={[
                   styles.freeBadge,
-                  { transform: [{ scale: pulseAnim }] },
+                  {
+                    transform: [{ scale: pulseAnim }],
+                    pointerEvents: "none",
+                  } as any,
                 ]}
               >
                 <Text style={styles.freeBadgeText}>GRATUITO</Text>
@@ -526,17 +794,15 @@ export default function HomeScreen({ navigation }: any) {
               activeOpacity={0.8}
               onPress={() => {
                 if (hasCompletedAnamnesis) {
-                  if (currentStep > 0 || currentTaskStep > 0) {
-                    Alert.alert(
-                      "Jornada em Andamento 🚀",
-                      "Sua jornada já foi iniciada. Não é possível refazer a avaliação agora.",
+                  if (!isPremium) navigation.navigate("Paywall");
+                  else
+                    showCustomAlert(
+                      "Diagnóstico Ativo",
+                      "Sua jornada já está em andamento com base no seu diagnóstico.",
+                      "heartbeat",
+                      "#FF7EB3",
                     );
-                  } else {
-                    setIsResetModalVisible(true);
-                  }
-                } else {
-                  navigation.navigate("Anamnesis");
-                }
+                } else navigation.navigate("Anamnesis");
               }}
             >
               <FontAwesome5
@@ -553,7 +819,7 @@ export default function HomeScreen({ navigation }: any) {
                 : "Descubram a temperatura da relação"}
             </Text>
 
-            {!hasPartner && (
+            {!hasPartner && isPremium && (
               <TouchableOpacity
                 style={styles.haveCodeLink}
                 onPress={() => setIsInviteModalVisible(true)}
@@ -565,7 +831,7 @@ export default function HomeScreen({ navigation }: any) {
             )}
           </View>
 
-          {hasCompletedAnamnesis && !hasPartner && (
+          {hasCompletedAnamnesis && !hasPartner && isPremium && (
             <View style={styles.workflowCard}>
               <Text style={styles.workflowMainTitle}>Jornada Liberada! 🚀</Text>
               <Text style={styles.workflowSubTitle}>
@@ -574,7 +840,6 @@ export default function HomeScreen({ navigation }: any) {
                   Modo Solo
                 </Text>
                 , mas a transformação real acontece quando os dois participam.
-                Envie o convite!
               </Text>
 
               <View style={styles.workflowLine} />
@@ -636,10 +901,33 @@ export default function HomeScreen({ navigation }: any) {
                 </Text>
               </View>
 
-              <View style={styles.codeContainer}>
+              <TouchableOpacity
+                style={styles.codeContainer}
+                activeOpacity={0.7}
+                onPress={handleCopyCode}
+              >
                 <Text style={styles.codeLabel}>Seu Código de Convite</Text>
-                <Text style={styles.codeValue}>{myInviteCode}</Text>
-              </View>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 15,
+                  }}
+                >
+                  <Text style={styles.codeValue}>{myInviteCode}</Text>
+                  <FontAwesome5 name="copy" size={22} color="#AFAFAF" />
+                </View>
+                <Text
+                  style={{
+                    fontSize: 11,
+                    color: "#CECECE",
+                    marginTop: 5,
+                    fontWeight: "bold",
+                  }}
+                >
+                  Toque para copiar
+                </Text>
+              </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.whatsappButton}
@@ -657,26 +945,31 @@ export default function HomeScreen({ navigation }: any) {
           <View
             style={[
               styles.nodesWrapper,
-              !hasCompletedAnamnesis && styles.lockedTrailOverlay,
+              !isTrailUnlocked && styles.lockedTrailOverlay,
             ]}
+            onLayout={(e) => {
+              nodesWrapperY.current = e.nativeEvent.layout.y;
+            }}
           >
             <View style={styles.specialNodeContainer}>
               <TouchableOpacity
                 style={styles.startJourneyBtn}
                 activeOpacity={0.8}
                 onPress={() => {
-                  if (hasCompletedAnamnesis) {
-                    setIsJourneyVideoVisible(true);
-                  } else {
-                    Alert.alert(
-                      "Trilha Bloqueada 🔒",
-                      "Conclua a Avaliação para liberar.",
+                  if (isTrailUnlocked) setIsJourneyVideoVisible(true);
+                  else if (hasCompletedAnamnesis && !isPremium)
+                    navigation.navigate("Paywall");
+                  else
+                    showCustomAlert(
+                      "Acesso Restrito",
+                      "Conclua a Avaliação e assine o Premium primeiro.",
+                      "lock",
+                      "#FF9600",
                     );
-                  }
                 }}
               >
                 <FontAwesome5
-                  name={hasCompletedAnamnesis ? "play" : "lock"}
+                  name={isTrailUnlocked ? "play" : "lock"}
                   size={28}
                   color="#FFF"
                 />
@@ -685,20 +978,24 @@ export default function HomeScreen({ navigation }: any) {
             </View>
 
             {Array.from({ length: totalStepsInModule }).map((_, index) => {
-              const isCompleted = hasCompletedAnamnesis
-                ? index < currentStep
-                : false;
-              const isActive = hasCompletedAnamnesis
-                ? index === currentStep
-                : false;
-              const isLocked = !hasCompletedAnamnesis
-                ? true
-                : index > currentStep;
+              const isCompleted = isTrailUnlocked ? index < currentStep : false;
+              const isNextUp = isTrailUnlocked ? index === currentStep : false;
+              const isLocked = !isTrailUnlocked ? true : index > currentStep;
+
+              const isWaitingForTomorrow = isNextUp && hasCompletedTaskToday;
+              const isActive = isNextUp && !hasCompletedTaskToday;
 
               const isStartOfWeek = index % 7 === 0;
               const weekNumber = Math.floor(index / 7) + 1;
               const isWeeklyReward = (index + 1) % 7 === 0;
               const isDay5 = index % 7 === 4;
+
+              const tasksDoneThisWeek = Math.max(
+                0,
+                currentStep - (weekNumber - 1) * 7,
+              );
+              const starsActive = Math.min(3, tasksDoneThisWeek);
+              const isChallengeUnlocked = starsActive === 3;
 
               const translateX = Math.sin(index * 0.8) * 60;
 
@@ -712,10 +1009,20 @@ export default function HomeScreen({ navigation }: any) {
               if (isWeeklyReward) {
                 nodeSize = 90;
                 iconSize = 34;
-                if (isCompleted || isActive) {
+                if (isCompleted) {
+                  faceColor = "#4BDE95";
+                  baseColor = "#38C982";
+                  iconName = "check";
+                  iconColor = "#FFF";
+                } else if (isActive) {
                   faceColor = "#FFC800";
                   baseColor = "#E5B400";
                   iconName = "gift";
+                  iconColor = "#FFF";
+                } else if (isWaitingForTomorrow) {
+                  faceColor = "#FFE899";
+                  baseColor = "#FFD147";
+                  iconName = "clock";
                   iconColor = "#FFF";
                 } else {
                   faceColor = "#E5E5E5";
@@ -725,14 +1032,19 @@ export default function HomeScreen({ navigation }: any) {
                 }
               } else {
                 if (isCompleted) {
-                  faceColor = "#FF7EB3";
-                  baseColor = "#E04A85";
+                  faceColor = "#4BDE95";
+                  baseColor = "#38C982";
                   iconName = "check";
                   iconColor = "#FFF";
                 } else if (isActive) {
                   faceColor = "#FF7EB3";
                   baseColor = "#E04A85";
                   iconName = "play";
+                  iconColor = "#FFF";
+                } else if (isWaitingForTomorrow) {
+                  faceColor = "#F2D5FF";
+                  baseColor = "#DCA3FF";
+                  iconName = "clock";
                   iconColor = "#FFF";
                 }
               }
@@ -747,7 +1059,8 @@ export default function HomeScreen({ navigation }: any) {
                     <View
                       style={styles.weekDividerContainer}
                       onLayout={(event) => {
-                        weekPositions[weekNumber] = event.nativeEvent.layout.y;
+                        weekPositions[weekNumber] =
+                          event.nativeEvent.layout.y + nodesWrapperY.current;
                       }}
                     >
                       <View style={styles.dashedLine} />
@@ -755,15 +1068,8 @@ export default function HomeScreen({ navigation }: any) {
                         <Text style={styles.weekTitleText}>
                           SEMANA {weekNumber}
                         </Text>
-                        <Text
-                          style={[
-                            styles.weekThemeText,
-                            !weekThemes[weekNumber] && { minHeight: 24 },
-                          ]}
-                        >
-                          {hasCompletedAnamnesis
-                            ? weekThemes[weekNumber] || ""
-                            : "🔒"}
+                        <Text style={[styles.weekThemeText, { minHeight: 24 }]}>
+                          {isTrailUnlocked ? getThemeForWeek(weekNumber) : "🔒"}
                         </Text>
                       </View>
                     </View>
@@ -779,18 +1085,19 @@ export default function HomeScreen({ navigation }: any) {
                       },
                     ]}
                     onLayout={(event) => {
-                      if (isActive) {
-                        const yPos = event.nativeEvent.layout.y;
-                        activeNodeY.current = yPos;
+                      if (isNextUp) {
+                        activeNodeY.current = event.nativeEvent.layout.y;
                         if (
                           !hasAutoScrolled.current &&
                           scrollViewRef.current &&
-                          hasCompletedAnamnesis
+                          isTrailUnlocked
                         ) {
                           hasAutoScrolled.current = true;
                           setTimeout(() => {
+                            const absoluteY =
+                              activeNodeY.current + nodesWrapperY.current;
                             scrollViewRef.current?.scrollTo({
-                              y: Math.max(0, yPos - 250),
+                              y: Math.max(0, absoluteY - 250),
                               animated: false,
                             });
                           }, 100);
@@ -798,18 +1105,23 @@ export default function HomeScreen({ navigation }: any) {
                       }
                     }}
                   >
-                    {isActive && (
+                    {isNextUp && (
                       <Animated.View
-                        pointerEvents="none"
-                        style={{
-                          position: "absolute",
-                          top: absoluteOffset,
-                          left: absoluteOffset,
-                          width: ringSize,
-                          height: ringSize,
-                          transform: [{ translateY: -5 }, { scale: pulseAnim }],
-                          zIndex: 0,
-                        }}
+                        style={
+                          {
+                            position: "absolute",
+                            top: absoluteOffset,
+                            left: absoluteOffset,
+                            width: ringSize,
+                            height: ringSize,
+                            transform: [
+                              { translateY: -5 },
+                              { scale: pulseAnim },
+                            ],
+                            zIndex: 0,
+                            pointerEvents: "none",
+                          } as any
+                        }
                       >
                         <SegmentedRing
                           progress={currentTaskStep}
@@ -831,7 +1143,14 @@ export default function HomeScreen({ navigation }: any) {
                       ]}
                     >
                       <Pressable
-                        onPress={() => handleOpenMission(index, isLocked)}
+                        onPress={() =>
+                          handleOpenMission(
+                            index,
+                            isLocked,
+                            isWaitingForTomorrow,
+                            isCompleted,
+                          )
+                        }
                         style={({ pressed }) => [
                           styles.nodeFace,
                           {
@@ -857,50 +1176,112 @@ export default function HomeScreen({ navigation }: any) {
 
                     {isActive && currentTaskStep === 0 && (
                       <View
-                        style={styles.floatingHeartsContainer}
-                        pointerEvents="none"
+                        style={[
+                          styles.floatingHeartsContainer,
+                          {
+                            left: (nodeSize - 60) / 2,
+                            top: -20,
+                            pointerEvents: "none",
+                          } as any,
+                        ]}
                       >
                         <FloatingHearts />
                       </View>
                     )}
-                  </View>
 
-                  {isDay5 && (
-                    <View style={styles.weeklyChallengeWrapper}>
-                      <TouchableOpacity
-                        style={styles.weeklyChallengeBtn}
-                        activeOpacity={0.8}
-                        onPress={() => {
-                          if (hasCompletedAnamnesis) {
-                            Alert.alert(
-                              "Desafio da Semana",
-                              "O Desafio prático liberado pelo Cupido da semana!",
-                            );
-                          } else {
-                            Alert.alert(
-                              "Trilha Bloqueada 🔒",
-                              "Conclua a Avaliação para desbloquear.",
-                            );
-                          }
-                        }}
+                    {isDay5 && (
+                      <View
+                        style={[
+                          styles.weeklyChallengeWrapper,
+                          { left: nodeSize + 45, top: (nodeSize - 65) / 2 },
+                        ]}
                       >
-                        <Animated.View
+                        <TouchableOpacity
                           style={[
-                            styles.cupidFloatingBadge,
-                            { transform: [{ translateY: floatAnim }] },
+                            styles.weeklyChallengeBtn,
+                            !isChallengeUnlocked &&
+                              styles.weeklyChallengeBtnLocked,
                           ]}
-                          pointerEvents="none"
+                          activeOpacity={0.8}
+                          onPress={() => {
+                            if (!isChallengeUnlocked) {
+                              showCustomAlert(
+                                "Cupido Dormindo 💤",
+                                "Complete 3 missões desta semana para acordar o Cupido e liberar este desafio extra!",
+                                "moon",
+                                "#AFAFAF",
+                              );
+                            } else if (isTrailUnlocked) {
+                              showCustomAlert(
+                                "Desafio da Semana",
+                                "O Desafio prático liberado pelo Cupido da semana!",
+                                "star",
+                                "#FF9600",
+                              );
+                            } else if (hasCompletedAnamnesis && !isPremium) {
+                              navigation.navigate("Paywall");
+                            } else {
+                              showCustomAlert(
+                                "Aviso",
+                                "Conclua a Avaliação primeiro.",
+                                "lock",
+                                "#AFAFAF",
+                              );
+                            }
+                          }}
                         >
-                          <Image
-                            source={require("../assets/cupid_3d.gif")}
-                            style={styles.cupid3DImage}
+                          <Animated.View
+                            style={[
+                              styles.cupidFloatingBadge,
+                              {
+                                transform: [{ translateY: floatAnim }],
+                                pointerEvents: "none",
+                              } as any,
+                            ]}
+                          >
+                            <Image
+                              source={{
+                                uri: isChallengeUnlocked
+                                  ? "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f498.png"
+                                  : "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f47c.png",
+                              }}
+                              style={[
+                                styles.cupid3DImage,
+                                !isChallengeUnlocked && { opacity: 0.3 },
+                              ]}
+                              resizeMode="cover"
+                            />
+                            {!isChallengeUnlocked && (
+                              <View style={styles.zzzOverlay}>
+                                <Text style={styles.zzzText}>Zzz</Text>
+                              </View>
+                            )}
+                          </Animated.View>
+                          <FontAwesome5
+                            name={isChallengeUnlocked ? "star" : "lock"}
+                            size={24}
+                            color={isChallengeUnlocked ? "#FFF" : "#AFAFAF"}
                           />
-                        </Animated.View>
-                        <FontAwesome5 name="star" size={24} color="#FFF" />
-                      </TouchableOpacity>
-                      <Text style={styles.challengeLabel}>Desafio</Text>
-                    </View>
-                  )}
+                        </TouchableOpacity>
+                        <Text style={styles.challengeLabel}>Desafio</Text>
+
+                        <View style={styles.challengeStarsRow}>
+                          {[1, 2, 3].map((starNum) => (
+                            <FontAwesome5
+                              key={starNum}
+                              name="star"
+                              solid
+                              size={10}
+                              color={
+                                starNum <= starsActive ? "#FFC800" : "#E5E5E5"
+                              }
+                              style={{ marginHorizontal: 2 }}
+                            />
+                          ))}
+                        </View>
+                      </View>
+                    )}
+                  </View>
                 </React.Fragment>
               );
             })}
@@ -909,29 +1290,36 @@ export default function HomeScreen({ navigation }: any) {
               <TouchableOpacity
                 style={[
                   styles.endJourneyBtn,
-                  isJourneyFinished
+                  isJourneyFinished && isTrailUnlocked
                     ? styles.endJourneyBtnActive
                     : styles.endJourneyBtnLocked,
                 ]}
                 activeOpacity={0.8}
                 onPress={() => {
-                  if (hasCompletedAnamnesis && isJourneyFinished) {
-                    Alert.alert(
+                  if (isTrailUnlocked && isJourneyFinished)
+                    showCustomAlert(
                       "🏆 Parabéns!",
                       "Você completou os 90 dias de conexão profunda. O elo de vocês agora é inquebrável.",
+                      "trophy",
+                      "#FFC800",
                     );
-                  } else {
-                    Alert.alert(
+                  else if (hasCompletedAnamnesis && !isPremium)
+                    navigation.navigate("Paywall");
+                  else
+                    showCustomAlert(
                       "Bloqueado 🔒",
                       "Chegue ao final dos 90 dias para desbloquear a recompensa suprema.",
+                      "lock",
+                      "#AFAFAF",
                     );
-                  }
                 }}
               >
                 <FontAwesome5
                   name="trophy"
                   size={34}
-                  color={isJourneyFinished ? "#FFF" : "#AFAFAF"}
+                  color={
+                    isJourneyFinished && isTrailUnlocked ? "#FFF" : "#AFAFAF"
+                  }
                 />
               </TouchableOpacity>
             </View>
@@ -939,7 +1327,7 @@ export default function HomeScreen({ navigation }: any) {
         </View>
       </ScrollView>
 
-      {arrowDirection && hasCompletedAnamnesis && (
+      {arrowDirection && isTrailUnlocked && (
         <TouchableOpacity
           style={styles.scrollToActiveBtn}
           activeOpacity={0.8}
@@ -965,7 +1353,6 @@ export default function HomeScreen({ navigation }: any) {
         </TouchableOpacity>
       </View>
 
-      {/* --- MODAIS --- */}
       <Modal
         visible={isModalVisible}
         animationType="slide"
@@ -977,6 +1364,7 @@ export default function HomeScreen({ navigation }: any) {
             userLanguage={userLang}
             onClose={() => setIsModalVisible(false)}
             onComplete={handleCompleteMission}
+            isReviewMode={isReviewMode}
           />
         )}
       </Modal>
@@ -1007,7 +1395,6 @@ export default function HomeScreen({ navigation }: any) {
         </TouchableOpacity>
       </Modal>
 
-      {/* 🔥 MODAL DE VÍDEO CENTRALIZADO EM TELA CHEIA */}
       <Modal visible={isJourneyVideoVisible} transparent animationType="fade">
         <View style={styles.videoModalOverlay}>
           <View style={styles.videoHeaderBar}>
@@ -1028,9 +1415,8 @@ export default function HomeScreen({ navigation }: any) {
               resizeMode={ResizeMode.CONTAIN}
               shouldPlay={isJourneyVideoVisible}
               onPlaybackStatusUpdate={(status) => {
-                if (status.isLoaded && status.didJustFinish) {
+                if (status.isLoaded && status.didJustFinish)
                   setIsJourneyVideoVisible(false);
-                }
               }}
             />
           </View>
@@ -1057,8 +1443,13 @@ export default function HomeScreen({ navigation }: any) {
             <TouchableOpacity
               style={styles.linkButton}
               onPress={handleLinkPartnerCode}
+              disabled={isMatching}
             >
-              <Text style={styles.linkButtonText}>Conectar Contas</Text>
+              {isMatching ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <Text style={styles.linkButtonText}>Conectar Contas</Text>
+              )}
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.cancelLinkButton}
@@ -1070,60 +1461,7 @@ export default function HomeScreen({ navigation }: any) {
         </View>
       </Modal>
 
-      {/* MENU DESLIZANTE DE RESET DA ANAMNESE NORMAL */}
-      <Modal visible={isResetModalVisible} transparent animationType="slide">
-        <View style={styles.bottomSheetOverlay}>
-          <View style={styles.bottomSheetContainer}>
-            <View style={styles.bottomSheetHandle} />
-
-            <Text style={styles.bottomSheetTitle}>Refazer Avaliação?</Text>
-            <Text style={styles.bottomSheetText}>
-              Você já completou sua avaliação e sua trilha foi criada. Deseja
-              apagar seu diagnóstico atual e responder as perguntas novamente?
-            </Text>
-
-            <TouchableOpacity
-              style={styles.bottomSheetButtonPrimary}
-              onPress={async () => {
-                setIsResetModalVisible(false);
-                const userId = auth.currentUser?.uid;
-                if (userId) {
-                  try {
-                    await updateDoc(doc(db, "users", userId), {
-                      hasCompletedAnamnesis: false,
-                      priorityModules: [],
-                      diagnosticTags: [],
-                      anamnesisScores: [],
-                    });
-                    navigation.navigate("Anamnesis");
-                  } catch (error) {
-                    console.error(error);
-                    Alert.alert(
-                      "Erro",
-                      "Não foi possível reiniciar a avaliação agora.",
-                    );
-                  }
-                }
-              }}
-            >
-              <Text style={styles.bottomSheetButtonPrimaryText}>
-                Sim, refazer agora
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.bottomSheetButtonSecondary}
-              onPress={() => setIsResetModalVisible(false)}
-            >
-              <Text style={styles.bottomSheetButtonSecondaryText}>
-                Cancelar
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* MENU DESLIZANTE DE HARD RESET (MODO AUDITORIA/WIPE OUT) */}
+      {/* 🔥 BOTTOM SHEET DE AUDITORIA CORRIGIDO E VISÍVEL */}
       <Modal
         visible={isHardResetModalVisible}
         transparent
@@ -1133,51 +1471,94 @@ export default function HomeScreen({ navigation }: any) {
           <View style={styles.bottomSheetContainer}>
             <View style={styles.bottomSheetHandle} />
 
+            <View
+              style={[
+                styles.alertIconContainer,
+                { backgroundColor: "#FF4B4B20" },
+              ]}
+            >
+              <FontAwesome5 name="eraser" size={28} color="#FF4B4B" />
+            </View>
+
             <Text style={styles.bottomSheetTitle}>Zerar Sistema?</Text>
             <Text style={styles.bottomSheetText}>
               <Text style={{ fontWeight: "bold", color: "#FF4B4B" }}>
                 ⚠️ MODO DE AUDITORIA:
               </Text>{" "}
-              Isso apagará sua avaliação, desconectará o parceiro(a) e resetará
-              a trilha, pontos e o progresso para o Dia 0. Deseja apagar tudo?
+              Isso apagará sua avaliação, o status premium, desconectará o
+              parceiro e resetará a trilha para o Dia 0.
             </Text>
 
+            {/* 🔥 BOTÃO DE ZERAR AGORA É VERMELHO VIBRANTE E 100% VISÍVEL */}
             <TouchableOpacity
-              style={styles.bottomSheetButtonPrimary}
+              style={[
+                styles.bottomSheetButtonPrimary,
+                { backgroundColor: "#FF4B4B", marginBottom: 10 },
+              ]}
+              activeOpacity={0.8}
               onPress={async () => {
                 setIsHardResetModalVisible(false);
-                const userId = auth.currentUser?.uid;
-                if (userId) {
+                if (currentUid) {
                   try {
-                    await updateDoc(doc(db, "users", userId), {
-                      hasCompletedAnamnesis: false,
-                      priorityModules: [],
-                      diagnosticTags: [],
-                      anamnesisScores: [],
-                      anamnesisScore: 0,
-                      currentPhase: 1,
-                      currentTaskStep: 0,
-                      totalPE: 0,
-                      streak: 0,
-                      partnerId: null,
-                      partnerPhotoURL: null,
-                      partnerPhotoUrl: null,
-                      lastTaskDate: null,
-                    });
-                    Alert.alert(
-                      "Reset Concluído",
-                      "Sistema limpo com sucesso. Você está no Dia 0.",
+                    if (userData?.partnerId) {
+                      try {
+                        await setDoc(
+                          doc(db, "users", userData.partnerId),
+                          {
+                            partnerId: null,
+                            partnerPhotoURL: null,
+                            partnerPhotoUrl: null,
+                          },
+                          { merge: true },
+                        );
+                      } catch (e) {}
+                    }
+                    await setDoc(
+                      doc(db, "users", currentUid),
+                      {
+                        hasCompletedAnamnesis: false,
+                        isPremium: false,
+                        priorityModules: [],
+                        diagnosticTags: [],
+                        anamnesisScores: [],
+                        anamnesisScore: 0,
+                        currentPhase: 1,
+                        currentTaskStep: 0,
+                        totalPE: 0,
+                        streak: 0,
+                        partnerId: null,
+                        linkedInviteCode: null,
+                        partnerPhotoURL: null,
+                        partnerPhotoUrl: null,
+                        lastTaskDate: null,
+                      },
+                      { merge: true },
+                    );
+                    showCustomAlert(
+                      "Auditoria Concluída",
+                      "Sistema limpo com sucesso. Você voltou para o Modo Gratuito / Dia 0.",
+                      "check-circle",
+                      "#4BDE95",
                     );
                   } catch (error) {
-                    console.error(error);
-                    Alert.alert("Erro", "Não foi possível resetar os dados.");
+                    showCustomAlert(
+                      "Erro de Reset",
+                      "Não foi possível resetar os dados.",
+                      "times-circle",
+                      "#FF4B4B",
+                    );
                   }
                 }
               }}
             >
-              <Text style={styles.bottomSheetButtonPrimaryText}>
-                Sim, apagar tudo
-              </Text>
+              <View
+                style={{ flexDirection: "row", alignItems: "center", gap: 10 }}
+              >
+                <FontAwesome5 name="trash-alt" size={16} color="#FFF" />
+                <Text style={styles.bottomSheetButtonPrimaryText}>
+                  SIM, APAGAR TUDO
+                </Text>
+              </View>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -1188,6 +1569,72 @@ export default function HomeScreen({ navigation }: any) {
                 Cancelar
               </Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 🔥 MODAL DE ALERTA PERSONALIZADO (Substitui alerts do navegador) */}
+      <Modal visible={customAlert.visible} transparent animationType="slide">
+        <View style={styles.bottomSheetOverlay}>
+          <View style={styles.bottomSheetContainer}>
+            <View style={styles.bottomSheetHandle} />
+
+            <View
+              style={[
+                styles.alertIconContainer,
+                { backgroundColor: customAlert.color + "20" },
+              ]}
+            >
+              <FontAwesome5
+                name={customAlert.icon}
+                size={30}
+                color={customAlert.color}
+              />
+            </View>
+
+            <Text style={styles.bottomSheetTitle}>{customAlert.title}</Text>
+            <Text style={styles.bottomSheetText}>{customAlert.message}</Text>
+
+            {customAlert.onConfirm ? (
+              <View style={{ width: "100%", gap: 10, marginTop: 10 }}>
+                <TouchableOpacity
+                  style={[
+                    styles.bottomSheetButtonPrimary,
+                    { backgroundColor: customAlert.color },
+                  ]}
+                  onPress={() => {
+                    setCustomAlert({ ...customAlert, visible: false });
+                    customAlert.onConfirm();
+                  }}
+                >
+                  <Text style={styles.bottomSheetButtonPrimaryText}>
+                    {customAlert.confirmText || "Continuar"}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.bottomSheetButtonSecondary}
+                  onPress={() =>
+                    setCustomAlert({ ...customAlert, visible: false })
+                  }
+                >
+                  <Text style={styles.bottomSheetButtonSecondaryText}>
+                    Cancelar
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={[
+                  styles.bottomSheetButtonPrimary,
+                  { backgroundColor: customAlert.color, marginTop: 10 },
+                ]}
+                onPress={() =>
+                  setCustomAlert({ ...customAlert, visible: false })
+                }
+              >
+                <Text style={styles.bottomSheetButtonPrimaryText}>Entendi</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </Modal>
@@ -1224,13 +1671,11 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   miniPartnerAvatar: { marginLeft: -12, backgroundColor: "#FFF0F6" },
-  avatarImage: { width: "100%", height: "100%", resizeMode: "cover" },
-
+  avatarImage: { width: "100%", height: "100%" },
   topBarRight: { flexDirection: "row", alignItems: "center", gap: 12 },
   topBarItem: { flexDirection: "row", alignItems: "center", gap: 6 },
   flagEmoji: { fontSize: 26 },
   topBarText: { fontSize: 17, fontWeight: "900" },
-
   fixedHeaderBannerContainer: {
     paddingHorizontal: 24,
     paddingBottom: 16,
@@ -1280,7 +1725,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-
   scrollContainer: { flex: 1, width: "100%", overflow: "hidden" },
   scrollContent: {
     width: "100%",
@@ -1289,7 +1733,6 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 140,
   },
-
   anamnesisNodeContainer: {
     alignItems: "center",
     marginVertical: 35,
@@ -1359,7 +1802,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   haveCodeLinkText: { color: "#FF9600", fontWeight: "bold", fontSize: 14 },
-
   workflowCard: {
     width: "85%",
     backgroundColor: "#FFF",
@@ -1451,7 +1893,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   codeValue: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: "900",
     color: "#333",
     letterSpacing: 2,
@@ -1470,10 +1912,8 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginLeft: 10,
   },
-
   nodesWrapper: { width: "100%", alignItems: "center" },
-  lockedTrailOverlay: { opacity: 0.25 },
-
+  lockedTrailOverlay: { opacity: 0.35 },
   specialNodeContainer: { alignItems: "center", marginBottom: 35 },
   startJourneyBtn: {
     width: 75,
@@ -1500,12 +1940,9 @@ const styles = StyleSheet.create({
   },
 
   weeklyChallengeWrapper: {
-    width: "100%",
-    alignItems: "flex-end",
-    paddingRight: 40,
-    marginBottom: 25,
-    marginTop: -15,
-    zIndex: 5,
+    position: "absolute",
+    alignItems: "center",
+    zIndex: 50,
   },
   weeklyChallengeBtn: {
     width: 65,
@@ -1523,26 +1960,41 @@ const styles = StyleSheet.create({
     borderColor: "#FFE273",
     position: "relative",
   },
+  weeklyChallengeBtnLocked: {
+    backgroundColor: "#F5F5F5",
+    borderColor: "#E5E5E5",
+    shadowColor: "transparent",
+    elevation: 0,
+  },
   challengeLabel: {
     marginTop: 8,
-    marginRight: 10,
     fontWeight: "bold",
     color: "#AFAFAF",
     fontSize: 12,
     textTransform: "uppercase",
+    textAlign: "center",
+  },
+  challengeStarsRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginTop: 4,
   },
   cupidFloatingBadge: {
     position: "absolute",
     top: -35,
-    right: -20,
+    right: -15,
     zIndex: 10,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 5,
+    borderRadius: 32.5,
+    backgroundColor: "#FFF",
   },
-  cupid3DImage: { width: 65, height: 65, resizeMode: "contain" },
+  cupid3DImage: { width: 65, height: 65, borderRadius: 32.5 },
+  zzzOverlay: { position: "absolute", top: 15, left: 15 },
+  zzzText: { color: "#AFAFAF", fontSize: 14, fontWeight: "900" },
 
   endNodeContainer: { alignItems: "center", marginVertical: 30 },
   endJourneyBtn: {
@@ -1560,7 +2012,6 @@ const styles = StyleSheet.create({
   },
   endJourneyBtnLocked: { backgroundColor: "#E5E5E5", borderColor: "#CECECE" },
   endJourneyBtnActive: { backgroundColor: "#FFC800", borderColor: "#FFE273" },
-
   weekDividerContainer: {
     width: "85%",
     alignSelf: "center",
@@ -1592,7 +2043,6 @@ const styles = StyleSheet.create({
     color: "#555",
     textAlign: "center",
   },
-
   trailContainer: { width: "100%", alignItems: "center", paddingVertical: 10 },
   nodeWrapper: {
     marginBottom: 40,
@@ -1600,7 +2050,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-
   floatingHeartsContainer: {
     position: "absolute",
     width: 60,
@@ -1608,8 +2057,6 @@ const styles = StyleSheet.create({
     zIndex: 99,
     alignItems: "center",
     justifyContent: "flex-end",
-    top: -35,
-    left: -5,
   },
   nodeBase: {
     justifyContent: "center",
@@ -1628,7 +2075,6 @@ const styles = StyleSheet.create({
     left: 0,
     zIndex: 1,
   },
-
   scrollToActiveBtn: {
     position: "absolute",
     right: 25,
@@ -1662,7 +2108,6 @@ const styles = StyleSheet.create({
     borderTopColor: "#E5E5E5",
   },
   menuItem: { padding: 10, alignItems: "center", justifyContent: "center" },
-
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.3)",
@@ -1700,7 +2145,6 @@ const styles = StyleSheet.create({
     borderColor: "#FF7EB3",
   },
   compactFlagText: { fontSize: 28 },
-
   videoModalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.92)" },
   floatingVideoContainer: {
     flex: 1,
@@ -1735,10 +2179,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-
-  // 🔥 ESSENCIAL: VÍDEO EXPANDIDO E CENTRALIZADO
   fullscreenVideo: { width: "100%", height: "100%" },
-
   modalOverlayCenter: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",
@@ -1792,9 +2233,10 @@ const styles = StyleSheet.create({
   },
   cancelLinkButtonText: { color: "#AFAFAF", fontSize: 14, fontWeight: "bold" },
 
+  // 🔥 BOTTOM SHEET E ALERTA SLIDING MENU
   bottomSheetOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
+    backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "flex-end",
   },
   bottomSheetContainer: {
@@ -1806,9 +2248,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.15,
     shadowRadius: 10,
     elevation: 10,
+    width: "100%",
   },
   bottomSheetHandle: {
     width: 50,
@@ -1817,26 +2260,34 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     marginBottom: 20,
   },
+  alertIconContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 15,
+  },
   bottomSheetTitle: {
     fontSize: 22,
     fontWeight: "900",
     color: "#2C3E50",
     marginBottom: 10,
+    textAlign: "center",
   },
   bottomSheetText: {
     fontSize: 15,
     color: "#7F8C8D",
     textAlign: "center",
-    marginBottom: 30,
+    marginBottom: 20,
     lineHeight: 22,
   },
   bottomSheetButtonPrimary: {
     width: "100%",
-    backgroundColor: "#FF4B4B",
     paddingVertical: 16,
     borderRadius: 16,
     alignItems: "center",
-    marginBottom: 12,
+    justifyContent: "center",
   },
   bottomSheetButtonPrimaryText: {
     color: "#FFF",

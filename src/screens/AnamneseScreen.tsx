@@ -1,5 +1,5 @@
 import { FontAwesome5 } from "@expo/vector-icons";
-import { doc, updateDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -7,6 +7,7 @@ import {
   Dimensions,
   Easing,
   SafeAreaView,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -16,7 +17,6 @@ import { auth, db } from "../config/firebase";
 
 const { width, height } = Dimensions.get("window");
 
-// 🔥 O MOTOR FERRARI DENTRO DA CARROCERIA HOMOLOGADA
 const questionsBank = [
   {
     id: "com_1",
@@ -429,11 +429,33 @@ export default function AnamnesisScreen({ navigation }: any) {
   const [selectedAnswers, setSelectedAnswers] = useState<any[]>([]);
 
   const [isSaving, setIsSaving] = useState(false);
+  const [isSkipping, setIsSkipping] = useState(false);
+
+  const [isPremium, setIsPremium] = useState(false);
+  const [loadingMsg, setLoadingMsg] = useState("Iniciando varredura...");
 
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const slideAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const thermometerFill = useRef(new Animated.Value(0)).current;
+  const loadingProgress = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const fetchPremiumStatus = async () => {
+      const userId = auth.currentUser?.uid;
+      if (userId) {
+        try {
+          const snap = await getDoc(doc(db, "users", userId));
+          if (snap.exists() && snap.data().isPremium) {
+            setIsPremium(true);
+          }
+        } catch (e) {
+          console.log("Erro ao checar status Premium:", e);
+        }
+      }
+    };
+    fetchPremiumStatus();
+  }, []);
 
   useEffect(() => {
     Animated.loop(
@@ -442,13 +464,13 @@ export default function AnamnesisScreen({ navigation }: any) {
           toValue: 1.05,
           duration: 1000,
           easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
         Animated.timing(pulseAnim, {
           toValue: 1,
           duration: 1000,
           easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
       ]),
     ).start();
@@ -456,23 +478,78 @@ export default function AnamnesisScreen({ navigation }: any) {
 
   const handleStart = () => setScreenState("questions");
 
+  // 🔥 LÓGICA DE NAVEGAÇÃO ENTRE PERGUNTAS (VAI E VEM)
+  const handleBack = () => {
+    if (currentIndex > 0) {
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: false,
+      }).start(() => {
+        setCurrentIndex(currentIndex - 1);
+        slideAnim.setValue(-30);
+        Animated.parallel([
+          Animated.timing(fadeAnim, {
+            toValue: 1,
+            duration: 300,
+            useNativeDriver: false,
+          }),
+          Animated.timing(slideAnim, {
+            toValue: 0,
+            duration: 300,
+            easing: Easing.out(Easing.back(1.5)),
+            useNativeDriver: false,
+          }),
+        ]).start();
+      });
+    }
+  };
+
+  const handleForward = () => {
+    // Só deixa avançar se a pergunta atual JÁ estiver respondida no array
+    if (
+      currentIndex < selectedAnswers.length &&
+      currentIndex < questionsBank.length - 1
+    ) {
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: false,
+      }).start(() => {
+        setCurrentIndex(currentIndex + 1);
+        slideAnim.setValue(30);
+        Animated.parallel([
+          Animated.timing(fadeAnim, {
+            toValue: 1,
+            duration: 300,
+            useNativeDriver: false,
+          }),
+          Animated.timing(slideAnim, {
+            toValue: 0,
+            duration: 300,
+            easing: Easing.out(Easing.back(1.5)),
+            useNativeDriver: false,
+          }),
+        ]).start();
+      });
+    }
+  };
+
   const handleAnswer = (option: any) => {
     Animated.timing(fadeAnim, {
       toValue: 0,
       duration: 250,
-      useNativeDriver: true,
+      useNativeDriver: false,
     }).start(() => {
-      setScore(score + option.score);
-
-      const newAnswers = [
-        ...selectedAnswers,
-        {
-          questionId: questionsBank[currentIndex].id,
-          pillar: questionsBank[currentIndex].title,
-          score: option.score,
-          tag: option.tag,
-        },
-      ];
+      const newAnswers = [...selectedAnswers];
+      // Grava a resposta exata na posição atual
+      newAnswers[currentIndex] = {
+        questionId: questionsBank[currentIndex].id,
+        pillar: questionsBank[currentIndex].title,
+        score: option.score,
+        tag: option.tag,
+        label: option.label, // Salva a label para podermos pintar o botão de roxo depois!
+      };
 
       setSelectedAnswers(newAnswers);
 
@@ -483,33 +560,64 @@ export default function AnamnesisScreen({ navigation }: any) {
           Animated.timing(fadeAnim, {
             toValue: 1,
             duration: 300,
-            useNativeDriver: true,
+            useNativeDriver: false,
           }),
           Animated.timing(slideAnim, {
             toValue: 0,
             duration: 300,
             easing: Easing.out(Easing.back(1.5)),
-            useNativeDriver: true,
+            useNativeDriver: false,
           }),
         ]).start();
       } else {
-        startCalculation();
+        startCalculation(newAnswers);
       }
     });
   };
 
-  const startCalculation = () => {
+  const startCalculation = (finalAnswers: any[]) => {
     setScreenState("calculating");
+    loadingProgress.setValue(0);
+
+    // 🔥 PONTUAÇÃO DINÂMICA: Soma o score de todas as respostas guardadas sem duplicar!
+    const totalScore = finalAnswers.reduce(
+      (acc, curr) => acc + (curr?.score || 0),
+      0,
+    );
+    setScore(totalScore);
+
+    setLoadingMsg("Decodificando os pilares da sua relação...");
+
+    Animated.timing(loadingProgress, {
+      toValue: 100,
+      duration: 4000,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+
+    setTimeout(
+      () => setLoadingMsg("Analisando padrões de comportamento..."),
+      1200,
+    );
+    setTimeout(
+      () => setLoadingMsg("Gerando o resultado do seu diagnóstico..."),
+      2200,
+    );
+    setTimeout(
+      () => setLoadingMsg("Desenhando a sua jornada de resgate..."),
+      3200,
+    );
+
     setTimeout(() => {
       setScreenState("result");
-      animateThermometer();
-    }, 3500);
+      animateThermometer(totalScore);
+    }, 4200);
   };
 
-  const animateThermometer = () => {
+  const animateThermometer = (finalScore: number) => {
     const maxScore = questionsBank.length * 10;
-    const finalScore = score + (score === 0 ? 1 : 0);
-    const percentage = (finalScore / maxScore) * 100;
+    const calcScore = finalScore + (finalScore === 0 ? 1 : 0);
+    const percentage = (calcScore / maxScore) * 100;
 
     Animated.timing(thermometerFill, {
       toValue: percentage,
@@ -519,62 +627,77 @@ export default function AnamnesisScreen({ navigation }: any) {
     }).start();
   };
 
-  const handleFinishAnamnesis = async () => {
-    setIsSaving(true);
+  const saveAssessmentToFirebase = async () => {
     const userId = auth.currentUser?.uid;
+    if (!userId) return false;
 
-    if (userId) {
-      try {
-        const pillarStats: Record<
-          string,
-          { totalScore: number; maxScore: number }
-        > = {};
-        const diagnosticTags: string[] = [];
+    try {
+      const pillarStats: Record<
+        string,
+        { totalScore: number; maxScore: number }
+      > = {};
+      const diagnosticTags: string[] = [];
 
-        selectedAnswers.forEach((ans) => {
-          if (!pillarStats[ans.pillar]) {
-            pillarStats[ans.pillar] = { totalScore: 0, maxScore: 0 };
-          }
-          pillarStats[ans.pillar].totalScore += ans.score;
-          pillarStats[ans.pillar].maxScore += 10;
+      selectedAnswers.forEach((ans) => {
+        if (!pillarStats[ans.pillar]) {
+          pillarStats[ans.pillar] = { totalScore: 0, maxScore: 0 };
+        }
+        pillarStats[ans.pillar].totalScore += ans.score;
+        pillarStats[ans.pillar].maxScore += 10;
 
-          if (ans.score <= 6) {
-            diagnosticTags.push(ans.tag);
-          }
-        });
+        if (ans.score <= 6) {
+          diagnosticTags.push(ans.tag);
+        }
+      });
 
-        const calculatedPillars = Object.keys(pillarStats).map((pillarName) => {
-          const stats = pillarStats[pillarName];
-          const healthPercent = Math.round(
-            (stats.totalScore / stats.maxScore) * 100,
-          );
-          return { name: pillarName, health: healthPercent };
-        });
+      const calculatedPillars = Object.keys(pillarStats).map((pillarName) => {
+        const stats = pillarStats[pillarName];
+        const healthPercent = Math.round(
+          (stats.totalScore / stats.maxScore) * 100,
+        );
+        return { name: pillarName, health: healthPercent };
+      });
 
-        calculatedPillars.sort((a, b) => a.health - b.health);
-        const priorityModules = calculatedPillars
-          .slice(0, 3)
-          .map((p) => p.name);
+      calculatedPillars.sort((a, b) => a.health - b.health);
+      const priorityModules = calculatedPillars.slice(0, 3).map((p) => p.name);
 
-        await updateDoc(doc(db, "users", userId), {
+      await setDoc(
+        doc(db, "users", userId),
+        {
           hasCompletedAnamnesis: true,
           anamnesisScore: score,
           priorityModules: priorityModules,
           diagnosticTags: diagnosticTags,
           anamnesisScores: calculatedPillars,
           anamnesisCompletedAt: new Date().toISOString(),
-        });
+        },
+        { merge: true },
+      );
 
-        navigation.navigate("Home");
-      } catch (error) {
-        console.error("Erro ao salvar avaliação:", error);
-      } finally {
-        setIsSaving(false);
-      }
-    } else {
-      navigation.navigate("Home");
-      setIsSaving(false);
+      return true;
+    } catch (error) {
+      console.error("Erro ao salvar avaliação:", error);
+      return false;
     }
+  };
+
+  const handleFinish = async () => {
+    setIsSaving(true);
+    await saveAssessmentToFirebase();
+    setIsSaving(false);
+
+    if (isPremium) {
+      navigation.navigate("Home");
+    } else {
+      navigation.navigate("Paywall");
+    }
+  };
+
+  const handleSaveAndSkip = async () => {
+    setIsSkipping(true);
+    await saveAssessmentToFirebase();
+    setIsSkipping(false);
+    navigation.navigate("Home");
   };
 
   const renderIntro = () => (
@@ -606,16 +729,49 @@ export default function AnamnesisScreen({ navigation }: any) {
     const question = questionsBank[currentIndex];
     const progress = ((currentIndex + 1) / questionsBank.length) * 100;
 
+    // 🔥 Puxamos o que ele já respondeu para essa pergunta (se existir)
+    const currentAnswer = selectedAnswers[currentIndex];
+    const canGoForward = currentIndex < selectedAnswers.length;
+
     return (
       <View style={styles.questionContainer}>
-        <View style={styles.progressBarBg}>
-          <Animated.View
-            style={[styles.progressBarFill, { width: `${progress}%` }]}
-          />
+        {/* 🔥 MENU DE NAVEGAÇÃO DE VAI E VEM */}
+        <View style={styles.navHeader}>
+          <TouchableOpacity
+            onPress={handleBack}
+            disabled={currentIndex === 0}
+            style={[styles.navBtn, currentIndex === 0 && styles.navBtnDisabled]}
+          >
+            <FontAwesome5
+              name="chevron-left"
+              size={18}
+              color={currentIndex === 0 ? "#E5E5E5" : "#CE82FF"}
+            />
+          </TouchableOpacity>
+
+          <View style={{ flex: 1, paddingHorizontal: 15 }}>
+            <View style={styles.progressBarBg}>
+              <Animated.View
+                style={[styles.progressBarFill, { width: `${progress}%` }]}
+              />
+            </View>
+            <Text style={styles.progressText}>
+              Passo {currentIndex + 1} de {questionsBank.length}
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            onPress={handleForward}
+            disabled={!canGoForward}
+            style={[styles.navBtn, !canGoForward && styles.navBtnDisabled]}
+          >
+            <FontAwesome5
+              name="chevron-right"
+              size={18}
+              color={!canGoForward ? "#E5E5E5" : "#CE82FF"}
+            />
+          </TouchableOpacity>
         </View>
-        <Text style={styles.progressText}>
-          Passo {currentIndex + 1} de {questionsBank.length}
-        </Text>
 
         <Animated.View
           style={{
@@ -630,55 +786,90 @@ export default function AnamnesisScreen({ navigation }: any) {
           </View>
 
           <View style={styles.answersContainer}>
-            {question.options.map((opt, i) => (
-              <TouchableOpacity
-                key={i}
-                style={styles.answerBtn}
-                activeOpacity={0.7}
-                onPress={() => handleAnswer(opt)}
-              >
-                <View
+            {question.options.map((opt, i) => {
+              // Verifica se a opção renderizada foi a que o usuário marcou antes!
+              const isSelected =
+                currentAnswer && currentAnswer.label === opt.label;
+
+              return (
+                <TouchableOpacity
+                  key={i}
                   style={[
-                    styles.answerIconBg,
-                    { backgroundColor: opt.color + "20" },
+                    styles.answerBtn,
+                    isSelected && styles.answerBtnSelected,
                   ]}
+                  activeOpacity={0.7}
+                  onPress={() => handleAnswer(opt)}
                 >
-                  <FontAwesome5
-                    name={opt.icon}
-                    solid
-                    size={24}
-                    color={opt.color}
-                  />
-                </View>
-                <Text style={styles.answerBtnText}>{opt.label}</Text>
-              </TouchableOpacity>
-            ))}
+                  <View
+                    style={[
+                      styles.answerIconBg,
+                      { backgroundColor: opt.color + "20" },
+                    ]}
+                  >
+                    <FontAwesome5
+                      name={opt.icon}
+                      solid
+                      size={24}
+                      color={opt.color}
+                    />
+                  </View>
+                  <Text
+                    style={[
+                      styles.answerBtnText,
+                      isSelected && { color: "#CE82FF", fontWeight: "900" },
+                    ]}
+                  >
+                    {opt.label}
+                  </Text>
+
+                  {/* Ícone de Check se estiver selecionada */}
+                  {isSelected && (
+                    <FontAwesome5
+                      name="check-circle"
+                      solid
+                      size={20}
+                      color="#CE82FF"
+                      style={{ marginLeft: 10 }}
+                    />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </Animated.View>
       </View>
     );
   };
 
-  const renderCalculating = () => (
-    <View style={styles.centerContainer}>
-      <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
-        <View style={styles.spinnerRing}>
-          <FontAwesome5 name="sync" size={40} color="#CE82FF" />
+  const renderCalculating = () => {
+    const barWidth = loadingProgress.interpolate({
+      inputRange: [0, 100],
+      outputRange: ["0%", "100%"],
+    });
+
+    return (
+      <View style={styles.centerContainer}>
+        <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+          <View style={styles.spinnerRing}>
+            <FontAwesome5 name="brain" size={40} color="#CE82FF" />
+          </View>
+        </Animated.View>
+        <Text style={styles.calcTitle}>Avaliando Conexão</Text>
+
+        <View style={styles.loadingBarContainer}>
+          <Animated.View style={[styles.loadingBarFill, { width: barWidth }]} />
         </View>
-      </Animated.View>
-      <Text style={styles.calcTitle}>Analisando sua conexão...</Text>
-      <Text style={styles.calcText}>
-        Cruzando seus padrões com dados clínicos para montar sua trilha ideal.
-      </Text>
-    </View>
-  );
+
+        <Text style={styles.loadingMessageText}>{loadingMsg}</Text>
+      </View>
+    );
+  };
 
   const renderResult = () => {
     const maxScore = questionsBank.length * 10;
     const temperature = Math.round((score / maxScore) * 100);
 
-    // 🔥 CÁLCULO DE RISCO DE SEPARAÇÃO ESTATÍSTICO (Inverso à temperatura)
-    // Se a temperatura é 30%, o risco é 70%. Limitamos o risco mínimo a 10%.
     const riskPercentage = Math.max(10, 100 - temperature);
 
     let resultTitle = "";
@@ -733,7 +924,6 @@ export default function AnamnesisScreen({ navigation }: any) {
         </Text>
         <Text style={styles.resultText}>{resultDesc}</Text>
 
-        {/* 🔥 CAIXA DE ALERTA DE RISCO ESTATÍSTICO (NOVO) */}
         <View style={[styles.riskBox, { borderLeftColor: tempColor }]}>
           <View style={styles.riskHeader}>
             <FontAwesome5 name="chart-line" size={16} color={tempColor} />
@@ -754,33 +944,93 @@ export default function AnamnesisScreen({ navigation }: any) {
         </View>
 
         <View style={styles.hopeBox}>
-          <FontAwesome5 name="magic" size={20} color="#CE82FF" />
+          <FontAwesome5 name="home" size={22} color="#CE82FF" />
           <Text style={styles.hopeText}>
-            Com base no seu diagnóstico, geramos{" "}
-            <Text style={{ fontWeight: "bold" }}>
-              9 Pilares de Reconstrução
+            Com base no seu diagnóstico, criamos a{" "}
+            <Text style={{ fontWeight: "bold", color: "#CE82FF" }}>
+              Jornada de 90 Dias
             </Text>{" "}
-            para reverter este quadro.
+            ideal para resgatar o seu relacionamento, reacender a paixão e
+            blindar a sua família.
           </Text>
         </View>
 
-        <TouchableOpacity
-          style={styles.paywallBtn}
-          activeOpacity={0.9}
-          onPress={handleFinishAnamnesis}
-          disabled={isSaving}
-        >
-          {isSaving ? (
-            <ActivityIndicator size="small" color="#FFF" />
-          ) : (
-            <>
-              <Text style={styles.paywallBtnText}>
-                Desbloquear Meus 90 Dias
+        {isPremium ? (
+          <View style={styles.impulseBuyBox}>
+            <Text style={styles.impulseBuyPriceText}>
+              Acesso Liberado{" "}
+              <Text style={[styles.priceHighlight, { color: "#4BDE95" }]}>
+                ✓
               </Text>
-              <FontAwesome5 name="lock-open" size={16} color="#FFF" />
-            </>
-          )}
-        </TouchableOpacity>
+            </Text>
+            <Text style={styles.impulseBuySubText}>
+              Sua conta já está vinculada ao plano Premium do seu parceiro(a).
+              Você já pode iniciar a jornada.
+            </Text>
+
+            <TouchableOpacity
+              style={[styles.paywallBtn, { backgroundColor: "#4BDE95" }]}
+              activeOpacity={0.9}
+              onPress={handleFinish}
+              disabled={isSaving || isSkipping}
+            >
+              {isSaving ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <>
+                  <FontAwesome5 name="play" size={18} color="#FFF" />
+                  <Text style={styles.paywallBtnText}>Começar a Jornada</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.impulseBuyBox}>
+            <Text style={styles.impulseBuyPriceText}>
+              Adesão <Text style={styles.priceHighlight}>R$ 99,00</Text> + R$
+              9,90/mês
+            </Text>
+            <Text style={styles.impulseBuySubText}>
+              Acesso vitalício à Jornada de 90 Dias. Inclui Clube de Manutenção,
+              novos cursos e reavaliações (Cancele a mensalidade a qualquer
+              momento).
+            </Text>
+
+            <TouchableOpacity
+              style={styles.paywallBtn}
+              activeOpacity={0.9}
+              onPress={handleFinish}
+              disabled={isSaving || isSkipping}
+            >
+              {isSaving ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <>
+                  <FontAwesome5 name="shield-alt" size={18} color="#FFF" />
+                  <Text style={styles.paywallBtnText}>
+                    Resgatar Nossa Conexão
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {!isPremium && (
+          <TouchableOpacity
+            onPress={handleSaveAndSkip}
+            style={styles.skipLink}
+            disabled={isSaving || isSkipping}
+          >
+            {isSkipping ? (
+              <ActivityIndicator size="small" color="#AFAFAF" />
+            ) : (
+              <Text style={styles.skipLinkText}>
+                Adiar o resgate da nossa relação
+              </Text>
+            )}
+          </TouchableOpacity>
+        )}
       </View>
     );
   };
@@ -790,7 +1040,6 @@ export default function AnamnesisScreen({ navigation }: any) {
       {screenState === "intro" && renderIntro()}
       {screenState === "questions" && renderQuestions()}
       {screenState === "calculating" && renderCalculating()}
-      {/* ScrollView adicionada no Result para garantir que as informações caibam em telas menores */}
       {screenState === "result" && (
         <ScrollView
           contentContainerStyle={{ flexGrow: 1 }}
@@ -820,10 +1069,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 30,
-    shadowColor: "#FF7EB3",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 15,
+    boxShadow: "0px 10px 15px rgba(255,126,179,0.3)",
     elevation: 10,
   },
   introTitle: {
@@ -850,21 +1096,48 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     alignItems: "center",
     gap: 10,
-    shadowColor: "#FF7EB3",
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
+    boxShadow: "0px 5px 10px rgba(255,126,179,0.4)",
     elevation: 5,
   },
   primaryBtnText: { color: "#FFF", fontSize: 18, fontWeight: "bold" },
 
-  questionContainer: { flex: 1, padding: 24, paddingTop: 40 },
+  questionContainer: { flex: 1, padding: 24, paddingTop: 30 },
+
+  // 🔥 ESTILOS DA NOVA BÚSSOLA DE NAVEGAÇÃO
+  navHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 30,
+  },
+  navBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#FFF",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#E5E5E5",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  navBtnDisabled: {
+    backgroundColor: "#F9F9F9",
+    borderColor: "#F0F0F0",
+    elevation: 0,
+    shadowOpacity: 0,
+  },
+
   progressBarBg: {
     height: 8,
     backgroundColor: "#E5E5E5",
     borderRadius: 4,
     overflow: "hidden",
-    marginBottom: 10,
+    marginBottom: 8,
   },
   progressBarFill: {
     height: "100%",
@@ -872,14 +1145,14 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   progressText: {
-    fontSize: 14,
+    fontSize: 12,
     color: "#AFAFAF",
     fontWeight: "bold",
     textTransform: "uppercase",
-    marginBottom: 40,
+    textAlign: "center",
   },
 
-  questionHeader: { marginBottom: 40 },
+  questionHeader: { marginBottom: 35 },
   questionCategory: {
     color: "#CE82FF",
     fontSize: 16,
@@ -904,12 +1177,13 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 2,
     borderColor: "#F0F0F0",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
+    boxShadow: "0px 2px 4px rgba(0,0,0,0.05)",
     elevation: 2,
   },
+
+  // 🔥 ESTILO DA OPÇÃO SELECIONADA NA MEMÓRIA
+  answerBtnSelected: { borderColor: "#CE82FF", backgroundColor: "#F9F0FF" },
+
   answerIconBg: {
     width: 44,
     height: 44,
@@ -935,14 +1209,28 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: "bold",
     color: "#333",
-    marginBottom: 10,
+    marginBottom: 30,
   },
-  calcText: {
+
+  loadingBarContainer: {
+    width: "100%",
+    height: 12,
+    backgroundColor: "#E5E5E5",
+    borderRadius: 6,
+    overflow: "hidden",
+    marginBottom: 20,
+  },
+  loadingBarFill: {
+    height: "100%",
+    backgroundColor: "#CE82FF",
+    borderRadius: 6,
+  },
+  loadingMessageText: {
     fontSize: 16,
-    color: "#888",
+    color: "#AFAFAF",
+    fontWeight: "bold",
     textAlign: "center",
-    paddingHorizontal: 20,
-    lineHeight: 24,
+    fontStyle: "italic",
   },
 
   resultContainer: {
@@ -971,10 +1259,8 @@ const styles = StyleSheet.create({
     zIndex: 2,
     borderWidth: 2,
     borderColor: "#FFF",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
+    boxShadow: "0px 4px 5px rgba(0,0,0,0.1)",
+    elevation: 5,
   },
   thermometerLiquid: {
     width: "100%",
@@ -996,10 +1282,8 @@ const styles = StyleSheet.create({
     zIndex: 1,
     borderWidth: 4,
     borderColor: "#FFF",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
+    boxShadow: "0px 4px 5px rgba(0,0,0,0.2)",
+    elevation: 5,
   },
 
   resultTitle: {
@@ -1016,7 +1300,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
 
-  // 🔥 ESTILOS DA CAIXA DE RISCO ESTATÍSTICO (O Coração do Projeto)
   riskBox: {
     backgroundColor: "#FFF",
     borderLeftWidth: 5,
@@ -1024,10 +1307,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 20,
     width: "100%",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 5,
+    boxShadow: "0px 2px 5px rgba(0,0,0,0.06)",
     elevation: 2,
   },
   riskHeader: {
@@ -1036,16 +1316,8 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 8,
   },
-  riskTitle: {
-    fontSize: 16,
-    fontWeight: "900",
-    textTransform: "uppercase",
-  },
-  riskText: {
-    fontSize: 13,
-    color: "#555",
-    lineHeight: 20,
-  },
+  riskTitle: { fontSize: 16, fontWeight: "900", textTransform: "uppercase" },
+  riskText: { fontSize: 13, color: "#555", lineHeight: 20 },
 
   hopeBox: {
     flexDirection: "row",
@@ -1059,26 +1331,58 @@ const styles = StyleSheet.create({
   },
   hopeText: { flex: 1, fontSize: 14, color: "#5C3D75", lineHeight: 20 },
 
+  impulseBuyBox: {
+    width: "100%",
+    backgroundColor: "#FFF",
+    padding: 20,
+    borderRadius: 24,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#E5E5E5",
+    boxShadow: "0px 4px 8px rgba(0,0,0,0.1)",
+    elevation: 4,
+    marginBottom: 20,
+  },
+  impulseBuyPriceText: {
+    fontSize: 16,
+    color: "#555",
+    marginBottom: 8,
+    fontWeight: "700",
+  },
+  priceHighlight: { fontSize: 24, fontWeight: "900", color: "#2C3E50" },
+  impulseBuySubText: {
+    fontSize: 12,
+    color: "#AFAFAF",
+    textAlign: "center",
+    marginBottom: 18,
+    lineHeight: 18,
+    paddingHorizontal: 10,
+  },
+
   paywallBtn: {
     flexDirection: "row",
     width: "100%",
-    backgroundColor: "#CE82FF",
+    backgroundColor: "#2C3E50",
     paddingVertical: 18,
-    borderRadius: 30,
+    borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
-    gap: 10,
-    shadowColor: "#CE82FF",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-    elevation: 8,
+    gap: 12,
+    boxShadow: "0px 4px 8px rgba(0,0,0,0.2)",
+    elevation: 5,
   },
   paywallBtnText: {
     color: "#FFF",
     fontSize: 16,
     fontWeight: "900",
     textTransform: "uppercase",
-    letterSpacing: 1,
+  },
+
+  skipLink: { marginTop: 10, padding: 10 },
+  skipLinkText: {
+    color: "#AFAFAF",
+    fontSize: 13,
+    fontWeight: "bold",
+    textDecorationLine: "underline",
   },
 });

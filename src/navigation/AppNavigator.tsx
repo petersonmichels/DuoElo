@@ -9,7 +9,10 @@ import AnamneseScreen from "../screens/AnamneseScreen";
 import HomeScreen from "../screens/HomeScreen";
 import LoginScreen from "../screens/LoginScreen";
 import ProfileScreen from "../screens/ProfileScreen";
-// O InvitePartnerScreen original nem precisa mais ser importado se tudo vai rolar na Home!
+
+// 🔥 Importação das Novas Telas do Funil de Vendas
+import PaymentSuccessScreen from "../screens/PaymentSuccessScreen";
+import PaywallScreen from "../screens/PaywallScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -53,6 +56,13 @@ export default function AppNavigator() {
           <Stack.Screen name="Home" component={HomeScreen} />
           <Stack.Screen name="Anamnesis" component={AnamneseScreen} />
           <Stack.Screen name="Profile" component={ProfileScreen} />
+
+          {/* 🔥 Telas de Pagamento e Monetização adicionadas ao fluxo */}
+          <Stack.Screen name="Paywall" component={PaywallScreen} />
+          <Stack.Screen
+            name="PaymentSuccess"
+            component={PaymentSuccessScreen}
+          />
         </Stack.Group>
       ) : (
         <Stack.Group>
