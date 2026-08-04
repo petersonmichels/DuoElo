@@ -12,13 +12,12 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import { auth, db } from "../config/firebase";
 
 const { width } = Dimensions.get("window");
 
-// 🔥 MODO DE REVISÃO ATIVADO AQUI
 export default function MissionExecutionScreen({
   mission,
   userLanguage,
@@ -35,6 +34,42 @@ export default function MissionExecutionScreen({
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const slideAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  // 🔥 EXTRATOR BLINDADO DE TEXTO (A alteração importante de hoje para evitar crashs)
+  const extractText = (field: any, fieldName: string, fallback: string) => {
+    // 1. Tenta buscar da propriedade 'translations' se existir
+    if (mission?.translations?.[userLanguage]?.[fieldName]) {
+      return mission.translations[userLanguage][fieldName];
+    }
+    // 2. Se o próprio campo for o objeto de idiomas (O causador do erro clássico)
+    if (typeof field === "object" && field !== null) {
+      return (
+        field[userLanguage] ||
+        field["pt-BR"] ||
+        field["pt"] ||
+        field["en"] ||
+        fallback
+      );
+    }
+    // 3. Se for uma string simples e direta
+    if (typeof field === "string") {
+      return field;
+    }
+    return fallback;
+  };
+
+  // Aplicação do extrator para os textos dos passos 1 e 2
+  const conceptText = extractText(
+    mission?.concept,
+    "concept",
+    "Com o tempo, a rotina faz com que casais parem de se olhar de verdade. Conversamos sobre contas, sobre os filhos, mas não nos conectamos mais. O silêncio e a falta de contato visual são os primeiros sinais de distanciamento.",
+  );
+
+  const actionText = extractText(
+    mission?.action,
+    "action",
+    "Hoje, sente-se de frente para o seu parceiro(a), segurem as mãos e olhem-se nos olhos por 2 minutos ininterruptos, sem falar nada.",
+  );
 
   useEffect(() => {
     // Se for modo de leitura (revisão de velha missão), ele já começa no passo 1.
@@ -250,10 +285,8 @@ export default function MissionExecutionScreen({
                   color="#F0E6FA"
                   style={{ marginBottom: 15 }}
                 />
-                <Text style={styles.contentText}>
-                  {mission?.concept ||
-                    "Com o tempo, a rotina faz com que casais parem de se olhar de verdade. Conversamos sobre contas, sobre os filhos, mas não nos conectamos mais. O silêncio e a falta de contato visual são os primeiros sinais de distanciamento."}
-                </Text>
+                {/* 🔥 Usando a variável extraída com segurança */}
+                <Text style={styles.contentText}>{conceptText}</Text>
               </View>
 
               <TouchableOpacity
@@ -288,6 +321,7 @@ export default function MissionExecutionScreen({
                   color="#FF9600"
                   style={{ marginBottom: 15 }}
                 />
+                {/* 🔥 Usando a variável extraída com segurança */}
                 <Text
                   style={[
                     styles.contentText,
@@ -299,8 +333,7 @@ export default function MissionExecutionScreen({
                     },
                   ]}
                 >
-                  {mission?.action ||
-                    "Hoje, sente-se de frente para o seu parceiro(a), segurem as mãos e olhem-se nos olhos por 2 minutos ininterruptos, sem falar nada."}
+                  {actionText}
                 </Text>
               </View>
 

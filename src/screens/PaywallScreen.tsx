@@ -1,6 +1,8 @@
 import { FontAwesome5 } from "@expo/vector-icons";
-import { useEffect, useRef } from "react";
+import { doc, setDoc } from "firebase/firestore";
+import { useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Animated,
   Dimensions,
   SafeAreaView,
@@ -11,9 +13,16 @@ import {
   View,
 } from "react-native";
 
+import { auth, db } from "../config/firebase";
+
 const { width } = Dimensions.get("window");
 
 export default function PaywallScreen({ navigation }: any) {
+  const [selectedPlan, setSelectedPlan] = useState<
+    "mensal" | "trimestral" | "anual"
+  >("trimestral");
+  const [isProcessing, setIsProcessing] = useState(false);
+
   const slideAnim = useRef(new Animated.Value(50)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -32,16 +41,37 @@ export default function PaywallScreen({ navigation }: any) {
     ]).start();
   }, []);
 
+  const handleSubscribe = async () => {
+    if (isProcessing) return;
+    setIsProcessing(true);
+
+    try {
+      // 1. Simula o tempo do Gateway (Apple/Google Pay)
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      // 2. Injeta o Premium no Banco usando setDoc para evitar "No document to update"
+      const userId = auth.currentUser?.uid;
+      if (userId) {
+        await setDoc(
+          doc(db, "users", userId),
+          { isPremium: true },
+          { merge: true },
+        );
+      }
+
+      // 3. Joga o usuário direto pra Home
+      navigation.navigate("Home");
+    } catch (error) {
+      console.error("Erro na simulação do pagamento", error);
+      setIsProcessing(false);
+    }
+  };
+
   const features = [
     {
       icon: "map-marked-alt",
-      title: "Acesso Vitalício à Jornada",
-      desc: "90 dias de desafios guiados passo a passo para reacender a conexão.",
-    },
-    {
-      icon: "infinity",
-      title: "Clube de Manutenção",
-      desc: "Novos minicursos semanais e reavaliações contínuas da relação.",
+      title: "Trilha Completa de 90 Dias",
+      desc: "Desafios guiados passo a passo para reacender a conexão do casal.",
     },
     {
       icon: "user-plus",
@@ -49,9 +79,39 @@ export default function PaywallScreen({ navigation }: any) {
       desc: "Sua assinatura já cobre a conexão da dupla, sem custos extras.",
     },
     {
+      icon: "star",
+      title: "Missões Práticas do Cupido",
+      desc: "Desafios semanais extras para quebrar a rotina e inovar.",
+    },
+    {
       icon: "shield-alt",
-      title: "Blindagem Familiar",
-      desc: "Exercícios baseados nos 9 Pilares para proteger o futuro de vocês.",
+      title: "Sinal Verde Imediato",
+      desc: "Libere o Modo Casal e inicie a trilha agora mesmo.",
+    },
+  ];
+
+  const plans = [
+    {
+      id: "mensal",
+      name: "Mensal",
+      desc: "Renovação mês a mês",
+      price: "19,90",
+      period: "/mês",
+    },
+    {
+      id: "trimestral",
+      name: "Jornada 90 Dias",
+      desc: "O tempo exato da trilha",
+      price: "49,90",
+      period: "/trimestre",
+      highlight: "RECOMENDADO",
+    },
+    {
+      id: "anual",
+      name: "Anual",
+      desc: "Proteção a longo prazo",
+      price: "199,90",
+      period: "/ano",
     },
   ];
 
@@ -61,6 +121,7 @@ export default function PaywallScreen({ navigation }: any) {
         <TouchableOpacity
           style={styles.closeBtn}
           onPress={() => navigation.goBack()}
+          disabled={isProcessing}
         >
           <FontAwesome5 name="times" size={24} color="#AFAFAF" />
         </TouchableOpacity>
@@ -90,7 +151,93 @@ export default function PaywallScreen({ navigation }: any) {
             reacender a paixão e blindar a sua família contra qualquer crise.
           </Text>
 
+          {/* 🔥 PLANOS AGORA ESTÃO AQUI EM CIMA */}
+          <View style={styles.plansWrapper}>
+            {plans.map((plan) => {
+              const isSelected = selectedPlan === plan.id;
+              return (
+                <TouchableOpacity
+                  key={plan.id}
+                  style={[
+                    styles.planCard,
+                    isSelected && styles.planCardSelected,
+                  ]}
+                  activeOpacity={0.9}
+                  onPress={() => setSelectedPlan(plan.id as any)}
+                  disabled={isProcessing}
+                >
+                  {plan.highlight && (
+                    <View style={styles.badgeContainer}>
+                      <Text style={styles.badgeText}>{plan.highlight}</Text>
+                    </View>
+                  )}
+
+                  <View style={styles.planInfo}>
+                    <Text
+                      style={[
+                        styles.planName,
+                        isSelected && styles.planTextSelected,
+                      ]}
+                    >
+                      {plan.name}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.planDesc,
+                        isSelected && styles.planTextSelected,
+                      ]}
+                    >
+                      {plan.desc}
+                    </Text>
+                  </View>
+
+                  <View style={styles.planPriceBox}>
+                    <Text
+                      style={[
+                        styles.planPrice,
+                        isSelected && styles.planTextSelected,
+                      ]}
+                    >
+                      R$ {plan.price}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.planPeriod,
+                        isSelected && styles.planTextSelected,
+                      ]}
+                    >
+                      {plan.period}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* 🔥 GARANTIA DE TEMPO LOGO ABAIXO DOS PREÇOS */}
+          <View style={styles.guaranteeBox}>
+            <View style={styles.guaranteeHeader}>
+              <FontAwesome5 name="hourglass-half" size={16} color="#FF9600" />
+              <Text style={styles.guaranteeTitle}>
+                Seu tempo está protegido!
+              </Text>
+            </View>
+            <Text style={styles.priceSub}>
+              O período da Jornada de 90 dias{" "}
+              <Text style={{ fontWeight: "bold", color: "#333" }}>
+                só começa a contar a partir da sua primeira tarefa concluída.
+              </Text>{" "}
+              Caso precise de mais tempo, a assinatura será ajustada
+              automaticamente para R$ 19,90/mês após os 90 dias para você
+              continuar no seu ritmo.
+            </Text>
+          </View>
+
+          {/* 🔥 LISTA DE BENEFÍCIOS JOGADA PARA BAIXO */}
           <View style={styles.featuresContainer}>
+            <Text style={styles.featuresSectionTitle}>
+              O que está incluso no Premium?
+            </Text>
             {features.map((feat, index) => (
               <View key={index} style={styles.featureItem}>
                 <View style={styles.featureIconBg}>
@@ -103,46 +250,31 @@ export default function PaywallScreen({ navigation }: any) {
               </View>
             ))}
           </View>
-
-          {/* 🔥 CAIXA DE PREÇO ESTRATÉGICA (TRIPWIRE + MRR) */}
-          <View style={styles.priceBox}>
-            <Text style={styles.priceLabel}>
-              COMBO: JORNADA 90 DIAS + CLUBE
-            </Text>
-
-            <View style={styles.priceRow}>
-              <Text style={styles.pricePrefix}>Adesão Única</Text>
-              <Text style={styles.priceCurrency}>R$</Text>
-              <Text style={styles.priceValue}>99</Text>
-            </View>
-
-            <View style={styles.mrrRow}>
-              <FontAwesome5 name="plus" size={12} color="#AFAFAF" />
-              <Text style={styles.mrrText}>R$ 9,90 / mês</Text>
-            </View>
-
-            <View style={styles.guaranteeBox}>
-              <Text style={styles.priceSub}>
-                Cancele a mensalidade quando quiser. A Jornada de 90 Dias
-                continuará sendo sua{" "}
-                <Text style={{ fontWeight: "bold", color: "#333" }}>
-                  para sempre
-                </Text>
-                .
-              </Text>
-            </View>
-          </View>
         </Animated.View>
       </ScrollView>
 
       <View style={styles.footer}>
         <TouchableOpacity
-          style={styles.ctaButton}
+          style={[styles.ctaButton, isProcessing && { opacity: 0.8 }]}
           activeOpacity={0.9}
-          onPress={() => navigation.navigate("PaymentSuccess")}
+          onPress={handleSubscribe}
+          disabled={isProcessing}
         >
-          <FontAwesome5 name="shield-alt" size={20} color="#FFF" />
-          <Text style={styles.ctaButtonText}>Resgatar Nossa Conexão</Text>
+          {isProcessing ? (
+            <ActivityIndicator size="small" color="#FFF" />
+          ) : (
+            <>
+              <FontAwesome5 name="shield-alt" size={20} color="#FFF" />
+              <Text style={styles.ctaButtonText}>
+                Assinar Plano{" "}
+                {selectedPlan === "mensal"
+                  ? "Mensal"
+                  : selectedPlan === "trimestral"
+                    ? "Trimestral"
+                    : "Anual"}
+              </Text>
+            </>
+          )}
         </TouchableOpacity>
         <Text style={styles.guaranteeText}>
           <FontAwesome5 name="lock" size={10} color="#AFAFAF" /> Ambiente de
@@ -191,8 +323,102 @@ const styles = StyleSheet.create({
     color: "#7F8C8D",
     textAlign: "center",
     lineHeight: 22,
-    marginBottom: 35,
+    marginBottom: 25,
     paddingHorizontal: 5,
+  },
+
+  plansWrapper: {
+    width: "100%",
+    marginBottom: 20,
+    gap: 12,
+  },
+  planCard: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#FAFAFA",
+    borderWidth: 2,
+    borderColor: "#E5E5E5",
+    borderRadius: 16,
+    padding: 20,
+    position: "relative",
+  },
+  planCardSelected: {
+    backgroundColor: "#FFF9E6",
+    borderColor: "#FF9600",
+  },
+  badgeContainer: {
+    position: "absolute",
+    top: -10,
+    left: 20,
+    backgroundColor: "#FF9600",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  badgeText: {
+    color: "#FFF",
+    fontSize: 10,
+    fontWeight: "900",
+    letterSpacing: 1,
+  },
+  planInfo: {
+    flex: 1,
+  },
+  planName: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#333",
+    marginBottom: 4,
+  },
+  planDesc: {
+    fontSize: 13,
+    color: "#7F8C8D",
+  },
+  planPriceBox: {
+    alignItems: "flex-end",
+  },
+  planPrice: {
+    fontSize: 20,
+    fontWeight: "900",
+    color: "#333",
+  },
+  planPeriod: {
+    fontSize: 12,
+    color: "#7F8C8D",
+    fontWeight: "bold",
+  },
+  planTextSelected: {
+    color: "#B36900",
+  },
+
+  guaranteeBox: {
+    backgroundColor: "#F9F0FF",
+    padding: 18,
+    borderRadius: 16,
+    width: "100%",
+    borderWidth: 1,
+    borderColor: "#EAD1FF",
+  },
+  guaranteeHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+    gap: 8,
+  },
+  guaranteeTitle: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: "#5C3D75",
+    textTransform: "uppercase",
+  },
+  priceSub: {
+    fontSize: 13,
+    color: "#666",
+    textAlign: "center",
+    lineHeight: 20,
   },
 
   featuresContainer: {
@@ -200,9 +426,18 @@ const styles = StyleSheet.create({
     backgroundColor: "#FAFAFA",
     borderRadius: 24,
     padding: 20,
-    marginBottom: 30,
+    marginTop: 30, // 🔥 Adicionado espaçamento no topo para distanciar da garantia
     borderWidth: 1,
     borderColor: "#F0F0F0",
+  },
+  featuresSectionTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#AFAFAF",
+    textAlign: "center",
+    textTransform: "uppercase",
+    marginBottom: 20,
+    letterSpacing: 0.5,
   },
   featureItem: { flexDirection: "row", alignItems: "center", marginBottom: 20 },
   featureIconBg: {
@@ -222,71 +457,6 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   featureDesc: { fontSize: 13, color: "#777", lineHeight: 18 },
-
-  priceBox: {
-    width: "100%",
-    alignItems: "center",
-    marginBottom: 20,
-    padding: 20,
-    borderRadius: 20,
-    backgroundColor: "#FFF9E6",
-    borderWidth: 2,
-    borderColor: "#FFE273",
-  },
-  priceLabel: {
-    fontSize: 12,
-    fontWeight: "900",
-    color: "#FF9600",
-    letterSpacing: 1.5,
-    marginBottom: 12,
-    textAlign: "center",
-  },
-
-  priceRow: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    justifyContent: "center",
-  },
-  pricePrefix: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#555",
-    marginRight: 8,
-  },
-  priceCurrency: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#2C3E50",
-    marginRight: 4,
-  },
-  priceValue: {
-    fontSize: 54,
-    fontWeight: "900",
-    color: "#2C3E50",
-    lineHeight: 60,
-  },
-
-  mrrRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginTop: -5,
-    marginBottom: 15,
-  },
-  mrrText: { fontSize: 20, fontWeight: "800", color: "#CE82FF" },
-
-  guaranteeBox: {
-    backgroundColor: "rgba(255, 255, 255, 0.6)",
-    padding: 12,
-    borderRadius: 12,
-    width: "100%",
-  },
-  priceSub: {
-    fontSize: 13,
-    color: "#666",
-    textAlign: "center",
-    lineHeight: 18,
-  },
 
   footer: {
     paddingHorizontal: 24,

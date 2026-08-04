@@ -3,16 +3,15 @@ import { onAuthStateChanged, User } from "firebase/auth";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 
-import { auth } from "../config/firebase";
+// 🔥 Adicione a importação do authControls
+import { auth, authControls } from "../config/firebase";
 
 import AnamneseScreen from "../screens/AnamneseScreen";
 import HomeScreen from "../screens/HomeScreen";
 import LoginScreen from "../screens/LoginScreen";
-import ProfileScreen from "../screens/ProfileScreen";
-
-// 🔥 Importação das Novas Telas do Funil de Vendas
-import PaymentSuccessScreen from "../screens/PaymentSuccessScreen";
+import MissionRewardScreen from "../screens/MissionRewardScreen";
 import PaywallScreen from "../screens/PaywallScreen";
+import ProfileScreen from "../screens/ProfileScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -22,6 +21,12 @@ export default function AppNavigator() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      // 🔥 O SEGREDO AQUI: Se estiver criando a conta, ignora a mudança de estado!
+      // Isso impede a tela de piscar para a Home.
+      if (authControls && authControls.isCreatingAccount) {
+        return;
+      }
+
       setUser(currentUser);
       setLoading(false);
     });
@@ -47,26 +52,18 @@ export default function AppNavigator() {
   return (
     <Stack.Navigator
       screenOptions={{ headerShown: false }}
-      // 🔥 AGORA É SIMPLES: Tem usuário? Vai pra Home. Não tem? Vai pro Login.
       initialRouteName={user ? "Home" : "Login"}
     >
       {user ? (
         <Stack.Group>
-          {/* A Home agora é a rainha do aplicativo, ela gerencia tudo */}
           <Stack.Screen name="Home" component={HomeScreen} />
           <Stack.Screen name="Anamnesis" component={AnamneseScreen} />
           <Stack.Screen name="Profile" component={ProfileScreen} />
-
-          {/* 🔥 Telas de Pagamento e Monetização adicionadas ao fluxo */}
           <Stack.Screen name="Paywall" component={PaywallScreen} />
-          <Stack.Screen
-            name="PaymentSuccess"
-            component={PaymentSuccessScreen}
-          />
+          <Stack.Screen name="MissionReward" component={MissionRewardScreen} />
         </Stack.Group>
       ) : (
         <Stack.Group>
-          {/* Nossa nova super tela unificada de Login/Cadastro */}
           <Stack.Screen name="Login" component={LoginScreen} />
         </Stack.Group>
       )}

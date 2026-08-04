@@ -1,6 +1,9 @@
 import { FontAwesome5 } from "@expo/vector-icons";
 import { ResizeMode, Video } from "expo-av";
 import * as Clipboard from "expo-clipboard";
+import Constants from "expo-constants";
+import * as Device from "expo-device";
+import * as Notifications from "expo-notifications";
 import {
   collection,
   doc,
@@ -18,6 +21,7 @@ import {
   Image,
   Linking,
   Modal,
+  Platform,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -25,19 +29,70 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 
 import { auth, db } from "../config/firebase";
 import MissionExecutionScreen from "./MissionExecutionScreen";
 
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
+
+async function sendPushNotificationDirectly(
+  expoPushToken: string,
+  title: string,
+  body: string,
+) {
+  if (!expoPushToken) return;
+
+  const message = {
+    to: expoPushToken,
+    sound: "default",
+    title: title,
+    body: body,
+  };
+
+  try {
+    await fetch("https://exp.host/--/api/v2/push/send", {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Accept-encoding": "gzip, deflate",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(message),
+    });
+    console.log("Notificação enviada direto do app para:", expoPushToken);
+  } catch (error) {
+    console.error("Erro ao enviar notificação direta:", error);
+  }
+}
+
+// 🔥 LISTA DE IDIOMAS ATUALIZADA
 const SUPPORTED_LANGUAGES = [
   { code: "pt-BR", flag: "🇧🇷" },
   { code: "pt-PT", flag: "🇵🇹" },
-  { code: "pt-CV", flag: "🇨🇻" },
   { code: "en", flag: "🇺🇸" },
   { code: "es", flag: "🇪🇸" },
+  { code: "fr", flag: "🇫🇷" },
+  { code: "de", flag: "🇩🇪" },
+  { code: "ja", flag: "🇯🇵" },
+];
+
+const WEEKLY_PROGRESSION_ICONS = [
+  "map-pin",
+  "compass",
+  "seedling",
+  "fire",
+  "key",
+  "gem",
+  "gift",
 ];
 
 const SegmentedRing = ({ progress = 0, size = 106 }) => {
@@ -137,6 +192,49 @@ const FloatingHearts = () => {
   );
 };
 
+async function registerForPushNotificationsAsync() {
+  let token;
+
+  if (Platform.OS === "android") {
+    await Notifications.setNotificationChannelAsync("default", {
+      name: "default",
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: "#FF231F7C",
+    });
+  }
+
+  if (Device.isDevice) {
+    const { status: existingStatus } =
+      await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+    if (existingStatus !== "granted") {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+    if (finalStatus !== "granted") {
+      console.log("Falha ao obter permissão para push notifications!");
+      return;
+    }
+    try {
+      const projectId =
+        Constants?.expoConfig?.extra?.eas?.projectId ??
+        Constants?.easConfig?.projectId;
+      if (!projectId) {
+        token = (await Notifications.getExpoPushTokenAsync()).data;
+      } else {
+        token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+      }
+    } catch (e) {
+      console.log("Erro ao gerar o Push Token:", e);
+    }
+  } else {
+    console.log("Notificações Push exigem um dispositivo físico.");
+  }
+
+  return token;
+}
+
 export default function HomeScreen({ navigation }: any) {
   const [currentUid, setCurrentUid] = useState<string | null>(null);
   const [userData, setUserData] = useState<any>(null);
@@ -147,6 +245,8 @@ export default function HomeScreen({ navigation }: any) {
   const [visibleWeek, setVisibleWeek] = useState(1);
   const weekPositions = useRef<{ [key: number]: number }>({}).current;
   const nodesWrapperY = useRef<number>(0);
+
+  const nodePositions = useRef<{ [key: number]: number }>({}).current;
 
   const [activeMission, setActiveMission] = useState<any>(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
@@ -159,9 +259,25 @@ export default function HomeScreen({ navigation }: any) {
 
   const [isInviteModalVisible, setIsInviteModalVisible] = useState(false);
   const [isHardResetModalVisible, setIsHardResetModalVisible] = useState(false);
+
+  const [isPitStopModalVisible, setIsPitStopModalVisible] = useState(false);
+
+  const [isNotificationsVisible, setIsNotificationsVisible] = useState(false);
+  const unreadNudges = userData?.cutucadas || 0;
+
+  const [isGeneratingJourney, setIsGeneratingJourney] = useState(false);
+
   const [inviteCodeInput, setInviteCodeInput] = useState("");
   const [inviteSent, setInviteSent] = useState(false);
   const [isMatching, setIsMatching] = useState(false);
+
+  const [pendingMatchPartner, setPendingMatchPartner] = useState<any>(null);
+  const [isMatchConfirmationVisible, setIsMatchConfirmationVisible] =
+    useState(false);
+  const [isMatchAnimationVisible, setIsMatchAnimationVisible] = useState(false);
+
+  const matchAnimTranslateX = useRef(new Animated.Value(0)).current;
+  const matchHeartScale = useRef(new Animated.Value(0)).current;
 
   const [customAlert, setCustomAlert] = useState({
     visible: false,
@@ -195,13 +311,14 @@ export default function HomeScreen({ navigation }: any) {
   const scrollViewRef = useRef<ScrollView>(null);
   const activeNodeY = useRef<number>(0);
   const hasAutoScrolled = useRef<boolean>(false);
-  const [arrowDirection, setArrowDirection] = useState<"up" | "down" | null>(
-    null,
-  );
 
   const totalStepsInModule = 90;
   const floatAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  const currentTaskStep = userData?.currentTaskStep || 0;
+  const currentStep = (userData?.currentPhase || 1) - 1;
+  const isJourneyFinished = currentStep >= totalStepsInModule;
 
   useEffect(() => {
     const unsubscribeAuth = auth.onAuthStateChanged((user) => {
@@ -209,6 +326,24 @@ export default function HomeScreen({ navigation }: any) {
     });
     return () => unsubscribeAuth();
   }, []);
+
+  useEffect(() => {
+    if (currentUid) {
+      registerForPushNotificationsAsync().then(async (token) => {
+        if (token) {
+          try {
+            await setDoc(
+              doc(db, "users", currentUid),
+              { pushToken: token },
+              { merge: true },
+            );
+          } catch (e) {
+            console.log("Erro ao salvar o Push Token no banco", e);
+          }
+        }
+      });
+    }
+  }, [currentUid]);
 
   useEffect(() => {
     if (currentUid) {
@@ -234,9 +369,7 @@ export default function HomeScreen({ navigation }: any) {
         const generatedCode = currentUid.substring(0, 6).toUpperCase();
         setDoc(
           doc(db, "users", currentUid),
-          {
-            myInviteCode: generatedCode,
-          },
+          { myInviteCode: generatedCode },
           { merge: true },
         ).catch((e) => console.log("Erro na auto-cura:", e));
       }
@@ -310,14 +443,66 @@ export default function HomeScreen({ navigation }: any) {
   }, [floatAnim, pulseAnim]);
 
   const hasCompletedAnamnesis = userData?.hasCompletedAnamnesis || false;
+  const partnerCompletedAnamnesis = partnerData?.hasCompletedAnamnesis || false;
   const isPremium = userData?.isPremium || false;
   const hasPartner = !!userData?.partnerId;
-  const currentTaskStep = userData?.currentTaskStep || 0;
-  const currentStep = (userData?.currentPhase || 1) - 1;
-  const isJourneyFinished = currentStep >= totalStepsInModule;
-  const myInviteCode = currentUid?.substring(0, 6).toUpperCase() || "DUE-123";
+  const iAmReady = !!userData?.isReadyToStart;
+  const partnerIsReady = !!partnerData?.isReadyToStart;
 
-  const isTrailUnlocked = hasCompletedAnamnesis && isPremium;
+  const isTrailUnlocked =
+    hasCompletedAnamnesis &&
+    isPremium &&
+    iAmReady &&
+    (!hasPartner || (partnerIsReady && partnerCompletedAnamnesis));
+
+  useEffect(() => {
+    if (isTrailUnlocked && isPitStopModalVisible) {
+      setIsPitStopModalVisible(false);
+    }
+  }, [isTrailUnlocked, isPitStopModalVisible]);
+
+  const scrollToActiveNode = () => {
+    const targetY = nodePositions[currentStep];
+    if (scrollViewRef.current && targetY !== undefined) {
+      const absoluteY = targetY + nodesWrapperY.current;
+      scrollViewRef.current.scrollTo({
+        y: Math.max(0, absoluteY - 250),
+        animated: true,
+      });
+    }
+  };
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener("focus", () => {
+      if (isTrailUnlocked) {
+        setTimeout(() => {
+          scrollToActiveNode();
+        }, 300);
+      }
+    });
+    return unsubscribe;
+  }, [navigation, isTrailUnlocked, currentStep]);
+
+  useEffect(() => {
+    if (isTrailUnlocked) {
+      setTimeout(() => {
+        scrollToActiveNode();
+      }, 300);
+    }
+  }, [currentStep, isTrailUnlocked]);
+
+  const getFirstName = (nameStr?: string) =>
+    nameStr ? nameStr.split(" ")[0] : null;
+  const myName =
+    getFirstName(userData?.displayName) ||
+    userData?.email?.split("@")[0] ||
+    "Você";
+  const pName =
+    getFirstName(partnerData?.displayName) ||
+    partnerData?.email?.split("@")[0] ||
+    "Parceiro(a)";
+
+  const myInviteCode = currentUid?.substring(0, 6).toUpperCase() || "DUE-123";
 
   const today = new Date();
   const lastTaskDateObj = userData?.lastTaskDate
@@ -343,36 +528,70 @@ export default function HomeScreen({ navigation }: any) {
       if (weekPositions[w] <= triggerLine) active = w;
     }
     if (visibleWeek !== active) setVisibleWeek(active);
-
-    if (activeNodeY.current > 0) {
-      if (relativeY > activeNodeY.current + 100) {
-        setArrowDirection("up");
-      } else if (relativeY + 450 < activeNodeY.current) {
-        setArrowDirection("down");
-      } else {
-        setArrowDirection(null);
-      }
-    }
-  };
-
-  const scrollToActiveNode = () => {
-    if (scrollViewRef.current && activeNodeY.current > 0) {
-      const absoluteY = activeNodeY.current + nodesWrapperY.current;
-      scrollViewRef.current.scrollTo({
-        y: Math.max(0, absoluteY - 250),
-        animated: true,
-      });
-    }
   };
 
   const handleHardReset = () => setIsHardResetModalVisible(true);
 
+  const handleSendNudge = async () => {
+    if (!userData?.partnerId) {
+      showCustomAlert(
+        "Ops!",
+        "Você precisa estar conectado a um parceiro(a) para enviar uma cutucada.",
+        "user-plus",
+        "#FF9600",
+      );
+      return;
+    }
+    try {
+      await setDoc(
+        doc(db, "users", userData.partnerId),
+        {
+          cutucadas: increment(1),
+        },
+        { merge: true },
+      );
+
+      if (partnerData?.pushToken) {
+        sendPushNotificationDirectly(
+          partnerData.pushToken,
+          "Ei, atenção aqui! 👀",
+          "Seu parceiro(a) acabou de te mandar uma cutucada. Venha ver!",
+        );
+      }
+
+      showCustomAlert(
+        "Cutucada Enviada! 👇",
+        "Seu parceiro(a) acabou de receber o seu aviso no app dele.",
+        "hand-point-right",
+        "#FF7EB3",
+      );
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleCloseNudges = async () => {
+    setIsNotificationsVisible(false);
+    if (unreadNudges > 0 && currentUid) {
+      try {
+        await setDoc(
+          doc(db, "users", currentUid),
+          { cutucadas: 0 },
+          { merge: true },
+        );
+      } catch (e) {
+        console.error("Erro ao zerar cutucadas:", e);
+      }
+    }
+  };
+
   const handleCopyCode = async () => {
     try {
       await Clipboard.setStringAsync(myInviteCode);
+      setInviteSent(true);
       showCustomAlert(
         "Código Copiado! ✂️",
-        "Cole no WhatsApp ou envie para o celular do seu parceiro(a) para conectarem as contas.",
+        "O código foi copiado. Envie para o parceiro(a) agora.",
         "copy",
         "#4BDE95",
       );
@@ -387,9 +606,9 @@ export default function HomeScreen({ navigation }: any) {
 
     try {
       const canOpen = await Linking.canOpenURL(whatsappUrl);
+      setInviteSent(true);
       if (canOpen) {
         await Linking.openURL(whatsappUrl);
-        setInviteSent(true);
       } else {
         showCustomAlert(
           "Atenção",
@@ -397,7 +616,6 @@ export default function HomeScreen({ navigation }: any) {
           "exclamation-triangle",
           "#FF9600",
         );
-        setInviteSent(true);
       }
     } catch (error) {
       console.log(error);
@@ -430,7 +648,7 @@ export default function HomeScreen({ navigation }: any) {
       if (querySnapshot.empty) {
         showCustomAlert(
           "Match Não Encontrado",
-          "Não encontramos nenhuma conta com esse código. Verifique se o seu parceiro já acessou o app.",
+          "Não encontramos nenhuma conta com esse código. Verifique se o parceiro já acessou o app.",
           "search-minus",
           "#FF9600",
         );
@@ -453,44 +671,203 @@ export default function HomeScreen({ navigation }: any) {
         return;
       }
 
-      const isPartnerPremium = partnerDataDb?.isPremium || false;
-
-      await setDoc(
-        doc(db, "users", currentUid),
-        {
-          partnerId: partnerId,
-          isPremium: isPartnerPremium ? true : userData?.isPremium || false,
-        },
-        { merge: true },
-      );
-
-      await setDoc(
-        doc(db, "users", partnerId),
-        {
-          partnerId: currentUid,
-        },
-        { merge: true },
-      );
-
+      setPendingMatchPartner({ id: partnerId, data: partnerDataDb });
       setIsInviteModalVisible(false);
-      setInviteCodeInput("");
-
-      showCustomAlert(
-        "Match Realizado! ❤️",
-        `Você e o parceiro agora estão oficialmente conectados!`,
-        "heart",
-        "#FF7EB3",
-      );
+      setIsMatchConfirmationVisible(true);
     } catch (error) {
-      console.error("Erro ao fazer match:", error);
+      console.error("Erro ao buscar match:", error);
       showCustomAlert(
         "Erro de Conexão",
-        "Ocorreu um problema ao tentar conectar as contas. Tente novamente.",
+        "Ocorreu um problema ao tentar buscar a conta. Tente novamente.",
         "times-circle",
         "#FF4B4B",
       );
     } finally {
       setIsMatching(false);
+    }
+  };
+
+  const confirmMatchCode = async () => {
+    setIsMatchConfirmationVisible(false);
+    setIsMatchAnimationVisible(true);
+
+    Animated.sequence([
+      Animated.timing(matchAnimTranslateX, {
+        toValue: 1,
+        duration: 1200,
+        useNativeDriver: true,
+      }),
+      Animated.spring(matchHeartScale, {
+        toValue: 1,
+        friction: 4,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    setTimeout(async () => {
+      try {
+        const partnerId = pendingMatchPartner.id;
+        const partnerDataDb = pendingMatchPartner.data;
+
+        const partnerIsPremium = partnerDataDb?.isPremium || false;
+        const currentUserIsPremium = userData?.isPremium || false;
+        const finalPremiumStatus = partnerIsPremium || currentUserIsPremium;
+
+        await setDoc(
+          doc(db, "users", currentUid!),
+          {
+            partnerId: partnerId,
+            isPremium: finalPremiumStatus,
+          },
+          { merge: true },
+        );
+
+        await setDoc(
+          doc(db, "users", partnerId),
+          {
+            partnerId: currentUid,
+            isPremium: finalPremiumStatus,
+          },
+          { merge: true },
+        );
+
+        if (partnerDataDb?.pushToken) {
+          sendPushNotificationDirectly(
+            partnerDataDb.pushToken,
+            "Match Perfeito! ❤️",
+            "Sua conta foi conectada com sucesso! Corra para o app e faça o Check-in.",
+          );
+        }
+
+        setInviteCodeInput("");
+
+        if (finalPremiumStatus && !currentUserIsPremium) {
+          showCustomAlert(
+            "Match Perfeito! ❤️",
+            "Contas conectadas! Como o seu amor já ativou a jornada, o seu acesso Premium foi liberado instantaneamente.",
+            "gift",
+            "#FF7EB3",
+          );
+        } else {
+          showCustomAlert(
+            "Match Realizado! ❤️",
+            "Vocês estão conectados! Avance para a próxima etapa do Check-in.",
+            "heart",
+            "#FF7EB3",
+          );
+        }
+      } catch (error) {
+        showCustomAlert(
+          "Erro de Conexão",
+          "Não foi possível efetivar o match.",
+          "times-circle",
+          "#FF4B4B",
+        );
+      } finally {
+        setIsMatchAnimationVisible(false);
+        setPendingMatchPartner(null);
+        matchAnimTranslateX.setValue(0);
+        matchHeartScale.setValue(0);
+      }
+    }, 2800);
+  };
+
+  const confirmStartSolo = () => {
+    setIsPitStopModalVisible(false);
+    setTimeout(() => {
+      showCustomAlert(
+        "Modo Solo Definitivo ⚠️",
+        "Se você iniciar no Modo Solo agora, NÃO será possível conectar o seu parceiro(a) mais tarde nesta trilha.\n\nA transformação real do relacionamento acontece a dois. Tem certeza que deseja prosseguir sozinho(a)?",
+        "exclamation-triangle",
+        "#FF4B4B",
+        "Sim, seguir Solo",
+        () => {
+          handleStartSolo();
+        },
+      );
+    }, 500);
+  };
+
+  const handleStartSolo = async () => {
+    setIsGeneratingJourney(true);
+
+    setTimeout(async () => {
+      if (currentUid) {
+        try {
+          await setDoc(
+            doc(db, "users", currentUid),
+            { isReadyToStart: true },
+            { merge: true },
+          );
+        } catch (e) {}
+      }
+      setIsGeneratingJourney(false);
+      showCustomAlert(
+        "Jornada Solo Gerada! 🚀",
+        "Cruzamos os dados da sua avaliação. Sua trilha individual de 90 dias está liberada. Boa sorte!",
+        "user-astronaut",
+        "#4BDE95",
+      );
+    }, 3000);
+  };
+
+  const handleStartHandshake = async () => {
+    if (!currentUid) return;
+
+    if (partnerIsReady && partnerCompletedAnamnesis) {
+      setIsPitStopModalVisible(false);
+      setIsGeneratingJourney(true);
+
+      setTimeout(async () => {
+        try {
+          await setDoc(
+            doc(db, "users", currentUid),
+            { isReadyToStart: true },
+            { merge: true },
+          );
+        } catch (e) {}
+
+        if (partnerData?.pushToken) {
+          sendPushNotificationDirectly(
+            partnerData.pushToken,
+            "🚀 Jornada Liberada!",
+            "A trilha de vocês acabou de começar. Toque aqui para ver a primeira missão!",
+          );
+        }
+
+        setIsGeneratingJourney(false);
+        showCustomAlert(
+          "Jornada em Casal Gerada! 🚀",
+          "O sincronismo foi concluído e os dados foram cruzados. A trilha oficial de vocês está liberada!",
+          "map-marked-alt",
+          "#4BDE95",
+        );
+      }, 3000);
+    } else {
+      try {
+        await setDoc(
+          doc(db, "users", currentUid),
+          { isReadyToStart: true },
+          { merge: true },
+        );
+
+        if (partnerData?.pushToken) {
+          sendPushNotificationDirectly(
+            partnerData.pushToken,
+            "Sinal Verde Dado! 🚦",
+            "Seu amor já apertou os cintos para a Jornada. Só falta o seu OK para darmos a largada!",
+          );
+        }
+
+        showCustomAlert(
+          "Sinal Verde Dado! 🚦",
+          "O seu aplicativo já sincronizou com o do seu parceiro(a). Assim que ele(a) concluir a avaliação e der o sinal verde, a jornada começará automaticamente para os dois!",
+          "check-circle",
+          "#4BDE95",
+        );
+      } catch (e) {
+        showCustomAlert("Erro", "Tente novamente.", "times-circle", "#FF4B4B");
+      }
     }
   };
 
@@ -531,16 +908,58 @@ export default function HomeScreen({ navigation }: any) {
     const fetchMissionData = async () => {
       setIsFetchingMission(true);
       try {
+        // 🔥 BUSCA A MISSÃO BASEADA NO IDIOMA SALVO NO PERFIL DO USUÁRIO
         const phaseToFetch = stepIndex + 1;
-        const q = query(
+
+        let q = query(
           collection(db, "tasks"),
-          where("moduleId", "==", 1),
-          where("phase", "==", phaseToFetch),
+          where("language", "==", userLang),
+          where("day", "==", phaseToFetch),
         );
-        const querySnapshot = await getDocs(q);
+        let querySnapshot = await getDocs(q);
+
+        // Fallback para string se o dia estiver salvo como texto
+        if (querySnapshot.empty) {
+          q = query(
+            collection(db, "tasks"),
+            where("language", "==", userLang),
+            where("day", "==", String(phaseToFetch)),
+          );
+          querySnapshot = await getDocs(q);
+        }
+
+        // Fallback global de idioma caso o atual não exista na collection tasks
+        if (querySnapshot.empty) {
+          q = query(
+            collection(db, "tasks"),
+            where("language", "==", "pt-BR"),
+            where("day", "==", phaseToFetch),
+          );
+          querySnapshot = await getDocs(q);
+        }
 
         if (!querySnapshot.empty) {
-          setActiveMission(querySnapshot.docs[0].data());
+          const requiredScope = hasPartner ? "bilateral" : "unilateral";
+          let missionsList = querySnapshot.docs.map((d) => d.data());
+
+          let pool = missionsList.filter(
+            (m) => m.scope === requiredScope || !m.scope,
+          );
+          if (pool.length === 0) pool = missionsList;
+
+          let roleOffset = 0;
+          if (hasPartner && currentUid && userData?.partnerId) {
+            roleOffset = currentUid < userData.partnerId ? 0 : 1;
+          }
+
+          const targetIndex = roleOffset % pool.length;
+          let matchedMission = pool[targetIndex];
+
+          if (!matchedMission) {
+            matchedMission = pool[0];
+          }
+
+          setActiveMission(matchedMission);
           setIsReviewMode(isCompleted);
           setIsModalVisible(true);
 
@@ -555,35 +974,58 @@ export default function HomeScreen({ navigation }: any) {
         } else {
           showCustomAlert(
             "Missão em Construção 🚧",
-            "A missão desta fase está sendo preparada com muito carinho e estará disponível em breve!",
+            `A missão desta etapa está sendo preparada e estará disponível em breve!`,
             "hard-hat",
             "#FF9600",
           );
         }
       } catch (error) {
-        console.error(error);
+        console.error("Erro ao carregar missão:", error);
       } finally {
         setIsFetchingMission(false);
       }
     };
 
-    if (!hasPartner && !isCompleted) {
-      showCustomAlert(
-        "Modo Solo Ativado 👤",
-        "Você pode fazer esta atividade sozinho(a), mas a verdadeira transformação acontece quando os dois participam juntos. Deseja continuar a missão?",
-        "user",
-        "#CE82FF",
-        "Continuar Missão",
-        fetchMissionData,
-      );
-    } else {
-      fetchMissionData();
-    }
+    fetchMissionData();
   };
 
   const handleCompleteMission = async (journalText: string = "") => {
     if (!currentUid || !activeMission) return;
+
     try {
+      const isFinalStep = currentTaskStep >= 2;
+
+      if (!isFinalStep) {
+        await setDoc(
+          doc(db, "users", currentUid),
+          { currentTaskStep: currentTaskStep + 1 },
+          { merge: true },
+        );
+
+        if (journalText.trim().length > 0) {
+          const journalRef = doc(
+            collection(db, "users", currentUid, "journals"),
+          );
+          await setDoc(journalRef, {
+            phase: activeMission.phase || currentStep + 1,
+            text: journalText,
+            date: new Date().toISOString(),
+            step: currentTaskStep + 1,
+          });
+        }
+
+        setIsModalVisible(false);
+        setActiveMission(null);
+
+        showCustomAlert(
+          "Etapa Concluída! 🌟",
+          `Você completou a etapa ${currentTaskStep} de 3. Volte e continue para finalizar a missão de hoje!`,
+          "check-circle",
+          "#4BDE95",
+        );
+        return;
+      }
+
       const todayDate = new Date();
       const lastDate = userData?.lastTaskDate
         ? new Date(userData.lastTaskDate)
@@ -629,48 +1071,48 @@ export default function HomeScreen({ navigation }: any) {
           phase: activeMission.phase || currentStep + 1,
           text: journalText,
           date: new Date().toISOString(),
+          step: 3,
         });
       }
 
+      const earnedPE = activeMission.pointsPE || 50;
       setIsModalVisible(false);
       setActiveMission(null);
+
+      const completedDay = currentStep + 1;
+      const weekCycleProgress = ((completedDay - 1) % 7) + 1;
+
+      if (partnerData?.pushToken && !hasCompletedTaskToday) {
+        sendPushNotificationDirectly(
+          partnerData.pushToken,
+          "Missão Cumprida! 🌟",
+          "Seu amor já completou a missão de hoje! Agora é a sua vez de fazer a sua parte e fortalecer o elo.",
+        );
+      }
+
+      navigation.navigate("MissionReward", {
+        earnedPE: earnedPE,
+        currentDay90: completedDay,
+        cupidProgress: weekCycleProgress,
+      });
     } catch (error) {
       console.error(error);
     }
   };
 
-  if (loading) {
-    return (
-      <View
-        style={[
-          styles.container,
-          { justifyContent: "center", alignItems: "center" },
-        ]}
-      >
-        <ActivityIndicator size="large" color="#FF7EB3" />
-      </View>
-    );
-  }
-
-  const getThemeForWeek = (weekNum: number) => {
-    const priorityModules = userData?.priorityModules || [];
-    if (priorityModules.length >= 3) {
-      if (weekNum <= 4) return priorityModules[0];
-      if (weekNum <= 8) return priorityModules[1];
-      return priorityModules[2];
-    } else if (priorityModules.length > 0) {
-      return priorityModules[0];
-    }
-    return weekThemes[weekNum] || "Fortalecendo o Elo";
+  const getDisplayThemeForWeek = (weekNum: number) => {
+    return weekThemes[weekNum] || `Semana ${weekNum}`;
   };
 
-  const bannerWeekTheme = getThemeForWeek(visibleWeek);
+  const bannerWeekTheme = getDisplayThemeForWeek(visibleWeek);
 
   const currentFlag =
     SUPPORTED_LANGUAGES.find((l) => l.code === userLang)?.flag || "🇧🇷";
   const userPhoto = userData?.photoURL || userData?.photoUrl;
   const partnerPhoto =
     partnerData?.photoURL || partnerData?.photoUrl || userData?.partnerPhotoURL;
+
+  const isInviteStepCompleted = hasPartner || inviteSent;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -724,12 +1166,23 @@ export default function HomeScreen({ navigation }: any) {
           >
             <Text style={styles.flagEmoji}>{currentFlag}</Text>
           </TouchableOpacity>
-          <View style={styles.topBarItem}>
-            <FontAwesome5 name="heart" solid size={20} color="#FF7EB3" />
-            <Text style={[styles.topBarText, { color: "#FF7EB3" }]}>
-              {userData?.totalPE || 0}
-            </Text>
-          </View>
+
+          <TouchableOpacity
+            style={styles.topBarItem}
+            onPress={() => setIsNotificationsVisible(true)}
+          >
+            <View style={{ position: "relative" }}>
+              <FontAwesome5 name="bell" solid size={22} color="#AFAFAF" />
+              {unreadNudges > 0 && (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationBadgeText}>
+                    {unreadNudges > 9 ? "9+" : unreadNudges}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </TouchableOpacity>
+
           <View style={styles.topBarItem}>
             <FontAwesome5 name="fire" size={20} color="#FF9600" />
             <Text style={[styles.topBarText, { color: "#FF9600" }]}>
@@ -770,6 +1223,43 @@ export default function HomeScreen({ navigation }: any) {
         onScroll={handleScroll}
         scrollEventThrottle={16}
       >
+        {!isPremium && !hasPartner && (
+          <View style={styles.intelligentCard}>
+            <View style={styles.intelligentCardHeader}>
+              <View style={styles.intelligentCardIcon}>
+                <FontAwesome5 name="gift" size={18} color="#FFF" />
+              </View>
+              <Text style={styles.intelligentCardTitle}>Foi convidado(a)?</Text>
+            </View>
+            <Text style={styles.intelligentCardSub}>
+              Insira o código do seu parceiro para liberar o seu acesso Premium
+              instantaneamente.
+            </Text>
+            <View style={styles.intelligentCardInputRow}>
+              <TextInput
+                style={styles.intelligentCardInput}
+                placeholder="Ex: DUE-123X"
+                placeholderTextColor="#AFAFAF"
+                autoCapitalize="characters"
+                maxLength={8}
+                value={inviteCodeInput}
+                onChangeText={setInviteCodeInput}
+              />
+              <TouchableOpacity
+                style={styles.intelligentCardBtn}
+                onPress={handleLinkPartnerCode}
+                disabled={isMatching || inviteCodeInput.length < 5}
+              >
+                {isMatching ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <Text style={styles.intelligentCardBtnText}>Ativar</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
         <View style={styles.trailContainer}>
           <View style={styles.anamnesisNodeContainer}>
             {!hasCompletedAnamnesis && (
@@ -798,7 +1288,7 @@ export default function HomeScreen({ navigation }: any) {
                   else
                     showCustomAlert(
                       "Diagnóstico Ativo",
-                      "Sua jornada já está em andamento com base no seu diagnóstico.",
+                      "Sua avaliação foi concluída. Siga para o Check-in no mapa para cruzar os dados.",
                       "heartbeat",
                       "#FF7EB3",
                     );
@@ -818,129 +1308,7 @@ export default function HomeScreen({ navigation }: any) {
                 ? "Diagnóstico Concluído"
                 : "Descubram a temperatura da relação"}
             </Text>
-
-            {!hasPartner && isPremium && (
-              <TouchableOpacity
-                style={styles.haveCodeLink}
-                onPress={() => setIsInviteModalVisible(true)}
-              >
-                <Text style={styles.haveCodeLinkText}>
-                  Fui convidado pelo meu par (Inserir Código)
-                </Text>
-              </TouchableOpacity>
-            )}
           </View>
-
-          {hasCompletedAnamnesis && !hasPartner && isPremium && (
-            <View style={styles.workflowCard}>
-              <Text style={styles.workflowMainTitle}>Jornada Liberada! 🚀</Text>
-              <Text style={styles.workflowSubTitle}>
-                Você pode fazer as atividades no{" "}
-                <Text style={{ fontWeight: "bold", color: "#FF7EB3" }}>
-                  Modo Solo
-                </Text>
-                , mas a transformação real acontece quando os dois participam.
-              </Text>
-
-              <View style={styles.workflowLine} />
-
-              <View style={styles.workflowStep}>
-                <View
-                  style={[
-                    styles.stepIconContainer,
-                    inviteSent ? styles.stepIconSuccess : styles.stepIconActive,
-                  ]}
-                >
-                  <FontAwesome5
-                    name={inviteSent ? "check" : "share-alt"}
-                    size={16}
-                    color="#FFF"
-                  />
-                </View>
-                <Text
-                  style={[
-                    styles.stepTitle,
-                    inviteSent ? styles.stepTextSuccess : {},
-                  ]}
-                >
-                  {inviteSent
-                    ? "1. Convite enviado!"
-                    : "1. Enviar convite ao parceiro"}
-                </Text>
-              </View>
-
-              <View style={styles.workflowStep}>
-                <Animated.View
-                  style={[
-                    styles.stepIconContainer,
-                    inviteSent
-                      ? styles.stepIconWaiting
-                      : styles.stepIconInactive,
-                    {
-                      transform: inviteSent
-                        ? [{ scale: pulseAnim }]
-                        : [{ scale: 1 }],
-                    },
-                  ]}
-                >
-                  <FontAwesome5
-                    name="download"
-                    size={16}
-                    color={inviteSent ? "#FFC800" : "#AFAFAF"}
-                  />
-                </Animated.View>
-                <Text
-                  style={[
-                    styles.stepTitle,
-                    inviteSent
-                      ? styles.stepTextWaiting
-                      : styles.stepTextInactive,
-                  ]}
-                >
-                  2. Aguardando parceiro(a)...
-                </Text>
-              </View>
-
-              <TouchableOpacity
-                style={styles.codeContainer}
-                activeOpacity={0.7}
-                onPress={handleCopyCode}
-              >
-                <Text style={styles.codeLabel}>Seu Código de Convite</Text>
-                <View
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 15,
-                  }}
-                >
-                  <Text style={styles.codeValue}>{myInviteCode}</Text>
-                  <FontAwesome5 name="copy" size={22} color="#AFAFAF" />
-                </View>
-                <Text
-                  style={{
-                    fontSize: 11,
-                    color: "#CECECE",
-                    marginTop: 5,
-                    fontWeight: "bold",
-                  }}
-                >
-                  Toque para copiar
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.whatsappButton}
-                activeOpacity={0.8}
-                onPress={handleSendInvite}
-              >
-                <FontAwesome5 name="whatsapp" size={20} color="#FFF" />
-                <Text style={styles.whatsappButtonText}>
-                  Convidar pelo WhatsApp
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
 
           <View
             style={[
@@ -953,28 +1321,69 @@ export default function HomeScreen({ navigation }: any) {
           >
             <View style={styles.specialNodeContainer}>
               <TouchableOpacity
-                style={styles.startJourneyBtn}
+                style={[
+                  styles.startJourneyBtn,
+                  !hasCompletedAnamnesis && {
+                    backgroundColor: "#E5E5E5",
+                    borderColor: "#CECECE",
+                    shadowColor: "transparent",
+                    elevation: 0,
+                  },
+                  hasCompletedAnamnesis &&
+                    !isTrailUnlocked && {
+                      backgroundColor: "#FF9600",
+                      borderColor: "#FFE273",
+                      shadowColor: "#FF9600",
+                    },
+                  isTrailUnlocked && {
+                    backgroundColor: "#4BDE95",
+                    borderColor: "#D8F7E8",
+                    shadowColor: "#4BDE95",
+                  },
+                ]}
                 activeOpacity={0.8}
+                disabled={!hasCompletedAnamnesis}
                 onPress={() => {
-                  if (isTrailUnlocked) setIsJourneyVideoVisible(true);
-                  else if (hasCompletedAnamnesis && !isPremium)
+                  if (!isPremium) {
                     navigation.navigate("Paywall");
-                  else
-                    showCustomAlert(
-                      "Acesso Restrito",
-                      "Conclua a Avaliação e assine o Premium primeiro.",
-                      "lock",
-                      "#FF9600",
-                    );
+                  } else {
+                    setIsPitStopModalVisible(true);
+                  }
                 }}
               >
                 <FontAwesome5
-                  name={isTrailUnlocked ? "play" : "lock"}
-                  size={28}
-                  color="#FFF"
+                  name={isTrailUnlocked ? "play" : "flag-checkered"}
+                  size={isTrailUnlocked ? 28 : 32}
+                  color={hasCompletedAnamnesis ? "#FFF" : "#AFAFAF"}
                 />
               </TouchableOpacity>
-              <Text style={styles.mapLabelText}>Instruções</Text>
+
+              <TouchableOpacity
+                onPress={() => setIsPitStopModalVisible(true)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                disabled={!hasCompletedAnamnesis}
+                style={[
+                  { marginTop: 10, opacity: hasCompletedAnamnesis ? 1 : 0.4 },
+                  hasCompletedAnamnesis &&
+                    !isTrailUnlocked &&
+                    styles.activeCheckinBadge,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.mapLabelText,
+                    { marginTop: 0 },
+                    hasCompletedAnamnesis &&
+                      !isTrailUnlocked && { color: "#FFF", fontWeight: "bold" },
+                    isTrailUnlocked && { color: "#4BDE95", fontWeight: "900" },
+                  ]}
+                >
+                  <FontAwesome5
+                    name={isTrailUnlocked ? "check-circle" : "map-marker-alt"}
+                  />{" "}
+                  {isTrailUnlocked ? "Check-in Concluído" : "Check-in"}
+                </Text>
+              </TouchableOpacity>
             </View>
 
             {Array.from({ length: totalStepsInModule }).map((_, index) => {
@@ -985,10 +1394,11 @@ export default function HomeScreen({ navigation }: any) {
               const isWaitingForTomorrow = isNextUp && hasCompletedTaskToday;
               const isActive = isNextUp && !hasCompletedTaskToday;
 
-              const isStartOfWeek = index % 7 === 0;
+              const dayOfWeek = index % 7;
+              const isStartOfWeek = dayOfWeek === 0;
               const weekNumber = Math.floor(index / 7) + 1;
-              const isWeeklyReward = (index + 1) % 7 === 0;
-              const isDay5 = index % 7 === 4;
+              const isWeeklyReward = dayOfWeek === 6;
+              const isDay5 = dayOfWeek === 4;
 
               const tasksDoneThisWeek = Math.max(
                 0,
@@ -999,25 +1409,26 @@ export default function HomeScreen({ navigation }: any) {
 
               const translateX = Math.sin(index * 0.8) * 60;
 
-              let nodeSize = 70;
-              let iconSize = 24;
+              let nodeSize = 70 + dayOfWeek * 2;
+              let iconSize = 22 + dayOfWeek * 1.5;
+
               let faceColor = "#E5E5E5";
               let baseColor = "#CECECE";
-              let iconName = "lock";
+              let iconName = WEEKLY_PROGRESSION_ICONS[dayOfWeek];
               let iconColor = "#AFAFAF";
 
               if (isWeeklyReward) {
-                nodeSize = 90;
-                iconSize = 34;
+                nodeSize = 92;
+                iconSize = 36;
+                iconName = "gift";
                 if (isCompleted) {
                   faceColor = "#4BDE95";
                   baseColor = "#38C982";
-                  iconName = "check";
+                  iconName = "box-open";
                   iconColor = "#FFF";
                 } else if (isActive) {
                   faceColor = "#FFC800";
                   baseColor = "#E5B400";
-                  iconName = "gift";
                   iconColor = "#FFF";
                 } else if (isWaitingForTomorrow) {
                   faceColor = "#FFE899";
@@ -1025,21 +1436,18 @@ export default function HomeScreen({ navigation }: any) {
                   iconName = "clock";
                   iconColor = "#FFF";
                 } else {
-                  faceColor = "#E5E5E5";
-                  baseColor = "#CECECE";
-                  iconName = "gift";
-                  iconColor = "#AFAFAF";
+                  faceColor = "#FFF9E6";
+                  baseColor = "#FFE273";
+                  iconColor = "#FFC800";
                 }
               } else {
                 if (isCompleted) {
                   faceColor = "#4BDE95";
                   baseColor = "#38C982";
-                  iconName = "check";
                   iconColor = "#FFF";
                 } else if (isActive) {
                   faceColor = "#FF7EB3";
                   baseColor = "#E04A85";
-                  iconName = "play";
                   iconColor = "#FFF";
                 } else if (isWaitingForTomorrow) {
                   faceColor = "#F2D5FF";
@@ -1049,9 +1457,8 @@ export default function HomeScreen({ navigation }: any) {
                 }
               }
 
-              const ringPadding = 24;
+              const ringPadding = 26;
               const ringSize = nodeSize + ringPadding;
-              const absoluteOffset = -(ringPadding / 2);
 
               return (
                 <React.Fragment key={index}>
@@ -1069,7 +1476,9 @@ export default function HomeScreen({ navigation }: any) {
                           SEMANA {weekNumber}
                         </Text>
                         <Text style={[styles.weekThemeText, { minHeight: 24 }]}>
-                          {isTrailUnlocked ? getThemeForWeek(weekNumber) : "🔒"}
+                          {isTrailUnlocked
+                            ? getDisplayThemeForWeek(weekNumber)
+                            : "🔒"}
                         </Text>
                       </View>
                     </View>
@@ -1085,43 +1494,23 @@ export default function HomeScreen({ navigation }: any) {
                       },
                     ]}
                     onLayout={(event) => {
-                      if (isNextUp) {
-                        activeNodeY.current = event.nativeEvent.layout.y;
-                        if (
-                          !hasAutoScrolled.current &&
-                          scrollViewRef.current &&
-                          isTrailUnlocked
-                        ) {
-                          hasAutoScrolled.current = true;
-                          setTimeout(() => {
-                            const absoluteY =
-                              activeNodeY.current + nodesWrapperY.current;
-                            scrollViewRef.current?.scrollTo({
-                              y: Math.max(0, absoluteY - 250),
-                              animated: false,
-                            });
-                          }, 100);
-                        }
-                      }
+                      nodePositions[index] = event.nativeEvent.layout.y;
                     }}
                   >
                     {isNextUp && (
                       <Animated.View
-                        style={
-                          {
-                            position: "absolute",
-                            top: absoluteOffset,
-                            left: absoluteOffset,
-                            width: ringSize,
-                            height: ringSize,
-                            transform: [
-                              { translateY: -5 },
-                              { scale: pulseAnim },
-                            ],
-                            zIndex: 0,
-                            pointerEvents: "none",
-                          } as any
-                        }
+                        style={{
+                          position: "absolute",
+                          width: ringSize,
+                          height: ringSize,
+                          top: "50%",
+                          left: "50%",
+                          marginTop: -(ringSize / 2) - 5,
+                          marginLeft: -(ringSize / 2),
+                          transform: [{ scale: pulseAnim }],
+                          zIndex: 0,
+                          pointerEvents: "none",
+                        }}
                       >
                         <SegmentedRing
                           progress={currentTaskStep}
@@ -1218,8 +1607,6 @@ export default function HomeScreen({ navigation }: any) {
                                 "star",
                                 "#FF9600",
                               );
-                            } else if (hasCompletedAnamnesis && !isPremium) {
-                              navigation.navigate("Paywall");
                             } else {
                               showCustomAlert(
                                 "Aviso",
@@ -1327,20 +1714,6 @@ export default function HomeScreen({ navigation }: any) {
         </View>
       </ScrollView>
 
-      {arrowDirection && isTrailUnlocked && (
-        <TouchableOpacity
-          style={styles.scrollToActiveBtn}
-          activeOpacity={0.8}
-          onPress={scrollToActiveNode}
-        >
-          <FontAwesome5
-            name={`chevron-${arrowDirection}`}
-            size={24}
-            color="#FFF"
-          />
-        </TouchableOpacity>
-      )}
-
       <View style={styles.bottomMenu}>
         <TouchableOpacity style={styles.menuItem}>
           <FontAwesome5 name="home" size={26} color="#FF7EB3" />
@@ -1383,9 +1756,16 @@ export default function HomeScreen({ navigation }: any) {
                   styles.compactFlagBtn,
                   userLang === lang.code && styles.compactFlagBtnActive,
                 ]}
-                onPress={() => {
+                onPress={async () => {
                   setUserLang(lang.code);
                   setIsLangModalVisible(false);
+                  if (currentUid) {
+                    await setDoc(
+                      doc(db, "users", currentUid),
+                      { language: lang.code },
+                      { merge: true },
+                    );
+                  }
                 }}
               >
                 <Text style={styles.compactFlagText}>{lang.flag}</Text>
@@ -1448,7 +1828,7 @@ export default function HomeScreen({ navigation }: any) {
               {isMatching ? (
                 <ActivityIndicator size="small" color="#FFF" />
               ) : (
-                <Text style={styles.linkButtonText}>Conectar Contas</Text>
+                <Text style={styles.linkButtonText}>Avançar</Text>
               )}
             </TouchableOpacity>
             <TouchableOpacity
@@ -1461,7 +1841,372 @@ export default function HomeScreen({ navigation }: any) {
         </View>
       </Modal>
 
-      {/* 🔥 BOTTOM SHEET DE AUDITORIA CORRIGIDO E VISÍVEL */}
+      <Modal visible={isNotificationsVisible} transparent animationType="slide">
+        <View style={styles.bottomSheetOverlay}>
+          <View style={styles.bottomSheetContainer}>
+            <View style={styles.bottomSheetHandle} />
+
+            <View
+              style={[
+                styles.alertIconContainer,
+                { backgroundColor: "#FFF0F6" },
+              ]}
+            >
+              <FontAwesome5 name="bell" solid size={26} color="#FF7EB3" />
+            </View>
+
+            <Text style={styles.bottomSheetTitle}>Notificações</Text>
+
+            {unreadNudges > 0 ? (
+              <View style={styles.nudgeItem}>
+                <FontAwesome5
+                  name="hand-point-right"
+                  size={24}
+                  color="#FF7EB3"
+                />
+                <View style={{ marginLeft: 12, flex: 1 }}>
+                  <Text style={styles.nudgeTitle}>Ei, atenção aqui!</Text>
+                  <Text style={styles.nudgeText}>
+                    Seu parceiro(a) te mandou{" "}
+                    <Text style={{ fontWeight: "bold" }}>{unreadNudges}</Text>{" "}
+                    cutucada(s)! Parece que alguém está sentindo sua falta. 👀
+                  </Text>
+                </View>
+              </View>
+            ) : (
+              <Text style={styles.bottomSheetText}>
+                Nenhuma notificação nova no momento. Está tudo tranquilo por
+                aqui!
+              </Text>
+            )}
+
+            <View style={{ width: "100%", marginTop: 15, gap: 10 }}>
+              <TouchableOpacity
+                style={[
+                  styles.bottomSheetButtonPrimary,
+                  { backgroundColor: "#2C3E50" },
+                ]}
+                onPress={handleSendNudge}
+              >
+                <FontAwesome5
+                  name="hand-point-right"
+                  size={16}
+                  color="#FFF"
+                  style={{ marginRight: 8 }}
+                />
+                <Text style={styles.bottomSheetButtonPrimaryText}>
+                  Cutucar Parceiro(a)
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.bottomSheetButtonSecondary}
+                onPress={handleCloseNudges}
+              >
+                <Text style={styles.bottomSheetButtonSecondaryText}>
+                  Fechar
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={isPitStopModalVisible} transparent animationType="slide">
+        <View style={styles.bottomSheetOverlay}>
+          <View style={styles.bottomSheetContainerLg}>
+            <View style={styles.bottomSheetHandle} />
+            <TouchableOpacity
+              style={{ position: "absolute", top: 20, right: 20, padding: 10 }}
+              onPress={() => setIsPitStopModalVisible(false)}
+            >
+              <FontAwesome5 name="times" size={20} color="#AFAFAF" />
+            </TouchableOpacity>
+
+            {hasPartner ? (
+              <View
+                style={{
+                  width: "100%",
+                  alignItems: "center",
+                  paddingHorizontal: 10,
+                }}
+              >
+                <Text style={styles.workflowMainTitle}>
+                  Check-in do Casal 🚦
+                </Text>
+                <Text style={styles.workflowSubTitle}>
+                  Sua conta já está conectada! Verifique o status abaixo para
+                  liberar a Jornada.
+                </Text>
+
+                <View style={styles.statusBoxLg}>
+                  <View style={styles.statusRow}>
+                    <Text style={styles.statusLabel}>
+                      Avaliação de {myName}:
+                    </Text>
+                    <Text style={styles.statusValue}>
+                      {hasCompletedAnamnesis ? "✅ Feita" : "⏳ Pendente"}
+                    </Text>
+                  </View>
+                  <View style={styles.statusRow}>
+                    <Text style={styles.statusLabel}>
+                      Avaliação de {pName}:
+                    </Text>
+                    <Text style={styles.statusValue}>
+                      {partnerCompletedAnamnesis ? "✅ Feita" : "⏳ Pendente"}
+                    </Text>
+                  </View>
+                  <View style={styles.statusRow}>
+                    <Text style={styles.statusLabel}>
+                      Sinal Verde de {myName}:
+                    </Text>
+                    <Text style={styles.statusValue}>
+                      {iAmReady ? "✅ Dado" : "⏳ Pendente"}
+                    </Text>
+                  </View>
+                  <View style={styles.statusRow}>
+                    <Text style={styles.statusLabel}>
+                      Sinal Verde de {pName}:
+                    </Text>
+                    <Text style={styles.statusValue}>
+                      {partnerIsReady ? "✅ Dado" : "⏳ Pendente"}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            ) : (
+              <>
+                <Text style={styles.workflowMainTitle}>
+                  Jornada Liberada! 🚀
+                </Text>
+                <Text style={styles.workflowSubTitle}>
+                  Você pode fazer as atividades no{" "}
+                  <Text style={{ fontWeight: "bold", color: "#FF7EB3" }}>
+                    Modo Solo
+                  </Text>
+                  , mas a transformação real acontece quando os dois participam.
+                </Text>
+
+                <View
+                  style={{
+                    width: "100%",
+                    position: "relative",
+                    marginTop: 10,
+                    paddingLeft: 10,
+                  }}
+                >
+                  <View style={styles.workflowLineVertical} />
+
+                  <View style={styles.workflowStepModal}>
+                    <View
+                      style={[
+                        styles.stepIconContainerModal,
+                        isInviteStepCompleted
+                          ? styles.stepIconSuccess
+                          : styles.stepIconActive,
+                      ]}
+                    >
+                      <FontAwesome5
+                        name={isInviteStepCompleted ? "check" : "user-plus"}
+                        size={16}
+                        color="#FFF"
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={[
+                          styles.stepTitle,
+                          isInviteStepCompleted
+                            ? styles.stepTextSuccess
+                            : styles.stepTextActive,
+                        ]}
+                      >
+                        {isInviteStepCompleted
+                          ? "1. Convite Enviado!"
+                          : "1. Enviar convite ao parceiro"}
+                      </Text>
+
+                      <View style={{ marginTop: 15, paddingRight: 10 }}>
+                        {inviteSent && (
+                          <Text
+                            style={{
+                              fontSize: 13,
+                              color: "#4BDE95",
+                              fontWeight: "bold",
+                              marginBottom: 12,
+                            }}
+                          >
+                            ✅ Convite enviado! Mantenha esta tela e aguarde o
+                            seu parceiro(a) baixar o app e inserir o código.
+                          </Text>
+                        )}
+
+                        <TouchableOpacity
+                          style={styles.codeContainerMini}
+                          onPress={handleCopyCode}
+                        >
+                          <Text style={styles.codeValueMini}>
+                            {myInviteCode}
+                          </Text>
+                          <FontAwesome5 name="copy" size={16} color="#AFAFAF" />
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={styles.whatsappButtonMini}
+                          onPress={handleSendInvite}
+                        >
+                          <FontAwesome5
+                            name="whatsapp"
+                            size={18}
+                            color="#FFF"
+                          />
+                          <Text style={styles.whatsappButtonTextMini}>
+                            Convidar pelo WhatsApp
+                          </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          onPress={() => setIsInviteModalVisible(true)}
+                        >
+                          <Text style={styles.haveCodeLinkTextMini}>
+                            Fui convidado(a) e já tenho um código
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </View>
+
+                  <View
+                    style={[styles.workflowStepModal, { marginBottom: 10 }]}
+                  >
+                    <Animated.View
+                      style={[
+                        styles.stepIconContainerModal,
+                        styles.stepIconInactive,
+                        {
+                          transform: !partnerIsReady
+                            ? [{ scale: pulseAnim }]
+                            : [{ scale: 1 }],
+                        },
+                      ]}
+                    >
+                      <FontAwesome5
+                        name="hourglass-half"
+                        size={16}
+                        color="#AFAFAF"
+                      />
+                    </Animated.View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.stepTitle, styles.stepTextInactive]}>
+                        2. Aguardando parceiro(a)...
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              </>
+            )}
+
+            <View style={{ width: "100%", marginTop: 25, gap: 12 }}>
+              {isTrailUnlocked ? (
+                <TouchableOpacity
+                  style={[
+                    styles.bottomSheetButtonPrimary,
+                    { backgroundColor: "#4BDE95" },
+                  ]}
+                  onPress={() => {
+                    setIsPitStopModalVisible(false);
+                  }}
+                >
+                  <FontAwesome5
+                    name="play"
+                    size={16}
+                    color="#FFF"
+                    style={{ marginRight: 8 }}
+                  />
+                  <Text style={styles.bottomSheetButtonPrimaryText}>
+                    CONTINUAR JORNADA
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={[
+                    styles.bottomSheetButtonPrimary,
+                    {
+                      backgroundColor: "#4BDE95",
+                      opacity: iAmReady || !hasPartner ? 0.6 : 1,
+                    },
+                  ]}
+                  disabled={
+                    iAmReady && (!partnerIsReady || !partnerCompletedAnamnesis)
+                  }
+                  onPress={() => {
+                    if (!hasPartner) {
+                      showCustomAlert(
+                        "Aguardando Match",
+                        "Para iniciar a jornada em casal, você precisa primeiro conectar as contas no Passo 1.",
+                        "user-clock",
+                        "#FF9600",
+                      );
+                    } else {
+                      handleStartHandshake();
+                    }
+                  }}
+                >
+                  <FontAwesome5
+                    name={iAmReady ? "check-circle" : "car"}
+                    size={16}
+                    color="#FFF"
+                    style={{ marginRight: 8 }}
+                  />
+                  <Text style={styles.bottomSheetButtonPrimaryText}>
+                    {iAmReady
+                      ? "SINAL VERDE DADO ✅"
+                      : "INICIAR EM CASAL (DAR SINAL VERDE)"}
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              {!isTrailUnlocked && !hasPartner && (
+                <TouchableOpacity
+                  style={styles.bottomSheetButtonSecondary}
+                  onPress={confirmStartSolo}
+                >
+                  <FontAwesome5
+                    name="user"
+                    size={14}
+                    color="#AFAFAF"
+                    style={{ marginRight: 6 }}
+                  />
+                  <Text
+                    style={[
+                      styles.bottomSheetButtonSecondaryText,
+                      { fontSize: 14 },
+                    ]}
+                  >
+                    Seguir Carreira Solo (Sem parceiro por enquanto)
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={isGeneratingJourney} transparent animationType="fade">
+        <View style={styles.modalOverlayCenter}>
+          <View style={styles.loadingCard}>
+            <ActivityIndicator
+              size="large"
+              color="#4BDE95"
+              style={{ transform: [{ scale: 1.5 }], marginBottom: 15 }}
+            />
+            <Text style={styles.codeModalTitle}>Gerando sua Jornada...</Text>
+            <Text style={styles.codeModalSub}>
+              Estamos cruzando os dados da avaliação. Prepare-se para a largada!
+            </Text>
+          </View>
+        </View>
+      </Modal>
+
       <Modal
         visible={isHardResetModalVisible}
         transparent
@@ -1489,7 +2234,6 @@ export default function HomeScreen({ navigation }: any) {
               parceiro e resetará a trilha para o Dia 0.
             </Text>
 
-            {/* 🔥 BOTÃO DE ZERAR AGORA É VERMELHO VIBRANTE E 100% VISÍVEL */}
             <TouchableOpacity
               style={[
                 styles.bottomSheetButtonPrimary,
@@ -1508,6 +2252,7 @@ export default function HomeScreen({ navigation }: any) {
                             partnerId: null,
                             partnerPhotoURL: null,
                             partnerPhotoUrl: null,
+                            isReadyToStart: false,
                           },
                           { merge: true },
                         );
@@ -1526,11 +2271,13 @@ export default function HomeScreen({ navigation }: any) {
                         currentTaskStep: 0,
                         totalPE: 0,
                         streak: 0,
+                        cutucadas: 0,
                         partnerId: null,
                         linkedInviteCode: null,
                         partnerPhotoURL: null,
                         partnerPhotoUrl: null,
                         lastTaskDate: null,
+                        isReadyToStart: false,
                       },
                       { merge: true },
                     );
@@ -1573,7 +2320,233 @@ export default function HomeScreen({ navigation }: any) {
         </View>
       </Modal>
 
-      {/* 🔥 MODAL DE ALERTA PERSONALIZADO (Substitui alerts do navegador) */}
+      <Modal
+        visible={isMatchConfirmationVisible}
+        transparent
+        animationType="fade"
+      >
+        <View style={styles.modalOverlayCenter}>
+          <View style={styles.codeModalCard}>
+            <Text style={styles.codeModalTitle}>É esta pessoa?</Text>
+            <Text style={styles.codeModalSub}>
+              Verifique se a conta abaixo pertence ao seu amor.
+            </Text>
+
+            <View style={{ alignItems: "center", marginBottom: 25 }}>
+              {pendingMatchPartner?.data?.photoURL ||
+              pendingMatchPartner?.data?.photoUrl ? (
+                <Image
+                  source={{
+                    uri:
+                      pendingMatchPartner?.data?.photoURL ||
+                      pendingMatchPartner?.data?.photoUrl,
+                  }}
+                  style={{
+                    width: 80,
+                    height: 80,
+                    borderRadius: 40,
+                    marginBottom: 15,
+                    borderWidth: 3,
+                    borderColor: "#CE82FF",
+                  }}
+                />
+              ) : (
+                <View
+                  style={{
+                    width: 80,
+                    height: 80,
+                    borderRadius: 40,
+                    backgroundColor: "#F0F0F0",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    marginBottom: 15,
+                  }}
+                >
+                  <FontAwesome5 name="user-alt" size={30} color="#AFAFAF" />
+                </View>
+              )}
+              <Text style={{ fontSize: 20, fontWeight: "900", color: "#333" }}>
+                {pendingMatchPartner?.data?.displayName ||
+                  pendingMatchPartner?.data?.email?.split("@")[0] ||
+                  "Usuário Misterioso"}
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.linkButton, { backgroundColor: "#4BDE95" }]}
+              onPress={confirmMatchCode}
+            >
+              <Text style={styles.linkButtonText}>Sim, Conectar!</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.cancelLinkButton}
+              onPress={() => {
+                setIsMatchConfirmationVisible(false);
+                setPendingMatchPartner(null);
+                setInviteCodeInput("");
+              }}
+            >
+              <Text style={styles.cancelLinkButtonText}>
+                Não, errei o código
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={isMatchAnimationVisible} transparent animationType="fade">
+        <View
+          style={[
+            styles.modalOverlayCenter,
+            { backgroundColor: "rgba(255,126,179,0.95)" },
+          ]}
+        >
+          <Text
+            style={{
+              color: "#FFF",
+              fontSize: 24,
+              fontWeight: "900",
+              marginBottom: 50,
+              letterSpacing: 1,
+            }}
+          >
+            Conectando Almas...
+          </Text>
+
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "100%",
+            }}
+          >
+            <Animated.View
+              style={{
+                transform: [
+                  {
+                    translateX: matchAnimTranslateX.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0, 45],
+                    }),
+                  },
+                ],
+                zIndex: 5,
+              }}
+            >
+              {userPhoto ? (
+                <Image
+                  source={{ uri: userPhoto }}
+                  style={{
+                    width: 90,
+                    height: 90,
+                    borderRadius: 45,
+                    borderWidth: 4,
+                    borderColor: "#FFF",
+                  }}
+                />
+              ) : (
+                <View
+                  style={{
+                    width: 90,
+                    height: 90,
+                    borderRadius: 45,
+                    backgroundColor: "#FFF",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    borderWidth: 4,
+                    borderColor: "#FFF",
+                  }}
+                >
+                  <FontAwesome5 name="user-alt" size={35} color="#FF7EB3" />
+                </View>
+              )}
+            </Animated.View>
+
+            <Animated.View
+              style={{
+                transform: [{ scale: matchHeartScale }],
+                zIndex: 10,
+                marginHorizontal: -15,
+              }}
+            >
+              <View
+                style={{
+                  backgroundColor: "#FFF",
+                  padding: 15,
+                  borderRadius: 30,
+                  shadowColor: "#000",
+                  shadowOpacity: 0.2,
+                  shadowRadius: 10,
+                  elevation: 10,
+                }}
+              >
+                <FontAwesome5 name="heart" solid size={35} color="#FF7EB3" />
+              </View>
+            </Animated.View>
+
+            <Animated.View
+              style={{
+                transform: [
+                  {
+                    translateX: matchAnimTranslateX.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0, -45],
+                    }),
+                  },
+                ],
+                zIndex: 5,
+              }}
+            >
+              {pendingMatchPartner?.data?.photoURL ||
+              pendingMatchPartner?.data?.photoUrl ? (
+                <Image
+                  source={{
+                    uri:
+                      pendingMatchPartner?.data?.photoURL ||
+                      pendingMatchPartner?.data?.photoUrl,
+                  }}
+                  style={{
+                    width: 90,
+                    height: 90,
+                    borderRadius: 45,
+                    borderWidth: 4,
+                    borderColor: "#FFF",
+                  }}
+                />
+              ) : (
+                <View
+                  style={{
+                    width: 90,
+                    height: 90,
+                    borderRadius: 45,
+                    backgroundColor: "#FFF",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    borderWidth: 4,
+                    borderColor: "#FFF",
+                  }}
+                >
+                  <FontAwesome5 name="user-alt" size={35} color="#FF7EB3" />
+                </View>
+              )}
+            </Animated.View>
+          </View>
+
+          <Text
+            style={{
+              color: "#FFF",
+              fontSize: 16,
+              fontWeight: "bold",
+              marginTop: 50,
+              opacity: 0.8,
+            }}
+          >
+            A mágica está acontecendo no banco de dados...
+          </Text>
+        </View>
+      </Modal>
+
       <Modal visible={customAlert.visible} transparent animationType="slide">
         <View style={styles.bottomSheetOverlay}>
           <View style={styles.bottomSheetContainer}>
@@ -1674,6 +2647,48 @@ const styles = StyleSheet.create({
   avatarImage: { width: "100%", height: "100%" },
   topBarRight: { flexDirection: "row", alignItems: "center", gap: 12 },
   topBarItem: { flexDirection: "row", alignItems: "center", gap: 6 },
+
+  notificationBadge: {
+    position: "absolute",
+    top: -6,
+    right: -8,
+    backgroundColor: "#FF4B4B",
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1.5,
+    borderColor: "#FFF",
+  },
+  notificationBadgeText: {
+    color: "#FFF",
+    fontSize: 9,
+    fontWeight: "bold",
+  },
+  nudgeItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFF0F6",
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#FF7EB3",
+    width: "100%",
+    marginBottom: 10,
+  },
+  nudgeTitle: {
+    fontSize: 15,
+    fontWeight: "bold",
+    color: "#2C3E50",
+    marginBottom: 2,
+  },
+  nudgeText: {
+    fontSize: 13,
+    color: "#7F8C8D",
+    lineHeight: 18,
+  },
+
   flagEmoji: { fontSize: 26 },
   topBarText: { fontSize: 17, fontWeight: "900" },
   fixedHeaderBannerContainer: {
@@ -1733,6 +2748,77 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 140,
   },
+
+  intelligentCard: {
+    width: "85%",
+    backgroundColor: "#FFF9E6",
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 2,
+    borderColor: "#FFC800",
+    marginBottom: 10,
+    shadowColor: "#FFC800",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  intelligentCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  intelligentCardIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#FFC800",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 10,
+  },
+  intelligentCardTitle: {
+    fontSize: 18,
+    fontWeight: "900",
+    color: "#B36900",
+  },
+  intelligentCardSub: {
+    fontSize: 13,
+    color: "#B36900",
+    marginBottom: 15,
+    lineHeight: 18,
+  },
+  intelligentCardInputRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  intelligentCardInput: {
+    flex: 1,
+    backgroundColor: "#FFF",
+    borderRadius: 10,
+    paddingHorizontal: 15,
+    fontSize: 15,
+    fontWeight: "bold",
+    color: "#333",
+    borderWidth: 1,
+    borderColor: "#FFE273",
+    textAlign: "center",
+    letterSpacing: 2,
+  },
+  intelligentCardBtn: {
+    backgroundColor: "#FF9600",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  intelligentCardBtnText: {
+    color: "#FFF",
+    fontWeight: "900",
+    fontSize: 14,
+  },
+
   anamnesisNodeContainer: {
     alignItems: "center",
     marginVertical: 35,
@@ -1794,124 +2880,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#AFAFAF",
   },
-  haveCodeLink: {
-    marginTop: 20,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    backgroundColor: "#FFF0E5",
-    borderRadius: 20,
-  },
-  haveCodeLinkText: { color: "#FF9600", fontWeight: "bold", fontSize: 14 },
-  workflowCard: {
-    width: "85%",
-    backgroundColor: "#FFF",
-    borderRadius: 24,
-    padding: 25,
-    marginTop: 10,
-    marginBottom: 40,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 4,
-    borderWidth: 1,
-    borderColor: "#F0F0F0",
-  },
-  workflowMainTitle: {
-    fontSize: 22,
-    fontWeight: "900",
-    color: "#2C3E50",
-    textAlign: "center",
-    marginBottom: 8,
-  },
-  workflowSubTitle: {
-    fontSize: 14,
-    color: "#7F8C8D",
-    textAlign: "center",
-    marginBottom: 25,
-    lineHeight: 20,
-  },
-  workflowLine: {
-    position: "absolute",
-    left: 45,
-    top: 115,
-    bottom: 180,
-    width: 2,
-    backgroundColor: "#E5E5E5",
-    zIndex: 0,
-  },
-  workflowStep: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 25,
-    zIndex: 1,
-  },
-  stepIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#FFF",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  stepIconActive: { backgroundColor: "#2C3E50" },
-  stepIconWaiting: {
-    backgroundColor: "#FFF9E6",
-    borderWidth: 2,
-    borderColor: "#FFC800",
-  },
-  stepIconSuccess: { backgroundColor: "#4BDE95" },
-  stepIconInactive: {
-    backgroundColor: "#F5F5F5",
-    borderWidth: 1,
-    borderColor: "#E5E5E5",
-    elevation: 0,
-  },
-  stepTitle: { fontSize: 14, fontWeight: "600", color: "#333", marginLeft: 16 },
-  stepTextSuccess: { color: "#4BDE95" },
-  stepTextWaiting: { color: "#FF9600" },
-  stepTextInactive: { color: "#AFAFAF" },
-  codeContainer: {
-    backgroundColor: "#F8F9FA",
-    padding: 15,
-    borderRadius: 12,
-    alignItems: "center",
-    marginBottom: 15,
-    borderWidth: 1,
-    borderColor: "#E5E5E5",
-  },
-  codeLabel: {
-    fontSize: 11,
-    color: "#AFAFAF",
-    textTransform: "uppercase",
-    fontWeight: "bold",
-    marginBottom: 4,
-  },
-  codeValue: {
-    fontSize: 22,
-    fontWeight: "900",
-    color: "#333",
-    letterSpacing: 2,
-  },
-  whatsappButton: {
-    flexDirection: "row",
-    backgroundColor: "#25D366",
-    borderRadius: 14,
-    paddingVertical: 14,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  whatsappButtonText: {
-    color: "#FFF",
-    fontSize: 16,
-    fontWeight: "bold",
-    marginLeft: 10,
-  },
+
   nodesWrapper: { width: "100%", alignItems: "center" },
   lockedTrailOverlay: { opacity: 0.35 },
   specialNodeContainer: { alignItems: "center", marginBottom: 35 },
@@ -1930,6 +2899,19 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: "#EAD1FF",
   },
+
+  activeCheckinBadge: {
+    backgroundColor: "#FF9600",
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    shadowColor: "#FF9600",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+
   mapLabelText: {
     marginTop: 10,
     fontWeight: "bold",
@@ -1937,6 +2919,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textTransform: "uppercase",
     textAlign: "center",
+    padding: 5,
   },
 
   weeklyChallengeWrapper: {
@@ -2075,25 +3058,6 @@ const styles = StyleSheet.create({
     left: 0,
     zIndex: 1,
   },
-  scrollToActiveBtn: {
-    position: "absolute",
-    right: 25,
-    bottom: 95,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "#FF7EB3",
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 5,
-    elevation: 6,
-    zIndex: 100,
-    borderWidth: 2,
-    borderColor: "#FFF",
-  },
   bottomMenu: {
     position: "absolute",
     bottom: 0,
@@ -2112,7 +3076,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.3)",
     justifyContent: "flex-start",
-    alignItems: "flex-start",
+    alignItems: "flex-end",
   },
   compactLangModal: {
     flexDirection: "row",
@@ -2122,7 +3086,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 12,
     marginTop: 60,
-    marginLeft: 20,
+    marginRight: 20,
     width: 220,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
@@ -2182,7 +3146,7 @@ const styles = StyleSheet.create({
   fullscreenVideo: { width: "100%", height: "100%" },
   modalOverlayCenter: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: "rgba(0,0,0,0.6)",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -2233,7 +3197,6 @@ const styles = StyleSheet.create({
   },
   cancelLinkButtonText: { color: "#AFAFAF", fontSize: 14, fontWeight: "bold" },
 
-  // 🔥 BOTTOM SHEET E ALERTA SLIDING MENU
   bottomSheetOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",
@@ -2252,6 +3215,16 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 10,
     width: "100%",
+  },
+  bottomSheetContainerLg: {
+    backgroundColor: "#FFF",
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    padding: 24,
+    paddingBottom: 40,
+    alignItems: "center",
+    width: "100%",
+    minHeight: 450,
   },
   bottomSheetHandle: {
     width: 50,
@@ -2283,6 +3256,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   bottomSheetButtonPrimary: {
+    flexDirection: "row",
     width: "100%",
     paddingVertical: 16,
     borderRadius: 16,
@@ -2295,13 +3269,164 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   bottomSheetButtonSecondary: {
+    flexDirection: "row",
     width: "100%",
     paddingVertical: 16,
     alignItems: "center",
+    justifyContent: "center",
   },
   bottomSheetButtonSecondaryText: {
     color: "#AFAFAF",
     fontSize: 16,
     fontWeight: "bold",
+  },
+
+  workflowMainTitle: {
+    fontSize: 24,
+    fontWeight: "900",
+    color: "#2C3E50",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  workflowSubTitle: {
+    fontSize: 14,
+    color: "#7F8C8D",
+    textAlign: "center",
+    marginBottom: 25,
+    lineHeight: 20,
+  },
+  workflowLineVertical: {
+    position: "absolute",
+    left: 28,
+    top: 35,
+    bottom: 45,
+    width: 2,
+    backgroundColor: "#E5E5E5",
+    zIndex: 0,
+  },
+  workflowStepModal: {
+    flexDirection: "row",
+    marginBottom: 25,
+    zIndex: 1,
+  },
+  stepIconContainerModal: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#FFF",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    marginRight: 15,
+  },
+  stepIconActive: { backgroundColor: "#CE82FF" },
+  stepIconSuccess: { backgroundColor: "#4BDE95" },
+  stepIconInactive: {
+    backgroundColor: "#F5F5F5",
+    borderWidth: 1,
+    borderColor: "#E5E5E5",
+    elevation: 0,
+  },
+  stepTitle: { fontSize: 15, fontWeight: "bold", color: "#333", marginTop: 8 },
+  stepTextSuccess: { color: "#4BDE95" },
+  stepTextActive: { color: "#2C3E50" },
+  stepTextInactive: { color: "#AFAFAF" },
+  stepDoneText: { fontSize: 13, color: "#7F8C8D", marginTop: 4 },
+
+  statusBoxLg: {
+    backgroundColor: "#F8F9FA",
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E5E5E5",
+    width: "100%",
+    marginTop: 15,
+    gap: 10,
+  },
+  statusRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  statusLabel: {
+    fontSize: 14,
+    color: "#7F8C8D",
+    fontWeight: "bold",
+  },
+  statusValue: {
+    fontSize: 14,
+    fontWeight: "900",
+    color: "#2C3E50",
+  },
+
+  statusBox: {
+    backgroundColor: "#F8F9FA",
+    padding: 12,
+    borderRadius: 10,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: "#E5E5E5",
+  },
+  statusBoxText: {
+    fontSize: 13,
+    fontWeight: "bold",
+    color: "#2C3E50",
+    marginVertical: 3,
+  },
+  codeContainerMini: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#F5F5F5",
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#E5E5E5",
+    marginBottom: 10,
+  },
+  codeValueMini: {
+    fontSize: 16,
+    fontWeight: "900",
+    color: "#333",
+    letterSpacing: 2,
+  },
+  whatsappButtonMini: {
+    flexDirection: "row",
+    backgroundColor: "#25D366",
+    borderRadius: 8,
+    paddingVertical: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 15,
+  },
+  whatsappButtonTextMini: {
+    color: "#FFF",
+    fontSize: 14,
+    fontWeight: "bold",
+    marginLeft: 8,
+  },
+  haveCodeLinkTextMini: {
+    color: "#FF7EB3",
+    fontWeight: "bold",
+    fontSize: 13,
+    textAlign: "center",
+    textDecorationLine: "underline",
+  },
+
+  loadingCard: {
+    width: "85%",
+    backgroundColor: "#FFF",
+    borderRadius: 20,
+    padding: 30,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 10,
   },
 });

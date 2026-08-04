@@ -2,10 +2,12 @@ import { FontAwesome5 } from "@expo/vector-icons";
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  signOut,
 } from "firebase/auth";
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
   query,
   setDoc,
@@ -14,12 +16,12 @@ import {
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Animated,
   Dimensions,
   Easing,
   Image,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   SafeAreaView,
   ScrollView,
@@ -29,7 +31,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { auth, db } from "../config/firebase";
+import { auth, authControls, db } from "../config/firebase";
 
 const { width } = Dimensions.get("window");
 
@@ -40,10 +42,34 @@ export default function LoginScreen({ navigation }: any) {
   const [inviteCode, setInviteCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  const [currentUserData, setCurrentUserData] = useState<any>(null);
+
+  // 🔥 ESTADOS PARA A ANIMAÇÃO E CONFIRMAÇÃO DO MATCH
+  const [pendingMatchPartner, setPendingMatchPartner] = useState<any>(null);
+  const [isMatchConfirmationVisible, setIsMatchConfirmationVisible] =
+    useState(false);
+  const [isMatchAnimationVisible, setIsMatchAnimationVisible] = useState(false);
+
+  const matchAnimTranslateX = useRef(new Animated.Value(0)).current;
+  const matchHeartScale = useRef(new Animated.Value(0)).current;
+
+  const [customAlert, setCustomAlert] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    icon: "info-circle",
+    color: "#CE82FF",
+    showButton: false,
+    onConfirm: null as (() => void) | null,
+  });
+
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   const floatAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  const btnColor = isLogin ? "#4BDE95" : "#FF7EB3";
+  const btnIcon = isLogin ? "sign-in-alt" : "arrow-right";
 
   useEffect(() => {
     Animated.parallel([
@@ -96,76 +122,128 @@ export default function LoginScreen({ navigation }: any) {
     ).start();
   }, []);
 
-  const showAlert = (title: string, message: string) => {
-    if (Platform.OS === "web") {
-      window.alert(`${title}\n\n${message}`);
-    } else {
-      Alert.alert(title, message);
+  const showCustomAlert = (
+    title: string,
+    message: string,
+    icon = "info-circle",
+    color = "#CE82FF",
+    showButton = false,
+    onConfirm: (() => void) | null = null,
+  ) => {
+    setCustomAlert({
+      visible: true,
+      title,
+      message,
+      icon,
+      color,
+      showButton,
+      onConfirm,
+    });
+
+    if (!showButton) {
+      setTimeout(() => {
+        setCustomAlert((prev) => ({ ...prev, visible: false }));
+        if (onConfirm) onConfirm();
+      }, 2500);
     }
   };
 
-  // 🔥 MOTOR UNIFICADO (CRIAÇÃO E LOGIN SIMULTÂNEOS)
+  // 🔥 FUNÇÃO DE FINALIZAÇÃO PÓS-AUTH (Login ou Cadastro)
+  const finalizeAuth = async (wasCreated: boolean) => {
+    if (wasCreated) {
+      await signOut(auth);
+      setIsLoading(false);
+      showCustomAlert(
+        "Conta Criada! 🎉",
+        "Sucesso! Agora faça o login com sua nova conta para acessar a jornada.",
+        "check-circle",
+        "#4BDE95",
+        false,
+        () => setIsLogin(true),
+      );
+    } else {
+      setIsLoading(false);
+    }
+  };
+
+  // 🔥 LÓGICA PRINCIPAL DE AUTENTICAÇÃO E BUSCA DE MATCH
   const handleAuth = async () => {
     const cleanEmail = email.trim();
     const cleanCode = inviteCode.trim().toUpperCase();
 
     if (!cleanEmail || !password) {
-      showAlert("Atenção", "Preencha e-mail e senha para continuar.");
+      showCustomAlert(
+        "Atenção",
+        "Preencha e-mail e senha para continuar.",
+        "exclamation-triangle",
+        "#FF9600",
+        false,
+      );
       return;
     }
 
     if (password.length < 6) {
-      showAlert("Senha Curta", "Sua senha deve ter pelo menos 6 caracteres.");
+      showCustomAlert(
+        "Senha Curta",
+        "Sua senha deve ter pelo menos 6 caracteres.",
+        "lock",
+        "#FF9600",
+        false,
+      );
       return;
     }
 
     setIsLoading(true);
 
     try {
-      let user;
+      let uid = "";
+      let isNewUser = false;
 
-      // 1. AUTENTICAÇÃO (Isso nos dá permissão máxima no banco de dados)
+      // 1. FAZ A AUTENTICAÇÃO OU CADASTRO
       if (isLogin) {
         const userCred = await signInWithEmailAndPassword(
           auth,
           cleanEmail,
           password,
         );
-        user = userCred.user;
+        uid = userCred.user.uid;
       } else {
+        if (authControls) authControls.isCreatingAccount = true;
         const userCred = await createUserWithEmailAndPassword(
           auth,
           cleanEmail,
           password,
         );
-        user = userCred.user;
+        uid = userCred.user.uid;
+        isNewUser = true;
+
+        const myGeneratedCode = uid.substring(0, 6).toUpperCase();
+        const userDataToSave: any = {
+          email: cleanEmail,
+          myInviteCode: myGeneratedCode,
+          createdAt: new Date().toISOString(),
+          isPremium: false,
+          hasCompletedAnamnesis: false,
+          totalPE: 0,
+          streak: 0,
+          currentPhase: 1,
+          currentTaskStep: 0,
+          partnerId: null,
+        };
+
+        await setDoc(doc(db, "users", uid), userDataToSave, { merge: true });
+        if (authControls) authControls.isCreatingAccount = false;
       }
 
-      const uid = user.uid;
-      const myGeneratedCode = uid.substring(0, 6).toUpperCase();
+      // 2. BUSCA OS DADOS ATUAIS (Para usar na Animação)
+      const myDoc = await getDoc(doc(db, "users", uid));
+      const myData = myDoc.exists()
+        ? myDoc.data()
+        : { email: cleanEmail, isPremium: false };
+      setCurrentUserData(myData);
 
-      // 2. SALVA/ATUALIZA OS DADOS BÁSICOS DO USUÁRIO
-      const userDataToSave: any = {
-        email: cleanEmail,
-        myInviteCode: myGeneratedCode,
-      };
-
-      if (!isLogin) {
-        userDataToSave.createdAt = new Date().toISOString();
-        userDataToSave.isPremium = false;
-        userDataToSave.hasCompletedAnamnesis = false;
-        userDataToSave.totalPE = 0;
-        userDataToSave.streak = 0;
-        userDataToSave.currentPhase = 1;
-        userDataToSave.currentTaskStep = 0;
-        userDataToSave.partnerId = null;
-      }
-
-      await setDoc(doc(db, "users", uid), userDataToSave, { merge: true });
-
-      // 3. PROCESSA O MATCH SE UM CÓDIGO FOI INSERIDO
+      // 3. SE O USUÁRIO DIGITOU UM CÓDIGO, TENTA FAZER O MATCH ANTES DE FINALIZAR
       if (cleanCode.length > 0) {
-        // Agora que estamos logados, o Firebase vai permitir a busca com sucesso!
         const q = query(
           collection(db, "users"),
           where("myInviteCode", "==", cleanCode),
@@ -177,68 +255,124 @@ export default function LoginScreen({ navigation }: any) {
           const partnerData = snap.docs[0].data();
 
           if (partnerId !== uid) {
-            const isPartnerPremium = partnerData.isPremium || false;
-
-            // Amarra você ao parceiro
-            await setDoc(
-              doc(db, "users", uid),
-              {
-                partnerId: partnerId,
-                isPremium: isPartnerPremium, // Herda o Premium se for o caso
-              },
-              { merge: true },
-            );
-
-            // Amarra o parceiro a você (Reciprocidade)
-            await setDoc(
-              doc(db, "users", partnerId),
-              {
-                partnerId: uid,
-              },
-              { merge: true },
-            );
-
-            showAlert(
-              "Match Concluído! ❤️",
-              `Você e ${partnerData.email} estão conectados.`,
-            );
+            // Encontrou o parceiro! Pausa tudo e mostra a Confirmação
+            setPendingMatchPartner({
+              id: partnerId,
+              data: partnerData,
+              isNewUser,
+              uid,
+            });
+            setIsLoading(false);
+            setIsMatchConfirmationVisible(true);
+            return;
           }
         } else {
-          // Se não achou (porque a conta é antiga ou o código tá errado)
-          showAlert(
-            "Aviso de Match",
-            "Sua conta foi acessada com sucesso, mas o Código de Match não foi encontrado. Verifique se o parceiro já criou a conta.",
+          showCustomAlert(
+            "Match Não Encontrado",
+            "O código inserido não existe. Prosseguindo...",
+            "search-minus",
+            "#FF9600",
+            false,
           );
         }
-      } else if (!isLogin) {
-        // Se criou conta sem código
-        showAlert("Conta Criada! 🎉", "Seu perfil foi criado com sucesso.");
       }
 
-      // Tudo concluído! Não precisamos deslogar. O AppNavigator vai detectar
-      // o login ativo e jogar a pessoa para a HomeScreen automaticamente e conectada!
+      // 4. SE NÃO TEM CÓDIGO OU DEU ERRO NO CÓDIGO, SEGUE A VIDA NORMAL
+      finalizeAuth(isNewUser);
     } catch (error: any) {
+      if (authControls) authControls.isCreatingAccount = false;
       setIsLoading(false);
-      console.log("Erro no Auth:", error.code);
-      let msg = "Ocorreu um erro inesperado.";
 
-      if (error.code === "auth/email-already-in-use")
-        msg = "Este e-mail já está cadastrado. Vá em 'Entrar' para acessar.";
-      if (error.code === "auth/invalid-credential")
-        msg = "E-mail ou senha incorretos.";
-      if (error.code === "auth/too-many-requests")
-        msg = "Muitas tentativas. Aguarde um momento.";
+      if (error.code === "auth/email-already-in-use") {
+        showCustomAlert(
+          "Bem-vindo de volta! 👋",
+          "Este e-mail já está cadastrado. Estamos te redirecionando para a área de Login.",
+          "info-circle",
+          "#CE82FF",
+          false,
+          () => setIsLogin(true),
+        );
+      } else {
+        let msg = "Ocorreu um erro inesperado.";
+        if (error.code === "auth/invalid-credential")
+          msg = "E-mail ou senha incorretos.";
+        if (error.code === "auth/too-many-requests")
+          msg = "Muitas tentativas. Aguarde um momento.";
 
-      showAlert("Ops!", msg);
+        showCustomAlert("Ops!", msg, "times-circle", "#FF4B4B", false);
+      }
     }
   };
 
+  // 🔥 CONFIRMAÇÃO E ANIMAÇÃO DO MATCH DE LOGIN/CADASTRO 🔥
+  const confirmMatchCode = async () => {
+    setIsMatchConfirmationVisible(false);
+    setIsMatchAnimationVisible(true);
+
+    // Inicia a animação de junção
+    Animated.sequence([
+      Animated.timing(matchAnimTranslateX, {
+        toValue: 1,
+        duration: 1200,
+        useNativeDriver: true,
+      }),
+      Animated.spring(matchHeartScale, {
+        toValue: 1,
+        friction: 4,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    // Finaliza no banco de dados e encerra
+    setTimeout(async () => {
+      try {
+        const partnerId = pendingMatchPartner.id;
+        const partnerDataDb = pendingMatchPartner.data;
+        const userId = pendingMatchPartner.uid;
+
+        if (userId) {
+          const partnerIsPremium = partnerDataDb?.isPremium || false;
+          const currentUserIsPremium = currentUserData?.isPremium || false;
+          const finalPremiumStatus = partnerIsPremium || currentUserIsPremium;
+
+          // Atualiza os dois lados e HERDA o Premium
+          await setDoc(
+            doc(db, "users", userId),
+            { partnerId: partnerId, isPremium: finalPremiumStatus },
+            { merge: true },
+          );
+          await setDoc(
+            doc(db, "users", partnerId),
+            { partnerId: userId, isPremium: finalPremiumStatus },
+            { merge: true },
+          );
+        }
+      } catch (e) {
+        console.error("Erro ao finalizar o match na animação:", e);
+      } finally {
+        setIsMatchAnimationVisible(false);
+        setInviteCode("");
+        // Continua o fluxo (Se era cadastro, desloga. Se era login, libera pro App)
+        finalizeAuth(pendingMatchPartner.isNewUser);
+        setPendingMatchPartner(null);
+        matchAnimTranslateX.setValue(0);
+        matchHeartScale.setValue(0);
+      }
+    }, 2800);
+  };
+
   const handleSocialLogin = (provider: string) => {
-    showAlert(
+    showCustomAlert(
       "Em Breve",
-      `O login com ${provider} será ativado na próxima fase. Use e-mail e senha por enquanto!`,
+      `O login com ${provider} será ativado na próxima fase.`,
+      "clock",
+      "#AFAFAF",
+      false,
     );
   };
+
+  const userPhotoForAnim =
+    currentUserData?.photoURL || currentUserData?.photoUrl;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -271,7 +405,6 @@ export default function LoginScreen({ navigation }: any) {
                 />
               </View>
             </Animated.View>
-
             <Text style={styles.title}>
               {isLogin ? "Bem-vindo de volta" : "Comece sua jornada"}
             </Text>
@@ -288,48 +421,7 @@ export default function LoginScreen({ navigation }: any) {
               { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
             ]}
           >
-            {/* O CAMPO DE MATCH SEMPRE VISÍVEL */}
-            <View style={styles.inviteBox}>
-              <View style={styles.inviteHeader}>
-                <FontAwesome5 name="heart" solid size={16} color="#FF9600" />
-                <Text style={styles.inviteTitle}>Conexão DuoElo</Text>
-              </View>
-              <Text style={styles.inviteDesc}>
-                Se possui o código de match do parceiro(a), insira aqui.
-              </Text>
-              <TextInput
-                style={styles.inviteInput}
-                placeholder="Código de Match (Opcional)"
-                placeholderTextColor="#AFAFAF"
-                autoCapitalize="characters"
-                value={inviteCode}
-                onChangeText={setInviteCode}
-              />
-            </View>
-
-            <View style={styles.socialButtonsContainer}>
-              <TouchableOpacity
-                style={styles.socialBtn}
-                onPress={() => handleSocialLogin("Google")}
-              >
-                <FontAwesome5 name="google" size={20} color="#EA4335" />
-                <Text style={styles.socialBtnText}>Google</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.socialBtn}
-                onPress={() => handleSocialLogin("Apple")}
-              >
-                <FontAwesome5 name="apple" size={24} color="#000" />
-                <Text style={styles.socialBtnText}>Apple</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.dividerContainer}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>ou use seu e-mail</Text>
-              <View style={styles.dividerLine} />
-            </View>
-
+            {/* EMAIL E SENHA */}
             <View style={styles.inputGroup}>
               <FontAwesome5
                 name="envelope"
@@ -369,9 +461,12 @@ export default function LoginScreen({ navigation }: any) {
               <TouchableOpacity
                 style={styles.forgotPasswordBtn}
                 onPress={() =>
-                  showAlert(
+                  showCustomAlert(
                     "Recuperação",
-                    "Em breve você poderá redefinir sua senha aqui.",
+                    "Em breve.",
+                    "envelope",
+                    "#AFAFAF",
+                    false,
                   )
                 }
               >
@@ -381,6 +476,27 @@ export default function LoginScreen({ navigation }: any) {
               </TouchableOpacity>
             )}
 
+            {/* 🔥 CÓDIGO DE MATCH DISPONÍVEL NO CADASTRO E NO LOGIN 🔥 */}
+            <View style={styles.inviteBox}>
+              <View style={styles.inviteHeader}>
+                <FontAwesome5 name="heart" solid size={16} color="#FF9600" />
+                <Text style={styles.inviteTitle}>Conexão DuoElo</Text>
+              </View>
+              <Text style={styles.inviteDesc}>
+                Se possui o código de match do parceiro(a), insira aqui antes de{" "}
+                {isLogin ? "entrar" : "criar a conta"}.
+              </Text>
+              <TextInput
+                style={styles.inviteInput}
+                placeholder="Código de Match (Opcional)"
+                placeholderTextColor="#AFAFAF"
+                autoCapitalize="characters"
+                value={inviteCode}
+                onChangeText={setInviteCode}
+              />
+            </View>
+
+            {/* BOTÃO PRINCIPAL */}
             <Animated.View
               style={[
                 styles.floatingBtnWrapper,
@@ -388,7 +504,10 @@ export default function LoginScreen({ navigation }: any) {
               ]}
             >
               <TouchableOpacity
-                style={styles.floatingBtn}
+                style={[
+                  styles.floatingBtn,
+                  { backgroundColor: btnColor, shadowColor: btnColor },
+                ]}
                 activeOpacity={0.9}
                 onPress={handleAuth}
                 disabled={isLoading}
@@ -400,12 +519,37 @@ export default function LoginScreen({ navigation }: any) {
                     <Text style={styles.floatingBtnText}>
                       {isLogin ? "Entrar na Conta" : "Criar Minha Conta"}
                     </Text>
-                    <FontAwesome5 name="arrow-right" size={18} color="#FFF" />
+                    <FontAwesome5 name={btnIcon} size={18} color="#FFF" />
                   </>
                 )}
               </TouchableOpacity>
             </Animated.View>
 
+            {/* DIVISOR */}
+            <View style={styles.dividerContainer}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>ou entre com</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            {/* ÍCONES SOCIAIS */}
+            <View style={styles.socialIconsWrapper}>
+              <TouchableOpacity
+                onPress={() => handleSocialLogin("Google")}
+                hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+              >
+                <FontAwesome5 name="google" size={32} color="#EA4335" />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => handleSocialLogin("Apple")}
+                hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+              >
+                <FontAwesome5 name="apple" size={36} color="#000" />
+              </TouchableOpacity>
+            </View>
+
+            {/* TOGGLE CRIAR CONTA / LOGIN */}
             <View style={styles.toggleContainer}>
               <Text style={styles.toggleText}>
                 {isLogin
@@ -424,6 +568,280 @@ export default function LoginScreen({ navigation }: any) {
           </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* 🔥 MODAL DE CONFIRMAÇÃO DE IDENTIDADE 🔥 */}
+      <Modal
+        visible={isMatchConfirmationVisible}
+        transparent
+        animationType="fade"
+      >
+        <View style={styles.modalOverlayCenter}>
+          <View style={styles.codeModalCard}>
+            <Text style={styles.codeModalTitle}>É esta pessoa?</Text>
+            <Text style={styles.codeModalSub}>
+              Verifique se a conta abaixo pertence ao seu amor.
+            </Text>
+
+            <View style={{ alignItems: "center", marginBottom: 25 }}>
+              {pendingMatchPartner?.data?.photoURL ||
+              pendingMatchPartner?.data?.photoUrl ? (
+                <Image
+                  source={{
+                    uri:
+                      pendingMatchPartner?.data?.photoURL ||
+                      pendingMatchPartner?.data?.photoUrl,
+                  }}
+                  style={{
+                    width: 80,
+                    height: 80,
+                    borderRadius: 40,
+                    marginBottom: 15,
+                    borderWidth: 3,
+                    borderColor: "#CE82FF",
+                  }}
+                />
+              ) : (
+                <View
+                  style={{
+                    width: 80,
+                    height: 80,
+                    borderRadius: 40,
+                    backgroundColor: "#F0F0F0",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    marginBottom: 15,
+                  }}
+                >
+                  <FontAwesome5 name="user-alt" size={30} color="#AFAFAF" />
+                </View>
+              )}
+              <Text style={{ fontSize: 20, fontWeight: "900", color: "#333" }}>
+                {pendingMatchPartner?.data?.displayName ||
+                  pendingMatchPartner?.data?.email?.split("@")[0] ||
+                  "Usuário Misterioso"}
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.linkButton, { backgroundColor: "#4BDE95" }]}
+              onPress={confirmMatchCode}
+            >
+              <Text style={styles.linkButtonText}>Sim, Conectar!</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.cancelLinkButton}
+              onPress={() => {
+                setIsMatchConfirmationVisible(false);
+                // Se errou o código, continua com o login/cadastro que já deu certo, só não faz o match
+                finalizeAuth(pendingMatchPartner.isNewUser);
+                setPendingMatchPartner(null);
+                setInviteCode("");
+              }}
+            >
+              <Text style={styles.cancelLinkButtonText}>
+                Não, errei o código
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 🔥 MODAL DA ANIMAÇÃO DE CONEXÃO 🔥 */}
+      <Modal visible={isMatchAnimationVisible} transparent animationType="fade">
+        <View
+          style={[
+            styles.modalOverlayCenter,
+            { backgroundColor: "rgba(255,126,179,0.95)" },
+          ]}
+        >
+          <Text
+            style={{
+              color: "#FFF",
+              fontSize: 24,
+              fontWeight: "900",
+              marginBottom: 50,
+              letterSpacing: 1,
+            }}
+          >
+            Conectando Almas...
+          </Text>
+
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "100%",
+            }}
+          >
+            {/* Usuário Local (Desliza da esquerda pra direita) */}
+            <Animated.View
+              style={{
+                transform: [
+                  {
+                    translateX: matchAnimTranslateX.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0, 45],
+                    }),
+                  },
+                ],
+                zIndex: 5,
+              }}
+            >
+              {userPhotoForAnim ? (
+                <Image
+                  source={{ uri: userPhotoForAnim }}
+                  style={{
+                    width: 90,
+                    height: 90,
+                    borderRadius: 45,
+                    borderWidth: 4,
+                    borderColor: "#FFF",
+                  }}
+                />
+              ) : (
+                <View
+                  style={{
+                    width: 90,
+                    height: 90,
+                    borderRadius: 45,
+                    backgroundColor: "#FFF",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    borderWidth: 4,
+                    borderColor: "#FFF",
+                  }}
+                >
+                  <FontAwesome5 name="user-alt" size={35} color="#FF7EB3" />
+                </View>
+              )}
+            </Animated.View>
+
+            {/* Coração Central (Pulsa) */}
+            <Animated.View
+              style={{
+                transform: [{ scale: matchHeartScale }],
+                zIndex: 10,
+                marginHorizontal: -15,
+              }}
+            >
+              <View
+                style={{
+                  backgroundColor: "#FFF",
+                  padding: 15,
+                  borderRadius: 30,
+                  shadowColor: "#000",
+                  shadowOpacity: 0.2,
+                  shadowRadius: 10,
+                  elevation: 10,
+                }}
+              >
+                <FontAwesome5 name="heart" solid size={35} color="#FF7EB3" />
+              </View>
+            </Animated.View>
+
+            {/* Parceiro (Desliza da direita pra esquerda) */}
+            <Animated.View
+              style={{
+                transform: [
+                  {
+                    translateX: matchAnimTranslateX.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0, -45],
+                    }),
+                  },
+                ],
+                zIndex: 5,
+              }}
+            >
+              {pendingMatchPartner?.data?.photoURL ||
+              pendingMatchPartner?.data?.photoUrl ? (
+                <Image
+                  source={{
+                    uri:
+                      pendingMatchPartner?.data?.photoURL ||
+                      pendingMatchPartner?.data?.photoUrl,
+                  }}
+                  style={{
+                    width: 90,
+                    height: 90,
+                    borderRadius: 45,
+                    borderWidth: 4,
+                    borderColor: "#FFF",
+                  }}
+                />
+              ) : (
+                <View
+                  style={{
+                    width: 90,
+                    height: 90,
+                    borderRadius: 45,
+                    backgroundColor: "#FFF",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    borderWidth: 4,
+                    borderColor: "#FFF",
+                  }}
+                >
+                  <FontAwesome5 name="user-alt" size={35} color="#FF7EB3" />
+                </View>
+              )}
+            </Animated.View>
+          </View>
+
+          <Text
+            style={{
+              color: "#FFF",
+              fontSize: 16,
+              fontWeight: "bold",
+              marginTop: 50,
+              opacity: 0.8,
+            }}
+          >
+            A mágica está acontecendo no banco de dados...
+          </Text>
+        </View>
+      </Modal>
+
+      {/* MODAL DE ALERTAS */}
+      <Modal visible={customAlert.visible} transparent animationType="fade">
+        <View style={styles.bottomSheetOverlay}>
+          <View style={styles.bottomSheetContainer}>
+            <View style={styles.bottomSheetHandle} />
+
+            <View
+              style={[
+                styles.alertIconContainer,
+                { backgroundColor: customAlert.color + "20" },
+              ]}
+            >
+              <FontAwesome5
+                name={customAlert.icon}
+                size={30}
+                color={customAlert.color}
+              />
+            </View>
+
+            <Text style={styles.bottomSheetTitle}>{customAlert.title}</Text>
+            <Text style={styles.bottomSheetText}>{customAlert.message}</Text>
+
+            {customAlert.showButton && (
+              <TouchableOpacity
+                style={[
+                  styles.bottomSheetButtonPrimary,
+                  { backgroundColor: customAlert.color, marginTop: 10 },
+                ]}
+                onPress={() => {
+                  setCustomAlert({ ...customAlert, visible: false });
+                  if (customAlert.onConfirm) customAlert.onConfirm();
+                }}
+              >
+                <Text style={styles.bottomSheetButtonPrimaryText}>Entendi</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -437,9 +855,7 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
     paddingTop: 40,
   },
-
   header: { alignItems: "center", marginBottom: 35 },
-
   logoWrapper: { alignItems: "center", marginBottom: 25 },
   logoImageContainer: {
     width: 110,
@@ -448,12 +864,14 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF",
     justifyContent: "center",
     alignItems: "center",
-    boxShadow: "0px 6px 10px rgba(0,0,0,0.15)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
     elevation: 8,
     overflow: "hidden",
   },
   logoImage: { width: "100%", height: "100%" },
-
   title: {
     fontSize: 26,
     fontWeight: "900",
@@ -468,9 +886,52 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     paddingHorizontal: 10,
   },
-
   formContainer: { width: "100%" },
-
+  inputGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFF",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#E5E5E5",
+    marginBottom: 15,
+    paddingHorizontal: 15,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.02,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  inputIcon: { width: 24, textAlign: "center" },
+  input: {
+    flex: 1,
+    paddingVertical: 18,
+    paddingHorizontal: 10,
+    fontSize: 16,
+    color: "#333",
+  },
+  forgotPasswordBtn: { alignSelf: "flex-end", marginBottom: 20, marginTop: -5 },
+  forgotPasswordText: { color: "#AFAFAF", fontSize: 14, fontWeight: "bold" },
+  dividerContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 25,
+    marginTop: 10,
+  },
+  dividerLine: { flex: 1, height: 1, backgroundColor: "#E5E5E5" },
+  dividerText: {
+    marginHorizontal: 15,
+    color: "#AFAFAF",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  socialIconsWrapper: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 40,
+    marginBottom: 25,
+  },
   inviteBox: {
     backgroundColor: "#FFF9E6",
     padding: 18,
@@ -499,71 +960,17 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     letterSpacing: 2,
   },
-
-  socialButtonsContainer: { flexDirection: "row", gap: 15, marginBottom: 25 },
-  socialBtn: {
-    flex: 1,
-    flexDirection: "row",
-    backgroundColor: "#FFF",
-    paddingVertical: 14,
-    borderRadius: 16,
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 10,
-    borderWidth: 1,
-    borderColor: "#E5E5E5",
-    boxShadow: "0px 2px 3px rgba(0,0,0,0.05)",
-    elevation: 2,
-  },
-  socialBtnText: { fontSize: 15, fontWeight: "bold", color: "#333" },
-
-  dividerContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 25,
-  },
-  dividerLine: { flex: 1, height: 1, backgroundColor: "#E5E5E5" },
-  dividerText: {
-    marginHorizontal: 15,
-    color: "#AFAFAF",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-
-  inputGroup: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#FFF",
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "#E5E5E5",
-    marginBottom: 15,
-    paddingHorizontal: 15,
-    boxShadow: "0px 2px 3px rgba(0,0,0,0.02)",
-    elevation: 1,
-  },
-  inputIcon: { width: 24, textAlign: "center" },
-  input: {
-    flex: 1,
-    paddingVertical: 18,
-    paddingHorizontal: 10,
-    fontSize: 16,
-    color: "#333",
-  },
-
-  forgotPasswordBtn: { alignSelf: "flex-end", marginBottom: 20, marginTop: -5 },
-  forgotPasswordText: { color: "#AFAFAF", fontSize: 14, fontWeight: "bold" },
-
   floatingBtnWrapper: { width: "100%", marginTop: 10, marginBottom: 10 },
   floatingBtn: {
     flexDirection: "row",
-    backgroundColor: "#FF7EB3",
     paddingVertical: 18,
     borderRadius: 30,
     justifyContent: "center",
     alignItems: "center",
     gap: 10,
-    boxShadow: "0px 8px 12px rgba(255,126,179,0.4)",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
     elevation: 8,
     borderWidth: 2,
     borderColor: "#FFF",
@@ -575,7 +982,6 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
-
   toggleContainer: {
     flexDirection: "row",
     justifyContent: "center",
@@ -585,4 +991,107 @@ const styles = StyleSheet.create({
   },
   toggleText: { color: "#7F8C8D", fontSize: 15 },
   toggleLink: { color: "#CE82FF", fontSize: 15, fontWeight: "bold" },
+
+  // 🔥 ESTILOS DOS MODAIS DE MATCH
+  modalOverlayCenter: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  codeModalCard: {
+    width: "85%",
+    backgroundColor: "#FFF",
+    borderRadius: 20,
+    padding: 24,
+    alignItems: "center",
+  },
+  codeModalTitle: {
+    fontSize: 20,
+    fontWeight: "900",
+    color: "#2C3E50",
+    marginBottom: 10,
+  },
+  codeModalSub: {
+    fontSize: 14,
+    color: "#7F8C8D",
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  linkButton: {
+    backgroundColor: "#FF7EB3",
+    width: "100%",
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  linkButtonText: { color: "#FFF", fontSize: 16, fontWeight: "bold" },
+  cancelLinkButton: {
+    width: "100%",
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  cancelLinkButtonText: { color: "#AFAFAF", fontSize: 14, fontWeight: "bold" },
+
+  bottomSheetOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "flex-end",
+  },
+  bottomSheetContainer: {
+    backgroundColor: "#FFF",
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    padding: 24,
+    paddingBottom: 40,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 10,
+    width: "100%",
+  },
+  bottomSheetHandle: {
+    width: 50,
+    height: 5,
+    backgroundColor: "#E5E5E5",
+    borderRadius: 3,
+    marginBottom: 20,
+  },
+  alertIconContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 15,
+  },
+  bottomSheetTitle: {
+    fontSize: 22,
+    fontWeight: "900",
+    color: "#2C3E50",
+    marginBottom: 10,
+    textAlign: "center",
+  },
+  bottomSheetText: {
+    fontSize: 15,
+    color: "#7F8C8D",
+    textAlign: "center",
+    marginBottom: 20,
+    lineHeight: 22,
+  },
+  bottomSheetButtonPrimary: {
+    width: "100%",
+    paddingVertical: 16,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  bottomSheetButtonPrimaryText: {
+    color: "#FFF",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
 });

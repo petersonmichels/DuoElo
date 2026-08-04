@@ -18,3 +18,6 @@ const app = initializeApp(firebaseConfig);
 // Exportamos as instâncias para usar no resto do app
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+
+// Lá no final do seu arquivo config/firebase.js (junto com os exports)
+export const authControls = { isCreatingAccount: false };
