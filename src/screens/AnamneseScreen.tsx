@@ -89,7 +89,7 @@ export default function AnamnesisScreen({ navigation }: any) {
     title: "",
     message: "",
     icon: "info-circle",
-    color: "#CE82FF",
+    color: "#1A2F3B",
     confirmText: "",
     onConfirm: null as any,
   });
@@ -98,7 +98,7 @@ export default function AnamnesisScreen({ navigation }: any) {
     title: string,
     message: string,
     icon = "info-circle",
-    color = "#CE82FF",
+    color = "#1A2F3B",
     confirmText = "",
     onConfirm: any = null,
   ) => {
@@ -201,21 +201,22 @@ export default function AnamnesisScreen({ navigation }: any) {
             data.translations?.["pt-BR"] ||
             "Pergunta não encontrada",
           options: (data.options || []).map((opt: any, index: number) => {
+            // 🔥 PALETA CLÍNICA NAS OPÇÕES DE RESPOSTA
             let defaultIcon = "smile-beam";
-            let defaultColor = "#4BDE95";
+            let defaultColor = "#4BDE95"; // Verde Sucesso (Bom)
             let fallbackScore = 1;
 
             if (index === 1) {
               defaultIcon = "meh";
-              defaultColor = "#FFC800";
+              defaultColor = "#E5A93C"; // Ouro Suave (Médio)
               fallbackScore = 4;
             } else if (index === 2) {
               defaultIcon = "sad-tear";
-              defaultColor = "#FF4B4B";
+              defaultColor = "#E28743"; // Terracota Mudo (Ruim, mas sem alerta vermelho)
               fallbackScore = 7;
             } else if (index > 2) {
-              defaultIcon = "angry";
-              defaultColor = "#FF4B4B";
+              defaultIcon = "frown";
+              defaultColor = "#D96C6C"; // Rosa terroso (Muito Ruim, suave)
               fallbackScore = 10;
             }
 
@@ -512,7 +513,7 @@ export default function AnamnesisScreen({ navigation }: any) {
         "Código Inválido",
         "Digite um código válido com pelo menos 5 caracteres.",
         "exclamation-circle",
-        "#FF9600",
+        "#E5A93C",
       );
       return;
     }
@@ -534,7 +535,7 @@ export default function AnamnesisScreen({ navigation }: any) {
           "Match Não Encontrado",
           "Não encontramos nenhuma conta com esse código. Verifique se o parceiro já acessou o app.",
           "search-minus",
-          "#FF9600",
+          "#E5A93C",
         );
         setIsMatching(false);
         return;
@@ -549,7 +550,7 @@ export default function AnamnesisScreen({ navigation }: any) {
           "Ação Bloqueada",
           "Você não pode usar o seu próprio código!",
           "ban",
-          "#FF4B4B",
+          "#D96C6C",
         );
         setIsMatching(false);
         return;
@@ -564,7 +565,7 @@ export default function AnamnesisScreen({ navigation }: any) {
         "Erro de Conexão",
         "Ocorreu um problema ao tentar buscar a conta. Tente novamente.",
         "times-circle",
-        "#FF4B4B",
+        "#D96C6C",
       );
     } finally {
       setIsMatching(false);
@@ -620,14 +621,14 @@ export default function AnamnesisScreen({ navigation }: any) {
             "Match Perfeito! ❤️",
             "Contas conectadas! Como o seu amor já ativou a jornada, o seu acesso Premium foi liberado instantaneamente.",
             "gift",
-            "#FF7EB3",
+            "#4BDE95",
           );
         } else {
           showCustomAlert(
             "Match Realizado! ❤️",
             "Vocês estão conectados! Avance na avaliação para descobrir a temperatura da relação de vocês.",
             "heart",
-            "#FF7EB3",
+            "#4BDE95",
           );
         }
       } catch (error) {
@@ -635,7 +636,7 @@ export default function AnamnesisScreen({ navigation }: any) {
           "Erro de Conexão",
           "Não foi possível efetivar o match.",
           "times-circle",
-          "#FF4B4B",
+          "#D96C6C",
         );
       } finally {
         setIsMatchAnimationVisible(false);
@@ -710,8 +711,8 @@ export default function AnamnesisScreen({ navigation }: any) {
   if (isLoadingQuestions || isCheckingUser) {
     return (
       <SafeAreaView style={[styles.container, styles.centerContainer]}>
-        <ActivityIndicator size="large" color="#FF7EB3" />
-        <Text style={{ marginTop: 20, color: "#AFAFAF", fontWeight: "bold" }}>
+        <ActivityIndicator size="large" color="#1A2F3B" />
+        <Text style={{ marginTop: 20, color: "#60646C", fontWeight: "bold" }}>
           Carregando informações...
         </Text>
       </SafeAreaView>
@@ -726,10 +727,10 @@ export default function AnamnesisScreen({ navigation }: any) {
       <Animated.View
         style={[
           styles.iconWrapper,
-          { backgroundColor: "#F0F0F0", shadowColor: "#999" },
+          { backgroundColor: "#E8F4F1", shadowColor: "#999" },
         ]}
       >
-        <FontAwesome5 name="lock" size={50} color="#AFAFAF" />
+        <FontAwesome5 name="lock" size={50} color="#2C3E50" />
       </Animated.View>
       <Text style={styles.introTitle}>Avaliação Concluída</Text>
       <Text style={styles.introText}>
@@ -740,8 +741,6 @@ export default function AnamnesisScreen({ navigation }: any) {
         style={[
           styles.primaryBtn,
           {
-            backgroundColor: "#2C3E50",
-            shadowColor: "#2C3E50",
             paddingHorizontal: 40,
           },
         ]}
@@ -766,7 +765,7 @@ export default function AnamnesisScreen({ navigation }: any) {
       <Animated.View
         style={[styles.iconWrapper, { transform: [{ scale: pulseAnim }] }]}
       >
-        <FontAwesome5 name="heartbeat" size={70} color="#FF7EB3" />
+        <FontAwesome5 name="heartbeat" size={70} color="#4BDE95" />
       </Animated.View>
       <Text style={styles.introTitle}>
         Descubra a Temperatura da sua Relação
@@ -793,7 +792,7 @@ export default function AnamnesisScreen({ navigation }: any) {
         >
           <Text
             style={{
-              color: "#CE82FF",
+              color: "#1A2F3B",
               fontWeight: "bold",
               textDecorationLine: "underline",
             }}
@@ -824,7 +823,7 @@ export default function AnamnesisScreen({ navigation }: any) {
             <FontAwesome5
               name="chevron-left"
               size={18}
-              color={currentIndex === 0 ? "#E5E5E5" : "#CE82FF"}
+              color={currentIndex === 0 ? "#D1D9E0" : "#1A2F3B"}
             />
           </TouchableOpacity>
 
@@ -847,7 +846,7 @@ export default function AnamnesisScreen({ navigation }: any) {
             <FontAwesome5
               name="chevron-right"
               size={18}
-              color={!canGoForward ? "#E5E5E5" : "#CE82FF"}
+              color={!canGoForward ? "#D1D9E0" : "#1A2F3B"}
             />
           </TouchableOpacity>
         </View>
@@ -896,7 +895,7 @@ export default function AnamnesisScreen({ navigation }: any) {
                     <Text
                       style={[
                         styles.answerBtnText,
-                        isSelected && { color: "#CE82FF", fontWeight: "900" },
+                        isSelected && { color: "#1A2F3B", fontWeight: "900" },
                       ]}
                     >
                       {opt.label}
@@ -907,7 +906,7 @@ export default function AnamnesisScreen({ navigation }: any) {
                         name="check-circle"
                         solid
                         size={20}
-                        color="#CE82FF"
+                        color="#4BDE95"
                         style={{ marginLeft: 10 }}
                       />
                     )}
@@ -931,7 +930,7 @@ export default function AnamnesisScreen({ navigation }: any) {
       <View style={styles.centerContainer}>
         <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
           <View style={styles.spinnerRing}>
-            <FontAwesome5 name="brain" size={40} color="#CE82FF" />
+            <FontAwesome5 name="brain" size={40} color="#1A2F3B" />
           </View>
         </Animated.View>
         <Text style={styles.calcTitle}>Avaliando Conexão</Text>
@@ -950,21 +949,22 @@ export default function AnamnesisScreen({ navigation }: any) {
     let resultDesc = "";
     let tempColor = "";
 
+    // 🔥 NOVO PARADIGMA CLÍNICO DO TERMÔMETRO
     if (finalTemperature < 40) {
-      resultTitle = "Sinal de Alerta ❄️";
+      resultTitle = "Distanciamento Emocional ❄️";
       resultDesc =
-        "A rotina esfriou o que vocês têm de mais precioso. Mas a boa notícia é que o amor ainda está aí, só precisa ser regado.";
-      tempColor = "#4BACFF";
+        "A rotina esfriou a relação. Mas a base do amor ainda está aí, esperando para ser nutrida e reconectada através da jornada.";
+      tempColor = "#2C3E50"; // Frio, Estável, Afastado (Azul Slate)
     } else if (finalTemperature < 75) {
-      resultTitle = "Morno, mas com Potencial 🌥️";
+      resultTitle = "Morno, com Grande Potencial 🌥️";
       resultDesc =
-        "Vocês têm uma base sólida, mas caíram no modo automático. A jornada de 90 dias vai reacender essa chama.";
-      tempColor = "#FF9600";
+        "Vocês têm uma base sólida, mas caíram no modo automático. A jornada de 90 dias vai reacender essa chama com tranquilidade.";
+      tempColor = "#E5A93C"; // Aquecendo, Dourado (Ouro Suave)
     } else {
-      resultTitle = "Conexão Forte 🔥";
+      resultTitle = "Conexão Segura e Forte 🌿";
       resultDesc =
         "Incrível! Vocês têm uma sintonia rara. A jornada será perfeita para blindar essa relação contra qualquer crise.";
-      tempColor = "#FF4B4B";
+      tempColor = "#4BDE95"; // Saúde, Sucesso, Vitalidade (Verde Esmeralda)
     }
 
     const fillHeight = thermometerFill.interpolate({
@@ -1053,22 +1053,21 @@ export default function AnamnesisScreen({ navigation }: any) {
             </Text>
           </View>
           <Text style={styles.riskText}>
-            Baseado em mais de 40 anos de análises e padrões clínicos de
-            milhares de casais, o seu cenário atual apresenta{" "}
+            Baseado em análises e padrões clínicos, seu cenário atual apresenta{" "}
             <Text style={{ fontWeight: "bold" }}>
-              {finalRisk}% de risco de afastamento severo ou separação
+              {finalRisk}% de risco de afastamento
             </Text>{" "}
-            no longo prazo. O verdadeiro destruidor de relações não são as
-            brigas isoladas, mas sim a perda da admiração e a desconexão
-            emocional.
+            no longo prazo se não for cuidado. O verdadeiro destruidor de
+            relações não são as brigas isoladas, mas sim a perda da admiração e
+            a desconexão emocional.
           </Text>
         </View>
 
         <View style={styles.hopeBox}>
-          <FontAwesome5 name="home" size={22} color="#CE82FF" />
+          <FontAwesome5 name="seedling" size={22} color="#1A2F3B" />
           <Text style={styles.hopeText}>
-            Com base no seu diagnóstico, criamos a{" "}
-            <Text style={{ fontWeight: "bold", color: "#CE82FF" }}>
+            Com base no seu diagnóstico, estruturamos a{" "}
+            <Text style={{ fontWeight: "bold", color: "#1A2F3B" }}>
               Jornada de 90 Dias
             </Text>{" "}
             ideal para blindar e resgatar o seu relacionamento.
@@ -1107,7 +1106,10 @@ export default function AnamnesisScreen({ navigation }: any) {
         ) : (
           <View style={styles.impulseBuyBox}>
             <Text
-              style={[styles.resultHeader, { marginBottom: 15, color: "#333" }]}
+              style={[
+                styles.resultHeader,
+                { marginBottom: 15, color: "#1A2F3B" },
+              ]}
             >
               Libere sua Trilha Agora
             </Text>
@@ -1169,7 +1171,7 @@ export default function AnamnesisScreen({ navigation }: any) {
             <View style={styles.guaranteeBox}>
               <Text style={styles.priceSub}>
                 Os 90 dias{" "}
-                <Text style={{ fontWeight: "bold", color: "#333" }}>
+                <Text style={{ fontWeight: "bold", color: "#1A2F3B" }}>
                   só começam a contar a partir da sua primera tarefa.
                 </Text>{" "}
                 Passe disso e sua assinatura ajusta para R$ 19,90/mês para
@@ -1184,7 +1186,7 @@ export default function AnamnesisScreen({ navigation }: any) {
               {features.map((feat, index) => (
                 <View key={index} style={styles.featureItem}>
                   <View style={styles.featureIconBg}>
-                    <FontAwesome5 name={feat.icon} size={16} color="#CE82FF" />
+                    <FontAwesome5 name={feat.icon} size={16} color="#1A2F3B" />
                   </View>
                   <View style={styles.featureTextContainer}>
                     <Text style={styles.featureTitle}>{feat.title}</Text>
@@ -1224,7 +1226,7 @@ export default function AnamnesisScreen({ navigation }: any) {
               >
                 <Text
                   style={{
-                    color: "#CE82FF",
+                    color: "#2C3E50",
                     fontWeight: "bold",
                     textDecorationLine: "underline",
                   }}
@@ -1243,7 +1245,7 @@ export default function AnamnesisScreen({ navigation }: any) {
             disabled={isSaving || isSkipping}
           >
             {isSkipping ? (
-              <ActivityIndicator size="small" color="#AFAFAF" />
+              <ActivityIndicator size="small" color="#60646C" />
             ) : (
               <Text style={styles.skipLinkText}>
                 Adiar o resgate da nossa relação
@@ -1382,7 +1384,7 @@ export default function AnamnesisScreen({ navigation }: any) {
                     borderRadius: 40,
                     marginBottom: 15,
                     borderWidth: 3,
-                    borderColor: "#CE82FF",
+                    borderColor: "#E5A93C",
                   }}
                 />
               ) : (
@@ -1391,16 +1393,20 @@ export default function AnamnesisScreen({ navigation }: any) {
                     width: 80,
                     height: 80,
                     borderRadius: 40,
-                    backgroundColor: "#F0F0F0",
+                    backgroundColor: "#FFFFFF",
                     justifyContent: "center",
                     alignItems: "center",
                     marginBottom: 15,
+                    borderWidth: 1,
+                    borderColor: "#D1D9E0",
                   }}
                 >
                   <FontAwesome5 name="user-alt" size={30} color="#AFAFAF" />
                 </View>
               )}
-              <Text style={{ fontSize: 20, fontWeight: "900", color: "#333" }}>
+              <Text
+                style={{ fontSize: 20, fontWeight: "900", color: "#1A2F3B" }}
+              >
                 {pendingMatchPartner?.data?.displayName ||
                   pendingMatchPartner?.data?.email?.split("@")[0] ||
                   "Usuário Misterioso"}
@@ -1434,7 +1440,7 @@ export default function AnamnesisScreen({ navigation }: any) {
         <View
           style={[
             styles.modalOverlayCenter,
-            { backgroundColor: "rgba(255,126,179,0.95)" },
+            { backgroundColor: "rgba(26,47,59,0.95)" }, // Fundo Azul-Petróleo Elegante
           ]}
         >
           <Text
@@ -1494,7 +1500,7 @@ export default function AnamnesisScreen({ navigation }: any) {
                     borderColor: "#FFF",
                   }}
                 >
-                  <FontAwesome5 name="user-alt" size={35} color="#FF7EB3" />
+                  <FontAwesome5 name="user-alt" size={35} color="#1A2F3B" />
                 </View>
               )}
             </Animated.View>
@@ -1517,7 +1523,7 @@ export default function AnamnesisScreen({ navigation }: any) {
                   elevation: 10,
                 }}
               >
-                <FontAwesome5 name="heart" solid size={35} color="#FF7EB3" />
+                <FontAwesome5 name="heart" solid size={35} color="#E5A93C" />
               </View>
             </Animated.View>
 
@@ -1563,7 +1569,7 @@ export default function AnamnesisScreen({ navigation }: any) {
                     borderColor: "#FFF",
                   }}
                 >
-                  <FontAwesome5 name="user-alt" size={35} color="#FF7EB3" />
+                  <FontAwesome5 name="user-alt" size={35} color="#1A2F3B" />
                 </View>
               )}
             </Animated.View>
@@ -1653,7 +1659,7 @@ export default function AnamnesisScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#FAFAFA" },
+  container: { flex: 1, backgroundColor: "#F0F4F8" }, // 🔥 Azul-Cinza Suave
   centerContainer: {
     flex: 1,
     justifyContent: "center",
@@ -1669,7 +1675,7 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.3)",
+    backgroundColor: "rgba(26, 47, 59, 0.6)", // Escurecido com a paleta
     justifyContent: "flex-start",
     alignItems: "flex-end",
   },
@@ -1699,50 +1705,50 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
   },
   compactFlagBtnActive: {
-    backgroundColor: "#FFF0F6",
+    backgroundColor: "#E8F4F1",
     borderWidth: 2,
-    borderColor: "#FF7EB3",
+    borderColor: "#4BDE95",
   },
   compactFlagText: { fontSize: 28 },
   iconWrapper: {
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: "#FFF0F6",
+    backgroundColor: "#E8F4F1", // Verde Menta suave
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 30,
     elevation: 10,
-    shadowColor: "#FF7EB3",
+    shadowColor: "#1A2F3B",
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.1,
     shadowRadius: 15,
   },
   introTitle: {
     fontSize: 28,
     fontWeight: "900",
-    color: "#333",
+    color: "#1A2F3B", // Azul Petróleo
     textAlign: "center",
     marginBottom: 15,
     lineHeight: 34,
   },
   introText: {
     fontSize: 16,
-    color: "#777",
+    color: "#2C3E50", // Slate Blue
     textAlign: "center",
     marginBottom: 40,
     lineHeight: 24,
   },
   primaryBtn: {
     flexDirection: "row",
-    backgroundColor: "#FF7EB3",
+    backgroundColor: "#1A2F3B",
     paddingVertical: 18,
     paddingHorizontal: 30,
     borderRadius: 30,
     alignItems: "center",
     gap: 10,
     elevation: 5,
-    shadowColor: "#FF7EB3",
+    shadowColor: "#1A2F3B",
     shadowOffset: { width: 0, height: 5 },
     shadowOpacity: 0.4,
     shadowRadius: 10,
@@ -1763,7 +1769,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#E5E5E5",
+    borderColor: "#D1D9E0",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -1771,33 +1777,33 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   navBtnDisabled: {
-    backgroundColor: "#F9F9F9",
-    borderColor: "#F0F0F0",
+    backgroundColor: "#F0F4F8",
+    borderColor: "#E5E5E5",
     elevation: 0,
     shadowOpacity: 0,
   },
   progressBarBg: {
     height: 8,
-    backgroundColor: "#E5E5E5",
+    backgroundColor: "#D1D9E0",
     borderRadius: 4,
     overflow: "hidden",
     marginBottom: 8,
   },
   progressBarFill: {
     height: "100%",
-    backgroundColor: "#CE82FF",
+    backgroundColor: "#E5A93C", // Ouro Suave
     borderRadius: 4,
   },
   progressText: {
     fontSize: 12,
-    color: "#AFAFAF",
+    color: "#60646C",
     fontWeight: "bold",
     textTransform: "uppercase",
     textAlign: "center",
   },
   questionHeader: { marginBottom: 35 },
   questionCategory: {
-    color: "#CE82FF",
+    color: "#E5A93C",
     fontSize: 16,
     fontWeight: "900",
     textTransform: "uppercase",
@@ -1807,7 +1813,7 @@ const styles = StyleSheet.create({
   questionText: {
     fontSize: 26,
     fontWeight: "bold",
-    color: "#333",
+    color: "#1A2F3B",
     lineHeight: 34,
   },
   answersContainer: { gap: 12, paddingBottom: 20 },
@@ -1818,14 +1824,14 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 20,
     borderWidth: 2,
-    borderColor: "#F0F0F0",
+    borderColor: "#FFF", // Sem borda pesada até selecionar
     elevation: 2,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
   },
-  answerBtnSelected: { borderColor: "#CE82FF", backgroundColor: "#F9F0FF" },
+  answerBtnSelected: { borderColor: "#4BDE95", backgroundColor: "#E8F4F1" }, // Verde sucesso ao selecionar
   answerIconBg: {
     width: 44,
     height: 44,
@@ -1834,14 +1840,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginRight: 15,
   },
-  answerBtnText: { fontSize: 16, fontWeight: "700", color: "#555", flex: 1 },
+  answerBtnText: { fontSize: 16, fontWeight: "700", color: "#2C3E50", flex: 1 },
   spinnerRing: {
     width: 100,
     height: 100,
     borderRadius: 50,
     borderWidth: 6,
-    borderColor: "#F2E5FF",
-    borderTopColor: "#CE82FF",
+    borderColor: "#D1D9E0",
+    borderTopColor: "#1A2F3B",
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 30,
@@ -1849,25 +1855,25 @@ const styles = StyleSheet.create({
   calcTitle: {
     fontSize: 24,
     fontWeight: "bold",
-    color: "#333",
+    color: "#1A2F3B",
     marginBottom: 30,
   },
   loadingBarContainer: {
     width: "100%",
     height: 12,
-    backgroundColor: "#E5E5E5",
+    backgroundColor: "#D1D9E0",
     borderRadius: 6,
     overflow: "hidden",
     marginBottom: 20,
   },
   loadingBarFill: {
     height: "100%",
-    backgroundColor: "#CE82FF",
+    backgroundColor: "#4BDE95",
     borderRadius: 6,
   },
   loadingMessageText: {
     fontSize: 16,
-    color: "#AFAFAF",
+    color: "#60646C",
     fontWeight: "bold",
     textAlign: "center",
     fontStyle: "italic",
@@ -1881,7 +1887,7 @@ const styles = StyleSheet.create({
   resultHeader: {
     fontSize: 16,
     fontWeight: "800",
-    color: "#AFAFAF",
+    color: "#60646C",
     textTransform: "uppercase",
     letterSpacing: 2,
     marginBottom: 20,
@@ -1890,13 +1896,13 @@ const styles = StyleSheet.create({
   thermometerGlass: {
     width: 30,
     height: 180,
-    backgroundColor: "#E5E5E5",
+    backgroundColor: "#FFF",
     borderRadius: 15,
     justifyContent: "flex-end",
     overflow: "hidden",
     zIndex: 2,
     borderWidth: 2,
-    borderColor: "#FFF",
+    borderColor: "#D1D9E0",
     elevation: 5,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
@@ -1937,7 +1943,7 @@ const styles = StyleSheet.create({
   },
   resultText: {
     fontSize: 15,
-    color: "#666",
+    color: "#2C3E50",
     textAlign: "center",
     lineHeight: 22,
     marginBottom: 20,
@@ -1962,10 +1968,10 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   riskTitle: { fontSize: 16, fontWeight: "900", textTransform: "uppercase" },
-  riskText: { fontSize: 13, color: "#555", lineHeight: 20 },
+  riskText: { fontSize: 13, color: "#60646C", lineHeight: 20 },
   hopeBox: {
     flexDirection: "row",
-    backgroundColor: "#F9F0FF",
+    backgroundColor: "#E8F4F1", // Verde Menta suave
     padding: 16,
     borderRadius: 16,
     alignItems: "center",
@@ -1973,7 +1979,7 @@ const styles = StyleSheet.create({
     marginBottom: 30,
     width: "100%",
   },
-  hopeText: { flex: 1, fontSize: 14, color: "#5C3D75", lineHeight: 20 },
+  hopeText: { flex: 1, fontSize: 14, color: "#1A2F3B", lineHeight: 20 },
   impulseBuyBox: {
     width: "100%",
     backgroundColor: "#FFF",
@@ -1981,7 +1987,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#E5E5E5",
+    borderColor: "#D1D9E0",
     elevation: 4,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
@@ -1991,14 +1997,14 @@ const styles = StyleSheet.create({
   },
   impulseBuyPriceText: {
     fontSize: 16,
-    color: "#555",
+    color: "#2C3E50",
     marginBottom: 8,
     fontWeight: "700",
   },
-  priceHighlight: { fontSize: 24, fontWeight: "900", color: "#2C3E50" },
+  priceHighlight: { fontSize: 24, fontWeight: "900", color: "#1A2F3B" },
   impulseBuySubText: {
     fontSize: 12,
-    color: "#AFAFAF",
+    color: "#60646C",
     textAlign: "center",
     marginBottom: 18,
     lineHeight: 18,
@@ -2014,50 +2020,50 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#FAFAFA",
+    backgroundColor: "#F0F4F8",
     borderWidth: 2,
-    borderColor: "#E5E5E5",
+    borderColor: "#F0F4F8",
     borderRadius: 16,
     padding: 16,
     position: "relative",
   },
   planCardSelected: {
-    backgroundColor: "#FFF9E6",
-    borderColor: "#FF9600",
+    backgroundColor: "#FFF",
+    borderColor: "#E5A93C", // Ouro Suave selecionado
   },
   badgeContainer: {
     position: "absolute",
     top: -10,
     left: 15,
-    backgroundColor: "#FF9600",
+    backgroundColor: "#E5A93C",
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 8,
   },
   badgeText: {
-    color: "#FFF",
+    color: "#1A2F3B",
     fontSize: 10,
     fontWeight: "900",
     letterSpacing: 1,
   },
   planInfo: { flex: 1 },
-  planName: { fontSize: 16, fontWeight: "bold", color: "#333" },
+  planName: { fontSize: 16, fontWeight: "bold", color: "#2C3E50" },
   planPriceBox: { alignItems: "flex-end" },
-  planPrice: { fontSize: 18, fontWeight: "900", color: "#333" },
-  planPeriod: { fontSize: 12, color: "#7F8C8D", fontWeight: "bold" },
-  planTextSelected: { color: "#B36900" },
+  planPrice: { fontSize: 18, fontWeight: "900", color: "#1A2F3B" },
+  planPeriod: { fontSize: 12, color: "#60646C", fontWeight: "bold" },
+  planTextSelected: { color: "#E5A93C" },
   guaranteeBox: {
-    backgroundColor: "#F9F0FF",
+    backgroundColor: "#E8F4F1",
     padding: 12,
     borderRadius: 12,
     width: "100%",
     borderWidth: 1,
-    borderColor: "#EAD1FF",
+    borderColor: "#4BDE95",
     marginBottom: 20,
   },
   priceSub: {
     fontSize: 12,
-    color: "#666",
+    color: "#2C3E50",
     textAlign: "center",
     lineHeight: 18,
   },
@@ -2065,7 +2071,7 @@ const styles = StyleSheet.create({
   featuresSectionTitle: {
     fontSize: 14,
     fontWeight: "bold",
-    color: "#AFAFAF",
+    color: "#60646C",
     textAlign: "center",
     textTransform: "uppercase",
     marginBottom: 15,
@@ -2076,7 +2082,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 12,
-    backgroundColor: "#F4E5FF",
+    backgroundColor: "#F0F4F8",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,
@@ -2085,14 +2091,14 @@ const styles = StyleSheet.create({
   featureTitle: {
     fontSize: 14,
     fontWeight: "bold",
-    color: "#333",
+    color: "#1A2F3B",
     marginBottom: 2,
   },
-  featureDesc: { fontSize: 12, color: "#777", lineHeight: 16 },
+  featureDesc: { fontSize: 12, color: "#60646C", lineHeight: 16 },
   paywallBtn: {
     flexDirection: "row",
     width: "100%",
-    backgroundColor: "#2C3E50",
+    backgroundColor: "#1A2F3B",
     paddingVertical: 18,
     borderRadius: 16,
     justifyContent: "center",
@@ -2112,7 +2118,7 @@ const styles = StyleSheet.create({
   },
   skipLink: { marginTop: 10, padding: 10 },
   skipLinkText: {
-    color: "#AFAFAF",
+    color: "#60646C",
     fontSize: 13,
     fontWeight: "bold",
     textDecorationLine: "underline",
@@ -2124,10 +2130,10 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: "#FF9600",
+    backgroundColor: "#E5A93C",
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#FF9600",
+    shadowColor: "#E5A93C",
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.4,
     shadowRadius: 8,
@@ -2137,7 +2143,7 @@ const styles = StyleSheet.create({
 
   modalOverlayCenter: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.6)",
+    backgroundColor: "rgba(26,47,59,0.7)", // Azul petróleo transparente
     justifyContent: "center",
     alignItems: "center",
   },
@@ -2151,18 +2157,18 @@ const styles = StyleSheet.create({
   codeModalTitle: {
     fontSize: 20,
     fontWeight: "900",
-    color: "#2C3E50",
+    color: "#1A2F3B",
     marginBottom: 10,
   },
   codeModalSub: {
     fontSize: 14,
-    color: "#7F8C8D",
+    color: "#60646C",
     textAlign: "center",
     marginBottom: 20,
   },
   codeInputField: {
     width: "100%",
-    backgroundColor: "#F5F5F5",
+    backgroundColor: "#F0F4F8",
     borderRadius: 12,
     padding: 16,
     fontSize: 18,
@@ -2170,27 +2176,27 @@ const styles = StyleSheet.create({
     textAlign: "center",
     letterSpacing: 2,
     marginBottom: 20,
-    color: "#333",
+    color: "#1A2F3B",
   },
   linkButton: {
-    backgroundColor: "#FF7EB3",
+    backgroundColor: "#E5A93C",
     width: "100%",
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: "center",
     marginBottom: 10,
   },
-  linkButtonText: { color: "#FFF", fontSize: 16, fontWeight: "bold" },
+  linkButtonText: { color: "#1A2F3B", fontSize: 16, fontWeight: "bold" },
   cancelLinkButton: {
     width: "100%",
     paddingVertical: 12,
     alignItems: "center",
   },
-  cancelLinkButtonText: { color: "#AFAFAF", fontSize: 14, fontWeight: "bold" },
+  cancelLinkButtonText: { color: "#60646C", fontSize: 14, fontWeight: "bold" },
 
   bottomSheetOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: "rgba(26,47,59,0.7)",
     justifyContent: "flex-end",
   },
   bottomSheetContainer: {
@@ -2210,7 +2216,7 @@ const styles = StyleSheet.create({
   bottomSheetHandle: {
     width: 50,
     height: 5,
-    backgroundColor: "#E5E5E5",
+    backgroundColor: "#D1D9E0",
     borderRadius: 3,
     marginBottom: 20,
   },
@@ -2225,18 +2231,19 @@ const styles = StyleSheet.create({
   bottomSheetTitle: {
     fontSize: 22,
     fontWeight: "900",
-    color: "#2C3E50",
+    color: "#1A2F3B",
     marginBottom: 10,
     textAlign: "center",
   },
   bottomSheetText: {
     fontSize: 15,
-    color: "#7F8C8D",
+    color: "#60646C",
     textAlign: "center",
     marginBottom: 20,
     lineHeight: 22,
   },
   bottomSheetButtonPrimary: {
+    flexDirection: "row",
     width: "100%",
     paddingVertical: 16,
     borderRadius: 16,
@@ -2245,6 +2252,18 @@ const styles = StyleSheet.create({
   },
   bottomSheetButtonPrimaryText: {
     color: "#FFF",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  bottomSheetButtonSecondary: {
+    flexDirection: "row",
+    width: "100%",
+    paddingVertical: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  bottomSheetButtonSecondaryText: {
+    color: "#60646C",
     fontSize: 16,
     fontWeight: "bold",
   },

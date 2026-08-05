@@ -58,7 +58,7 @@ export default function LoginScreen({ navigation }: any) {
     title: "",
     message: "",
     icon: "info-circle",
-    color: "#CE82FF",
+    color: "#1A2F3B",
     showButton: false,
     onConfirm: null as (() => void) | null,
   });
@@ -68,8 +68,10 @@ export default function LoginScreen({ navigation }: any) {
   const floatAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  const btnColor = isLogin ? "#4BDE95" : "#FF7EB3";
+  // 🔥 PALETA CLÍNICA APLICADA: Azul-Petróleo para Login (Estabilidade), Ouro Suave para Criar (Acolhimento)
+  const btnColor = isLogin ? "#1A2F3B" : "#E5A93C";
   const btnIcon = isLogin ? "sign-in-alt" : "arrow-right";
+  const btnTextColor = isLogin ? "#FFF" : "#1A2F3B"; // Acessibilidade WCAG (Contraste)
 
   useEffect(() => {
     Animated.parallel([
@@ -126,7 +128,7 @@ export default function LoginScreen({ navigation }: any) {
     title: string,
     message: string,
     icon = "info-circle",
-    color = "#CE82FF",
+    color = "#1A2F3B",
     showButton = false,
     onConfirm: (() => void) | null = null,
   ) => {
@@ -157,7 +159,7 @@ export default function LoginScreen({ navigation }: any) {
         "Conta Criada! 🎉",
         "Sucesso! Agora faça o login com sua nova conta para acessar a jornada.",
         "check-circle",
-        "#4BDE95",
+        "#4BDE95", // Verde Sucesso
         false,
         () => setIsLogin(true),
       );
@@ -176,7 +178,7 @@ export default function LoginScreen({ navigation }: any) {
         "Atenção",
         "Preencha e-mail e senha para continuar.",
         "exclamation-triangle",
-        "#FF9600",
+        "#E5A93C", // Ouro Suave (Aviso)
         false,
       );
       return;
@@ -187,7 +189,7 @@ export default function LoginScreen({ navigation }: any) {
         "Senha Curta",
         "Sua senha deve ter pelo menos 6 caracteres.",
         "lock",
-        "#FF9600",
+        "#E5A93C",
         false,
       );
       return;
@@ -271,7 +273,7 @@ export default function LoginScreen({ navigation }: any) {
             "Match Não Encontrado",
             "O código inserido não existe. Prosseguindo...",
             "search-minus",
-            "#FF9600",
+            "#E5A93C",
             false,
           );
         }
@@ -288,7 +290,7 @@ export default function LoginScreen({ navigation }: any) {
           "Bem-vindo de volta! 👋",
           "Este e-mail já está cadastrado. Estamos te redirecionando para a área de Login.",
           "info-circle",
-          "#CE82FF",
+          "#1A2F3B",
           false,
           () => setIsLogin(true),
         );
@@ -299,7 +301,7 @@ export default function LoginScreen({ navigation }: any) {
         if (error.code === "auth/too-many-requests")
           msg = "Muitas tentativas. Aguarde um momento.";
 
-        showCustomAlert("Ops!", msg, "times-circle", "#FF4B4B", false);
+        showCustomAlert("Ops!", msg, "times-circle", "#D96C6C", false); // Terracota Mudo (Erro leve)
       }
     }
   };
@@ -352,7 +354,7 @@ export default function LoginScreen({ navigation }: any) {
       } finally {
         setIsMatchAnimationVisible(false);
         setInviteCode("");
-        // Continua o fluxo (Se era cadastro, desloga. Se era login, libera pro App)
+        // Continua o fluxo
         finalizeAuth(pendingMatchPartner.isNewUser);
         setPendingMatchPartner(null);
         matchAnimTranslateX.setValue(0);
@@ -426,7 +428,7 @@ export default function LoginScreen({ navigation }: any) {
               <FontAwesome5
                 name="envelope"
                 size={16}
-                color="#AFAFAF"
+                color="#60646C"
                 style={styles.inputIcon}
               />
               <TextInput
@@ -444,7 +446,7 @@ export default function LoginScreen({ navigation }: any) {
               <FontAwesome5
                 name="lock"
                 size={16}
-                color="#AFAFAF"
+                color="#60646C"
                 style={styles.inputIcon}
               />
               <TextInput
@@ -465,7 +467,7 @@ export default function LoginScreen({ navigation }: any) {
                     "Recuperação",
                     "Em breve.",
                     "envelope",
-                    "#AFAFAF",
+                    "#1A2F3B",
                     false,
                   )
                 }
@@ -476,10 +478,10 @@ export default function LoginScreen({ navigation }: any) {
               </TouchableOpacity>
             )}
 
-            {/* 🔥 CÓDIGO DE MATCH DISPONÍVEL NO CADASTRO E NO LOGIN 🔥 */}
+            {/* 🔥 CÓDIGO DE MATCH */}
             <View style={styles.inviteBox}>
               <View style={styles.inviteHeader}>
-                <FontAwesome5 name="heart" solid size={16} color="#FF9600" />
+                <FontAwesome5 name="heart" solid size={16} color="#4BDE95" />
                 <Text style={styles.inviteTitle}>Conexão DuoElo</Text>
               </View>
               <Text style={styles.inviteDesc}>
@@ -513,13 +515,19 @@ export default function LoginScreen({ navigation }: any) {
                 disabled={isLoading}
               >
                 {isLoading ? (
-                  <ActivityIndicator size="small" color="#FFF" />
+                  <ActivityIndicator size="small" color={btnTextColor} />
                 ) : (
                   <>
-                    <Text style={styles.floatingBtnText}>
+                    <Text
+                      style={[styles.floatingBtnText, { color: btnTextColor }]}
+                    >
                       {isLogin ? "Entrar na Conta" : "Criar Minha Conta"}
                     </Text>
-                    <FontAwesome5 name={btnIcon} size={18} color="#FFF" />
+                    <FontAwesome5
+                      name={btnIcon}
+                      size={18}
+                      color={btnTextColor}
+                    />
                   </>
                 )}
               </TouchableOpacity>
@@ -545,7 +553,7 @@ export default function LoginScreen({ navigation }: any) {
                 onPress={() => handleSocialLogin("Apple")}
                 hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
               >
-                <FontAwesome5 name="apple" size={36} color="#000" />
+                <FontAwesome5 name="apple" size={36} color="#1A2F3B" />
               </TouchableOpacity>
             </View>
 
@@ -597,7 +605,7 @@ export default function LoginScreen({ navigation }: any) {
                     borderRadius: 40,
                     marginBottom: 15,
                     borderWidth: 3,
-                    borderColor: "#CE82FF",
+                    borderColor: "#E5A93C",
                   }}
                 />
               ) : (
@@ -606,16 +614,18 @@ export default function LoginScreen({ navigation }: any) {
                     width: 80,
                     height: 80,
                     borderRadius: 40,
-                    backgroundColor: "#F0F0F0",
+                    backgroundColor: "#F0F4F8",
                     justifyContent: "center",
                     alignItems: "center",
                     marginBottom: 15,
                   }}
                 >
-                  <FontAwesome5 name="user-alt" size={30} color="#AFAFAF" />
+                  <FontAwesome5 name="user-alt" size={30} color="#1A2F3B" />
                 </View>
               )}
-              <Text style={{ fontSize: 20, fontWeight: "900", color: "#333" }}>
+              <Text
+                style={{ fontSize: 20, fontWeight: "900", color: "#1A2F3B" }}
+              >
                 {pendingMatchPartner?.data?.displayName ||
                   pendingMatchPartner?.data?.email?.split("@")[0] ||
                   "Usuário Misterioso"}
@@ -632,7 +642,6 @@ export default function LoginScreen({ navigation }: any) {
               style={styles.cancelLinkButton}
               onPress={() => {
                 setIsMatchConfirmationVisible(false);
-                // Se errou o código, continua com o login/cadastro que já deu certo, só não faz o match
                 finalizeAuth(pendingMatchPartner.isNewUser);
                 setPendingMatchPartner(null);
                 setInviteCode("");
@@ -651,7 +660,7 @@ export default function LoginScreen({ navigation }: any) {
         <View
           style={[
             styles.modalOverlayCenter,
-            { backgroundColor: "rgba(255,126,179,0.95)" },
+            { backgroundColor: "rgba(26,47,59,0.95)" }, // Fundo Azul-Petróleo Transparente
           ]}
         >
           <Text
@@ -674,7 +683,7 @@ export default function LoginScreen({ navigation }: any) {
               width: "100%",
             }}
           >
-            {/* Usuário Local (Desliza da esquerda pra direita) */}
+            {/* Usuário Local */}
             <Animated.View
               style={{
                 transform: [
@@ -712,12 +721,12 @@ export default function LoginScreen({ navigation }: any) {
                     borderColor: "#FFF",
                   }}
                 >
-                  <FontAwesome5 name="user-alt" size={35} color="#FF7EB3" />
+                  <FontAwesome5 name="user-alt" size={35} color="#1A2F3B" />
                 </View>
               )}
             </Animated.View>
 
-            {/* Coração Central (Pulsa) */}
+            {/* Coração Central */}
             <Animated.View
               style={{
                 transform: [{ scale: matchHeartScale }],
@@ -736,11 +745,11 @@ export default function LoginScreen({ navigation }: any) {
                   elevation: 10,
                 }}
               >
-                <FontAwesome5 name="heart" solid size={35} color="#FF7EB3" />
+                <FontAwesome5 name="heart" solid size={35} color="#E5A93C" />
               </View>
             </Animated.View>
 
-            {/* Parceiro (Desliza da direita pra esquerda) */}
+            {/* Parceiro */}
             <Animated.View
               style={{
                 transform: [
@@ -783,7 +792,7 @@ export default function LoginScreen({ navigation }: any) {
                     borderColor: "#FFF",
                   }}
                 >
-                  <FontAwesome5 name="user-alt" size={35} color="#FF7EB3" />
+                  <FontAwesome5 name="user-alt" size={35} color="#1A2F3B" />
                 </View>
               )}
             </Animated.View>
@@ -847,7 +856,7 @@ export default function LoginScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#FAFAFA" },
+  container: { flex: 1, backgroundColor: "#F0F4F8" }, // Fundo Azul-Cinza Suave
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 30,
@@ -864,9 +873,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF",
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#000",
+    shadowColor: "#1A2F3B",
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.1,
     shadowRadius: 10,
     elevation: 8,
     overflow: "hidden",
@@ -875,13 +884,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 26,
     fontWeight: "900",
-    color: "#2C3E50",
+    color: "#1A2F3B", // Azul Petróleo
     marginBottom: 10,
     textAlign: "center",
   },
   subtitle: {
     fontSize: 15,
-    color: "#7F8C8D",
+    color: "#60646C",
     textAlign: "center",
     lineHeight: 22,
     paddingHorizontal: 10,
@@ -893,7 +902,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF",
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: "#E5E5E5",
+    borderColor: "#D1D9E0", // Bordas Clínicas
     marginBottom: 15,
     paddingHorizontal: 15,
     shadowColor: "#000",
@@ -908,17 +917,17 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
     paddingHorizontal: 10,
     fontSize: 16,
-    color: "#333",
+    color: "#1A2F3B",
   },
   forgotPasswordBtn: { alignSelf: "flex-end", marginBottom: 20, marginTop: -5 },
-  forgotPasswordText: { color: "#AFAFAF", fontSize: 14, fontWeight: "bold" },
+  forgotPasswordText: { color: "#60646C", fontSize: 14, fontWeight: "bold" },
   dividerContainer: {
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 25,
     marginTop: 10,
   },
-  dividerLine: { flex: 1, height: 1, backgroundColor: "#E5E5E5" },
+  dividerLine: { flex: 1, height: 1, backgroundColor: "#D1D9E0" },
   dividerText: {
     marginHorizontal: 15,
     color: "#AFAFAF",
@@ -933,12 +942,12 @@ const styles = StyleSheet.create({
     marginBottom: 25,
   },
   inviteBox: {
-    backgroundColor: "#FFF9E6",
+    backgroundColor: "#E8F4F1", // Verde Menta Suave
     padding: 18,
     borderRadius: 16,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: "#FFE273",
+    borderColor: "#4BDE95",
   },
   inviteHeader: {
     flexDirection: "row",
@@ -946,16 +955,16 @@ const styles = StyleSheet.create({
     gap: 10,
     marginBottom: 8,
   },
-  inviteTitle: { fontSize: 16, fontWeight: "bold", color: "#FF9600" },
-  inviteDesc: { fontSize: 13, color: "#666", marginBottom: 15 },
+  inviteTitle: { fontSize: 16, fontWeight: "bold", color: "#1A2F3B" },
+  inviteDesc: { fontSize: 13, color: "#2C3E50", marginBottom: 15 },
   inviteInput: {
     backgroundColor: "#FFF",
     borderRadius: 12,
     padding: 14,
     fontSize: 15,
-    color: "#333",
+    color: "#1A2F3B",
     borderWidth: 1,
-    borderColor: "#E5E5E5",
+    borderColor: "#D1D9E0",
     textAlign: "center",
     fontWeight: "bold",
     letterSpacing: 2,
@@ -969,14 +978,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 10,
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
+    shadowOpacity: 0.2,
     shadowRadius: 12,
     elevation: 8,
     borderWidth: 2,
     borderColor: "#FFF",
   },
   floatingBtnText: {
-    color: "#FFF",
     fontSize: 18,
     fontWeight: "900",
     textTransform: "uppercase",
@@ -989,13 +997,18 @@ const styles = StyleSheet.create({
     marginTop: 20,
     gap: 6,
   },
-  toggleText: { color: "#7F8C8D", fontSize: 15 },
-  toggleLink: { color: "#CE82FF", fontSize: 15, fontWeight: "bold" },
+  toggleText: { color: "#60646C", fontSize: 15 },
+  toggleLink: {
+    color: "#1A2F3B",
+    fontSize: 15,
+    fontWeight: "bold",
+    textDecorationLine: "underline",
+  },
 
-  // 🔥 ESTILOS DOS MODAIS DE MATCH
+  // 🔥 ESTILOS DOS MODAIS
   modalOverlayCenter: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.6)",
+    backgroundColor: "rgba(26,47,59,0.7)",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -1009,17 +1022,17 @@ const styles = StyleSheet.create({
   codeModalTitle: {
     fontSize: 20,
     fontWeight: "900",
-    color: "#2C3E50",
+    color: "#1A2F3B",
     marginBottom: 10,
   },
   codeModalSub: {
     fontSize: 14,
-    color: "#7F8C8D",
+    color: "#60646C",
     textAlign: "center",
     marginBottom: 20,
   },
   linkButton: {
-    backgroundColor: "#FF7EB3",
+    backgroundColor: "#1A2F3B",
     width: "100%",
     paddingVertical: 14,
     borderRadius: 12,
@@ -1032,11 +1045,11 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: "center",
   },
-  cancelLinkButtonText: { color: "#AFAFAF", fontSize: 14, fontWeight: "bold" },
+  cancelLinkButtonText: { color: "#60646C", fontSize: 14, fontWeight: "bold" },
 
   bottomSheetOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: "rgba(26,47,59,0.7)",
     justifyContent: "flex-end",
   },
   bottomSheetContainer: {
@@ -1056,7 +1069,7 @@ const styles = StyleSheet.create({
   bottomSheetHandle: {
     width: 50,
     height: 5,
-    backgroundColor: "#E5E5E5",
+    backgroundColor: "#D1D9E0",
     borderRadius: 3,
     marginBottom: 20,
   },
@@ -1071,13 +1084,13 @@ const styles = StyleSheet.create({
   bottomSheetTitle: {
     fontSize: 22,
     fontWeight: "900",
-    color: "#2C3E50",
+    color: "#1A2F3B",
     marginBottom: 10,
     textAlign: "center",
   },
   bottomSheetText: {
     fontSize: 15,
-    color: "#7F8C8D",
+    color: "#60646C",
     textAlign: "center",
     marginBottom: 20,
     lineHeight: 22,
@@ -1091,6 +1104,17 @@ const styles = StyleSheet.create({
   },
   bottomSheetButtonPrimaryText: {
     color: "#FFF",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  bottomSheetButtonSecondary: {
+    width: "100%",
+    paddingVertical: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  bottomSheetButtonSecondaryText: {
+    color: "#60646C",
     fontSize: 16,
     fontWeight: "bold",
   },

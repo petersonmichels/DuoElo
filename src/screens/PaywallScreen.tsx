@@ -123,7 +123,7 @@ export default function PaywallScreen({ navigation }: any) {
           onPress={() => navigation.goBack()}
           disabled={isProcessing}
         >
-          <FontAwesome5 name="times" size={24} color="#AFAFAF" />
+          <FontAwesome5 name="times" size={24} color="#1A2F3B" />
         </TouchableOpacity>
       </View>
 
@@ -140,7 +140,7 @@ export default function PaywallScreen({ navigation }: any) {
           }}
         >
           <View style={styles.iconWrapper}>
-            <FontAwesome5 name="heartbeat" size={40} color="#FF7EB3" />
+            <FontAwesome5 name="heartbeat" size={40} color="#4BDE95" />
           </View>
 
           <Text style={styles.heroTitle}>
@@ -173,58 +173,30 @@ export default function PaywallScreen({ navigation }: any) {
                   )}
 
                   <View style={styles.planInfo}>
-                    <Text
-                      style={[
-                        styles.planName,
-                        isSelected && styles.planTextSelected,
-                      ]}
-                    >
-                      {plan.name}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.planDesc,
-                        isSelected && styles.planTextSelected,
-                      ]}
-                    >
-                      {plan.desc}
-                    </Text>
+                    <Text style={styles.planName}>{plan.name}</Text>
+                    <Text style={styles.planDesc}>{plan.desc}</Text>
                   </View>
 
                   <View style={styles.planPriceBox}>
-                    <Text
-                      style={[
-                        styles.planPrice,
-                        isSelected && styles.planTextSelected,
-                      ]}
-                    >
-                      R$ {plan.price}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.planPeriod,
-                        isSelected && styles.planTextSelected,
-                      ]}
-                    >
-                      {plan.period}
-                    </Text>
+                    <Text style={styles.planPrice}>R$ {plan.price}</Text>
+                    <Text style={styles.planPeriod}>{plan.period}</Text>
                   </View>
                 </TouchableOpacity>
               );
             })}
           </View>
 
-          {/* 🔥 GARANTIA DE TEMPO LOGO ABAIXO DOS PREÇOS */}
+          {/* 🔥 GARANTIA DE TEMPO: VERDE SEGURANÇA */}
           <View style={styles.guaranteeBox}>
             <View style={styles.guaranteeHeader}>
-              <FontAwesome5 name="hourglass-half" size={16} color="#FF9600" />
+              <FontAwesome5 name="shield-alt" size={16} color="#4BDE95" />
               <Text style={styles.guaranteeTitle}>
                 Seu tempo está protegido!
               </Text>
             </View>
             <Text style={styles.priceSub}>
               O período da Jornada de 90 dias{" "}
-              <Text style={{ fontWeight: "bold", color: "#333" }}>
+              <Text style={{ fontWeight: "bold", color: "#1A2F3B" }}>
                 só começa a contar a partir da sua primeira tarefa concluída.
               </Text>{" "}
               Caso precise de mais tempo, a assinatura será ajustada
@@ -233,7 +205,7 @@ export default function PaywallScreen({ navigation }: any) {
             </Text>
           </View>
 
-          {/* 🔥 LISTA DE BENEFÍCIOS JOGADA PARA BAIXO */}
+          {/* 🔥 LISTA DE BENEFÍCIOS */}
           <View style={styles.featuresContainer}>
             <Text style={styles.featuresSectionTitle}>
               O que está incluso no Premium?
@@ -241,7 +213,7 @@ export default function PaywallScreen({ navigation }: any) {
             {features.map((feat, index) => (
               <View key={index} style={styles.featureItem}>
                 <View style={styles.featureIconBg}>
-                  <FontAwesome5 name={feat.icon} size={20} color="#CE82FF" />
+                  <FontAwesome5 name={feat.icon} size={20} color="#1A2F3B" />
                 </View>
                 <View style={styles.featureTextContainer}>
                   <Text style={styles.featureTitle}>{feat.title}</Text>
@@ -261,10 +233,10 @@ export default function PaywallScreen({ navigation }: any) {
           disabled={isProcessing}
         >
           {isProcessing ? (
-            <ActivityIndicator size="small" color="#FFF" />
+            <ActivityIndicator size="small" color="#1A2F3B" />
           ) : (
             <>
-              <FontAwesome5 name="shield-alt" size={20} color="#FFF" />
+              <FontAwesome5 name="star" solid size={18} color="#1A2F3B" />
               <Text style={styles.ctaButtonText}>
                 Assinar Plano{" "}
                 {selectedPlan === "mensal"
@@ -277,7 +249,7 @@ export default function PaywallScreen({ navigation }: any) {
           )}
         </TouchableOpacity>
         <Text style={styles.guaranteeText}>
-          <FontAwesome5 name="lock" size={10} color="#AFAFAF" /> Ambiente de
+          <FontAwesome5 name="lock" size={10} color="#60646C" /> Ambiente de
           Pagamento 100% Seguro
         </Text>
       </View>
@@ -286,7 +258,7 @@ export default function PaywallScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#FFF" },
+  container: { flex: 1, backgroundColor: "#F0F4F8" }, // Azul-Cinza Suave
   header: {
     paddingHorizontal: 24,
     paddingTop: 10,
@@ -305,22 +277,29 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: "#FFF0F6",
+    backgroundColor: "#E8F4F1", // Verde Menta Suave
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 20,
+    borderWidth: 2,
+    borderColor: "#FFF",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
   },
   heroTitle: {
-    fontSize: 30,
+    fontSize: 28,
     fontWeight: "900",
-    color: "#2C3E50",
+    color: "#1A2F3B",
     textAlign: "center",
-    lineHeight: 36,
+    lineHeight: 34,
     marginBottom: 15,
   },
   heroSub: {
     fontSize: 15,
-    color: "#7F8C8D",
+    color: "#60646C",
     textAlign: "center",
     lineHeight: 22,
     marginBottom: 25,
@@ -337,28 +316,33 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#FAFAFA",
+    backgroundColor: "#FFF", // Branco para contraste
     borderWidth: 2,
-    borderColor: "#E5E5E5",
+    borderColor: "#D1D9E0",
     borderRadius: 16,
     padding: 20,
     position: "relative",
   },
   planCardSelected: {
-    backgroundColor: "#FFF9E6",
-    borderColor: "#FF9600",
+    borderColor: "#E5A93C", // Borda Ouro Suave
+    backgroundColor: "#FFFDF5", // Levissímo tom quente
+    shadowColor: "#E5A93C",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
   badgeContainer: {
     position: "absolute",
     top: -10,
     left: 20,
-    backgroundColor: "#FF9600",
+    backgroundColor: "#E5A93C",
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
   },
   badgeText: {
-    color: "#FFF",
+    color: "#1A2F3B", // Texto Azul-Petróleo para Contraste AAA
     fontSize: 10,
     fontWeight: "900",
     letterSpacing: 1,
@@ -369,12 +353,12 @@ const styles = StyleSheet.create({
   planName: {
     fontSize: 16,
     fontWeight: "bold",
-    color: "#333",
+    color: "#1A2F3B",
     marginBottom: 4,
   },
   planDesc: {
     fontSize: 13,
-    color: "#7F8C8D",
+    color: "#60646C",
   },
   planPriceBox: {
     alignItems: "flex-end",
@@ -382,24 +366,21 @@ const styles = StyleSheet.create({
   planPrice: {
     fontSize: 20,
     fontWeight: "900",
-    color: "#333",
+    color: "#1A2F3B",
   },
   planPeriod: {
     fontSize: 12,
-    color: "#7F8C8D",
+    color: "#60646C",
     fontWeight: "bold",
-  },
-  planTextSelected: {
-    color: "#B36900",
   },
 
   guaranteeBox: {
-    backgroundColor: "#F9F0FF",
+    backgroundColor: "#E8F4F1", // Fundo Menta calmante
     padding: 18,
     borderRadius: 16,
     width: "100%",
     borderWidth: 1,
-    borderColor: "#EAD1FF",
+    borderColor: "#4BDE95", // Borda Verde Sucesso
   },
   guaranteeHeader: {
     flexDirection: "row",
@@ -411,29 +392,29 @@ const styles = StyleSheet.create({
   guaranteeTitle: {
     fontSize: 14,
     fontWeight: "bold",
-    color: "#5C3D75",
+    color: "#1A2F3B",
     textTransform: "uppercase",
   },
   priceSub: {
     fontSize: 13,
-    color: "#666",
+    color: "#2C3E50",
     textAlign: "center",
     lineHeight: 20,
   },
 
   featuresContainer: {
     width: "100%",
-    backgroundColor: "#FAFAFA",
+    backgroundColor: "#FFF",
     borderRadius: 24,
     padding: 20,
-    marginTop: 30, // 🔥 Adicionado espaçamento no topo para distanciar da garantia
+    marginTop: 30,
     borderWidth: 1,
-    borderColor: "#F0F0F0",
+    borderColor: "#D1D9E0",
   },
   featuresSectionTitle: {
     fontSize: 16,
     fontWeight: "bold",
-    color: "#AFAFAF",
+    color: "#60646C",
     textAlign: "center",
     textTransform: "uppercase",
     marginBottom: 20,
@@ -444,7 +425,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 16,
-    backgroundColor: "#F4E5FF",
+    backgroundColor: "#F0F4F8",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 15,
@@ -453,36 +434,34 @@ const styles = StyleSheet.create({
   featureTitle: {
     fontSize: 16,
     fontWeight: "bold",
-    color: "#333",
+    color: "#1A2F3B",
     marginBottom: 4,
   },
-  featureDesc: { fontSize: 13, color: "#777", lineHeight: 18 },
+  featureDesc: { fontSize: 13, color: "#60646C", lineHeight: 18 },
 
   footer: {
     paddingHorizontal: 24,
     paddingBottom: 30,
     paddingTop: 10,
-    backgroundColor: "#FFF",
-    borderTopWidth: 1,
-    borderTopColor: "#F0F0F0",
+    backgroundColor: "#F0F4F8", // Acompanha o fundo geral
   },
   ctaButton: {
     flexDirection: "row",
-    backgroundColor: "#2C3E50",
+    backgroundColor: "#E5A93C", // Ouro Suave Premium
     paddingVertical: 20,
     borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
     gap: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
+    shadowColor: "#E5A93C",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 5,
     marginBottom: 15,
   },
   ctaButtonText: {
-    color: "#FFF",
+    color: "#1A2F3B", // Texto Azul-Petróleo para Leitura Perfeita
     fontSize: 17,
     fontWeight: "900",
     textTransform: "uppercase",
@@ -490,7 +469,7 @@ const styles = StyleSheet.create({
   },
   guaranteeText: {
     textAlign: "center",
-    color: "#AFAFAF",
+    color: "#60646C",
     fontSize: 12,
     fontWeight: "600",
   },

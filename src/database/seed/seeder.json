@@ -2010,6 +2010,125 @@
         "description": "Se houver algum assunto pendente ou mal-entendido recente, chame seu parceiro para uma conversa pacífica hoje. Esforce-se para concordar em pelo menos um ponto levantado por ele.",
         "pointsPE": 50
       }
+    ],
+    "weekly_challenges": [
+      {
+        "week": 1,
+        "title": "Início Suave",
+        "theme_1co13": "O Amor é Paciente",
+        "concept": "Discussões iniciadas com acusações determinam o fracasso do diálogo em até 96% das vezes.",
+        "action": "Ao primeiro sinal de irritação no final de semana, faça um silêncio proativo de 5 segundos, respire fundo e responda apenas com um toque físico sutil nas mãos ou com um tom de voz deliberadamente baixo.",
+        "pointsPE": 150,
+        "tag": "inicio_suave_semana_1"
+      },
+      {
+        "week": 2,
+        "title": "Cultura de Apreciação",
+        "theme_1co13": "O Amor não se vangloria, não se orgulha",
+        "concept": "O desprezo é o maior preditor de divórcio. O elogio focado reconstrói a admiração mútua.",
+        "action": "Observe o comportamento do seu parceiro e faça um elogio detalhado sobre uma virtude ou esforço dele na presença de outras pessoas (filhos ou amigos), ou escreva uma mensagem de próprio punho.",
+        "pointsPE": 150,
+        "tag": "cultura_apreciacao_semana_2"
+      },
+      {
+        "week": 3,
+        "title": "Autoacalmamento Fisiológico",
+        "theme_1co13": "O Amor não se ira facilmente",
+        "concept": "Com batimentos cardíacos acima de 100 bpm, o cérebro entra em estado de luta ou fuga e impede o raciocínio lógico.",
+        "action": "Se houver qualquer sinal de tensão, interrompa a conversa imediatamente e concorde em fazer uma pausa fisiológica de 20 minutos para acalmar os batimentos cardíacos antes de retomar o diálogo.",
+        "pointsPE": 150,
+        "tag": "autoacalmamento_fisiologico_semana_3"
+      },
+      {
+        "week": 4,
+        "title": "O Escudo da Mente",
+        "theme_1co13": "O Amor tudo crê, tudo espera",
+        "concept": "O sofrimento por antecipação e pensamentos negativos automáticos abrem janelas traumáticas na memória.",
+        "action": "Identifique um pensamento ansioso de rejeição em relação ao parceiro e aplique a Higiene Mental DCD de Augusto Cury, duvidando da hipótese trágica e focando em 3 pontos positivos reais do seu casamento.",
+        "pointsPE": 150,
+        "tag": "escudo_da_mente_semana_4"
+      },
+      {
+        "week": 5,
+        "title": "A Arte de Ceder",
+        "theme_1co13": "O Amor não busca seus próprios interesses",
+        "concept": "A teimosia e a disputa de poder sufocam a relação. Ceder voluntariamente quebra o cabo de guerra relacional.",
+        "action": "Em uma pequena decisão logística do fim de semana (como o que jantar ou assistir), abra mão voluntariamente da sua preferência e declare: 'Prefiro fazer da sua maneira hoje'.",
+        "pointsPE": 150,
+        "tag": "arte_ceder_semana_5"
+      },
+      {
+        "week": 6,
+        "title": "Alívio Logístico",
+        "theme_1co13": "O Amor é Bondoso",
+        "concept": "A sobrecarga com a carga mental invisível doméstica exaure as energias e provoca a perda de proximidade afetiva.",
+        "action": "Assuma integralmente e em silêncio o planejamento e execução de uma rotina pesada do lar (como lavar a louça de todas as refeições ou planejar o almoço) sem cobrar retornos ou aplausos.",
+        "pointsPE": 150,
+        "tag": "alivio_logistico_semana_6"
+      },
+      {
+        "week": 7,
+        "title": "O Reset do Passado",
+        "theme_1co13": "O Amor não guarda ressentimento",
+        "concept": "O fenômeno RAM acumula mágoas na memória, trancando o parceiro em uma lente estritamente negativa.",
+        "action": "Escreva em um papel uma mágoa antiga que você ainda carrega, tome a decisão íntima de liberar esse peso pelo perdão e queime o papel fisicamente, simbolizando o esvaziamento da mágoa.",
+        "pointsPE": 150,
+        "tag": "reset_do_passado_semana_7"
+      },
+      {
+        "week": 8,
+        "title": "Sintonização Emocional",
+        "theme_1co13": "O Amor não é rude e é atencioso",
+        "concept": "Saber ouvir as dores do parceiro sem tentar corrigi-las cria um porto seguro de intimidade e acolhimento.",
+        "action": "Separe 15 minutos sem telas, de mãos dadas, para praticar o 'Pair Grounding'. Pergunte sobre as preocupações dele e escute de forma generosa por 5 minutos sem interromper ou julgar.",
+        "pointsPE": 150,
+        "tag": "sintonizacao_emocional_semana_8"
+      },
+      {
+        "week": 9,
+        "title": "Alinhamento de Destino",
+        "theme_1co13": "O Amor não arde em ciúmes, nem cobiça",
+        "concept": "Divergências ou segredos orçamentários corroem a confiança. Alinhamento preventivo promove estabilidade e união.",
+        "action": "Realize uma conversa de orçamento leve de 15 minutos. Tracem juntos um objetivo financeiro de longo prazo para a família e comprometam-se a evitar gastos supérfluos neste final de semana.",
+        "pointsPE": 150,
+        "tag": "alinhamento_destino_semana_9"
+      },
+      {
+        "week": 10,
+        "title": "O Santuário Tátil",
+        "theme_1co13": "O leito conjugal sem mácula",
+        "concept": "A falta de proximidade tátil reduz a ocitocina (afeto) e a dopamina (recompensa), fazendo o casal viver como colegas de quarto.",
+        "action": "Estabeleça rituais táteis intensos neste fim de semana: pratique o beijo de despedida e reencontro de 6 segundos e dê um abraço silencioso de 20 segundos antes de deitar-se.",
+        "pointsPE": 150,
+        "tag": "santuario_tatil_semana_10"
+      },
+      {
+        "week": 11,
+        "title": "O Voto de Confiança",
+        "theme_1co13": "O Amor tudo sofre, tudo crê",
+        "concept": "Reconstruir a confiança exige dar ativamente o benefício da dúvida, eliminando a vigilância e as acusações preventivas.",
+        "action": "Diante de um pequeno deslize ou esquecimento do parceiro no fim de semana, cubra o erro em silêncio. Diga sinceramente: 'Tudo bem, eu confio em você e sei que fez o seu melhor'.",
+        "pointsPE": 150,
+        "tag": "voto_confianca_semana_11"
+      },
+      {
+        "week": 12,
+        "title": "Co-Criação de Sentido",
+        "theme_1co13": "O Amor tudo espera",
+        "concept": "Rituais de conexão intencionais de lazer fortalecem os laços de amizade profunda e neutralizam a rotina.",
+        "action": "Planeje e execute uma atividade inusitada ou divertida a dois no fim de semana (como piquenique ou passeio novo), com foco total em dar risadas e construir memórias felizes.",
+        "pointsPE": 150,
+        "tag": "cocriacao_sentido_semana_12"
+      },
+      {
+        "week": 13,
+        "title": "A Aliança Perpétua",
+        "theme_1co13": "O Amor permanece para sempre",
+        "concept": "O amor maduro não é baseado em sentimentos flutuantes, mas no compromisso sólido de honrar a aliança conjugal.",
+        "action": "Escreva individualmente uma carta de comprometimento relacional listando por que decidiu amar seu cônjuge incondicionalmente. Guarde-a em seu diário do app para ler em momentos de tempestade.",
+        "pointsPE": 150,
+        "tag": "alianca_perpetua_semana_13"
+      }
     ]
   },
   "pt-PT": {
@@ -4022,6 +4141,125 @@
         "title": "Diálogo de Reparação",
         "description": "Se houver algum assunto pendente ou mal-entendido recente, chame seu parceiro para uma conversa pacífica hoje. Esforce-se para concordar em pelo menos um ponto levantado por ele.",
         "pointsPE": 50
+      }
+    ],
+    "weekly_challenges": [
+      {
+        "week": 1,
+        "title": "Início Suave",
+        "theme_1co13": "O Amor é Paciente",
+        "concept": "Discussões iniciadas com acusações determinam o fracasso do diálogo em até 96% das vezes.",
+        "action": "Ao primeiro sinal de irritação no fim de semana, faça um silêncio proativo de 5 segundos, respire fundo e responda apenas com um toque físico sutil nas mãos ou com um tom de voz deliberadamente baixo.",
+        "pointsPE": 150,
+        "tag": "inicio_suave_semana_1"
+      },
+      {
+        "week": 2,
+        "title": "Cultura de Apreciação",
+        "theme_1co13": "O Amor não se vangloria, não se orgulha",
+        "concept": "O desprezo é o maior preditor de divórcio. O elogio focado reconstrói a admiração mútua.",
+        "action": "Observe o comportamento do seu parceiro e faça um elogio detalhado sobre uma virtude ou esforço dele na presença de outras pessoas (filhos ou amigos), ou escreva uma mensagem de próprio punho.",
+        "pointsPE": 150,
+        "tag": "cultura_apreciacao_semana_2"
+      },
+      {
+        "week": 3,
+        "title": "Autoacalmamento Fisiológico",
+        "theme_1co13": "O Amor não se ira facilmente",
+        "concept": "Com batimentos cardíacos acima de 100 bpm, o cérebro entra em estado de luta ou fuga e impede o raciocínio lógico.",
+        "action": "Se houver qualquer sinal de tensão, interrompa a conversa imediatamente e concorde em fazer uma pausa fisiológica de 20 minutos para acalmar os batimentos cardíacos antes de retomar o diálogo.",
+        "pointsPE": 150,
+        "tag": "autoacalmamento_fisiologico_semana_3"
+      },
+      {
+        "week": 4,
+        "title": "O Escudo da Mente",
+        "theme_1co13": "O Amor tudo crê, tudo espera",
+        "concept": "O sofrimento por antecipação e pensamentos negativos automáticos abrem janelas traumáticas na memória.",
+        "action": "Identifique um pensamento ansioso de rejeição em relação ao parceiro e aplique a Higiene Mental DCD de Augusto Cury, duvidando da hipótese trágica e focando em 3 aspetos positivos reais do seu casamento.",
+        "pointsPE": 150,
+        "tag": "escudo_da_mente_semana_4"
+      },
+      {
+        "week": 5,
+        "title": "A Arte de Ceder",
+        "theme_1co13": "O Amor não busca os seus próprios interesses",
+        "concept": "A teimosia e a disputa de poder sufocam a relação. Ceder voluntariamente quebra o cabo de guerra relacional.",
+        "action": "Numa pequena decisão logística do fim de semana (como o que jantar ou assistir), abra mão voluntariamente da sua preferência e declare: 'Prefiro fazer da tua maneira hoje'.",
+        "pointsPE": 150,
+        "tag": "arte_ceder_semana_5"
+      },
+      {
+        "week": 6,
+        "title": "Alívio Logístico",
+        "theme_1co13": "O Amor é Bondoso",
+        "concept": "A sobrecarga com a carga mental invisível doméstica exaure as energias e provoca a perda de proximidade afetiva.",
+        "action": "Assuma integralmente e em silêncio o planeamento e execução de uma rotina pesada do lar (como lavar a louça de todas as refeições ou planejar o almoço) sem cobrar retornos ou aplausos.",
+        "pointsPE": 150,
+        "tag": "alivio_logistico_semana_6"
+      },
+      {
+        "week": 7,
+        "title": "O Reset do Passado",
+        "theme_1co13": "O Amor não guarda ressentimento",
+        "concept": "O fenômeno RAM acumula mágoas na memória, trancando o parceiro em uma lente estritamente negativa.",
+        "action": "Escreva num papel uma mágoa antiga que ainda carrega, tome a decisão íntima de libertar esse peso pelo perdão e queime o papel fisicamente, simbolizando o esvaziamento da mágoa.",
+        "pointsPE": 150,
+        "tag": "reset_do_passado_semana_7"
+      },
+      {
+        "week": 8,
+        "title": "Sintonização Emocional",
+        "theme_1co13": "O Amor não é rude e é atencioso",
+        "concept": "Saber ouvir as dores do parceiro sem tentar corrigi-las cria um porto seguro de intimidade e acolhimento.",
+        "action": "Separe 15 minutos sem ecrãs, de mãos dadas, para praticar o 'Pair Grounding'. Pergunte sobre as preocupações dele e escute de forma generosa por 5 minutos sem interromper ou julgar.",
+        "pointsPE": 150,
+        "tag": "sintonizacao_emocional_semana_8"
+      },
+      {
+        "week": 9,
+        "title": "Alinhamento de Destino",
+        "theme_1co13": "O Amor não arde em ciúmes, nem cobiça",
+        "concept": "Divergências ou segredos orçamentários corroem a confiança. Alinhamento preventivo promove estabilidade e união.",
+        "action": "Realize uma conversa de orçamento leve de 15 minutos. Tracem juntos um objetivo financeiro de longo prazo para a família e comprometam-se a evitar gastos supérfluos neste fim de semana.",
+        "pointsPE": 150,
+        "tag": "alinhamento_destino_semana_9"
+      },
+      {
+        "week": 10,
+        "title": "O Santuário Tátil",
+        "theme_1co13": "O leito conjugal sem mácula",
+        "concept": "A falta de proximidade tátil reduz a ocitocina (afeto) e a dopamina (recompensa), fazendo o casal viver como colegas de quarto.",
+        "action": "Estabeleça rituais táteis intensos neste fim de semana: pratique o beijo de despedida e reencontro de 6 segundos e dê um abraço silencioso de 20 segundos antes de deitar-se.",
+        "pointsPE": 150,
+        "tag": "santuario_tatil_semana_10"
+      },
+      {
+        "week": 11,
+        "title": "O Voto de Confiança",
+        "theme_1co13": "O Amor tudo sofre, tudo crê",
+        "concept": "Reconstruir a confiança exige dar ativamente o benefício da dúvida, eliminando a vigilância e as acusações preventivas.",
+        "action": "Diante de um pequeno deslize ou esquecimento do parceiro no fim de semana, cubra o erro em silêncio. Diga sinceramente: 'Tudo bem, eu confio em você e sei que fez o seu melhor'.",
+        "pointsPE": 150,
+        "tag": "voto_confianca_semana_11"
+      },
+      {
+        "week": 12,
+        "title": "Co-Criação de Sentido",
+        "theme_1co13": "O Amor tudo espera",
+        "concept": "Rituais de conexão intencionais de lazer fortalecem os laços de amizade profunda e neutralizam a rotina.",
+        "action": "Planeie e execute uma atividade inusitada ou divertida a dois no fim de semana (como piquenique ou passeio novo), com foco total em dar risadas e construir memórias felizes.",
+        "pointsPE": 150,
+        "tag": "cocriacao_sentido_semana_12"
+      },
+      {
+        "week": 13,
+        "title": "A Aliança Perpétua",
+        "theme_1co13": "O Amor permanece para sempre",
+        "concept": "O amor maduro não é baseado em sentimentos flutuantes, mas no compromisso sólido de honrar a aliança conjugal.",
+        "action": "Escreva individualmente uma carta de comprometimento relacional listando por que decidiu amar seu cônjuge incondicionalmente. Guarde-a em seu diário do app para ler em momentos de tempestade.",
+        "pointsPE": 150,
+        "tag": "alianca_perpetua_semana_13"
       }
     ]
   },
@@ -6036,6 +6274,125 @@
         "description": "If there is any outstanding issue or recent misunderstanding, invite your partner for a peaceful conversation today. Strive to agree with at least one point raised by them.",
         "pointsPE": 50
       }
+    ],
+    "weekly_challenges": [
+      {
+        "week": 1,
+        "title": "Soft Startup",
+        "theme_1co13": "Love is Patient",
+        "concept": "Discussions started with accusations determine the failure of the dialogue in up to 96% of cases.",
+        "action": "At the first sign of irritation during the weekend, perform a proactive 5-second silence, take a deep breath, and respond only with a subtle touch on the hands or a deliberately low tone of voice.",
+        "pointsPE": 150,
+        "tag": "inicio_suave_semana_1"
+      },
+      {
+        "week": 2,
+        "title": "Culture of Appreciation",
+        "theme_1co13": "Love does not boast, is not proud",
+        "concept": "Contempt is the strongest predictor of divorce. Focused praise reconstructs mutual admiration.",
+        "action": "Observe your partner's behavior and make a detailed compliment about a virtue or effort in the presence of others (children or friends), or write a handwritten message.",
+        "pointsPE": 150,
+        "tag": "cultura_apreciacao_semana_2"
+      },
+      {
+        "week": 3,
+        "title": "Physiological Self-Soothing",
+        "theme_1co13": "Love is not easily angered",
+        "concept": "With heart rate above 100 bpm, the brain enters a fight-or-flight state and prevents logical reasoning.",
+        "action": "If there is any sign of tension, immediately stop the conversation and agree to take a 20-minute physiological break to calm the heart rate before resuming dialogue.",
+        "pointsPE": 150,
+        "tag": "autoacalmamento_fisiologico_semana_3"
+      },
+      {
+        "week": 4,
+        "title": "The Shield of the Mind",
+        "theme_1co13": "Love believes and hopes all things",
+        "concept": "Anticipatory anxiety and automatic negative thoughts open traumatic windows in memory.",
+        "action": "Identify an anxious thought of rejection toward your partner and apply Augusto Cury's DCD Mental Hygiene, doubting the tragic hypothesis and focusing on 3 actual positive points of your marriage.",
+        "pointsPE": 150,
+        "tag": "escudo_da_mente_semana_4"
+      },
+      {
+        "week": 5,
+        "title": "The Art of Yielding",
+        "theme_1co13": "Love is not self-seeking",
+        "concept": "Stubbornness and power struggles suffocate the relation. Voluntarily yielding breaks the relational tug-of-war.",
+        "action": "In a small logistical choice over the weekend (like what to dine or watch), voluntarily yield your preference and declare: 'I prefer to do it your way today'.",
+        "pointsPE": 150,
+        "tag": "arte_ceder_semana_5"
+      },
+      {
+        "week": 6,
+        "title": "Invisible Relief",
+        "theme_1co13": "Love is Kind",
+        "concept": "Overload with invisible domestic mental load exhausts energy and causes the loss of emotional proximity.",
+        "action": "Spontaneously assume full, silent responsibility for a demanding household routine (like washing dishes or planning lunch) without asking for returns or applause.",
+        "pointsPE": 150,
+        "tag": "alivio_logistico_semana_6"
+      },
+      {
+        "week": 7,
+        "title": "The Historical Reset",
+        "theme_1co13": "Love keeps no record of wrongs",
+        "concept": "The RAM phenomenon accumulates grievances in memory, locking the partner in a strictly negative lens.",
+        "action": "Write an old grievance you still carry on a paper, make the internal decision to release that weight through forgiveness, and physically burn the paper as a symbolic act of empty grief.",
+        "pointsPE": 150,
+        "tag": "reset_do_passado_semana_7"
+      },
+      {
+        "week": 8,
+        "title": "Emotional Attunement",
+        "theme_1co13": "Love is not rude, it is thoughtful",
+        "concept": "Knowing how to listen to your partner's pain without trying to fix it creates a safe haven of intimacy.",
+        "action": "Set aside 15 screen-free minutes, holding hands, to practice 'Pair Grounding'. Ask about their concerns and listen generously for 5 minutes without interrupting or judging.",
+        "pointsPE": 150,
+        "tag": "sintonizacao_emocional_semana_8"
+      },
+      {
+        "week": 9,
+        "title": "Financial Alignment",
+        "theme_1co13": "Love does not envy or covet",
+        "concept": "Budgetary disagreements or secrets corrode trust. Preventive alignment promotes stability and union.",
+        "action": "Have a light 15-minute budget conversation. Outline a long-term financial goal for the family together and commit to avoiding superfluous expenses this weekend.",
+        "pointsPE": 150,
+        "tag": "alinhamento_destino_semana_9"
+      },
+      {
+        "week": 10,
+        "title": "The Tactile Sanctuary",
+        "theme_1co13": "The marriage bed kept pure",
+        "concept": "Lack of physical proximity reduces oxytocin (affection) and dopamine (reward), causing the couple to live as roommates.",
+        "action": "Establish intense tactile rituals this weekend: practice the 6-second goodbye and reunion kiss, and give a silent 20-second hug before going to sleep.",
+        "pointsPE": 150,
+        "tag": "santuario_tatil_semana_10"
+      },
+      {
+        "week": 11,
+        "title": "The Leap of Trust",
+        "theme_1co13": "Love bears and believes all things",
+        "concept": "Rebuilding trust requires actively giving the benefit of the doubt, eliminating surveillance and preventive accusations.",
+        "action": "In the face of a small slip or forgetfulness of your partner over the weekend, cover the error in silence. Say sincerely: 'It's fine, I trust you and know you did your best'.",
+        "pointsPE": 150,
+        "tag": "voto_confianca_semana_11"
+      },
+      {
+        "week": 12,
+        "title": "Co-Creation of Meaning",
+        "theme_1co13": "Love hopes all things",
+        "concept": "Intentional leisure connection rituals strengthen the bonds of deep friendship and neutralize routine.",
+        "action": "Plan and execute an unusual or fun activity together over the weekend (like a picnic or a new getaway), with a total focus on laughing and building happy memories.",
+        "pointsPE": 150,
+        "tag": "cocriacao_sentido_semana_12"
+      },
+      {
+        "week": 13,
+        "title": "The Perpetual Covenant",
+        "theme_1co13": "Love never fails",
+        "concept": "Mature love is not based on fluctuating feelings, but on the solid commitment to honor the marriage covenant.",
+        "action": "Write a relational commitment letter listing why you decided to love your spouse unconditionally. Keep it in your app diary to read during stormy times.",
+        "pointsPE": 150,
+        "tag": "alianca_perpetua_semana_13"
+      }
     ]
   },
   "fr": {
@@ -8048,6 +8405,125 @@
         "title": "Dialogue de Réparation",
         "description": "S'il y a un problème en suspens ou un malentendu récent, invitez votre conjoint à une discussion paisible aujourd'hui. Efforcez-vous d'être d'accord avec au moins un point soulevé par lui.",
         "pointsPE": 50
+      }
+    ],
+    "weekly_challenges": [
+      {
+        "week": 1,
+        "title": "Démarrage Doux",
+        "theme_1co13": "L'Amour est Patient",
+        "concept": "Les discussions commencées par des accusations déterminent l'échec du dialogue dans 96% des cas.",
+        "action": "Au premier signe d'irritation pendant le week-end, faites un silence proactif de 5 secondes, respirez profondément et répondez uniquement par un toucher subtil sur les mains ou par un ton de voix délibérément bas.",
+        "pointsPE": 150,
+        "tag": "inicio_suave_semana_1"
+      },
+      {
+        "week": 2,
+        "title": "Culture d'Appréciation",
+        "theme_1co13": "L'Amour ne se vante pas, ne s'enfle pas d'orgueil",
+        "concept": "Le mépris est le plus grand prédicteur de divorce. Un éloge ciblé reconstruit l'admiration mutuelle.",
+        "action": "Observez le comportement de votre partenaire et faites un compliment détaillé sur une vertu ou un effort en présence d'autres personnes (enfants ou amis), ou écrivez un message écrit à la main.",
+        "pointsPE": 150,
+        "tag": "cultura_apreciacao_semana_2"
+      },
+      {
+        "week": 3,
+        "title": "Auto-apaisement Physiologique",
+        "theme_1co13": "L'Amour ne s'irrite pas facilement",
+        "concept": "Avec un rythme cardiaque supérieur à 100 bpm, le cerveau entre en état de lutte ou de fuite et empêche le raisonnement logique.",
+        "action": "S'il y a le moindre signe de tension, arrêtez immédiatement la conversation et acceptez de faire une pause physiologique de 20 minutes pour calmer le rythme cardiaque avant de reprendre le dialogue.",
+        "pointsPE": 150,
+        "tag": "autoacalmamento_fisiologico_semana_3"
+      },
+      {
+        "week": 4,
+        "title": "Le Bouclier de l'Esprit",
+        "theme_1co13": "L'Amour croit tout, espère tout",
+        "concept": "L'anxiété anticipatoire et les pensées négatives automatiques ouvrent des fenêtres traumatiques dans la mémoire.",
+        "action": "Identifiez une pensée anxieuse de rejet envers votre partenaire et appliquez l'hygiène mentale DCD d'Augusto Cury, en doutant de l'hypothèse tragique et en vous concentrant sur 3 points positifs réels de votre mariage.",
+        "pointsPE": 150,
+        "tag": "escudo_da_mente_semana_4"
+      },
+      {
+        "week": 5,
+        "title": "L'Art de Céder",
+        "theme_1co13": "L'Amour ne cherche pas son intérêt",
+        "concept": "L'entêtement et les luttes de pouvoir étouffent la relation. Céder volontairement brise le bras de fer relationnel.",
+        "action": "Dans un petit choix logistique du week-end (comme le dîner ou le film), cédez volontairement votre préférence et déclarez : 'Je préfère faire à ta manière aujourd'hui'.",
+        "pointsPE": 150,
+        "tag": "arte_ceder_semana_5"
+      },
+      {
+        "week": 6,
+        "title": "Soulagement Invisible",
+        "theme_1co13": "L'Amour est Plein de Bonté",
+        "concept": "La surcharge mentale domestique invisible épuise l'énergie et provoque la perte de proximité affective.",
+        "action": "Assumez spontanément la responsabilité totale et silencieuse d'une routine ménagère exigeante (comme laver la vaisselle de tous les repas ou planifier le déjeuner) sans demander de retour ni d'applaudissements.",
+        "pointsPE": 150,
+        "tag": "alivio_logistico_semana_6"
+      },
+      {
+        "week": 7,
+        "title": "La Réinitialisation du Passé",
+        "theme_1co13": "L'Amour ne soupçonne pas le mal",
+        "concept": "Le phénomène RAM accumule les griefs dans la mémoire, bloquant le partenaire dans une vision strictement négative.",
+        "action": "Écrivez un vieux grief que vous portez encore sur un papier, prenez la décision interne de relâcher ce poids par le pardon, et brûlez physiquement le papier comme acte symbolique d'effacement du chagrin.",
+        "pointsPE": 150,
+        "tag": "reset_do_passado_semana_7"
+      },
+      {
+        "week": 8,
+        "title": "Harmonisation Émotionnelle",
+        "theme_1co13": "L'Amour n'est pas poli et est attentionné",
+        "concept": "Savoir écouter la douleur de votre partenaire sans essayer de la réparer crée un havre de paix et d'intimité.",
+        "action": "Réservez 15 minutes sans écran, main dans la main, pour pratiquer le 'Pair Grounding'. Interrogez votre partenaire sur ses préoccupations et écoutez-le généreusement pendant 5 minutes sans l'interrompre ni le juger.",
+        "pointsPE": 150,
+        "tag": "sintonizacao_emocional_semana_8"
+      },
+      {
+        "week": 9,
+        "title": "Alignement de Destin",
+        "theme_1co13": "L'Amour n'est pas jaloux",
+        "concept": "Les désaccords ou secrets budgétaires corrodent la confiance. Un alignement préventif favorise la stabilité et l'union.",
+        "action": "Ayez une légère conversation budgétaire de 15 minutes. Définissez ensemble un objectif financier à long terme pour la famille et engagez-vous à éviter les dépenses superflues ce week-end.",
+        "pointsPE": 150,
+        "tag": "alinhamento_destino_semana_9"
+      },
+      {
+        "week": 10,
+        "title": "Le Sanctuaire Tactile",
+        "theme_1co13": "Le lit conjugal exempt de souillure",
+        "concept": "Le manque de proximité physique réduit l'ocytocine (affection) et la dopamine (récompense), poussant le couple à vivre comme des colocataires.",
+        "action": "Établissez des rituels tactiles intenses ce week-end : pratiquez le baiser de 6 secondes lors des adieux et des retrouvailles, et donnez un câlin silencieux de 20 secondes avant de dormir.",
+        "pointsPE": 150,
+        "tag": "santuario_tatil_semana_10"
+      },
+      {
+        "week": 11,
+        "title": "Le Saut de Confiance",
+        "theme_1co13": "L'Amour supporte tout, croit tout",
+        "concept": "Reconstruire la confiance exige d'accorder activement le bénéfice du doute, éliminant la surveillance et les accusations préventives.",
+        "action": "Face à un petit oubli ou écart de votre partenaire ce week-end, couvrez l'erreur en silence. Dites sincèrement : 'C'est bon, je te fais confiance et je sais que tu as fait de ton mieux'.",
+        "pointsPE": 150,
+        "tag": "voto_confianca_semana_11"
+      },
+      {
+        "week": 12,
+        "title": "Co-Création de Sens",
+        "theme_1co13": "L'Amour espère tout",
+        "concept": "Les rituels de connexion intentionnelle renforcent les liens d'amitié profonde et neutralisent la routine.",
+        "action": "Planifiez et réalisez une activité insolite ou amusante à deux ce week-end (comme un pique-nique ou une nouvelle escapade), en vous concentrant totalement sur le rire et la création de souvenirs heureux.",
+        "pointsPE": 150,
+        "tag": "cocriacao_sentido_semana_12"
+      },
+      {
+        "week": 13,
+        "title": "L'Alliance Perpétuelle",
+        "theme_1co13": "L'Amour ne périt jamais",
+        "concept": "L'amour mûr n'est pas basé sur des sentiments fluctuants, mais sur l'engagement solide à honorer l'alliance conjugale.",
+        "action": "Écrivez une lettre d'engagement relationnel listant pourquoi vous décidez d'aimer votre conjoint inconditionnellement. Gardez-la dans votre journal pour la lire pendant les tempêtes.",
+        "pointsPE": 150,
+        "tag": "alianca_perpetua_semana_13"
       }
     ]
   },
@@ -10062,6 +10538,125 @@
         "description": "Wenn ein offenes Problem oder ein jüngstes Missverständnis vorliegt, laden Sie Ihren Partner heute zu einem friedlichen Gespräch ein. Bemühen Sie sich, mindestens einem von ihm vorgebrachten Punkt zuzustimmen.",
         "pointsPE": 50
       }
+    ],
+    "weekly_challenges": [
+      {
+        "week": 1,
+        "title": "Sanfter Auftakt",
+        "theme_1co13": "Die Liebe ist langmütig",
+        "concept": "Gespräche, die mit Anschuldigungen beginnen, führen in bis zu 96% der Fälle zum Scheitern des Dialogs.",
+        "action": "Halten Sie beim ersten Anzeichen von Reizung am Wochenende 5 Sekunden lang proaktives Schweigen, atmen Sie tief durch und antworten Sie nur mit einer subtilen Berührung an den Händen oder in einem bewusst leisen Tonfall.",
+        "pointsPE": 150,
+        "tag": "inicio_suave_semana_1"
+      },
+      {
+        "week": 2,
+        "title": "Kultur der Wertschätzung",
+        "theme_1co13": "Die Liebe prahlt nicht, sie bläht sich nicht auf",
+        "concept": "Verachtung ist der stärkste Prädiktor für Scheidung. Gezieltes Lob baut gegenseitige Bewunderung wieder auf.",
+        "action": "Beobachten Sie das Verhalten Ihres Partners und machen Sie ein detailliertes Lob über eine Tugend oder Bemühung in Gegenwart anderer (Kinder oder Freunde), oder schreiben Sie eine handgeschriebene Nachricht.",
+        "pointsPE": 150,
+        "tag": "cultura_apreciacao_semana_2"
+      },
+      {
+        "week": 3,
+        "title": "Physiologische Selbstberuhigung",
+        "theme_1co13": "Die Liebe lässt sich nicht erbittern",
+        "concept": "Bei einer Herzfrequenz von über 100 Schlägen pro Minute gerät das Gehirn in einen Kampf-oder-Flucht-Zustand, der logisches Denken verhindert.",
+        "action": "Wenn es Anzeichen von Spannung gibt, brechen Sie das Gespräch sofort ab und vereinbaren Sie eine 20-minütige physiologische Pause, um die Herzfrequenz zu beruhigen, bevor Sie den Dialog fortsetzen.",
+        "pointsPE": 150,
+        "tag": "autoacalmamento_fisiologico_semana_3"
+      },
+      {
+        "week": 4,
+        "title": "Der Schild des Verstandes",
+        "theme_1co13": "Die Liebe glaubt alles, sie hofft alles",
+        "concept": "Antizipatorische Angst und automatische negative Gedanken öffnen traumatische Fenster im Gedächtnis.",
+        "action": "Identifizieren Sie einen ängstlichen Gedanken der Ablehnung gegenüber Ihrem Partner und wenden Sie Augusto Curys DCD-Mentalhygiene an, indem Sie die tragische Hypothese anzweifeln und sich auf 3 tatsächliche positive Punkte Ihrer Ehe konzentrieren.",
+        "pointsPE": 150,
+        "tag": "escudo_da_mente_semana_4"
+      },
+      {
+        "week": 5,
+        "title": "Die Kunst des Nachgebens",
+        "theme_1co13": "Die Liebe sucht nicht das Ihre",
+        "concept": "Sturheit und Machtkämpfe ersticken die Beziehung. Freiwilliges Nachgeben bricht das partnerschaftliche Tauziehen.",
+        "action": "Verzichten Sie bei einer kleinen logistischen Entscheidung am Wochenende (z. B. Essen oder Fernsehen) freiwillig auf Ihre Präferenz und erklären Sie: 'Ich mache es heute lieber auf deine Weise'.",
+        "pointsPE": 150,
+        "tag": "arte_ceder_semana_5"
+      },
+      {
+        "week": 6,
+        "title": "Unsichtbare Entlastung",
+        "theme_1co13": "Die Liebe ist gütig",
+        "concept": "Die Überlastung durch die unsichtbare häusliche mentale Last erschöpft die Energie und führt zum Verlust emotionaler Nähe.",
+        "action": "Übernehmen Sie spontan die volle, stille Verantwortung für eine anspruchsvolle Haushaltsroutine (z. B. Abwasch aller Mahlzeiten oder Planung des Mittagessens), ohne Gegenleistungen oder Applaus zu verlangen.",
+        "pointsPE": 150,
+        "tag": "alivio_logistico_semana_6"
+      },
+      {
+        "week": 7,
+        "title": "Der historische Reset",
+        "theme_1co13": "Die Liebe rechnet das Böse nicht zu",
+        "concept": "Das RAM-Phänomen häuft Kränkungen im Gedächtnis an und sperrt den Partner in eine streng negative Sichtweise.",
+        "action": "Schreiben Sie eine alte Kränkung, die Sie noch tragen, auf ein Papier, treffen Sie die innere Entscheidung, diese Last durch Vergebung loszulassen, und verbrennen Sie das Papier physisch als symbolischen Akt des Loslassens.",
+        "pointsPE": 150,
+        "tag": "reset_do_passado_semana_7"
+      },
+      {
+        "week": 8,
+        "title": "Emotionale Einstimmung",
+        "theme_1co13": "Die Liebe verhält sich nicht ungehörig",
+        "concept": "Zu lernen, dem Schmerz Ihres Partners zuzuhören, ohne zu versuchen, ihn sofort zu beheben, schafft eine Oase der Intimität.",
+        "action": "Nehmen Sie sich 15 bildschirmfreie Minuten, Hand in Hand, um 'Pair Grounding' zu üben. Fragen Sie nach seinen Sorgen und hören Sie 5 Minuten lang großzügig zu, ohne zu unterbrechen oder zu urteilen.",
+        "pointsPE": 150,
+        "tag": "sintonizacao_emocional_semana_8"
+      },
+      {
+        "week": 9,
+        "title": "Finanzielle Ausrichtung",
+        "theme_1co13": "Die Liebe neidet nicht",
+        "concept": "Budgetdiskrepanzen oder Geheimnisse korrodieren das Vertrauen. Präventive Ausrichtung fördert Stabilität und Einheit.",
+        "action": "Führen Sie ein leichtes 15-minütiges Budgetgespräch. Entwerfen Sie gemeinsam ein langfristiges finanzielles Ziel für die Familie und verpflichten Sie sich, an diesem Wochenende überflüssige Ausgaben zu vermeiden.",
+        "pointsPE": 150,
+        "tag": "alinhamento_destino_semana_9"
+      },
+      {
+        "week": 10,
+        "title": "Das taktile Heiligtum",
+        "theme_1co13": "Das Ehebett bleibe unbefleckt",
+        "concept": "Mangelnde körperliche Nähe reduziert Oxytocin (Zuneigung) und Dopamin (Belohnung), wodurch das Paar wie Mitbewohner lebt.",
+        "action": "Etablieren Sie an diesem Wochenende intensive taktile Rituale: Praktizieren Sie den 6-sekündigen Abschieds- und Wiedersehenskuss und geben Sie sich vor dem Einschlafen eine stille 20-sekündige Umarmung.",
+        "pointsPE": 150,
+        "tag": "santuario_tatil_semana_10"
+      },
+      {
+        "week": 11,
+        "title": "Der Vertrauensvorschuss",
+        "theme_1co13": "Die Liebe erträgt alles, sie glaubt alles",
+        "concept": "Wiederaufbau von Vertrauen erfordert, dem Partner aktiv den Vorteil des Zweifels zu gewähren, und eliminiert ständige Überwachung.",
+        "action": "Decken Sie am Wochenende einen kleinen Fehler oder Vergesslichkeit Ihres Partners schweigend ab. Sagen Sie aufrichtig: 'Es ist in Ordnung, ich vertraue dir und weiß, dass du dein Bestes gegeben hast'.",
+        "pointsPE": 150,
+        "tag": "voto_confianca_semana_11"
+      },
+      {
+        "week": 12,
+        "title": "Co-Kreation von Sinn",
+        "theme_1co13": "Die Liebe hofft alles",
+        "concept": "Gemeinsame Freizeitrituale stärken die Bindung tiefer Freundschaft und neutralisieren die Routine.",
+        "action": "Planen und führen Sie am Wochenende eine ungewöhnliche oder unterhaltsame Aktivität zu zweit aus (wie ein Picknick oder einen neuen Ausflug), mit dem vollen Fokus auf Lachen und das Erschaffen glücklicher Erinnerungen.",
+        "pointsPE": 150,
+        "tag": "cocriacao_sentido_semana_12"
+      },
+      {
+        "week": 13,
+        "title": "Das ewige Bündnis",
+        "theme_1co13": "Die Liebe vergeht niemals",
+        "concept": "Reife Liebe basiert nicht auf schwankenden Gefühlen, sondern auf der festen Verpflichtung, das Ehebündnis zu ehren.",
+        "action": "Schreiben Sie einen partnerschaftlichen Verpflichtungsbrief, in dem Sie auflisten, warum Sie sich entschieden haben, Ihren Partner bedingungslos zu lieben. Bewahren Sie ihn im App-Tagebuch auf, um ihn bei Stürmen zu lesen.",
+        "pointsPE": 150,
+        "tag": "alianca_perpetua_semana_13"
+      }
     ]
   },
   "es": {
@@ -12075,6 +12670,125 @@
         "description": "Si hay algún asunto pendiente o malentendido reciente, invite a su pareja a una conversación pacífica hoy. Esfuércese por estar de acuerdo con al menos un punto planteado por él/ella.",
         "pointsPE": 50
       }
+    ],
+    "weekly_challenges": [
+      {
+        "week": 1,
+        "title": "Inicio Suave",
+        "theme_1co13": "El Amor es Paciente",
+        "concept": "Las discusiones iniciadas con acusaciones determinan el fracaso del diálogo en hasta el 96% de las veces.",
+        "action": "Ante el primer signo de irritación en el fin de semana, mantenga un silencio proactivo de 5 segundos, respire profundo y responda solo con un sutil toque físico en las manos o con un tono de voz deliberadamente bajo.",
+        "pointsPE": 150,
+        "tag": "inicio_suave_semana_1"
+      },
+      {
+        "week": 2,
+        "title": "Cultura de Apreciación",
+        "theme_1co13": "El Amor no se jacta, no se envanece",
+        "concept": "El desprecio es el mayor predictor de divorcio. El elogio enfocado reconstruye la admiración mutua.",
+        "action": "Observe el comportamiento de su pareja y haga un elogio detallado sobre una virtud o esfuerzo de ella en presencia de otras personas (hijos o amigos), o escriba un mensaje de puño y letra.",
+        "pointsPE": 150,
+        "tag": "cultura_apreciacao_semana_2"
+      },
+      {
+        "week": 3,
+        "title": "Autoacalmamiento Fisiológico",
+        "theme_1co13": "El Amor no se irrita fácilmente",
+        "concept": "Con latidos cardíacos superiores a 100 lpm, el cerebro entra en estado de lucha o huida e impide el razonamiento lógico.",
+        "action": "Si hay cualquier señal de tensión, interrumpa la conversación inmediatamente y acepte hacer una pausa fisiológica de 20 minutos para calmar los latidos antes de retomar el diálogo.",
+        "pointsPE": 150,
+        "tag": "autoacalmamento_fisiologico_semana_3"
+      },
+      {
+        "week": 4,
+        "title": "El Escudo de la Mente",
+        "theme_1co13": "El Amor todo lo cree, todo lo espera",
+        "concept": "El sufrimiento por anticipación y pensamientos negativos automáticos abren ventanas traumáticas en la memoria.",
+        "action": "Identifique un pensamiento ansioso de rechazo hacia su pareja y aplique la Higiene Mental DCD de Augusto Cury, dudando de la hipótesis trágica y enfocándose en 3 puntos positivos reales de su matrimonio.",
+        "pointsPE": 150,
+        "tag": "escudo_da_mente_semana_4"
+      },
+      {
+        "week": 5,
+        "title": "El Arte de Ceder",
+        "theme_1co13": "El Amor no busca sus propios intereses",
+        "concept": "La terquedad y la disputa de poder asfixian la relación. Ceder voluntariamente rompe el tira y afloja relacional.",
+        "action": "En una pequeña decisión logística del fin de semana (como qué cenar o ver), renuncie voluntariamente a su preferencia y declare: 'Prefiero hacerlo a tu manera hoy'.",
+        "pointsPE": 150,
+        "tag": "arte_ceder_semana_5"
+      },
+      {
+        "week": 6,
+        "title": "Alivio Logístico",
+        "theme_1co13": "El Amor es Bondadoso",
+        "concept": "La sobrecarga con la carga mental invisible doméstica agota las energías y provoca la pérdida de proximidade afectiva.",
+        "action": "Asuma integralmente y en silencio la planificación y ejecución de una rutina pesada del hogar (como lavar los platos de todas las comidas o planificar el almuerzo) sin cobrar retornos o aplausos.",
+        "pointsPE": 150,
+        "tag": "alivio_logistico_semana_6"
+      },
+      {
+        "week": 7,
+        "title": "El Reset del Pasado",
+        "theme_1co13": "El Amor no guarda rencor",
+        "concept": "El fenómeno RAM acumula resentimientos en la memoria, encerrando a la pareja en una lente estrictamente negativa.",
+        "action": "Escriba en un papel un resentimiento antiguo que todavía cargue, tome la decisión íntima de liberar ese peso mediante el perdón y queme el papel físicamente, simbolizando el vaciamiento de la amargura.",
+        "pointsPE": 150,
+        "tag": "reset_do_passado_semana_7"
+      },
+      {
+        "week": 8,
+        "title": "Sintonización Emocional",
+        "theme_1co13": "El Amor no es rudo y es atento",
+        "concept": "Saber escuchar el dolor de la pareja sin intentar arreglarlo crea un puerto seguro de intimidad y acogida.",
+        "action": "Reserve 15 minutos sin pantallas, de la mano, para practicar el 'Pair Grounding'. Pregunte sobre sus preocupaciones y escuche de forma generosa durante 5 minutos sin interrumpir ni juzgar.",
+        "pointsPE": 150,
+        "tag": "sintonizacao_emocional_semana_8"
+      },
+      {
+        "week": 9,
+        "title": "Alineación de Destino",
+        "theme_1co13": "El Amor no tiene envidia",
+        "concept": "Las discrepancias o secretos presupuestarios corroen la confianza. La alineación preventiva promueve la estabilidad y la unión.",
+        "action": "Realice una conversación de presupuesto ligera de 15 minutos. Trace junto a su pareja un objetivo financiero a largo plazo para la familia y comprométanse a evitar gastos superfluos este fin de semana.",
+        "pointsPE": 150,
+        "tag": "alinhamento_destino_semana_9"
+      },
+      {
+        "week": 10,
+        "title": "El Santuario Táctil",
+        "theme_1co13": "El lecho conyugal sin mancilla",
+        "concept": "La falta de proximidad táctil reduce la oxitocina (afecto) y la dopamina (recompensa), haciendo que la pareja viva como compañeros de cuarto.",
+        "action": "Establezca rituales táctiles intensos este fin de semana: practique el beso de despedida y reencuentro de 6 segundos y dé un abrazo silencioso de 20 segundos antes de acostarse.",
+        "pointsPE": 150,
+        "tag": "santuario_tatil_semana_10"
+      },
+      {
+        "week": 11,
+        "title": "El Voto de Confianza",
+        "theme_1co13": "El Amor todo lo sufre, todo lo cree",
+        "concept": "Reconstruir la confianza exige otorgar activamente el beneficio de la duda, eliminando la vigilancia y las acusaciones preventivas.",
+        "action": "Ante un pequeño desliz u olvido de su pareja en el fin de semana, cubra el error en silencio. Diga sinceramente: 'Está bien, confío en ti y sé que hiciste lo mejor'.",
+        "pointsPE": 150,
+        "tag": "voto_confianca_semana_11"
+      },
+      {
+        "week": 12,
+        "title": "Co-Creación de Sentido",
+        "theme_1co13": "El Amor todo lo espera",
+        "concept": "Los rituales de conexión intencionales de ocio fortalecen los lazos de amistad profunda y neutralizan la rutina.",
+        "action": "Planifique y ejecute una actividad inusual o divertida de a dos en el fin de semana (como un pícnic o un paseo nuevo), con enfoque total en reírse y construir recuerdos felices.",
+        "pointsPE": 150,
+        "tag": "cocriacao_sentido_semana_12"
+      },
+      {
+        "week": 13,
+        "title": "La Alianza Perpetua",
+        "theme_1co13": "El Amor nunca deja de ser",
+        "concept": "El amor maduro no se basa en sentimientos fluctuantes, sino en el compromiso sólido de honrar la alianza matrimonial.",
+        "action": "Escriba individualmente una carta de compromiso relacional detallando por qué decidió amar a su cónyuge incondicionalmente. Guárdela en su diario para leerla en momentos de tormenta.",
+        "pointsPE": 150,
+        "tag": "alianca_perpetua_semana_13"
+      }
     ]
   },
   "ja": {
@@ -14087,6 +14801,125 @@
         "title": "修復のダイアログ",
         "description": "未解決の問題や最近の誤解がある場合は、今日、配偶者を穏やかな話し合いに招待してください。相手が提示したポイントの少なくとも一つに同意するよう努めてください。",
         "pointsPE": 50
+      }
+    ],
+    "weekly_challenges": [
+      {
+        "week": 1,
+        "title": "刺々しい始まりの回避",
+        "theme_1co13": "愛は寛容である",
+        "concept": "非難から始まる対話は、最大96％の確率で失敗に終わります。",
+        "action": "週末、イラッとしたらすぐに「5秒間の主体的な沈黙」を実践してください。深呼吸をし、手を優しく触るか、意図的に低いトーンの声で答えるようにしましょう。",
+        "pointsPE": 150,
+        "tag": "inicio_suave_semana_1"
+      },
+      {
+        "week": 2,
+        "title": "感謝の文化",
+        "theme_1co13": "愛は自慢せず、高ぶらない",
+        "concept": "軽蔑は離婚の最大の予測因子です。焦点の絞った称賛は互いの賞賛を再構築します。",
+        "action": "週末、配偶者の行動を観察し、子供や友人の前でその美徳や努力を具体的に褒めるか、手書きの感謝のメッセージを書いて渡しましょう。",
+        "pointsPE": 150,
+        "tag": "cultura_apreciacao_semana_2"
+      },
+      {
+        "week": 3,
+        "title": "生理的自己鎮静",
+        "theme_1co13": "愛は容易に怒らない",
+        "concept": "心拍数が100 bpmを超えると、脳は闘争・逃走状態に入り、論理的な思考を阻害します。",
+        "action": "週末に口論になりそうになったら、すぐに対話を中断し、心拍数を落ち着かせるために20分間の生理的休憩を取ることに合意してください。",
+        "pointsPE": 150,
+        "tag": "autoacalmamento_fisiologico_semana_3"
+      },
+      {
+        "week": 4,
+        "title": "心の盾",
+        "theme_1co13": "愛はすべてを信じ、すべてを期待する",
+        "concept": "予期不安や自動的な否定的な思考は、記憶にトラウマの窓を開いてしまいます。",
+        "action": "週末、配偶者に対する不安な拒絶の思考に気づいたら、アウグスト・クリーのDCDメンタルヘルス法を適用し、悲劇的な仮説を疑い、現在の結婚生活の3つの具体的な良い側面に集中してください。",
+        "pointsPE": 150,
+        "tag": "escudo_da_mente_semana_4"
+      },
+      {
+        "week": 5,
+        "title": "譲る芸術",
+        "theme_1co13": "愛は自分の利益を求めない",
+        "concept": "頑固さや主導権争いは関係を窒息させます。自発的に譲ることで、関係の綱引きを断ち切ることができます。",
+        "action": "週末の些細な選択（夕食のメニューや観る映画など）で、自分の好みを自発的に譲り、「今日はあなたの好きなようにしよう」と伝えてください。",
+        "pointsPE": 150,
+        "tag": "arte_ceder_semana_5"
+      },
+      {
+        "week": 6,
+        "title": "目に見えない家事の負担軽減",
+        "theme_1co13": "愛は親切である",
+        "concept": "目に見えない家事や家庭の管理の過度な精神的負担は、情熱を失わせ、心理的な距離を生みます。",
+        "action": "週末、特定の骨の折れる家事（すべての食事の食器洗い、または昼食の準備など）の計画と実行を、相手に求められる前に自発的に、また見返りを求めずに一人で引き受けてください。",
+        "pointsPE": 150,
+        "tag": "alivio_logistico_semana_6"
+      },
+      {
+        "week": 7,
+        "title": "過去のリセット",
+        "theme_1co13": "愛は人の悪事を数えない",
+        "concept": "自動メモリー登録（RAM現象）は記憶に不満を蓄積させ、パートナーを否定的なフィルターのみで見てしまいます。",
+        "action": "まだ抱えている過去のわだかまりを紙に書き出し、許しを通じてその重荷を手放す内なる決意をした後、紙を物理的に燃やして、不満が消え去ったことを象徴させましょう。",
+        "pointsPE": 150,
+        "tag": "reset_do_passado_semana_7"
+      },
+      {
+        "week": 8,
+        "title": "感情の同調",
+        "theme_1co13": "愛は無礼を働かず、思いやり深い",
+        "concept": "解決しようとせずにパートナーの悩みにただ耳を傾けることは、親密な安全地帯を作り出します。",
+        "action": "週末、画面を見ない時間を15分間作り、手を繋いで「ペア・グラウンディング」を実践してください。配偶者の不安について尋ね、遮ったり判断したりせずに5分間寛大に耳を傾けましょう。",
+        "pointsPE": 150,
+        "tag": "sintonizacao_emocional_semana_8"
+      },
+      {
+        "week": 9,
+        "title": "運命のすり合わせ",
+        "theme_1co13": "愛は妬まない",
+        "concept": "予算の不一致や秘密は信頼を損ないます。予防的なすり合わせは安定と調和をもたらします。",
+        "action": "週末、穏やかな15分間の予算会議を開いてください。家族のための長期的な貯蓄目標を一緒に描き、この週末は不要な支出を避ける約束をしましょう。",
+        "pointsPE": 150,
+        "tag": "alinhamento_destino_semana_9"
+      },
+      {
+        "week": 10,
+        "title": "触覚の聖域",
+        "theme_1co13": "結婚の寝床を汚してはならない",
+        "concept": "身体的な親密さの欠如はオキシトシン（愛着）とドーパミン（報酬）を減少させ、単なる同居人のような関係にさせます。",
+        "action": "この週末、触覚の儀式を強化してください。別れ際や再会時に6秒間の長いキスを交わし、寝る前に20秒間の静かな抱擁を行いましょう。",
+        "pointsPE": 150,
+        "tag": "santuario_tatil_semana_10"
+      },
+      {
+        "week": 11,
+        "title": "信頼の約束",
+        "theme_1co13": "愛はすべてを耐え、すべてを信じる",
+        "concept": "信頼の再構築には、監視や非難を排除し、積極的に「善意の解釈」を与えることが不可欠です。",
+        "action": "週末、配偶者の些細なミスや物忘れに対して、静かにそのミスを包み込んでください。心から「大丈夫、あなたを信頼しているし、ベストを尽くしてくれたと分かっているよ」と伝えましょう。",
+        "pointsPE": 150,
+        "tag": "voto_confianca_semana_11"
+      },
+      {
+        "week": 12,
+        "title": "意味の共同創造",
+        "theme_1co13": "愛はすべてを望む",
+        "concept": "余暇における意図的な繋がりの儀式は、深い友情の絆を強め、ルーチン化した日常を中和します。",
+        "action": "週末に、二人で変わった、または楽しいアクティビティ（ピクニックや新しい場所へのドライブなど）を計画し実行してください。ただ笑い合い、幸せな思い出を作ることに完全に集中しましょう。",
+        "pointsPE": 150,
+        "tag": "cocriacao_sentido_semana_12"
+      },
+      {
+        "week": 13,
+        "title": "永遠の盟約",
+        "theme_1co13": "愛は決して絶えることがない",
+        "concept": "成熟した愛は移り気な感情に基づくものではなく、婚姻の盟約を尊重するという強固な決意に基づいています。",
+        "action": "配偶者を無条件で愛すると決めた理由を書き留めた「関係へのコミットメントレター」を個人的に執筆してください。嵐の時期に読み返せるよう、アプリ内のプライベートな日記に保存しましょう。",
+        "pointsPE": 150,
+        "tag": "alianca_perpetua_semana_13"
       }
     ]
   }

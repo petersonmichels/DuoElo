@@ -11,16 +11,28 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+// 🔥 Importando a autenticação do Firebase para pegar o UID real
+import { auth } from "../config/firebase";
 
 export default function InvitePartnerScreen({ navigation }: any) {
   // 0 = Inicial (Convidar) | 1 = Aguardando Parceiro | 2 = Conectados
   const [connectionStep, setConnectionStep] = useState(0);
 
+  // 🔥 Estado do código gerado dinamicamente
+  const [myInviteCode, setMyInviteCode] = useState("CARREGANDO...");
+
   // Animação de pulsação para o estado "Aguardando"
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  // Código de convite do usuário (No futuro, puxaremos do Firebase)
-  const myInviteCode = "DUE-123X";
+  // Busca o UID do Firebase ao carregar a tela para formar o código
+  useEffect(() => {
+    const uid = auth.currentUser?.uid;
+    if (uid) {
+      setMyInviteCode(uid.substring(0, 6).toUpperCase());
+    } else {
+      setMyInviteCode("DUE-000"); // Fallback de segurança
+    }
+  }, []);
 
   useEffect(() => {
     if (connectionStep === 1) {
@@ -43,7 +55,7 @@ export default function InvitePartnerScreen({ navigation }: any) {
     }
   }, [connectionStep, pulseAnim]);
 
-  // 🔥 AÇÃO PRINCIPAL ATUALIZADA COM O WHATSAPP (Opção 3)
+  // AÇÃO PRINCIPAL COM O WHATSAPP
   const handleMainAction = async () => {
     if (connectionStep === 0) {
       const message = `Amor, estou investindo na nossa relação porque você é muito importante pra mim. Vamos fazer juntos essa jornada de 90 dias do DuoElo? É só baixar o app e colocar o meu código pra gente dar o match: *${myInviteCode}* 👇\n\nhttps://duoelo.com/app`;
@@ -53,30 +65,25 @@ export default function InvitePartnerScreen({ navigation }: any) {
         const canOpen = await Linking.canOpenURL(whatsappUrl);
         if (canOpen) {
           await Linking.openURL(whatsappUrl);
-          // Avança para o estado "Aguardando" após abrir o WhatsApp
           setConnectionStep(1);
         } else {
           Alert.alert(
             "WhatsApp não encontrado",
             "Parece que você não tem o WhatsApp instalado. Copie o código e envie manualmente!",
           );
-          // Avança para o passo 1 mesmo assim, para não travar a experiência
           setConnectionStep(1);
         }
       } catch (error) {
         console.error("Erro ao abrir WhatsApp", error);
       }
     } else if (connectionStep === 1) {
-      console.log("Atualizando status do banco de dados...");
       // Simula o parceiro aceitando e completando o Match
       setConnectionStep(2);
     } else if (connectionStep === 2) {
-      // Vai para a trilha principal!
       navigation.navigate("Home");
     }
   };
 
-  // Textos dinâmicos baseados no estado
   const getHeaderTexts = () => {
     switch (connectionStep) {
       case 0:
@@ -110,11 +117,11 @@ export default function InvitePartnerScreen({ navigation }: any) {
             {/* Foto do Usuário atual */}
             <View style={[styles.avatarWrapper, { zIndex: 2 }]}>
               <View style={styles.avatarPlaceholder}>
-                <FontAwesome5 name="user-alt" size={32} color="#AFAFAF" />
+                <FontAwesome5 name="user-alt" size={32} color="#1A2F3B" />
               </View>
             </View>
 
-            {/* Foto do Parceiro (Fica cinza até conectar) */}
+            {/* Foto do Parceiro (Cinza até conectar, Verde/Menta após match) */}
             <View
               style={[
                 styles.avatarWrapper,
@@ -131,7 +138,7 @@ export default function InvitePartnerScreen({ navigation }: any) {
                 <FontAwesome5
                   name="user-alt"
                   size={32}
-                  color={connectionStep === 2 ? "#FF7EB3" : "#E5E5E5"}
+                  color={connectionStep === 2 ? "#4BDE95" : "#D1D9E0"}
                 />
               </View>
             </View>
@@ -143,7 +150,6 @@ export default function InvitePartnerScreen({ navigation }: any) {
 
         {/* --- WORKFLOW (LINHA DO TEMPO) --- */}
         <View style={styles.workflowCard}>
-          {/* Linha conectora ao fundo */}
           <View style={styles.workflowLine} />
 
           {/* PASSO 1: Convite */}
@@ -176,7 +182,7 @@ export default function InvitePartnerScreen({ navigation }: any) {
             </View>
           </View>
 
-          {/* PASSO 2: Aguardando (Com Animação de Pulso) */}
+          {/* PASSO 2: Aguardando (Ouro Suave) */}
           <View style={styles.workflowStep}>
             <Animated.View
               style={[
@@ -190,7 +196,7 @@ export default function InvitePartnerScreen({ navigation }: any) {
                       ? [{ scale: pulseAnim }]
                       : [{ scale: 1 }],
                   borderWidth: connectionStep === 1 ? 4 : 0,
-                  borderColor: "rgba(255, 200, 0, 0.3)", // Glow amarelo suave
+                  borderColor: "rgba(229, 169, 60, 0.3)", // Glow Ouro Suave
                 },
               ]}
             >
@@ -199,7 +205,7 @@ export default function InvitePartnerScreen({ navigation }: any) {
                 size={16}
                 color={
                   connectionStep === 1
-                    ? "#FFC800"
+                    ? "#E5A93C"
                     : connectionStep === 2
                       ? "#FFF"
                       : "#AFAFAF"
@@ -235,7 +241,7 @@ export default function InvitePartnerScreen({ navigation }: any) {
               <FontAwesome5
                 name={connectionStep === 2 ? "check" : "link"}
                 size={16}
-                color={connectionStep === 2 ? "#FFF" : "#AFAFAF"}
+                color={connectionStep === 2 ? "#FFF" : "#D1D9E0"}
               />
             </View>
             <View style={styles.stepTextContainer}>
@@ -292,7 +298,6 @@ export default function InvitePartnerScreen({ navigation }: any) {
             </TouchableOpacity>
           )}
 
-          {/* Feedback amigável extra */}
           {connectionStep === 2 && (
             <Text style={styles.welcomeText}>Bem-vindos ao DuoElo!</Text>
           )}
@@ -305,7 +310,7 @@ export default function InvitePartnerScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#F8F9FA",
+    backgroundColor: "#F0F4F8", // Azul-Cinza Suave
   },
   container: {
     flex: 1,
@@ -331,7 +336,7 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: 40,
     backgroundColor: "#FFF",
-    padding: 4, // Cria uma bordinha branca legal
+    padding: 4,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
@@ -339,34 +344,29 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   partnerAvatarWrapper: {
-    marginLeft: -20, // Sobrepõe a imagem do parceiro levemente
+    marginLeft: -20,
   },
   avatarPlaceholder: {
     flex: 1,
-    backgroundColor: "#F0F0F0",
+    backgroundColor: "#F0F4F8",
     borderRadius: 36,
     justifyContent: "center",
     alignItems: "center",
     overflow: "hidden",
   },
   partnerAvatarConnected: {
-    backgroundColor: "#FFF0F6",
-  },
-  avatarImage: {
-    width: "100%",
-    height: "100%",
-    resizeMode: "cover",
+    backgroundColor: "#E8F4F1", // Verde Menta Suave
   },
   title: {
     fontSize: 26,
     fontWeight: "900",
-    color: "#2C3E50",
+    color: "#1A2F3B", // Azul Petróleo Escuro
     marginBottom: 10,
     textAlign: "center",
   },
   subtitle: {
     fontSize: 15,
-    color: "#7F8C8D",
+    color: "#2C3E50", // Slate Blue
     textAlign: "center",
     lineHeight: 22,
     paddingHorizontal: 15,
@@ -385,16 +385,16 @@ const styles = StyleSheet.create({
     shadowRadius: 15,
     elevation: 2,
     borderWidth: Platform.OS === "android" ? 0 : 1,
-    borderColor: "#F0F0F0",
+    borderColor: "#D1D9E0",
     position: "relative",
   },
   workflowLine: {
     position: "absolute",
-    left: 41, // Centralizado com os ícones
+    left: 41,
     top: 50,
     bottom: 50,
     width: 2,
-    backgroundColor: "#E5E5E5",
+    backgroundColor: "#D1D9E0",
     zIndex: 0,
   },
   workflowStep: {
@@ -417,18 +417,18 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   stepIconActive: {
-    backgroundColor: "#2C3E50", // Azul Escuro
+    backgroundColor: "#1A2F3B",
   },
   stepIconWaiting: {
-    backgroundColor: "#FFF9E6", // Fundo amarelinho
+    backgroundColor: "#FFF9E6", // Fundo do Ouro Suave
   },
   stepIconSuccess: {
-    backgroundColor: "#4BDE95", // Verde de sucesso
+    backgroundColor: "#4BDE95",
   },
   stepIconInactive: {
-    backgroundColor: "#F5F5F5",
+    backgroundColor: "#F0F4F8",
     borderWidth: 1,
-    borderColor: "#E5E5E5",
+    borderColor: "#D1D9E0",
     elevation: 0,
     shadowOpacity: 0,
   },
@@ -439,16 +439,16 @@ const styles = StyleSheet.create({
   stepTitle: {
     fontSize: 15,
     fontWeight: "600",
-    color: "#333",
+    color: "#1A2F3B",
   },
   stepTextSuccess: {
     color: "#4BDE95",
   },
   stepTextWaiting: {
-    color: "#FF9600",
+    color: "#E5A93C",
   },
   stepTextInactive: {
-    color: "#AFAFAF",
+    color: "#60646C",
     fontWeight: "500",
   },
 
@@ -463,14 +463,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: "#E5E5E5",
+    borderColor: "#D1D9E0",
     alignItems: "center",
     marginBottom: 20,
     width: "100%",
   },
   codeLabel: {
     fontSize: 12,
-    color: "#AFAFAF",
+    color: "#60646C",
     textTransform: "uppercase",
     fontWeight: "bold",
     marginBottom: 4,
@@ -478,12 +478,12 @@ const styles = StyleSheet.create({
   codeValue: {
     fontSize: 20,
     fontWeight: "900",
-    color: "#333",
+    color: "#1A2F3B",
     letterSpacing: 2,
   },
   mainButton: {
     flexDirection: "row",
-    backgroundColor: "#25D366", // Verde WhatsApp
+    backgroundColor: "#25D366", // Verde WhatsApp Mantido por reconhecimento de marca
     borderRadius: 16,
     paddingVertical: 18,
     width: "100%",
@@ -497,8 +497,8 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   mainButtonWaiting: {
-    backgroundColor: "#3498DB", // Azul padrão para botão neutro
-    shadowColor: "#3498DB",
+    backgroundColor: "#1A2F3B", // Azul Petróleo Escuro para botão neutro
+    shadowColor: "#1A2F3B",
   },
   mainButtonConnected: {
     backgroundColor: "#4BDE95", // Verde Sucesso
@@ -515,12 +515,12 @@ const styles = StyleSheet.create({
     width: "100%",
     borderRadius: 16,
     borderWidth: 2,
-    borderColor: "#E5E5E5",
+    borderColor: "#D1D9E0",
     justifyContent: "center",
     alignItems: "center",
   },
   secondaryButtonText: {
-    color: "#7F8C8D",
+    color: "#2C3E50",
     fontSize: 15,
     fontWeight: "bold",
   },
@@ -528,6 +528,6 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontSize: 16,
     fontWeight: "bold",
-    color: "#AFAFAF",
+    color: "#60646C",
   },
 });

@@ -1,5 +1,13 @@
 import { FontAwesome5 } from "@expo/vector-icons";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  setDoc,
+  where,
+} from "firebase/firestore";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -14,6 +22,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+
 import { auth, db } from "../config/firebase";
 
 const { width } = Dimensions.get("window");
@@ -30,18 +39,20 @@ export default function MissionExecutionScreen({
   const [isFinishing, setIsFinishing] = useState(false);
   const [journalEntry, setJournalEntry] = useState("");
 
+  // Estados para o Modo Revisão
+  const [loadingJournal, setLoadingJournal] = useState(false);
+  const [fetchedJournal, setFetchedJournal] = useState<string | null>(null);
+
   const progressAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const slideAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  // 🔥 EXTRATOR BLINDADO DE TEXTO (A alteração importante de hoje para evitar crashs)
+  // Extrator blindado de texto
   const extractText = (field: any, fieldName: string, fallback: string) => {
-    // 1. Tenta buscar da propriedade 'translations' se existir
     if (mission?.translations?.[userLanguage]?.[fieldName]) {
       return mission.translations[userLanguage][fieldName];
     }
-    // 2. Se o próprio campo for o objeto de idiomas (O causador do erro clássico)
     if (typeof field === "object" && field !== null) {
       return (
         field[userLanguage] ||
@@ -51,31 +62,31 @@ export default function MissionExecutionScreen({
         fallback
       );
     }
-    // 3. Se for uma string simples e direta
     if (typeof field === "string") {
       return field;
     }
     return fallback;
   };
 
-  // Aplicação do extrator para os textos dos passos 1 e 2
   const conceptText = extractText(
-    mission?.concept,
+    mission?.concept || mission?.description,
     "concept",
     "Com o tempo, a rotina faz com que casais parem de se olhar de verdade. Conversamos sobre contas, sobre os filhos, mas não nos conectamos mais. O silêncio e a falta de contato visual são os primeiros sinais de distanciamento.",
   );
 
   const actionText = extractText(
-    mission?.action,
+    mission?.action || mission?.description,
     "action",
     "Hoje, sente-se de frente para o seu parceiro(a), segurem as mãos e olhem-se nos olhos por 2 minutos ininterruptos, sem falar nada.",
   );
 
+  // Busca o progresso da missão atual (Passo a Passo)
   useEffect(() => {
-    // Se for modo de leitura (revisão de velha missão), ele já começa no passo 1.
+    let isMounted = true;
+
     if (isReviewMode) {
       setCurrentStep(1);
-      setLoading(false);
+      if (isMounted) setLoading(false);
       return;
     }
 
@@ -84,7 +95,7 @@ export default function MissionExecutionScreen({
       if (userId) {
         try {
           const snap = await getDoc(doc(db, "users", userId));
-          if (snap.exists()) {
+          if (isMounted && snap.exists()) {
             const data = snap.data();
             if (data.currentTaskStep === 2) {
               setCurrentStep(2);
@@ -94,15 +105,70 @@ export default function MissionExecutionScreen({
               progressAnim.setValue(100);
             }
           }
-        } catch (error) {
-          console.log("Erro ao buscar passo da missão:", error);
+        } catch (error: any) {
+          if (error?.message && !error.message.includes("closing/hidden")) {
+            console.log("Erro ao buscar passo da missão:", error);
+          }
         }
       }
-      setLoading(false);
+      if (isMounted) setLoading(false);
     };
 
     fetchCurrentStep();
+
+    return () => {
+      isMounted = false;
+    };
   }, [isReviewMode]);
+
+  // Busca o texto escrito no diário se estiver no Modo de Revisão
+  useEffect(() => {
+    let isMounted = true;
+
+    if (isReviewMode) {
+      const fetchJournal = async () => {
+        const uid = auth.currentUser?.uid;
+        if (!uid) return;
+        if (isMounted) setLoadingJournal(true);
+        try {
+          const phaseToFetch =
+            mission.phase ||
+            mission.displayPhase ||
+            mission.day ||
+            mission.week;
+          const q = query(
+            collection(db, "users", uid, "journals"),
+            where("phase", "==", phaseToFetch),
+          );
+          const snapshot = await getDocs(q);
+
+          if (isMounted) {
+            if (!snapshot.empty) {
+              const data = snapshot.docs[0].data();
+              setFetchedJournal(data.text || "");
+            } else {
+              setFetchedJournal("");
+            }
+          }
+        } catch (error: any) {
+          if (
+            isMounted &&
+            error?.message &&
+            !error.message.includes("closing/hidden")
+          ) {
+            setFetchedJournal("");
+          }
+        } finally {
+          if (isMounted) setLoadingJournal(false);
+        }
+      };
+      fetchJournal();
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isReviewMode, mission]);
 
   useEffect(() => {
     Animated.loop(
@@ -123,7 +189,10 @@ export default function MissionExecutionScreen({
     ).start();
   }, [pulseAnim]);
 
+  // 🔥 NAVEGAÇÃO LIVRE PELOS PASSOS (Clicando nos botões ou na barra superior)
   const goToStep = async (nextStep: number) => {
+    if (currentStep === nextStep) return;
+
     Animated.timing(fadeAnim, {
       toValue: 0,
       duration: 200,
@@ -140,7 +209,7 @@ export default function MissionExecutionScreen({
         useNativeDriver: false,
       }).start();
 
-      // 🔥 Se for revisão, ele NÃO SALVA NADA no banco de dados para não sobrescrever a trilha principal.
+      // Salva o passo no banco para manter o progresso se ele sair
       if (!isReviewMode) {
         const userId = auth.currentUser?.uid;
         if (userId) {
@@ -189,10 +258,154 @@ export default function MissionExecutionScreen({
           { justifyContent: "center", alignItems: "center" },
         ]}
       >
-        <ActivityIndicator size="large" color="#CE82FF" />
+        <ActivityIndicator size="large" color="#1A2F3B" />
       </View>
     );
   }
+
+  const isGold = mission?.isGoldChallenge;
+
+  // 🔥 =========================================================
+  // 🔥 MODO REVISÃO (TAREFA JÁ CONCLUÍDA) - LAYOUT DE CARDS
+  // 🔥 =========================================================
+  if (isReviewMode) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.headerReview}>
+          <Text style={styles.headerTitle}>
+            {isGold ? "Desafio de Ouro" : "Missão do Dia"}
+          </Text>
+          <TouchableOpacity
+            onPress={onClose}
+            style={styles.closeBtnReview}
+            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+          >
+            <FontAwesome5 name="times" size={20} color="#1A2F3B" />
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View
+            style={[
+              styles.missionHeaderCard,
+              isGold && {
+                backgroundColor: "#FFF9E6",
+                borderColor: "#E5A93C",
+                borderWidth: 2,
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.missionIconBadge,
+                { backgroundColor: isGold ? "#E5A93C" : "#4BDE95" },
+              ]}
+            >
+              <FontAwesome5
+                name={isGold ? "star" : "check"}
+                size={24}
+                color="#FFF"
+                solid={isGold}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text
+                style={[
+                  styles.missionMainTitle,
+                  isGold && { color: "#1A2F3B" },
+                ]}
+              >
+                {mission.title ||
+                  (isGold
+                    ? "Desafio de Ouro"
+                    : `Dia ${mission.day || mission.phase}`)}
+              </Text>
+              <Text
+                style={{
+                  fontSize: 13,
+                  color: isGold ? "#E5A93C" : "#4BDE95",
+                  fontWeight: "bold",
+                }}
+              >
+                {isGold ? "🏆 Desafio Concluído (+150 PE)" : "Missão Cumprida"}
+              </Text>
+            </View>
+          </View>
+
+          {conceptText && (
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>
+                <FontAwesome5
+                  name="lightbulb"
+                  solid
+                  color={isGold ? "#E5A93C" : "#1A2F3B"}
+                />{" "}
+                O Conceito
+              </Text>
+              <Text style={styles.cardText}>{conceptText}</Text>
+            </View>
+          )}
+
+          {actionText && (
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>
+                <FontAwesome5 name="bullseye" solid color="#E5A93C" /> Ação
+                Prática
+              </Text>
+              <Text style={styles.cardText}>{actionText}</Text>
+            </View>
+          )}
+
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>📖 Seu Diário (Opcional)</Text>
+            <Text style={styles.cardSubtitle}>
+              Sua reflexão e sentimentos salvos para revisitar depois.
+            </Text>
+
+            {loadingJournal ? (
+              <ActivityIndicator
+                size="small"
+                color="#1A2F3B"
+                style={{ marginTop: 10, alignSelf: "flex-start" }}
+              />
+            ) : (
+              <View
+                style={[
+                  styles.textInput,
+                  {
+                    minHeight: 120,
+                    height: "auto",
+                    backgroundColor: "#F0F4F8",
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.cardText,
+                    {
+                      fontStyle: fetchedJournal ? "italic" : "normal",
+                      color: fetchedJournal ? "#2C3E50" : "#60646C",
+                    },
+                  ]}
+                >
+                  {fetchedJournal
+                    ? fetchedJournal
+                    : "Nenhuma reflexão foi escrita neste dia."}
+                </Text>
+              </View>
+            )}
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  // 🔥 =========================================================
+  // 🔥 MODO ATIVO: EXIBE O WIZARD PASSO A PASSO
+  // 🔥 =========================================================
 
   const progressBarWidth = progressAnim.interpolate({
     inputRange: [0, 50, 100],
@@ -207,43 +420,66 @@ export default function MissionExecutionScreen({
           onPress={onClose}
           hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
         >
-          <FontAwesome5 name="times" size={20} color="#AFAFAF" />
+          <FontAwesome5 name="times" size={20} color="#1A2F3B" />
         </TouchableOpacity>
 
         <View style={styles.trailContainer}>
           <View style={styles.trailLineBg}>
             <Animated.View
-              style={[styles.trailLineFill, { width: progressBarWidth }]}
+              style={[
+                styles.trailLineFill,
+                { width: progressBarWidth },
+                isGold && { backgroundColor: "#E5A93C" },
+              ]}
             />
           </View>
 
+          {/* 🔥 NODES SUPERIORES INTERATIVOS */}
           <View style={styles.trailNodes}>
-            <View
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => goToStep(1)}
               style={[
                 styles.node,
-                currentStep >= 1 ? styles.nodeActive : styles.nodeInactive,
+                currentStep >= 1
+                  ? isGold
+                    ? { backgroundColor: "#E5A93C", borderColor: "#FFF" }
+                    : styles.nodeActive
+                  : styles.nodeInactive,
               ]}
             >
               <FontAwesome5
-                name="lightbulb"
+                name={isGold ? "star" : "lightbulb"}
                 solid
                 size={14}
-                color={currentStep >= 1 ? "#FFF" : "#AFAFAF"}
+                color={
+                  currentStep >= 1 ? (isGold ? "#1A2F3B" : "#FFF") : "#60646C"
+                }
               />
-            </View>
-            <View
+            </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => goToStep(2)}
               style={[
                 styles.node,
-                currentStep >= 2 ? styles.nodeActive : styles.nodeInactive,
+                currentStep >= 2
+                  ? isGold
+                    ? { backgroundColor: "#E5A93C", borderColor: "#FFF" }
+                    : styles.nodeActive
+                  : styles.nodeInactive,
               ]}
             >
               <FontAwesome5
                 name="hands-helping"
                 size={12}
-                color={currentStep >= 2 ? "#FFF" : "#AFAFAF"}
+                color={
+                  currentStep >= 2 ? (isGold ? "#1A2F3B" : "#FFF") : "#60646C"
+                }
               />
-            </View>
-            <View
+            </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => goToStep(3)}
               style={[
                 styles.node,
                 currentStep === 3 ? styles.nodeComplete : styles.nodeInactive,
@@ -252,9 +488,9 @@ export default function MissionExecutionScreen({
               <FontAwesome5
                 name="check"
                 size={14}
-                color={currentStep === 3 ? "#FFF" : "#AFAFAF"}
+                color={currentStep === 3 ? "#FFF" : "#60646C"}
               />
-            </View>
+            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -273,60 +509,101 @@ export default function MissionExecutionScreen({
         >
           {currentStep === 1 && (
             <View style={styles.stepContainer}>
-              <View style={styles.stepBadge}>
-                <Text style={styles.stepBadgeText}>PASSO 1 DE 3</Text>
+              <View
+                style={[
+                  styles.stepBadge,
+                  isGold && { backgroundColor: "#FFF9E6" },
+                ]}
+              >
+                <Text
+                  style={[styles.stepBadgeText, isGold && { color: "#E5A93C" }]}
+                >
+                  {isGold ? "DESAFIO DE OURO" : "PASSO 1 DE 3"}
+                </Text>
               </View>
-              <Text style={styles.titleText}>O Contexto</Text>
+              <Text style={styles.titleText}>
+                {isGold ? mission.title : "O Conceito"}
+              </Text>
 
-              <View style={styles.contentCard}>
+              <View
+                style={[
+                  styles.contentCard,
+                  isGold && {
+                    borderColor: "#E5A93C",
+                    backgroundColor: "#FFF9E6",
+                  },
+                ]}
+              >
                 <FontAwesome5
-                  name="quote-left"
+                  name={isGold ? "crown" : "quote-left"}
                   size={24}
-                  color="#F0E6FA"
+                  color={isGold ? "#E5A93C" : "#D1D9E0"}
                   style={{ marginBottom: 15 }}
                 />
-                {/* 🔥 Usando a variável extraída com segurança */}
                 <Text style={styles.contentText}>{conceptText}</Text>
               </View>
 
               <TouchableOpacity
-                style={styles.primaryBtn}
+                style={[
+                  styles.primaryBtn,
+                  isGold && {
+                    backgroundColor: "#E5A93C",
+                    shadowColor: "#E5A93C",
+                  },
+                ]}
                 activeOpacity={0.8}
                 onPress={() => goToStep(2)}
               >
-                <Text style={styles.primaryBtnText}>
-                  {isReviewMode ? "Avançar" : "Entendi o objetivo"}
+                <Text
+                  style={[
+                    styles.primaryBtnText,
+                    isGold && { color: "#1A2F3B" },
+                  ]}
+                >
+                  Avançar para Ação
                 </Text>
-                <FontAwesome5 name="arrow-right" size={16} color="#FFF" />
+                <FontAwesome5
+                  name="arrow-right"
+                  size={16}
+                  color={isGold ? "#1A2F3B" : "#FFF"}
+                />
               </TouchableOpacity>
             </View>
           )}
 
           {currentStep === 2 && (
             <View style={styles.stepContainer}>
-              <View style={styles.stepBadge}>
-                <Text style={styles.stepBadgeText}>PASSO 2 DE 3</Text>
+              <View
+                style={[
+                  styles.stepBadge,
+                  isGold && { backgroundColor: "#FFF9E6" },
+                ]}
+              >
+                <Text
+                  style={[styles.stepBadgeText, isGold && { color: "#E5A93C" }]}
+                >
+                  PASSO 2 DE 3
+                </Text>
               </View>
               <Text style={styles.titleText}>A Ação</Text>
 
               <View
                 style={[
                   styles.contentCard,
-                  { borderColor: "#FFE273", backgroundColor: "#FFF9E6" },
+                  { borderColor: "#E5A93C", backgroundColor: "#FFF9E6" },
                 ]}
               >
                 <FontAwesome5
                   name="bolt"
                   size={24}
-                  color="#FF9600"
+                  color="#E5A93C"
                   style={{ marginBottom: 15 }}
                 />
-                {/* 🔥 Usando a variável extraída com segurança */}
                 <Text
                   style={[
                     styles.contentText,
                     {
-                      color: "#333",
+                      color: "#1A2F3B",
                       fontSize: 18,
                       lineHeight: 26,
                       textAlign: "center",
@@ -340,104 +617,116 @@ export default function MissionExecutionScreen({
               <TouchableOpacity
                 style={[
                   styles.primaryBtn,
-                  { backgroundColor: "#FF9600", shadowColor: "#FF9600" },
+                  { backgroundColor: "#E5A93C", shadowColor: "#E5A93C" },
                 ]}
                 activeOpacity={0.8}
                 onPress={() => goToStep(3)}
               >
-                <Text style={styles.primaryBtnText}>
-                  {isReviewMode ? "Avançar" : "Já realizamos a Ação!"}
+                <Text style={[styles.primaryBtnText, { color: "#1A2F3B" }]}>
+                  Avançar para Finalização
                 </Text>
-                <FontAwesome5 name="arrow-right" size={16} color="#FFF" />
+                <FontAwesome5 name="arrow-right" size={16} color="#1A2F3B" />
               </TouchableOpacity>
 
-              {/* Esconde botão "fazer mais tarde" se for só leitura */}
-              {!isReviewMode && (
-                <TouchableOpacity
-                  style={styles.secondaryBtn}
-                  onPress={handlePause}
-                >
-                  <FontAwesome5 name="clock" size={16} color="#AFAFAF" />
-                  <Text style={styles.secondaryBtnText}>
-                    Sair e fazer mais tarde
-                  </Text>
-                </TouchableOpacity>
-              )}
+              <TouchableOpacity
+                style={styles.secondaryBtn}
+                onPress={handlePause}
+              >
+                <FontAwesome5 name="clock" size={16} color="#60646C" />
+                <Text style={styles.secondaryBtnText}>
+                  Sair e fazer mais tarde
+                </Text>
+              </TouchableOpacity>
             </View>
           )}
 
           {currentStep === 3 && (
             <View style={styles.stepContainer}>
-              <View style={styles.stepBadge}>
-                <Text style={styles.stepBadgeText}>PASSO 3 DE 3</Text>
+              <View
+                style={[
+                  styles.stepBadge,
+                  isGold && { backgroundColor: "#FFF9E6" },
+                ]}
+              >
+                <Text
+                  style={[styles.stepBadgeText, isGold && { color: "#E5A93C" }]}
+                >
+                  PASSO 3 DE 3
+                </Text>
               </View>
               <Text style={styles.titleText}>Conclusão</Text>
 
               <Text style={styles.subText}>
-                {isReviewMode
-                  ? "Você já concluiu esta missão. Continue focado(a) na jornada para fortalecer ainda mais o seu elo!"
+                {isGold
+                  ? "Incrível! Vocês completaram o Desafio de Ouro da semana. Registrem abaixo o momento para ganhar +150 PE!"
                   : "O elo de vocês foi fortalecido. Que tal registrar no diário de bordo como foi a experiência antes de concluir?"}
               </Text>
 
-              {/* Esconde diário de bordo se for só leitura */}
-              {!isReviewMode && (
-                <View style={styles.journalContainer}>
-                  <TextInput
-                    style={styles.journalInput}
-                    placeholder="Como você se sentiu hoje? (Opcional)"
-                    placeholderTextColor="#AFAFAF"
-                    multiline
-                    textAlignVertical="top"
-                    value={journalEntry}
-                    onChangeText={setJournalEntry}
-                  />
-                  <FontAwesome5
-                    name="book-open"
-                    size={18}
-                    color="#E5E5E5"
-                    style={styles.journalIcon}
-                  />
-                </View>
-              )}
+              <View style={styles.journalContainer}>
+                <TextInput
+                  style={styles.journalInput}
+                  placeholder="Como você se sentiu hoje? (Opcional)"
+                  placeholderTextColor="#AFAFAF"
+                  multiline
+                  textAlignVertical="top"
+                  value={journalEntry}
+                  onChangeText={setJournalEntry}
+                />
+                <FontAwesome5
+                  name="book-open"
+                  size={18}
+                  color="#D1D9E0"
+                  style={styles.journalIcon}
+                />
+              </View>
 
               <View style={styles.bigCheckContainer}>
                 <FontAwesome5
                   name="heart"
                   solid
                   size={20}
-                  color="#FF7EB3"
+                  color="#E5A93C"
                   style={styles.floatingHeartIcon}
                 />
                 <View style={styles.floatingFireIcon}>
-                  <FontAwesome5 name="fire" solid size={16} color="#FFF" />
+                  <FontAwesome5
+                    name={isGold ? "star" : "fire"}
+                    solid
+                    size={16}
+                    color="#FFF"
+                  />
                 </View>
 
                 <Animated.View
                   style={[
                     styles.outerRing,
                     { transform: [{ scale: pulseAnim }] },
+                    isGold && { borderColor: "#E5A93C" },
                   ]}
                 >
                   <View style={styles.innerRing}>
                     <TouchableOpacity
                       style={[
                         styles.bigCheckButton,
-                        isReviewMode && {
-                          backgroundColor: "#4BDE95",
-                          shadowColor: "#4BDE95",
+                        isGold && {
+                          backgroundColor: "#E5A93C",
+                          shadowColor: "#E5A93C",
                         },
                       ]}
                       activeOpacity={0.8}
-                      onPress={isReviewMode ? onClose : handleFinish}
+                      onPress={handleFinish}
                       disabled={isFinishing}
                     >
                       {isFinishing ? (
-                        <ActivityIndicator size="large" color="#FFF" />
+                        <ActivityIndicator
+                          size="large"
+                          color={isGold ? "#1A2F3B" : "#FFF"}
+                        />
                       ) : (
                         <FontAwesome5
-                          name={isReviewMode ? "times" : "check"}
+                          name="check"
                           size={40}
-                          color="#FFF"
+                          color={isGold ? "#1A2F3B" : "#FFF"}
                         />
                       )}
                     </TouchableOpacity>
@@ -445,9 +734,7 @@ export default function MissionExecutionScreen({
                 </Animated.View>
               </View>
 
-              <Text style={styles.bigCheckLabel}>
-                {isReviewMode ? "FECHAR REVISÃO" : "MARCAR COMO CUMPRIDA"}
-              </Text>
+              <Text style={styles.bigCheckLabel}>MARCAR COMO CUMPRIDA</Text>
             </View>
           )}
         </Animated.View>
@@ -457,19 +744,50 @@ export default function MissionExecutionScreen({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#FAFAFA" },
-
+  container: {
+    flex: 1,
+    backgroundColor: "#F0F4F8", // Azul-Cinza Suave
+  },
   header: {
     padding: 25,
     backgroundColor: "#FFF",
     borderBottomWidth: 1,
-    borderBottomColor: "#E5E5E5",
+    borderBottomColor: "#D1D9E0",
     alignItems: "center",
     position: "relative",
     zIndex: 10,
   },
-  closeBtn: { position: "absolute", right: 25, top: 25, zIndex: 20 },
-
+  headerReview: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 24,
+    paddingTop: 15,
+    paddingBottom: 15,
+    backgroundColor: "#FFF",
+    borderBottomWidth: 1,
+    borderBottomColor: "#D1D9E0",
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: "900",
+    color: "#1A2F3B", // Azul Petróleo
+  },
+  closeBtn: {
+    position: "absolute",
+    right: 25,
+    top: 25,
+    zIndex: 20,
+  },
+  closeBtnReview: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#D1D9E0",
+    justifyContent: "center",
+    alignItems: "center",
+  },
   trailContainer: {
     width: "70%",
     marginTop: 10,
@@ -483,12 +801,12 @@ const styles = StyleSheet.create({
     left: "10%",
     right: "10%",
     height: 4,
-    backgroundColor: "#F0F0F0",
+    backgroundColor: "#D1D9E0",
     borderRadius: 2,
   },
   trailLineFill: {
     height: "100%",
-    backgroundColor: "#CE82FF",
+    backgroundColor: "#1A2F3B",
     borderRadius: 2,
   },
   trailNodes: {
@@ -505,10 +823,10 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: "#FFF",
   },
-  nodeInactive: { backgroundColor: "#E5E5E5" },
+  nodeInactive: { backgroundColor: "#D1D9E0" },
   nodeActive: {
-    backgroundColor: "#CE82FF",
-    shadowColor: "#CE82FF",
+    backgroundColor: "#1A2F3B",
+    shadowColor: "#1A2F3B",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
@@ -527,14 +845,14 @@ const styles = StyleSheet.create({
 
   stepContainer: { alignItems: "center", width: "100%" },
   stepBadge: {
-    backgroundColor: "#F9F0FF",
+    backgroundColor: "#F0F4F8",
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 20,
     marginBottom: 15,
   },
   stepBadgeText: {
-    color: "#C67AFF",
+    color: "#1A2F3B",
     fontSize: 12,
     fontWeight: "900",
     letterSpacing: 1,
@@ -543,13 +861,13 @@ const styles = StyleSheet.create({
   titleText: {
     fontSize: 32,
     fontWeight: "900",
-    color: "#2C3E50",
+    color: "#1A2F3B",
     marginBottom: 25,
     textAlign: "center",
   },
   subText: {
     fontSize: 15,
-    color: "#7F8C8D",
+    color: "#60646C",
     textAlign: "center",
     lineHeight: 22,
     marginBottom: 20,
@@ -566,9 +884,9 @@ const styles = StyleSheet.create({
     paddingRight: 45,
     paddingTop: 20,
     fontSize: 15,
-    color: "#333",
+    color: "#1A2F3B",
     borderWidth: 1,
-    borderColor: "#E5E5E5",
+    borderColor: "#D1D9E0",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -583,7 +901,7 @@ const styles = StyleSheet.create({
     padding: 25,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: "#E5E5E5",
+    borderColor: "#D1D9E0",
     marginBottom: 30,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
@@ -591,18 +909,18 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 2,
   },
-  contentText: { fontSize: 16, color: "#555", lineHeight: 26 },
+  contentText: { fontSize: 16, color: "#2C3E50", lineHeight: 26 },
 
   primaryBtn: {
     width: "100%",
     flexDirection: "row",
-    backgroundColor: "#CE82FF",
+    backgroundColor: "#1A2F3B",
     paddingVertical: 18,
     borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
     gap: 12,
-    shadowColor: "#CE82FF",
+    shadowColor: "#1A2F3B",
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -619,7 +937,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   secondaryBtnText: {
-    color: "#AFAFAF",
+    color: "#60646C",
     fontSize: 15,
     fontWeight: "bold",
     textDecorationLine: "underline",
@@ -636,7 +954,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 10,
     top: 0,
-    backgroundColor: "#FF9600",
+    backgroundColor: "#DCA052",
     width: 28,
     height: 28,
     borderRadius: 14,
@@ -652,9 +970,9 @@ const styles = StyleSheet.create({
     height: 180,
     borderRadius: 90,
     borderWidth: 6,
-    borderColor: "#FF7EB3",
-    borderLeftColor: "#E5E5E5",
-    borderTopColor: "#E5E5E5",
+    borderColor: "#E5A93C", // Ouro/Ocitocina no highlight ativo
+    borderLeftColor: "#D1D9E0",
+    borderTopColor: "#D1D9E0",
     justifyContent: "center",
     alignItems: "center",
     transform: [{ rotate: "45deg" }],
@@ -665,7 +983,7 @@ const styles = StyleSheet.create({
     borderRadius: 70,
     borderWidth: 4,
     borderColor: "#4BDE95",
-    borderRightColor: "#E5E5E5",
+    borderRightColor: "#D1D9E0",
     justifyContent: "center",
     alignItems: "center",
     transform: [{ rotate: "-45deg" }],
@@ -674,22 +992,90 @@ const styles = StyleSheet.create({
     width: 110,
     height: 110,
     borderRadius: 55,
-    backgroundColor: "#CE82FF",
+    backgroundColor: "#1A2F3B",
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#CE82FF",
+    shadowColor: "#1A2F3B",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.5,
     shadowRadius: 10,
     elevation: 8,
   },
-
   bigCheckLabel: {
     marginTop: 15,
     fontSize: 14,
     fontWeight: "900",
-    color: "#AFAFAF",
+    color: "#60646C",
     letterSpacing: 1.5,
     textTransform: "uppercase",
+  },
+
+  // 🔥 ESTILOS PARA O MODO REVISÃO (CARDS)
+  missionHeaderCardReview: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFF",
+    padding: 20,
+    borderRadius: 20,
+    marginBottom: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  missionIconBadgeReview: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#4BDE95", // Sucesso / Check
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 16,
+  },
+  missionMainTitleReview: {
+    fontSize: 22,
+    fontWeight: "900",
+    color: "#1A2F3B",
+    marginBottom: 4,
+  },
+  card: {
+    backgroundColor: "#FFF",
+    padding: 24,
+    borderRadius: 20,
+    marginBottom: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: "900",
+    color: "#1A2F3B",
+    marginBottom: 10,
+  },
+  cardSubtitle: {
+    fontSize: 13,
+    color: "#60646C",
+    marginBottom: 15,
+    lineHeight: 18,
+  },
+  cardText: {
+    fontSize: 15,
+    color: "#2C3E50",
+    lineHeight: 24,
+  },
+  textInput: {
+    backgroundColor: "#F0F4F8",
+    borderWidth: 1,
+    borderColor: "#D1D9E0",
+    borderRadius: 16,
+    padding: 16,
+    height: 120,
+    fontSize: 15,
+    color: "#1A2F3B",
+    textAlignVertical: "top",
   },
 });

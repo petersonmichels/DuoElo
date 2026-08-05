@@ -1,26 +1,41 @@
 /**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
+ * Tema Clínico e Validado - DuoElo
+ * Foco: Redução de carga cognitiva, segurança psicológica e indução de ocitocina.
  */
 
-import '@/global.css';
-
-import { Platform } from 'react-native';
+import "@/global.css";
+import { Platform } from "react-native";
 
 export const Colors = {
   light: {
-    text: '#000000',
-    background: '#ffffff',
-    backgroundElement: '#F0F0F3',
-    backgroundSelected: '#E0E1E6',
-    textSecondary: '#60646C',
+    // Cores de Superfície (Segurança/Calma)
+    background: "#F0F4F8", // Fundo principal Azul-Cinza Suave
+    backgroundElement: "#FFFFFF", // Fundo de cards para destacar suavemente
+    backgroundSelected: "#E8F4F1", // Verde-Menta atenuado para áreas selecionadas
+
+    // Texto & Legibilidade (Estabilidade)
+    text: "#1A2F3B", // Azul-Petróleo Escuro (Evita o contraste agressivo do preto)
+    textSecondary: "#2C3E50", // Slate Blue para textos de apoio
+
+    // Ações & Feedbacks (Ocitocina e Dopamina)
+    primary: "#1A2F3B",
+    accent: "#E5A93C", // Ouro Suave para destaque ativo/calor
+    success: "#4BDE95", // Verde Esmeralda para cura e sucesso
   },
   dark: {
-    text: '#ffffff',
-    background: '#000000',
-    backgroundElement: '#212225',
-    backgroundSelected: '#2E3135',
-    textSecondary: '#B0B4BA',
+    // Cores de Superfície (Abraço/Conforto em baixa luz)
+    background: "#1A2F3B", // Fundo principal Azul-Petróleo Escuro
+    backgroundElement: "#2C3E50", // Slate Blue para cards
+    backgroundSelected: "#3A506B", // Elevação suave para seleções
+
+    // Texto & Legibilidade
+    text: "#F0F4F8", // Azul-Cinza muito claro (Evita o brilho do branco puro)
+    textSecondary: "#B0C4DE", // Tom de azul acinzentado de apoio
+
+    // Ações & Feedbacks
+    primary: "#E8F4F1",
+    accent: "#DCA052", // Mel Quente para destaque ativo no dark mode
+    success: "#4BDE95",
   },
 } as const;
 
@@ -28,26 +43,22 @@ export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
 
 export const Fonts = Platform.select({
   ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
-    sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
-    serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
-    rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
-    mono: 'ui-monospace',
+    sans: "system-ui",
+    serif: "ui-serif",
+    rounded: "ui-rounded",
+    mono: "ui-monospace",
   },
   default: {
-    sans: 'normal',
-    serif: 'serif',
-    rounded: 'normal',
-    mono: 'monospace',
+    sans: "normal",
+    serif: "serif",
+    rounded: "normal",
+    mono: "monospace",
   },
   web: {
-    sans: 'var(--font-display)',
-    serif: 'var(--font-serif)',
-    rounded: 'var(--font-rounded)',
-    mono: 'var(--font-mono)',
+    sans: "var(--font-display)",
+    serif: "var(--font-serif)",
+    rounded: "var(--font-rounded)",
+    mono: "var(--font-mono)",
   },
 });
 

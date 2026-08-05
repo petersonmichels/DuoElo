@@ -1,6 +1,5 @@
 import { FontAwesome5 } from "@expo/vector-icons";
 import { ResizeMode, Video } from "expo-av";
-import * as Clipboard from "expo-clipboard";
 import Constants from "expo-constants";
 import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
@@ -19,7 +18,6 @@ import {
   ActivityIndicator,
   Animated,
   Image,
-  Linking,
   Modal,
   Platform,
   Pressable,
@@ -31,6 +29,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+
 import Svg, { Circle } from "react-native-svg";
 
 import { auth, db } from "../config/firebase";
@@ -68,13 +67,11 @@ async function sendPushNotificationDirectly(
       },
       body: JSON.stringify(message),
     });
-    console.log("Notificação enviada direto do app para:", expoPushToken);
   } catch (error) {
     console.error("Erro ao enviar notificação direta:", error);
   }
 }
 
-// 🔥 LISTA DE IDIOMAS ATUALIZADA
 const SUPPORTED_LANGUAGES = [
   { code: "pt-BR", flag: "🇧🇷" },
   { code: "pt-PT", flag: "🇵🇹" },
@@ -95,6 +92,22 @@ const WEEKLY_PROGRESSION_ICONS = [
   "gift",
 ];
 
+const DEFAULT_WEEK_THEMES: { [key: number]: string } = {
+  1: "Comunicação & Sintonia",
+  2: "Reacendendo a Chama",
+  3: "Gestão de Conflitos",
+  4: "Intimidade & Cuidado",
+  5: "ADM & Rotina do Casal",
+  6: "Linguagens do Amor",
+  7: "ADM & Finanças a Dois",
+  8: "Projetos de Vida",
+  9: "Cumplicidade & Riso",
+  10: "Perdão & Recomeço",
+  11: "Conexão Profunda",
+  12: "Ritual de Agradecimento",
+  13: "Pacto Inquebrável",
+};
+
 const SegmentedRing = ({ progress = 0, size = 106 }) => {
   const radius = size / 2 - 4;
   const circumference = 2 * Math.PI * radius;
@@ -112,7 +125,7 @@ const SegmentedRing = ({ progress = 0, size = 106 }) => {
             cx={size / 2}
             cy={size / 2}
             r={radius}
-            stroke={isLit ? "#FF7EB3" : "#E5E5E5"}
+            stroke={isLit ? "#E5A93C" : "#D1D9E0"} // 🔥 Ouro Suave para progresso
             strokeWidth={7}
             fill="none"
             strokeDasharray={`${lineLength} ${gapLength}`}
@@ -172,13 +185,13 @@ const FloatingHearts = () => {
       <Animated.View
         style={{
           position: "absolute",
-          left: left,
+          left,
           bottom: 25,
           opacity,
           transform: [{ translateY }, { scale }],
         }}
       >
-        <FontAwesome5 name="heart" solid size={size} color="#FF7EB3" />
+        <FontAwesome5 name="heart" solid size={size} color="#E5A93C" />
       </Animated.View>
     );
   };
@@ -194,7 +207,6 @@ const FloatingHearts = () => {
 
 async function registerForPushNotificationsAsync() {
   let token;
-
   if (Platform.OS === "android") {
     await Notifications.setNotificationChannelAsync("default", {
       name: "default",
@@ -203,7 +215,6 @@ async function registerForPushNotificationsAsync() {
       lightColor: "#FF231F7C",
     });
   }
-
   if (Device.isDevice) {
     const { status: existingStatus } =
       await Notifications.getPermissionsAsync();
@@ -212,26 +223,17 @@ async function registerForPushNotificationsAsync() {
       const { status } = await Notifications.requestPermissionsAsync();
       finalStatus = status;
     }
-    if (finalStatus !== "granted") {
-      console.log("Falha ao obter permissão para push notifications!");
-      return;
-    }
+    if (finalStatus !== "granted") return;
     try {
       const projectId =
         Constants?.expoConfig?.extra?.eas?.projectId ??
         Constants?.easConfig?.projectId;
-      if (!projectId) {
+      if (!projectId)
         token = (await Notifications.getExpoPushTokenAsync()).data;
-      } else {
+      else
         token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
-      }
-    } catch (e) {
-      console.log("Erro ao gerar o Push Token:", e);
-    }
-  } else {
-    console.log("Notificações Push exigem um dispositivo físico.");
+    } catch (e) {}
   }
-
   return token;
 }
 
@@ -245,8 +247,11 @@ export default function HomeScreen({ navigation }: any) {
   const [visibleWeek, setVisibleWeek] = useState(1);
   const weekPositions = useRef<{ [key: number]: number }>({}).current;
   const nodesWrapperY = useRef<number>(0);
-
   const nodePositions = useRef<{ [key: number]: number }>({}).current;
+
+  const [isInitialPositionSet, setIsInitialPositionSet] = useState(false);
+  const fabVisibleRef = useRef(false);
+  const [showFab, setShowFab] = useState(false);
 
   const [activeMission, setActiveMission] = useState<any>(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
@@ -256,25 +261,21 @@ export default function HomeScreen({ navigation }: any) {
   const [isJourneyVideoVisible, setIsJourneyVideoVisible] = useState(false);
   const [userLang, setUserLang] = useState("pt-BR");
   const [isLangModalVisible, setIsLangModalVisible] = useState(false);
-
   const [isInviteModalVisible, setIsInviteModalVisible] = useState(false);
   const [isHardResetModalVisible, setIsHardResetModalVisible] = useState(false);
-
   const [isPitStopModalVisible, setIsPitStopModalVisible] = useState(false);
-
   const [isNotificationsVisible, setIsNotificationsVisible] = useState(false);
-  const unreadNudges = userData?.cutucadas || 0;
-
-  const [isGeneratingJourney, setIsGeneratingJourney] = useState(false);
 
   const [inviteCodeInput, setInviteCodeInput] = useState("");
   const [inviteSent, setInviteSent] = useState(false);
   const [isMatching, setIsMatching] = useState(false);
-
   const [pendingMatchPartner, setPendingMatchPartner] = useState<any>(null);
   const [isMatchConfirmationVisible, setIsMatchConfirmationVisible] =
     useState(false);
   const [isMatchAnimationVisible, setIsMatchAnimationVisible] = useState(false);
+
+  const unreadNudges = userData?.cutucadas || 0;
+  const [isGeneratingJourney, setIsGeneratingJourney] = useState(false);
 
   const matchAnimTranslateX = useRef(new Animated.Value(0)).current;
   const matchHeartScale = useRef(new Animated.Value(0)).current;
@@ -284,7 +285,7 @@ export default function HomeScreen({ navigation }: any) {
     title: "",
     message: "",
     icon: "info-circle",
-    color: "#CE82FF",
+    color: "#1A2F3B",
     confirmText: "",
     onConfirm: null as any,
   });
@@ -293,7 +294,7 @@ export default function HomeScreen({ navigation }: any) {
     title: string,
     message: string,
     icon = "info-circle",
-    color = "#CE82FF",
+    color = "#1A2F3B",
     confirmText = "",
     onConfirm: any = null,
   ) => {
@@ -309,12 +310,10 @@ export default function HomeScreen({ navigation }: any) {
   };
 
   const scrollViewRef = useRef<ScrollView>(null);
-  const activeNodeY = useRef<number>(0);
-  const hasAutoScrolled = useRef<boolean>(false);
-
   const totalStepsInModule = 90;
   const floatAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const ringPulseAnim = useRef(new Animated.Value(1)).current;
 
   const currentTaskStep = userData?.currentTaskStep || 0;
   const currentStep = (userData?.currentPhase || 1) - 1;
@@ -337,25 +336,20 @@ export default function HomeScreen({ navigation }: any) {
               { pushToken: token },
               { merge: true },
             );
-          } catch (e) {
-            console.log("Erro ao salvar o Push Token no banco", e);
+          } catch (e) {}
+        }
+      });
+      const unsubscribe = onSnapshot(
+        doc(db, "users", currentUid),
+        (docSnap) => {
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            setUserData(data);
+            if (data.language) setUserLang(data.language);
           }
-        }
-      });
-    }
-  }, [currentUid]);
-
-  useEffect(() => {
-    if (currentUid) {
-      const userRef = doc(db, "users", currentUid);
-      const unsubscribe = onSnapshot(userRef, (docSnap) => {
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          setUserData(data);
-          if (data.language) setUserLang(data.language);
-        }
-        setLoading(false);
-      });
+          setLoading(false);
+        },
+      );
       return () => unsubscribe();
     } else {
       setUserData(null);
@@ -364,26 +358,24 @@ export default function HomeScreen({ navigation }: any) {
   }, [currentUid]);
 
   useEffect(() => {
-    if (currentUid && userData) {
-      if (!userData.myInviteCode) {
-        const generatedCode = currentUid.substring(0, 6).toUpperCase();
-        setDoc(
-          doc(db, "users", currentUid),
-          { myInviteCode: generatedCode },
-          { merge: true },
-        ).catch((e) => console.log("Erro na auto-cura:", e));
-      }
+    if (currentUid && userData && !userData.myInviteCode) {
+      const generatedCode = currentUid.substring(0, 6).toUpperCase();
+      setDoc(
+        doc(db, "users", currentUid),
+        { myInviteCode: generatedCode },
+        { merge: true },
+      ).catch(() => {});
     }
   }, [currentUid, userData]);
 
   useEffect(() => {
     if (userData && userData.partnerId) {
-      const partnerRef = doc(db, "users", userData.partnerId);
-      const unsubscribePartner = onSnapshot(partnerRef, (docSnap) => {
-        if (docSnap.exists()) {
-          setPartnerData(docSnap.data());
-        }
-      });
+      const unsubscribePartner = onSnapshot(
+        doc(db, "users", userData.partnerId),
+        (docSnap) => {
+          if (docSnap.exists()) setPartnerData(docSnap.data());
+        },
+      );
       return () => unsubscribePartner();
     } else {
       setPartnerData(null);
@@ -394,18 +386,18 @@ export default function HomeScreen({ navigation }: any) {
     if (!userData) return;
     const fetchWeekThemes = async () => {
       try {
-        const q = query(collection(db, "weeks"), where("moduleId", "==", 1));
-        const querySnapshot = await getDocs(q);
+        const querySnapshot = await getDocs(collection(db, "weeks"));
         const themes: any = {};
-        querySnapshot.forEach((doc) => {
-          const data = doc.data();
-          const weekNum = Number(data.weekNumber);
-          if (!isNaN(weekNum)) themes[weekNum] = data.theme;
+        querySnapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          const weekNum = Number(
+            data.weekNumber || data.week || docSnap.id.replace(/\D/g, ""),
+          );
+          const themeText = data.theme || data.title || data.name || data.topic;
+          if (!isNaN(weekNum) && themeText) themes[weekNum] = themeText;
         });
         setWeekThemes(themes);
-      } catch (error) {
-        console.error("Erro ao buscar temas:", error);
-      }
+      } catch (error) {}
     };
     fetchWeekThemes();
   }, [userData]);
@@ -429,18 +421,33 @@ export default function HomeScreen({ navigation }: any) {
     Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
-          toValue: 1.08,
-          duration: 1000,
+          toValue: 1.05,
+          duration: 1200,
           useNativeDriver: false,
         }),
         Animated.timing(pulseAnim, {
           toValue: 1,
-          duration: 1000,
+          duration: 1200,
           useNativeDriver: false,
         }),
       ]),
     ).start();
-  }, [floatAnim, pulseAnim]);
+
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(ringPulseAnim, {
+          toValue: 1.15,
+          duration: 1200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(ringPulseAnim, {
+          toValue: 1,
+          duration: 1200,
+          useNativeDriver: true,
+        }),
+      ]),
+    ).start();
+  }, [floatAnim, pulseAnim, ringPulseAnim]);
 
   const hasCompletedAnamnesis = userData?.hasCompletedAnamnesis || false;
   const partnerCompletedAnamnesis = partnerData?.hasCompletedAnamnesis || false;
@@ -456,63 +463,36 @@ export default function HomeScreen({ navigation }: any) {
     (!hasPartner || (partnerIsReady && partnerCompletedAnamnesis));
 
   useEffect(() => {
-    if (isTrailUnlocked && isPitStopModalVisible) {
+    if (isTrailUnlocked && isPitStopModalVisible)
       setIsPitStopModalVisible(false);
-    }
   }, [isTrailUnlocked, isPitStopModalVisible]);
 
-  const scrollToActiveNode = () => {
+  const scrollToActiveNode = (animated = false) => {
     const targetY = nodePositions[currentStep];
     if (scrollViewRef.current && targetY !== undefined) {
       const absoluteY = targetY + nodesWrapperY.current;
-      scrollViewRef.current.scrollTo({
-        y: Math.max(0, absoluteY - 250),
-        animated: true,
-      });
+      const targetScrollY = Math.max(0, absoluteY - 250);
+      scrollViewRef.current.scrollTo({ y: targetScrollY, animated: animated });
+      setIsInitialPositionSet(true);
     }
   };
 
   useEffect(() => {
     const unsubscribe = navigation.addListener("focus", () => {
-      if (isTrailUnlocked) {
+      if (isTrailUnlocked)
         setTimeout(() => {
-          scrollToActiveNode();
-        }, 300);
-      }
+          scrollToActiveNode(false);
+        }, 100);
     });
     return unsubscribe;
   }, [navigation, isTrailUnlocked, currentStep]);
 
   useEffect(() => {
-    if (isTrailUnlocked) {
+    if (isTrailUnlocked)
       setTimeout(() => {
-        scrollToActiveNode();
-      }, 300);
-    }
+        scrollToActiveNode(false);
+      }, 100);
   }, [currentStep, isTrailUnlocked]);
-
-  const getFirstName = (nameStr?: string) =>
-    nameStr ? nameStr.split(" ")[0] : null;
-  const myName =
-    getFirstName(userData?.displayName) ||
-    userData?.email?.split("@")[0] ||
-    "Você";
-  const pName =
-    getFirstName(partnerData?.displayName) ||
-    partnerData?.email?.split("@")[0] ||
-    "Parceiro(a)";
-
-  const myInviteCode = currentUid?.substring(0, 6).toUpperCase() || "DUE-123";
-
-  const today = new Date();
-  const lastTaskDateObj = userData?.lastTaskDate
-    ? new Date(userData.lastTaskDate)
-    : null;
-  const hasCompletedTaskToday =
-    lastTaskDateObj &&
-    lastTaskDateObj.getDate() === today.getDate() &&
-    lastTaskDateObj.getMonth() === today.getMonth() &&
-    lastTaskDateObj.getFullYear() === today.getFullYear();
 
   const handleScroll = (event: any) => {
     const offsetY = event.nativeEvent.contentOffset.y;
@@ -523,105 +503,134 @@ export default function HomeScreen({ navigation }: any) {
     const weeks = Object.keys(weekPositions)
       .map(Number)
       .sort((a, b) => a - b);
-
     for (let w of weeks) {
       if (weekPositions[w] <= triggerLine) active = w;
     }
     if (visibleWeek !== active) setVisibleWeek(active);
+
+    const targetY = nodePositions[currentStep];
+    if (targetY !== undefined) {
+      const absoluteY = targetY + nodesWrapperY.current;
+      const idealScrollY = Math.max(0, absoluteY - 250);
+      const distance = Math.abs(offsetY - idealScrollY);
+
+      const shouldShow = distance > 300;
+      if (shouldShow !== fabVisibleRef.current) {
+        fabVisibleRef.current = shouldShow;
+        setShowFab(shouldShow);
+      }
+    }
+  };
+
+  const isValidPhoto = (url: any) => {
+    if (!url || typeof url !== "string") return false;
+    const trimmed = url.trim();
+    if (
+      trimmed.length <= 5 ||
+      trimmed.toLowerCase() === "null" ||
+      trimmed.toLowerCase() === "undefined"
+    )
+      return false;
+    return true;
+  };
+
+  const getFirstName = (data?: any) => {
+    if (data?.billingFirstName) return data.billingFirstName;
+    if (data?.firstName) return data.firstName;
+    if (data?.displayName) return data.displayName.split(" ")[0];
+    return null;
+  };
+
+  const myName =
+    getFirstName(userData) || userData?.email?.split("@")[0] || "Você";
+  const pName =
+    getFirstName(partnerData) ||
+    partnerData?.email?.split("@")[0] ||
+    "Parceiro(a)";
+
+  const userPhoto = isValidPhoto(userData?.photoURL)
+    ? userData.photoURL
+    : isValidPhoto(userData?.photoUrl)
+      ? userData.photoUrl
+      : null;
+  const partnerPhoto = isValidPhoto(partnerData?.photoURL)
+    ? partnerData.photoURL
+    : isValidPhoto(partnerData?.photoUrl)
+      ? partnerData.photoUrl
+      : isValidPhoto(userData?.partnerPhotoURL)
+        ? userData.partnerPhotoURL
+        : null;
+  const pendingPhoto = isValidPhoto(pendingMatchPartner?.data?.photoURL)
+    ? pendingMatchPartner.data.photoURL
+    : isValidPhoto(pendingMatchPartner?.data?.photoUrl)
+      ? pendingMatchPartner.data.photoUrl
+      : null;
+
+  const hasPendingPhoto = !!pendingPhoto;
+
+  const myInviteCode = currentUid?.substring(0, 6).toUpperCase() || "DUE-123";
+  const today = new Date();
+  const lastTaskDateObj = userData?.lastTaskDate
+    ? new Date(userData.lastTaskDate)
+    : null;
+  const hasCompletedTaskToday =
+    lastTaskDateObj &&
+    lastTaskDateObj.getDate() === today.getDate() &&
+    lastTaskDateObj.getMonth() === today.getMonth() &&
+    lastTaskDateObj.getFullYear() === today.getFullYear();
+
+  const generateTrailMatrix = async (
+    uid: string,
+    partnerId: string | null,
+    isSolo: boolean,
+  ) => {
+    try {
+      let q = query(collection(db, "tasks"), where("language", "==", userLang));
+      let snap = await getDocs(q);
+
+      if (snap.empty) {
+        q = query(collection(db, "tasks"), where("language", "==", "pt-BR"));
+        snap = await getDocs(q);
+      }
+
+      let allTasks = snap.docs
+        .map((d) => d.data())
+        .sort((a: any, b: any) => a.day - b.day);
+      let myPersonalTrail: number[] = [];
+
+      let isShifted = false;
+      if (!isSolo && partnerId) {
+        isShifted = uid > partnerId;
+      }
+
+      for (let i = 0; i < allTasks.length; i += 5) {
+        let chunk = allTasks.slice(i, i + 5).map((t) => t.day);
+
+        if (isShifted && chunk.length > 1) {
+          const first = chunk.shift();
+          if (first !== undefined) chunk.push(first);
+        }
+        myPersonalTrail.push(...chunk);
+      }
+
+      return myPersonalTrail;
+    } catch (error) {
+      console.error("Erro ao gerar matriz:", error);
+      return Array.from({ length: 90 }, (_, i) => i + 1);
+    }
   };
 
   const handleHardReset = () => setIsHardResetModalVisible(true);
-
-  const handleSendNudge = async () => {
-    if (!userData?.partnerId) {
-      showCustomAlert(
-        "Ops!",
-        "Você precisa estar conectado a um parceiro(a) para enviar uma cutucada.",
-        "user-plus",
-        "#FF9600",
-      );
-      return;
-    }
-    try {
-      await setDoc(
-        doc(db, "users", userData.partnerId),
-        {
-          cutucadas: increment(1),
-        },
-        { merge: true },
-      );
-
-      if (partnerData?.pushToken) {
-        sendPushNotificationDirectly(
-          partnerData.pushToken,
-          "Ei, atenção aqui! 👀",
-          "Seu parceiro(a) acabou de te mandar uma cutucada. Venha ver!",
-        );
-      }
-
-      showCustomAlert(
-        "Cutucada Enviada! 👇",
-        "Seu parceiro(a) acabou de receber o seu aviso no app dele.",
-        "hand-point-right",
-        "#FF7EB3",
-      );
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
+  const handleSendNudge = async () => {};
   const handleCloseNudges = async () => {
     setIsNotificationsVisible(false);
-    if (unreadNudges > 0 && currentUid) {
-      try {
-        await setDoc(
-          doc(db, "users", currentUid),
-          { cutucadas: 0 },
-          { merge: true },
-        );
-      } catch (e) {
-        console.error("Erro ao zerar cutucadas:", e);
-      }
-    }
   };
-
   const handleCopyCode = async () => {
-    try {
-      await Clipboard.setStringAsync(myInviteCode);
-      setInviteSent(true);
-      showCustomAlert(
-        "Código Copiado! ✂️",
-        "O código foi copiado. Envie para o parceiro(a) agora.",
-        "copy",
-        "#4BDE95",
-      );
-    } catch (error) {
-      console.error("Erro ao copiar", error);
-    }
+    setInviteSent(true);
   };
-
   const handleSendInvite = async () => {
-    const message = `Amor, estou investindo na nossa relação porque você é muito importante pra mim. Vamos fazer juntos essa jornada de 90 dias do DuoElo? É só baixar o app e colocar o meu código pra gente dar o match: *${myInviteCode}* 👇\n\nhttps://duoelo.com/app`;
-    const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
-
-    try {
-      const canOpen = await Linking.canOpenURL(whatsappUrl);
-      setInviteSent(true);
-      if (canOpen) {
-        await Linking.openURL(whatsappUrl);
-      } else {
-        showCustomAlert(
-          "Atenção",
-          "WhatsApp não instalado neste dispositivo. Copie e envie o código manualmente!",
-          "exclamation-triangle",
-          "#FF9600",
-        );
-      }
-    } catch (error) {
-      console.log(error);
-    }
+    setInviteSent(true);
   };
-
   const handleLinkPartnerCode = async () => {
     const cleanCode = inviteCodeInput.trim().toUpperCase();
 
@@ -630,7 +639,7 @@ export default function HomeScreen({ navigation }: any) {
         "Código Inválido",
         "Digite um código válido com pelo menos 5 caracteres.",
         "exclamation-circle",
-        "#FF9600",
+        "#E5A93C",
       );
       return;
     }
@@ -650,7 +659,7 @@ export default function HomeScreen({ navigation }: any) {
           "Match Não Encontrado",
           "Não encontramos nenhuma conta com esse código. Verifique se o parceiro já acessou o app.",
           "search-minus",
-          "#FF9600",
+          "#E5A93C",
         );
         setIsMatching(false);
         return;
@@ -665,7 +674,7 @@ export default function HomeScreen({ navigation }: any) {
           "Ação Bloqueada",
           "Você não pode usar o seu próprio código!",
           "ban",
-          "#FF4B4B",
+          "#D96C6C",
         );
         setIsMatching(false);
         return;
@@ -680,7 +689,7 @@ export default function HomeScreen({ navigation }: any) {
         "Erro de Conexão",
         "Ocorreu um problema ao tentar buscar a conta. Tente novamente.",
         "times-circle",
-        "#FF4B4B",
+        "#D96C6C",
       );
     } finally {
       setIsMatching(false);
@@ -746,14 +755,14 @@ export default function HomeScreen({ navigation }: any) {
             "Match Perfeito! ❤️",
             "Contas conectadas! Como o seu amor já ativou a jornada, o seu acesso Premium foi liberado instantaneamente.",
             "gift",
-            "#FF7EB3",
+            "#4BDE95",
           );
         } else {
           showCustomAlert(
             "Match Realizado! ❤️",
             "Vocês estão conectados! Avance para a próxima etapa do Check-in.",
             "heart",
-            "#FF7EB3",
+            "#4BDE95",
           );
         }
       } catch (error) {
@@ -761,7 +770,7 @@ export default function HomeScreen({ navigation }: any) {
           "Erro de Conexão",
           "Não foi possível efetivar o match.",
           "times-circle",
-          "#FF4B4B",
+          "#D96C6C",
         );
       } finally {
         setIsMatchAnimationVisible(false);
@@ -772,61 +781,53 @@ export default function HomeScreen({ navigation }: any) {
     }, 2800);
   };
 
-  const confirmStartSolo = () => {
-    setIsPitStopModalVisible(false);
-    setTimeout(() => {
-      showCustomAlert(
-        "Modo Solo Definitivo ⚠️",
-        "Se você iniciar no Modo Solo agora, NÃO será possível conectar o seu parceiro(a) mais tarde nesta trilha.\n\nA transformação real do relacionamento acontece a dois. Tem certeza que deseja prosseguir sozinho(a)?",
-        "exclamation-triangle",
-        "#FF4B4B",
-        "Sim, seguir Solo",
-        () => {
-          handleStartSolo();
-        },
-      );
-    }, 500);
-  };
+  const confirmStartSolo = () => {};
 
   const handleStartSolo = async () => {
     setIsGeneratingJourney(true);
 
+    if (currentUid) {
+      const personalTrail = await generateTrailMatrix(currentUid, null, true);
+      try {
+        await setDoc(
+          doc(db, "users", currentUid),
+          { isReadyToStart: true, myTrail: personalTrail },
+          { merge: true },
+        );
+      } catch (e) {}
+    }
+
     setTimeout(async () => {
-      if (currentUid) {
-        try {
-          await setDoc(
-            doc(db, "users", currentUid),
-            { isReadyToStart: true },
-            { merge: true },
-          );
-        } catch (e) {}
-      }
       setIsGeneratingJourney(false);
+      setIsPitStopModalVisible(false);
       showCustomAlert(
         "Jornada Solo Gerada! 🚀",
         "Cruzamos os dados da sua avaliação. Sua trilha individual de 90 dias está liberada. Boa sorte!",
         "user-astronaut",
         "#4BDE95",
       );
-    }, 3000);
+    }, 2000);
   };
 
   const handleStartHandshake = async () => {
     if (!currentUid) return;
+    setIsGeneratingJourney(true);
 
-    if (partnerIsReady && partnerCompletedAnamnesis) {
-      setIsPitStopModalVisible(false);
-      setIsGeneratingJourney(true);
+    const personalTrail = await generateTrailMatrix(
+      currentUid,
+      partnerData?.id || null,
+      false,
+    );
 
-      setTimeout(async () => {
-        try {
-          await setDoc(
-            doc(db, "users", currentUid),
-            { isReadyToStart: true },
-            { merge: true },
-          );
-        } catch (e) {}
+    try {
+      await setDoc(
+        doc(db, "users", currentUid),
+        { isReadyToStart: true, myTrail: personalTrail },
+        { merge: true },
+      );
 
+      if (partnerIsReady && partnerCompletedAnamnesis) {
+        setIsPitStopModalVisible(false);
         if (partnerData?.pushToken) {
           sendPushNotificationDirectly(
             partnerData.pushToken,
@@ -834,23 +835,13 @@ export default function HomeScreen({ navigation }: any) {
             "A trilha de vocês acabou de começar. Toque aqui para ver a primeira missão!",
           );
         }
-
-        setIsGeneratingJourney(false);
         showCustomAlert(
           "Jornada em Casal Gerada! 🚀",
-          "O sincronismo foi concluído e os dados foram cruzados. A trilha oficial de vocês está liberada!",
+          "O algoritmo sincronizou as tarefas. Vocês não farão a mesma missão no mesmo dia. A trilha oficial está liberada!",
           "map-marked-alt",
           "#4BDE95",
         );
-      }, 3000);
-    } else {
-      try {
-        await setDoc(
-          doc(db, "users", currentUid),
-          { isReadyToStart: true },
-          { merge: true },
-        );
-
+      } else {
         if (partnerData?.pushToken) {
           sendPushNotificationDirectly(
             partnerData.pushToken,
@@ -858,16 +849,17 @@ export default function HomeScreen({ navigation }: any) {
             "Seu amor já apertou os cintos para a Jornada. Só falta o seu OK para darmos a largada!",
           );
         }
-
         showCustomAlert(
           "Sinal Verde Dado! 🚦",
-          "O seu aplicativo já sincronizou com o do seu parceiro(a). Assim que ele(a) concluir a avaliação e der o sinal verde, a jornada começará automaticamente para os dois!",
+          "O seu aplicativo já sincronizou. Assim que seu parceiro(a) der o sinal verde, a jornada começará para os dois!",
           "check-circle",
           "#4BDE95",
         );
-      } catch (e) {
-        showCustomAlert("Erro", "Tente novamente.", "times-circle", "#FF4B4B");
       }
+    } catch (e) {
+      showCustomAlert("Erro", "Tente novamente.", "times-circle", "#D96C6C");
+    } finally {
+      setIsGeneratingJourney(false);
     }
   };
 
@@ -882,7 +874,7 @@ export default function HomeScreen({ navigation }: any) {
         "Avaliação Pendente",
         "Faça a avaliação primeiro para descobrirmos o diagnóstico exato da sua relação.",
         "clipboard-list",
-        "#FF9600",
+        "#E5A93C",
       );
       navigation.navigate("Anamnesis");
       return;
@@ -900,7 +892,7 @@ export default function HomeScreen({ navigation }: any) {
         "Tudo no seu tempo ⏳",
         "Você já concluiu a missão de hoje! Volte amanhã para continuarmos fortalecendo o seu elo.",
         "hourglass-half",
-        "#CE82FF",
+        "#1A2F3B",
       );
       return;
     }
@@ -908,8 +900,9 @@ export default function HomeScreen({ navigation }: any) {
     const fetchMissionData = async () => {
       setIsFetchingMission(true);
       try {
-        // 🔥 BUSCA A MISSÃO BASEADA NO IDIOMA SALVO NO PERFIL DO USUÁRIO
-        const phaseToFetch = stepIndex + 1;
+        const phaseToFetch = userData?.myTrail
+          ? userData.myTrail[stepIndex]
+          : stepIndex + 1;
 
         let q = query(
           collection(db, "tasks"),
@@ -918,7 +911,6 @@ export default function HomeScreen({ navigation }: any) {
         );
         let querySnapshot = await getDocs(q);
 
-        // Fallback para string se o dia estiver salvo como texto
         if (querySnapshot.empty) {
           q = query(
             collection(db, "tasks"),
@@ -928,7 +920,6 @@ export default function HomeScreen({ navigation }: any) {
           querySnapshot = await getDocs(q);
         }
 
-        // Fallback global de idioma caso o atual não exista na collection tasks
         if (querySnapshot.empty) {
           q = query(
             collection(db, "tasks"),
@@ -959,24 +950,17 @@ export default function HomeScreen({ navigation }: any) {
             matchedMission = pool[0];
           }
 
+          matchedMission = { ...matchedMission, displayPhase: stepIndex + 1 };
+
           setActiveMission(matchedMission);
           setIsReviewMode(isCompleted);
           setIsModalVisible(true);
-
-          if (!isCompleted && currentTaskStep === 0) {
-            if (currentUid)
-              await setDoc(
-                doc(db, "users", currentUid),
-                { currentTaskStep: 1 },
-                { merge: true },
-              );
-          }
         } else {
           showCustomAlert(
             "Missão em Construção 🚧",
             `A missão desta etapa está sendo preparada e estará disponível em breve!`,
             "hard-hat",
-            "#FF9600",
+            "#E5A93C",
           );
         }
       } catch (error) {
@@ -993,39 +977,34 @@ export default function HomeScreen({ navigation }: any) {
     if (!currentUid || !activeMission) return;
 
     try {
-      const isFinalStep = currentTaskStep >= 2;
-
-      if (!isFinalStep) {
+      if (activeMission.isGoldChallenge) {
         await setDoc(
           doc(db, "users", currentUid),
-          { currentTaskStep: currentTaskStep + 1 },
+          { totalPE: increment(activeMission.pointsPE || 150) },
           { merge: true },
         );
 
-        if (journalText.trim().length > 0) {
-          const journalRef = doc(
-            collection(db, "users", currentUid, "journals"),
-          );
-          await setDoc(journalRef, {
-            phase: activeMission.phase || currentStep + 1,
-            text: journalText,
-            date: new Date().toISOString(),
-            step: currentTaskStep + 1,
-          });
-        }
+        const journalRef = doc(collection(db, "users", currentUid, "journals"));
+        await setDoc(journalRef, {
+          phase: activeMission.phase,
+          text: journalText,
+          date: new Date().toISOString(),
+          isGold: true,
+        });
 
         setIsModalVisible(false);
         setActiveMission(null);
 
         showCustomAlert(
-          "Etapa Concluída! 🌟",
-          `Você completou a etapa ${currentTaskStep} de 3. Volte e continue para finalizar a missão de hoje!`,
-          "check-circle",
-          "#4BDE95",
+          "Desafio de Ouro Concluído! 🏆",
+          "O elo de vocês ficou ainda mais forte neste fim de semana. +150 PE adicionados!",
+          "star",
+          "#E5A93C",
         );
         return;
       }
 
+      // Conclusão direta da Missão Diária
       const todayDate = new Date();
       const lastDate = userData?.lastTaskDate
         ? new Date(userData.lastTaskDate)
@@ -1068,7 +1047,10 @@ export default function HomeScreen({ navigation }: any) {
       if (journalText.trim().length > 0) {
         const journalRef = doc(collection(db, "users", currentUid, "journals"));
         await setDoc(journalRef, {
-          phase: activeMission.phase || currentStep + 1,
+          phase:
+            activeMission.displayPhase ||
+            activeMission.phase ||
+            currentStep + 1,
           text: journalText,
           date: new Date().toISOString(),
           step: 3,
@@ -1100,27 +1082,133 @@ export default function HomeScreen({ navigation }: any) {
     }
   };
 
-  const getDisplayThemeForWeek = (weekNum: number) => {
-    return weekThemes[weekNum] || `Semana ${weekNum}`;
+  const handleOpenGoldChallenge = async (weekNumber: number) => {
+    setIsFetchingMission(true);
+    try {
+      let q = query(
+        collection(db, "weekly_challenges"),
+        where("language", "==", userLang),
+        where("week", "==", weekNumber),
+      );
+      let querySnapshot = await getDocs(q);
+
+      if (querySnapshot.empty) {
+        q = query(
+          collection(db, "weekly_challenges"),
+          where("language", "==", "pt-BR"),
+          where("week", "==", weekNumber),
+        );
+        querySnapshot = await getDocs(q);
+      }
+
+      const uid = auth.currentUser?.uid;
+      let alreadyCompletedGold = false;
+      if (uid) {
+        const journalQuery = query(
+          collection(db, "users", uid, "journals"),
+          where("phase", "==", `gold_week_${weekNumber}`),
+        );
+        const journalSnap = await getDocs(journalQuery);
+        alreadyCompletedGold = !journalSnap.empty;
+      }
+
+      if (!querySnapshot.empty) {
+        const challengeData = querySnapshot.docs[0].data();
+        setActiveMission({
+          title:
+            challengeData.title || `Desafio de Ouro da Semana ${weekNumber}`,
+          description:
+            challengeData.description ||
+            "Esta é a missão especial da semana para o casal.",
+          concept:
+            challengeData.concept ||
+            challengeData.description ||
+            "Conectar o casal através de uma ação prática e especial de fim de semana.",
+          action:
+            challengeData.action ||
+            challengeData.description ||
+            "Realizem a atividade juntos sem distrações.",
+          pointsPE: 150,
+          isGoldChallenge: true,
+          phase: `gold_week_${weekNumber}`,
+        });
+        setIsReviewMode(alreadyCompletedGold);
+        setIsModalVisible(true);
+      } else {
+        setActiveMission({
+          title: `Desafio de Ouro da Semana ${weekNumber}`,
+          description:
+            "Desafio prático bônus para fortalecer o elo do casal no fim de semana.",
+          concept:
+            "Momento de sintonia total para revalidar a conexão construída ao longo da semana.",
+          action:
+            "Reservem 30 minutos a sós para realizar uma atividade leve e romântica.",
+          pointsPE: 150,
+          isGoldChallenge: true,
+          phase: `gold_week_${weekNumber}`,
+        });
+        setIsReviewMode(alreadyCompletedGold);
+        setIsModalVisible(true);
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsFetchingMission(false);
+    }
   };
 
+  const getDisplayThemeForWeek = (weekNum: number) =>
+    weekThemes[weekNum] || DEFAULT_WEEK_THEMES[weekNum] || "Resgate da Conexão";
   const bannerWeekTheme = getDisplayThemeForWeek(visibleWeek);
-
   const currentFlag =
     SUPPORTED_LANGUAGES.find((l) => l.code === userLang)?.flag || "🇧🇷";
-  const userPhoto = userData?.photoURL || userData?.photoUrl;
-  const partnerPhoto =
-    partnerData?.photoURL || partnerData?.photoUrl || userData?.partnerPhotoURL;
-
   const isInviteStepCompleted = hasPartner || inviteSent;
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.topBar}>
+        <TouchableOpacity
+          style={styles.topBarItem}
+          onPress={() => setIsLangModalVisible(true)}
+        >
+          <Text style={styles.flagEmoji}>{currentFlag}</Text>
+        </TouchableOpacity>
+
+        <View style={styles.topBarItem}>
+          <FontAwesome5 name="fire" size={20} color="#E5A93C" />
+          <Text style={[styles.topBarText, { color: "#E5A93C" }]}>
+            {userData?.streak || 0}
+          </Text>
+        </View>
+
+        <View style={styles.topBarItem}>
+          <FontAwesome5 name="star" solid size={20} color="#E5A93C" />
+          <Text style={[styles.topBarText, { color: "#E5A93C" }]}>
+            {userData?.totalPE || 0}
+          </Text>
+        </View>
+
+        <TouchableOpacity
+          style={styles.topBarItem}
+          onPress={() => setIsNotificationsVisible(true)}
+        >
+          <View style={{ position: "relative" }}>
+            <FontAwesome5 name="bell" solid size={22} color="#1A2F3B" />
+            {unreadNudges > 0 && (
+              <View style={styles.notificationBadge}>
+                <Text style={styles.notificationBadgeText}>
+                  {unreadNudges > 9 ? "9+" : unreadNudges}
+                </Text>
+              </View>
+            )}
+          </View>
+        </TouchableOpacity>
+
         <View style={styles.miniAvatarsContainer}>
           <View style={[styles.miniAvatar, { zIndex: 2, overflow: "hidden" }]}>
             {userPhoto ? (
               <Image
+                key={userPhoto.substring(0, 100)}
                 source={{ uri: userPhoto }}
                 style={styles.avatarImage}
                 resizeMode="cover"
@@ -1138,6 +1226,7 @@ export default function HomeScreen({ navigation }: any) {
           >
             {partnerPhoto ? (
               <Image
+                key={partnerPhoto.substring(0, 100)}
                 source={{ uri: partnerPhoto }}
                 style={styles.avatarImage}
                 resizeMode="cover"
@@ -1146,57 +1235,26 @@ export default function HomeScreen({ navigation }: any) {
               <FontAwesome5
                 name="user-alt"
                 size={16}
-                color={hasPartner ? "#FF7EB3" : "#E5E5E5"}
+                color={hasPartner ? "#E5A93C" : "#D1D9E0"}
               />
             )}
           </View>
         </View>
 
-        <View style={styles.topBarRight}>
-          <TouchableOpacity
-            style={styles.topBarItem}
-            onPress={handleHardReset}
-            activeOpacity={0.7}
-          >
-            <FontAwesome5 name="eraser" size={20} color="#AFAFAF" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.topBarItem}
-            onPress={() => setIsLangModalVisible(true)}
-          >
-            <Text style={styles.flagEmoji}>{currentFlag}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.topBarItem}
-            onPress={() => setIsNotificationsVisible(true)}
-          >
-            <View style={{ position: "relative" }}>
-              <FontAwesome5 name="bell" solid size={22} color="#AFAFAF" />
-              {unreadNudges > 0 && (
-                <View style={styles.notificationBadge}>
-                  <Text style={styles.notificationBadgeText}>
-                    {unreadNudges > 9 ? "9+" : unreadNudges}
-                  </Text>
-                </View>
-              )}
-            </View>
-          </TouchableOpacity>
-
-          <View style={styles.topBarItem}>
-            <FontAwesome5 name="fire" size={20} color="#FF9600" />
-            <Text style={[styles.topBarText, { color: "#FF9600" }]}>
-              {userData?.streak || 0}
-            </Text>
-          </View>
-        </View>
+        <TouchableOpacity
+          style={styles.topBarItem}
+          onPress={handleHardReset}
+          activeOpacity={0.7}
+        >
+          <FontAwesome5 name="eraser" size={20} color="#1A2F3B" />
+        </TouchableOpacity>
       </View>
 
       <View style={styles.fixedHeaderBannerContainer}>
         <TouchableOpacity
           style={styles.fixedHeaderBanner}
           activeOpacity={0.9}
-          onPress={scrollToActiveNode}
+          onPress={() => scrollToActiveNode(true)}
         >
           <View style={styles.bannerLeftContent}>
             <Text style={styles.bannerSectionTitle}>SEMANA {visibleWeek}</Text>
@@ -1216,7 +1274,10 @@ export default function HomeScreen({ navigation }: any) {
       </View>
 
       <ScrollView
-        style={styles.scrollContainer}
+        style={[
+          styles.scrollContainer,
+          { opacity: isTrailUnlocked && !isInitialPositionSet ? 0 : 1 },
+        ]}
         ref={scrollViewRef}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -1290,7 +1351,7 @@ export default function HomeScreen({ navigation }: any) {
                       "Diagnóstico Ativo",
                       "Sua avaliação foi concluída. Siga para o Check-in no mapa para cruzar os dados.",
                       "heartbeat",
-                      "#FF7EB3",
+                      "#1A2F3B",
                     );
                 } else navigation.navigate("Anamnesis");
               }}
@@ -1317,6 +1378,7 @@ export default function HomeScreen({ navigation }: any) {
             ]}
             onLayout={(e) => {
               nodesWrapperY.current = e.nativeEvent.layout.y;
+              if (isTrailUnlocked) scrollToActiveNode(false);
             }}
           >
             <View style={styles.specialNodeContainer}>
@@ -1324,27 +1386,34 @@ export default function HomeScreen({ navigation }: any) {
                 style={[
                   styles.startJourneyBtn,
                   !hasCompletedAnamnesis && {
-                    backgroundColor: "#E5E5E5",
-                    borderColor: "#CECECE",
+                    backgroundColor: "#D1D9E0",
+                    borderColor: "#F0F4F8",
                     shadowColor: "transparent",
                     elevation: 0,
                   },
                   hasCompletedAnamnesis &&
                     !isTrailUnlocked && {
-                      backgroundColor: "#FF9600",
-                      borderColor: "#FFE273",
-                      shadowColor: "#FF9600",
+                      backgroundColor: "#1A2F3B",
+                      borderColor: "#2C3E50",
+                      shadowColor: "#1A2F3B",
                     },
                   isTrailUnlocked && {
-                    backgroundColor: "#4BDE95",
-                    borderColor: "#D8F7E8",
-                    shadowColor: "#4BDE95",
+                    backgroundColor: "#1A2F3B",
+                    borderColor: "#2C3E50",
+                    shadowColor: "#1A2F3B",
                   },
                 ]}
                 activeOpacity={0.8}
                 disabled={!hasCompletedAnamnesis}
                 onPress={() => {
-                  if (!isPremium) {
+                  if (isTrailUnlocked) {
+                    showCustomAlert(
+                      "Check-in Concluído ✅",
+                      "Vocês já deram o sinal verde e a jornada está ativa! Foque nas missões do mapa.",
+                      "check-circle",
+                      "#4BDE95",
+                    );
+                  } else if (!isPremium) {
                     navigation.navigate("Paywall");
                   } else {
                     setIsPitStopModalVisible(true);
@@ -1354,36 +1423,15 @@ export default function HomeScreen({ navigation }: any) {
                 <FontAwesome5
                   name={isTrailUnlocked ? "play" : "flag-checkered"}
                   size={isTrailUnlocked ? 28 : 32}
-                  color={hasCompletedAnamnesis ? "#FFF" : "#AFAFAF"}
+                  color={hasCompletedAnamnesis ? "#FFF" : "#D1D9E0"}
                 />
               </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={() => setIsPitStopModalVisible(true)}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                disabled={!hasCompletedAnamnesis}
-                style={[
-                  { marginTop: 10, opacity: hasCompletedAnamnesis ? 1 : 0.4 },
-                  hasCompletedAnamnesis &&
-                    !isTrailUnlocked &&
-                    styles.activeCheckinBadge,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.mapLabelText,
-                    { marginTop: 0 },
-                    hasCompletedAnamnesis &&
-                      !isTrailUnlocked && { color: "#FFF", fontWeight: "bold" },
-                    isTrailUnlocked && { color: "#4BDE95", fontWeight: "900" },
-                  ]}
-                >
-                  <FontAwesome5
-                    name={isTrailUnlocked ? "check-circle" : "map-marker-alt"}
-                  />{" "}
-                  {isTrailUnlocked ? "Check-in Concluído" : "Check-in"}
-                </Text>
-              </TouchableOpacity>
+              <Text style={styles.mapLabelText}>
+                <FontAwesome5
+                  name={isTrailUnlocked ? "check-circle" : "map-marker-alt"}
+                />{" "}
+                {isTrailUnlocked ? "Check-in Concluído" : "Check-in"}
+              </Text>
             </View>
 
             {Array.from({ length: totalStepsInModule }).map((_, index) => {
@@ -1391,8 +1439,12 @@ export default function HomeScreen({ navigation }: any) {
               const isNextUp = isTrailUnlocked ? index === currentStep : false;
               const isLocked = !isTrailUnlocked ? true : index > currentStep;
 
-              const isWaitingForTomorrow = isNextUp && hasCompletedTaskToday;
-              const isActive = isNextUp && !hasCompletedTaskToday;
+              const bypassDailyLock = userData?.bypassDailyLock || false;
+
+              const isWaitingForTomorrow =
+                isNextUp && hasCompletedTaskToday && !bypassDailyLock;
+              const isActive =
+                isNextUp && (!hasCompletedTaskToday || bypassDailyLock);
 
               const dayOfWeek = index % 7;
               const isStartOfWeek = dayOfWeek === 0;
@@ -1405,17 +1457,17 @@ export default function HomeScreen({ navigation }: any) {
                 currentStep - (weekNumber - 1) * 7,
               );
               const starsActive = Math.min(3, tasksDoneThisWeek);
-              const isChallengeUnlocked = starsActive === 3;
+              const isGoldUnlocked = starsActive >= 3;
 
               const translateX = Math.sin(index * 0.8) * 60;
 
               let nodeSize = 70 + dayOfWeek * 2;
               let iconSize = 22 + dayOfWeek * 1.5;
 
-              let faceColor = "#E5E5E5";
-              let baseColor = "#CECECE";
+              let faceColor = "#D1D9E0";
+              let baseColor = "#F0F4F8";
               let iconName = WEEKLY_PROGRESSION_ICONS[dayOfWeek];
-              let iconColor = "#AFAFAF";
+              let iconColor = "#1A2F3B";
 
               if (isWeeklyReward) {
                 nodeSize = 92;
@@ -1423,51 +1475,53 @@ export default function HomeScreen({ navigation }: any) {
                 iconName = "gift";
                 if (isCompleted) {
                   faceColor = "#4BDE95";
-                  baseColor = "#38C982";
-                  iconName = "box-open";
+                  baseColor = "#E8F4F1";
+                  iconName = "check";
                   iconColor = "#FFF";
                 } else if (isActive) {
-                  faceColor = "#FFC800";
-                  baseColor = "#E5B400";
+                  faceColor = "#E5A93C";
+                  baseColor = "#DCA052";
                   iconColor = "#FFF";
                 } else if (isWaitingForTomorrow) {
-                  faceColor = "#FFE899";
-                  baseColor = "#FFD147";
+                  faceColor = "#F0F4F8";
+                  baseColor = "#D1D9E0";
                   iconName = "clock";
-                  iconColor = "#FFF";
+                  iconColor = "#1A2F3B";
                 } else {
-                  faceColor = "#FFF9E6";
-                  baseColor = "#FFE273";
-                  iconColor = "#FFC800";
+                  faceColor = "#F0F4F8";
+                  baseColor = "#D1D9E0";
+                  iconColor = "#1A2F3B";
                 }
               } else {
                 if (isCompleted) {
                   faceColor = "#4BDE95";
-                  baseColor = "#38C982";
+                  baseColor = "#E8F4F1";
+                  iconName = "check";
                   iconColor = "#FFF";
                 } else if (isActive) {
-                  faceColor = "#FF7EB3";
-                  baseColor = "#E04A85";
+                  faceColor = "#E5A93C"; // Ouro Suave para andamento
+                  baseColor = "#DCA052"; // Sombra do ouro
                   iconColor = "#FFF";
                 } else if (isWaitingForTomorrow) {
-                  faceColor = "#F2D5FF";
-                  baseColor = "#DCA3FF";
+                  faceColor = "#E8F4F1";
+                  baseColor = "#D1D9E0";
                   iconName = "clock";
-                  iconColor = "#FFF";
+                  iconColor = "#1A2F3B";
                 }
               }
 
               const ringPadding = 26;
               const ringSize = nodeSize + ringPadding;
+              const ringOffset = (ringSize - nodeSize) / 2;
 
               return (
                 <React.Fragment key={index}>
                   {isStartOfWeek && (
                     <View
                       style={styles.weekDividerContainer}
-                      onLayout={(event) => {
+                      onLayout={(e) => {
                         weekPositions[weekNumber] =
-                          event.nativeEvent.layout.y + nodesWrapperY.current;
+                          e.nativeEvent.layout.y + nodesWrapperY.current;
                       }}
                     >
                       <View style={styles.dashedLine} />
@@ -1493,8 +1547,8 @@ export default function HomeScreen({ navigation }: any) {
                         transform: [{ translateX }],
                       },
                     ]}
-                    onLayout={(event) => {
-                      nodePositions[index] = event.nativeEvent.layout.y;
+                    onLayout={(e) => {
+                      nodePositions[index] = e.nativeEvent.layout.y;
                     }}
                   >
                     {isNextUp && (
@@ -1503,11 +1557,9 @@ export default function HomeScreen({ navigation }: any) {
                           position: "absolute",
                           width: ringSize,
                           height: ringSize,
-                          top: "50%",
-                          left: "50%",
-                          marginTop: -(ringSize / 2) - 5,
-                          marginLeft: -(ringSize / 2),
-                          transform: [{ scale: pulseAnim }],
+                          top: -ringOffset - 2.5,
+                          left: -ringOffset,
+                          transform: [{ scale: ringPulseAnim }],
                           zIndex: 0,
                           pointerEvents: "none",
                         }}
@@ -1581,77 +1633,50 @@ export default function HomeScreen({ navigation }: any) {
                     {isDay5 && (
                       <View
                         style={[
-                          styles.weeklyChallengeWrapper,
-                          { left: nodeSize + 45, top: (nodeSize - 65) / 2 },
+                          styles.goldChallengeWrapper,
+                          { left: nodeSize + 30, top: (nodeSize - 60) / 2 },
                         ]}
                       >
-                        <TouchableOpacity
-                          style={[
-                            styles.weeklyChallengeBtn,
-                            !isChallengeUnlocked &&
-                              styles.weeklyChallengeBtnLocked,
-                          ]}
-                          activeOpacity={0.8}
-                          onPress={() => {
-                            if (!isChallengeUnlocked) {
-                              showCustomAlert(
-                                "Cupido Dormindo 💤",
-                                "Complete 3 missões desta semana para acordar o Cupido e liberar este desafio extra!",
-                                "moon",
-                                "#AFAFAF",
-                              );
-                            } else if (isTrailUnlocked) {
-                              showCustomAlert(
-                                "Desafio da Semana",
-                                "O Desafio prático liberado pelo Cupido da semana!",
-                                "star",
-                                "#FF9600",
-                              );
-                            } else {
-                              showCustomAlert(
-                                "Aviso",
-                                "Conclua a Avaliação primeiro.",
-                                "lock",
-                                "#AFAFAF",
-                              );
-                            }
-                          }}
-                        >
+                        {isGoldUnlocked ? (
                           <Animated.View
-                            style={[
-                              styles.cupidFloatingBadge,
-                              {
-                                transform: [{ translateY: floatAnim }],
-                                pointerEvents: "none",
-                              } as any,
-                            ]}
+                            style={{ transform: [{ scale: pulseAnim }] }}
                           >
-                            <Image
-                              source={{
-                                uri: isChallengeUnlocked
-                                  ? "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f498.png"
-                                  : "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f47c.png",
-                              }}
-                              style={[
-                                styles.cupid3DImage,
-                                !isChallengeUnlocked && { opacity: 0.3 },
-                              ]}
-                              resizeMode="cover"
-                            />
-                            {!isChallengeUnlocked && (
-                              <View style={styles.zzzOverlay}>
-                                <Text style={styles.zzzText}>Zzz</Text>
-                              </View>
-                            )}
+                            <TouchableOpacity
+                              style={styles.goldBtnUnlocked}
+                              activeOpacity={0.8}
+                              onPress={() =>
+                                handleOpenGoldChallenge(weekNumber)
+                              }
+                            >
+                              <FontAwesome5
+                                name="star"
+                                solid
+                                size={24}
+                                color="#1A2F3B"
+                              />
+                            </TouchableOpacity>
                           </Animated.View>
-                          <FontAwesome5
-                            name={isChallengeUnlocked ? "star" : "lock"}
-                            size={24}
-                            color={isChallengeUnlocked ? "#FFF" : "#AFAFAF"}
-                          />
-                        </TouchableOpacity>
+                        ) : (
+                          <TouchableOpacity
+                            style={styles.goldBtnLocked}
+                            activeOpacity={0.8}
+                            onPress={() => {
+                              showCustomAlert(
+                                "Desafio de Ouro Bloqueado 🔒",
+                                `Complete pelo menos 3 missões esta semana para desbloquear o Desafio de Ouro a dois.\n\nProgresso atual: ${tasksDoneThisWeek}/3`,
+                                "lock",
+                                "#DCA052",
+                              );
+                            }}
+                          >
+                            <FontAwesome5
+                              name="lock"
+                              size={20}
+                              color="rgba(220, 160, 82, 0.7)"
+                            />
+                          </TouchableOpacity>
+                        )}
                         <Text style={styles.challengeLabel}>Desafio</Text>
-
                         <View style={styles.challengeStarsRow}>
                           {[1, 2, 3].map((starNum) => (
                             <FontAwesome5
@@ -1660,7 +1685,7 @@ export default function HomeScreen({ navigation }: any) {
                               solid
                               size={10}
                               color={
-                                starNum <= starsActive ? "#FFC800" : "#E5E5E5"
+                                starNum <= starsActive ? "#E5A93C" : "#D1D9E0"
                               }
                               style={{ marginHorizontal: 2 }}
                             />
@@ -1686,19 +1711,12 @@ export default function HomeScreen({ navigation }: any) {
                   if (isTrailUnlocked && isJourneyFinished)
                     showCustomAlert(
                       "🏆 Parabéns!",
-                      "Você completou os 90 dias de conexão profunda. O elo de vocês agora é inquebrável.",
+                      "Você completou os 90 dias de conexão profunda.",
                       "trophy",
-                      "#FFC800",
+                      "#E5A93C",
                     );
                   else if (hasCompletedAnamnesis && !isPremium)
                     navigation.navigate("Paywall");
-                  else
-                    showCustomAlert(
-                      "Bloqueado 🔒",
-                      "Chegue ao final dos 90 dias para desbloquear a recompensa suprema.",
-                      "lock",
-                      "#AFAFAF",
-                    );
                 }}
               >
                 <FontAwesome5
@@ -1714,15 +1732,41 @@ export default function HomeScreen({ navigation }: any) {
         </View>
       </ScrollView>
 
-      <View style={styles.bottomMenu}>
-        <TouchableOpacity style={styles.menuItem}>
-          <FontAwesome5 name="home" size={26} color="#FF7EB3" />
+      {isTrailUnlocked && showFab && (
+        <TouchableOpacity
+          style={styles.floatingTargetBtn}
+          onPress={() => scrollToActiveNode(true)}
+          activeOpacity={0.8}
+        >
+          <FontAwesome5 name="location-arrow" size={20} color="#FFF" />
         </TouchableOpacity>
+      )}
+
+      {/* 🔥 MENU INFERIOR - ESTILO DUOLINGO NA PALETA CLINICA */}
+      <View style={styles.bottomMenu}>
+        <TouchableOpacity style={[styles.menuItem, styles.menuItemActive]}>
+          <FontAwesome5 name="home" size={24} color="#E5A93C" />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() =>
+            showCustomAlert(
+              "Loja em Breve! 🛍️",
+              "Nesta loja você poderá trocar seus Pontos PE (Estrelas) por presentes reais, jantares e surpresas para o seu amor!",
+              "store",
+              "#4BDE95",
+            )
+          }
+        >
+          <FontAwesome5 name="store" size={24} color="#1A2F3B" />
+        </TouchableOpacity>
+
         <TouchableOpacity
           style={styles.menuItem}
           onPress={() => navigation.navigate("Profile")}
         >
-          <FontAwesome5 name="user-alt" size={26} color="#AFAFAF" />
+          <FontAwesome5 name="user-alt" size={24} color="#1A2F3B" />
         </TouchableOpacity>
       </View>
 
@@ -1759,13 +1803,12 @@ export default function HomeScreen({ navigation }: any) {
                 onPress={async () => {
                   setUserLang(lang.code);
                   setIsLangModalVisible(false);
-                  if (currentUid) {
+                  if (currentUid)
                     await setDoc(
                       doc(db, "users", currentUid),
                       { language: lang.code },
                       { merge: true },
                     );
-                  }
                 }}
               >
                 <Text style={styles.compactFlagText}>{lang.flag}</Text>
@@ -1849,10 +1892,10 @@ export default function HomeScreen({ navigation }: any) {
             <View
               style={[
                 styles.alertIconContainer,
-                { backgroundColor: "#FFF0F6" },
+                { backgroundColor: "#F0F4F8" },
               ]}
             >
-              <FontAwesome5 name="bell" solid size={26} color="#FF7EB3" />
+              <FontAwesome5 name="bell" solid size={26} color="#1A2F3B" />
             </View>
 
             <Text style={styles.bottomSheetTitle}>Notificações</Text>
@@ -1862,7 +1905,7 @@ export default function HomeScreen({ navigation }: any) {
                 <FontAwesome5
                   name="hand-point-right"
                   size={24}
-                  color="#FF7EB3"
+                  color="#E5A93C"
                 />
                 <View style={{ marginLeft: 12, flex: 1 }}>
                   <Text style={styles.nudgeTitle}>Ei, atenção aqui!</Text>
@@ -1884,7 +1927,7 @@ export default function HomeScreen({ navigation }: any) {
               <TouchableOpacity
                 style={[
                   styles.bottomSheetButtonPrimary,
-                  { backgroundColor: "#2C3E50" },
+                  { backgroundColor: "#1A2F3B" },
                 ]}
                 onPress={handleSendNudge}
               >
@@ -1980,7 +2023,7 @@ export default function HomeScreen({ navigation }: any) {
                 </Text>
                 <Text style={styles.workflowSubTitle}>
                   Você pode fazer as atividades no{" "}
-                  <Text style={{ fontWeight: "bold", color: "#FF7EB3" }}>
+                  <Text style={{ fontWeight: "bold", color: "#E5A93C" }}>
                     Modo Solo
                   </Text>
                   , mas a transformação real acontece quando os dois participam.
@@ -2219,15 +2262,15 @@ export default function HomeScreen({ navigation }: any) {
             <View
               style={[
                 styles.alertIconContainer,
-                { backgroundColor: "#FF4B4B20" },
+                { backgroundColor: "#D96C6C20" },
               ]}
             >
-              <FontAwesome5 name="eraser" size={28} color="#FF4B4B" />
+              <FontAwesome5 name="eraser" size={28} color="#D96C6C" />
             </View>
 
             <Text style={styles.bottomSheetTitle}>Zerar Sistema?</Text>
             <Text style={styles.bottomSheetText}>
-              <Text style={{ fontWeight: "bold", color: "#FF4B4B" }}>
+              <Text style={{ fontWeight: "bold", color: "#D96C6C" }}>
                 ⚠️ MODO DE AUDITORIA:
               </Text>{" "}
               Isso apagará sua avaliação, o status premium, desconectará o
@@ -2237,7 +2280,7 @@ export default function HomeScreen({ navigation }: any) {
             <TouchableOpacity
               style={[
                 styles.bottomSheetButtonPrimary,
-                { backgroundColor: "#FF4B4B", marginBottom: 10 },
+                { backgroundColor: "#D96C6C", marginBottom: 10 },
               ]}
               activeOpacity={0.8}
               onPress={async () => {
@@ -2292,7 +2335,7 @@ export default function HomeScreen({ navigation }: any) {
                       "Erro de Reset",
                       "Não foi possível resetar os dados.",
                       "times-circle",
-                      "#FF4B4B",
+                      "#D96C6C",
                     );
                   }
                 }
@@ -2333,21 +2376,16 @@ export default function HomeScreen({ navigation }: any) {
             </Text>
 
             <View style={{ alignItems: "center", marginBottom: 25 }}>
-              {pendingMatchPartner?.data?.photoURL ||
-              pendingMatchPartner?.data?.photoUrl ? (
+              {hasPendingPhoto ? (
                 <Image
-                  source={{
-                    uri:
-                      pendingMatchPartner?.data?.photoURL ||
-                      pendingMatchPartner?.data?.photoUrl,
-                  }}
+                  source={{ uri: pendingPhoto }}
                   style={{
                     width: 80,
                     height: 80,
                     borderRadius: 40,
                     marginBottom: 15,
                     borderWidth: 3,
-                    borderColor: "#CE82FF",
+                    borderColor: "#1A2F3B",
                   }}
                 />
               ) : (
@@ -2356,19 +2394,24 @@ export default function HomeScreen({ navigation }: any) {
                     width: 80,
                     height: 80,
                     borderRadius: 40,
-                    backgroundColor: "#F0F0F0",
+                    backgroundColor: "#F0F4F8",
                     justifyContent: "center",
                     alignItems: "center",
                     marginBottom: 15,
                   }}
                 >
-                  <FontAwesome5 name="user-alt" size={30} color="#AFAFAF" />
+                  <FontAwesome5 name="user-alt" size={30} color="#1A2F3B" />
                 </View>
               )}
-              <Text style={{ fontSize: 20, fontWeight: "900", color: "#333" }}>
-                {pendingMatchPartner?.data?.displayName ||
-                  pendingMatchPartner?.data?.email?.split("@")[0] ||
-                  "Usuário Misterioso"}
+              <Text
+                style={{ fontSize: 20, fontWeight: "900", color: "#1A2F3B" }}
+              >
+                {pendingMatchPartner?.data?.billingFirstName &&
+                pendingMatchPartner?.data?.billingLastName
+                  ? `${pendingMatchPartner.data.billingFirstName} ${pendingMatchPartner.data.billingLastName}`
+                  : pendingMatchPartner?.data?.displayName ||
+                    pendingMatchPartner?.data?.email?.split("@")[0] ||
+                    "Usuário Misterioso"}
               </Text>
             </View>
 
@@ -2398,7 +2441,7 @@ export default function HomeScreen({ navigation }: any) {
         <View
           style={[
             styles.modalOverlayCenter,
-            { backgroundColor: "rgba(255,126,179,0.95)" },
+            { backgroundColor: "rgba(26, 47, 59, 0.95)" },
           ]}
         >
           <Text
@@ -2458,7 +2501,7 @@ export default function HomeScreen({ navigation }: any) {
                     borderColor: "#FFF",
                   }}
                 >
-                  <FontAwesome5 name="user-alt" size={35} color="#FF7EB3" />
+                  <FontAwesome5 name="user-alt" size={35} color="#1A2F3B" />
                 </View>
               )}
             </Animated.View>
@@ -2481,7 +2524,7 @@ export default function HomeScreen({ navigation }: any) {
                   elevation: 10,
                 }}
               >
-                <FontAwesome5 name="heart" solid size={35} color="#FF7EB3" />
+                <FontAwesome5 name="heart" solid size={35} color="#E5A93C" />
               </View>
             </Animated.View>
 
@@ -2498,14 +2541,9 @@ export default function HomeScreen({ navigation }: any) {
                 zIndex: 5,
               }}
             >
-              {pendingMatchPartner?.data?.photoURL ||
-              pendingMatchPartner?.data?.photoUrl ? (
+              {hasPendingPhoto ? (
                 <Image
-                  source={{
-                    uri:
-                      pendingMatchPartner?.data?.photoURL ||
-                      pendingMatchPartner?.data?.photoUrl,
-                  }}
+                  source={{ uri: pendingPhoto }}
                   style={{
                     width: 90,
                     height: 90,
@@ -2527,7 +2565,7 @@ export default function HomeScreen({ navigation }: any) {
                     borderColor: "#FFF",
                   }}
                 >
-                  <FontAwesome5 name="user-alt" size={35} color="#FF7EB3" />
+                  <FontAwesome5 name="user-alt" size={35} color="#1A2F3B" />
                 </View>
               )}
             </Animated.View>
@@ -2616,12 +2654,12 @@ export default function HomeScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#FFFFFF", width: "100%" },
+  container: { flex: 1, backgroundColor: "#F0F4F8", width: "100%" },
   topBar: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 28,
+    paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 16,
     backgroundColor: "#FFF",
@@ -2629,9 +2667,9 @@ const styles = StyleSheet.create({
   },
   miniAvatarsContainer: { flexDirection: "row", alignItems: "center" },
   miniAvatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: "#F0F0F0",
     justifyContent: "center",
     alignItems: "center",
@@ -2643,16 +2681,15 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 2,
   },
-  miniPartnerAvatar: { marginLeft: -12, backgroundColor: "#FFF0F6" },
+  miniPartnerAvatar: { marginLeft: -12, backgroundColor: "#E8F4F1" },
   avatarImage: { width: "100%", height: "100%" },
-  topBarRight: { flexDirection: "row", alignItems: "center", gap: 12 },
-  topBarItem: { flexDirection: "row", alignItems: "center", gap: 6 },
+  topBarItem: { flexDirection: "row", alignItems: "center", gap: 4 },
 
   notificationBadge: {
     position: "absolute",
     top: -6,
     right: -8,
-    backgroundColor: "#FF4B4B",
+    backgroundColor: "#D96C6C",
     borderRadius: 10,
     minWidth: 18,
     height: 18,
@@ -2669,39 +2706,39 @@ const styles = StyleSheet.create({
   nudgeItem: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FFF0F6",
+    backgroundColor: "#E8F4F1",
     padding: 16,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#FF7EB3",
+    borderColor: "#4BDE95",
     width: "100%",
     marginBottom: 10,
   },
   nudgeTitle: {
     fontSize: 15,
     fontWeight: "bold",
-    color: "#2C3E50",
+    color: "#1A2F3B",
     marginBottom: 2,
   },
   nudgeText: {
     fontSize: 13,
-    color: "#7F8C8D",
+    color: "#2C3E50",
     lineHeight: 18,
   },
 
-  flagEmoji: { fontSize: 26 },
-  topBarText: { fontSize: 17, fontWeight: "900" },
+  flagEmoji: { fontSize: 22 },
+  topBarText: { fontSize: 16, fontWeight: "900" },
   fixedHeaderBannerContainer: {
     paddingHorizontal: 24,
     paddingBottom: 16,
     backgroundColor: "#FFF",
     borderBottomWidth: 2,
-    borderBottomColor: "#E5E5E5",
+    borderBottomColor: "#D1D9E0",
     zIndex: 10,
     width: "100%",
   },
   fixedHeaderBanner: {
-    backgroundColor: "#FF7EB3",
+    backgroundColor: "#1A2F3B",
     borderRadius: 18,
     paddingVertical: 18,
     paddingHorizontal: 20,
@@ -2751,15 +2788,15 @@ const styles = StyleSheet.create({
 
   intelligentCard: {
     width: "85%",
-    backgroundColor: "#FFF9E6",
+    backgroundColor: "#E8F4F1",
     borderRadius: 16,
     padding: 20,
     borderWidth: 2,
-    borderColor: "#FFC800",
+    borderColor: "#4BDE95",
     marginBottom: 10,
-    shadowColor: "#FFC800",
+    shadowColor: "#4BDE95",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.1,
     shadowRadius: 6,
     elevation: 4,
   },
@@ -2772,7 +2809,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: "#FFC800",
+    backgroundColor: "#1A2F3B",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 10,
@@ -2780,11 +2817,11 @@ const styles = StyleSheet.create({
   intelligentCardTitle: {
     fontSize: 18,
     fontWeight: "900",
-    color: "#B36900",
+    color: "#1A2F3B",
   },
   intelligentCardSub: {
     fontSize: 13,
-    color: "#B36900",
+    color: "#2C3E50",
     marginBottom: 15,
     lineHeight: 18,
   },
@@ -2799,14 +2836,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     fontSize: 15,
     fontWeight: "bold",
-    color: "#333",
+    color: "#1A2F3B",
     borderWidth: 1,
-    borderColor: "#FFE273",
+    borderColor: "#4BDE95",
     textAlign: "center",
     letterSpacing: 2,
   },
   intelligentCardBtn: {
-    backgroundColor: "#FF9600",
+    backgroundColor: "#1A2F3B",
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 10,
@@ -2828,7 +2865,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: -15,
     zIndex: 10,
-    backgroundColor: "#FF4B4B",
+    backgroundColor: "#E5A93C",
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
@@ -2850,27 +2887,27 @@ const styles = StyleSheet.create({
     width: 90,
     height: 90,
     borderRadius: 45,
-    backgroundColor: "#CE82FF",
+    backgroundColor: "#1A2F3B",
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#CE82FF",
+    shadowColor: "#1A2F3B",
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.4,
     shadowRadius: 8,
     elevation: 8,
     borderWidth: 4,
-    borderColor: "#F2E5FF",
+    borderColor: "#F0F4F8",
   },
   anamnesisBtnCompleted: {
     backgroundColor: "#4BDE95",
-    borderColor: "#D8F7E8",
+    borderColor: "#E8F4F1",
     shadowColor: "#4BDE95",
   },
   anamnesisTitle: {
     marginTop: 16,
     fontSize: 18,
     fontWeight: "900",
-    color: "#333",
+    color: "#1A2F3B",
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
@@ -2878,7 +2915,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontSize: 14,
     fontWeight: "600",
-    color: "#AFAFAF",
+    color: "#2C3E50",
   },
 
   nodesWrapper: { width: "100%", alignItems: "center" },
@@ -2888,7 +2925,7 @@ const styles = StyleSheet.create({
     width: 75,
     height: 75,
     borderRadius: 24,
-    backgroundColor: "#CE82FF",
+    backgroundColor: "#1A2F3B",
     justifyContent: "center",
     alignItems: "center",
     shadowColor: "#000",
@@ -2897,15 +2934,15 @@ const styles = StyleSheet.create({
     shadowRadius: 5,
     elevation: 5,
     borderWidth: 3,
-    borderColor: "#EAD1FF",
+    borderColor: "#F0F4F8",
   },
 
   activeCheckinBadge: {
-    backgroundColor: "#FF9600",
+    backgroundColor: "#E5A93C",
     paddingVertical: 6,
     paddingHorizontal: 16,
     borderRadius: 20,
-    shadowColor: "#FF9600",
+    shadowColor: "#E5A93C",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 6,
@@ -2915,44 +2952,47 @@ const styles = StyleSheet.create({
   mapLabelText: {
     marginTop: 10,
     fontWeight: "bold",
-    color: "#AFAFAF",
+    color: "#2C3E50",
     fontSize: 13,
     textTransform: "uppercase",
     textAlign: "center",
     padding: 5,
   },
 
-  weeklyChallengeWrapper: {
+  goldChallengeWrapper: {
     position: "absolute",
     alignItems: "center",
     zIndex: 50,
   },
-  weeklyChallengeBtn: {
-    width: 65,
-    height: 65,
-    borderRadius: 22,
-    backgroundColor: "#FF9600",
+  goldBtnUnlocked: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: "#E5A93C",
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#FF9600",
+    shadowColor: "#E5A93C",
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
+    shadowOpacity: 0.6,
     shadowRadius: 8,
-    elevation: 6,
-    borderWidth: 3,
-    borderColor: "#FFE273",
-    position: "relative",
+    elevation: 8,
+    borderWidth: 2,
+    borderColor: "#FFF",
   },
-  weeklyChallengeBtnLocked: {
-    backgroundColor: "#F5F5F5",
-    borderColor: "#E5E5E5",
-    shadowColor: "transparent",
-    elevation: 0,
+  goldBtnLocked: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: "rgba(220, 160, 82, 0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "rgba(220, 160, 82, 0.5)",
   },
   challengeLabel: {
     marginTop: 8,
     fontWeight: "bold",
-    color: "#AFAFAF",
+    color: "#2C3E50",
     fontSize: 12,
     textTransform: "uppercase",
     textAlign: "center",
@@ -2962,22 +3002,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginTop: 4,
   },
-  cupidFloatingBadge: {
-    position: "absolute",
-    top: -35,
-    right: -15,
-    zIndex: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 5,
-    borderRadius: 32.5,
-    backgroundColor: "#FFF",
-  },
-  cupid3DImage: { width: 65, height: 65, borderRadius: 32.5 },
-  zzzOverlay: { position: "absolute", top: 15, left: 15 },
-  zzzText: { color: "#AFAFAF", fontSize: 14, fontWeight: "900" },
 
   endNodeContainer: { alignItems: "center", marginVertical: 30 },
   endJourneyBtn: {
@@ -2993,8 +3017,8 @@ const styles = StyleSheet.create({
     elevation: 8,
     borderWidth: 4,
   },
-  endJourneyBtnLocked: { backgroundColor: "#E5E5E5", borderColor: "#CECECE" },
-  endJourneyBtnActive: { backgroundColor: "#FFC800", borderColor: "#FFE273" },
+  endJourneyBtnLocked: { backgroundColor: "#D1D9E0", borderColor: "#F0F4F8" },
+  endJourneyBtnActive: { backgroundColor: "#E5A93C", borderColor: "#FFF9E6" },
   weekDividerContainer: {
     width: "85%",
     alignSelf: "center",
@@ -3006,7 +3030,7 @@ const styles = StyleSheet.create({
     width: "100%",
     height: 1,
     borderWidth: 1.5,
-    borderColor: "#E5E5E5",
+    borderColor: "#D1D9E0",
     borderStyle: "dashed",
     borderRadius: 1,
     marginBottom: 16,
@@ -3015,7 +3039,7 @@ const styles = StyleSheet.create({
   weekTitleText: {
     fontSize: 15,
     fontWeight: "800",
-    color: "#B0B0B0",
+    color: "#2C3E50",
     textTransform: "uppercase",
     letterSpacing: 1.5,
     marginBottom: 4,
@@ -3023,7 +3047,7 @@ const styles = StyleSheet.create({
   weekThemeText: {
     fontSize: 20,
     fontWeight: "900",
-    color: "#555",
+    color: "#1A2F3B",
     textAlign: "center",
   },
   trailContainer: { width: "100%", alignItems: "center", paddingVertical: 10 },
@@ -3058,23 +3082,54 @@ const styles = StyleSheet.create({
     left: 0,
     zIndex: 1,
   },
+
+  floatingTargetBtn: {
+    position: "absolute",
+    bottom: 90,
+    right: 20,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: "#1A2F3B",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#1A2F3B",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 5,
+    zIndex: 100,
+  },
+
   bottomMenu: {
     position: "absolute",
     bottom: 0,
     width: "100%",
     flexDirection: "row",
-    justifyContent: "space-around",
+    justifyContent: "space-evenly",
     alignItems: "center",
     backgroundColor: "#FFF",
-    paddingVertical: 15,
-    paddingBottom: 30,
+    paddingVertical: 10,
+    paddingBottom: Platform.OS === "ios" ? 25 : 10,
     borderTopWidth: 2,
-    borderTopColor: "#E5E5E5",
+    borderTopColor: "#D1D9E0",
   },
-  menuItem: { padding: 10, alignItems: "center", justifyContent: "center" },
+  menuItem: {
+    padding: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 16,
+    width: 60,
+    height: 50,
+  },
+  menuItemActive: {
+    backgroundColor: "#F0F4F8",
+    borderWidth: 2,
+    borderColor: "#1A2F3B",
+  },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.3)",
+    backgroundColor: "rgba(26, 47, 59, 0.3)",
     justifyContent: "flex-start",
     alignItems: "flex-end",
   },
@@ -3104,12 +3159,12 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
   },
   compactFlagBtnActive: {
-    backgroundColor: "#FFF0F6",
+    backgroundColor: "#F0F4F8",
     borderWidth: 2,
-    borderColor: "#FF7EB3",
+    borderColor: "#1A2F3B",
   },
   compactFlagText: { fontSize: 28 },
-  videoModalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.92)" },
+  videoModalOverlay: { flex: 1, backgroundColor: "rgba(26,47,59,0.92)" },
   floatingVideoContainer: {
     flex: 1,
     width: "100%",
@@ -3146,7 +3201,7 @@ const styles = StyleSheet.create({
   fullscreenVideo: { width: "100%", height: "100%" },
   modalOverlayCenter: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.6)",
+    backgroundColor: "rgba(26,47,59,0.7)",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -3160,18 +3215,18 @@ const styles = StyleSheet.create({
   codeModalTitle: {
     fontSize: 20,
     fontWeight: "900",
-    color: "#2C3E50",
+    color: "#1A2F3B",
     marginBottom: 10,
   },
   codeModalSub: {
     fontSize: 14,
-    color: "#7F8C8D",
+    color: "#2C3E50",
     textAlign: "center",
     marginBottom: 20,
   },
   codeInputField: {
     width: "100%",
-    backgroundColor: "#F5F5F5",
+    backgroundColor: "#F0F4F8",
     borderRadius: 12,
     padding: 16,
     fontSize: 18,
@@ -3179,27 +3234,27 @@ const styles = StyleSheet.create({
     textAlign: "center",
     letterSpacing: 2,
     marginBottom: 20,
-    color: "#333",
+    color: "#1A2F3B",
   },
   linkButton: {
-    backgroundColor: "#FF7EB3",
+    backgroundColor: "#E5A93C",
     width: "100%",
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: "center",
     marginBottom: 10,
   },
-  linkButtonText: { color: "#FFF", fontSize: 16, fontWeight: "bold" },
+  linkButtonText: { color: "#1A2F3B", fontSize: 16, fontWeight: "bold" },
   cancelLinkButton: {
     width: "100%",
     paddingVertical: 12,
     alignItems: "center",
   },
-  cancelLinkButtonText: { color: "#AFAFAF", fontSize: 14, fontWeight: "bold" },
+  cancelLinkButtonText: { color: "#60646C", fontSize: 14, fontWeight: "bold" },
 
   bottomSheetOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: "rgba(26,47,59,0.6)",
     justifyContent: "flex-end",
   },
   bottomSheetContainer: {
@@ -3229,7 +3284,7 @@ const styles = StyleSheet.create({
   bottomSheetHandle: {
     width: 50,
     height: 5,
-    backgroundColor: "#E5E5E5",
+    backgroundColor: "#D1D9E0",
     borderRadius: 3,
     marginBottom: 20,
   },
@@ -3244,13 +3299,13 @@ const styles = StyleSheet.create({
   bottomSheetTitle: {
     fontSize: 22,
     fontWeight: "900",
-    color: "#2C3E50",
+    color: "#1A2F3B",
     marginBottom: 10,
     textAlign: "center",
   },
   bottomSheetText: {
     fontSize: 15,
-    color: "#7F8C8D",
+    color: "#2C3E50",
     textAlign: "center",
     marginBottom: 20,
     lineHeight: 22,
@@ -3276,7 +3331,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   bottomSheetButtonSecondaryText: {
-    color: "#AFAFAF",
+    color: "#2C3E50",
     fontSize: 16,
     fontWeight: "bold",
   },
@@ -3284,13 +3339,13 @@ const styles = StyleSheet.create({
   workflowMainTitle: {
     fontSize: 24,
     fontWeight: "900",
-    color: "#2C3E50",
+    color: "#1A2F3B",
     textAlign: "center",
     marginBottom: 8,
   },
   workflowSubTitle: {
     fontSize: 14,
-    color: "#7F8C8D",
+    color: "#2C3E50",
     textAlign: "center",
     marginBottom: 25,
     lineHeight: 20,
@@ -3301,7 +3356,7 @@ const styles = StyleSheet.create({
     top: 35,
     bottom: 45,
     width: 2,
-    backgroundColor: "#E5E5E5",
+    backgroundColor: "#D1D9E0",
     zIndex: 0,
   },
   workflowStepModal: {
@@ -3323,26 +3378,31 @@ const styles = StyleSheet.create({
     elevation: 3,
     marginRight: 15,
   },
-  stepIconActive: { backgroundColor: "#CE82FF" },
+  stepIconActive: { backgroundColor: "#1A2F3B" },
   stepIconSuccess: { backgroundColor: "#4BDE95" },
   stepIconInactive: {
-    backgroundColor: "#F5F5F5",
+    backgroundColor: "#F0F4F8",
     borderWidth: 1,
-    borderColor: "#E5E5E5",
+    borderColor: "#D1D9E0",
     elevation: 0,
   },
-  stepTitle: { fontSize: 15, fontWeight: "bold", color: "#333", marginTop: 8 },
+  stepTitle: {
+    fontSize: 15,
+    fontWeight: "bold",
+    color: "#1A2F3B",
+    marginTop: 8,
+  },
   stepTextSuccess: { color: "#4BDE95" },
-  stepTextActive: { color: "#2C3E50" },
-  stepTextInactive: { color: "#AFAFAF" },
-  stepDoneText: { fontSize: 13, color: "#7F8C8D", marginTop: 4 },
+  stepTextActive: { color: "#1A2F3B" },
+  stepTextInactive: { color: "#60646C" },
+  stepDoneText: { fontSize: 13, color: "#2C3E50", marginTop: 4 },
 
   statusBoxLg: {
-    backgroundColor: "#F8F9FA",
+    backgroundColor: "#F0F4F8",
     padding: 16,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#E5E5E5",
+    borderColor: "#D1D9E0",
     width: "100%",
     marginTop: 15,
     gap: 10,
@@ -3354,44 +3414,44 @@ const styles = StyleSheet.create({
   },
   statusLabel: {
     fontSize: 14,
-    color: "#7F8C8D",
+    color: "#2C3E50",
     fontWeight: "bold",
   },
   statusValue: {
     fontSize: 14,
     fontWeight: "900",
-    color: "#2C3E50",
+    color: "#1A2F3B",
   },
 
   statusBox: {
-    backgroundColor: "#F8F9FA",
+    backgroundColor: "#F0F4F8",
     padding: 12,
     borderRadius: 10,
     marginTop: 10,
     borderWidth: 1,
-    borderColor: "#E5E5E5",
+    borderColor: "#D1D9E0",
   },
   statusBoxText: {
     fontSize: 13,
     fontWeight: "bold",
-    color: "#2C3E50",
+    color: "#1A2F3B",
     marginVertical: 3,
   },
   codeContainerMini: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#F5F5F5",
+    backgroundColor: "#FFF",
     padding: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#E5E5E5",
+    borderColor: "#D1D9E0",
     marginBottom: 10,
   },
   codeValueMini: {
     fontSize: 16,
     fontWeight: "900",
-    color: "#333",
+    color: "#1A2F3B",
     letterSpacing: 2,
   },
   whatsappButtonMini: {
@@ -3410,7 +3470,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   haveCodeLinkTextMini: {
-    color: "#FF7EB3",
+    color: "#1A2F3B",
     fontWeight: "bold",
     fontSize: 13,
     textAlign: "center",
