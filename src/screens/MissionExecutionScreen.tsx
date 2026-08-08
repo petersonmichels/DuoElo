@@ -24,6 +24,8 @@ import {
 } from "react-native";
 
 import { auth, db } from "../config/firebase";
+// 🔥 IMPORT DA SEGURANÇA PARA DESCRIPTOGRAFIA
+import { decryptData, generateVaultKey } from "../utils/security";
 
 const { width } = Dimensions.get("window");
 
@@ -39,7 +41,6 @@ export default function MissionExecutionScreen({
   const [isFinishing, setIsFinishing] = useState(false);
   const [journalEntry, setJournalEntry] = useState("");
 
-  // Estados para o Modo Revisão
   const [loadingJournal, setLoadingJournal] = useState(false);
   const [fetchedJournal, setFetchedJournal] = useState<string | null>(null);
 
@@ -48,7 +49,6 @@ export default function MissionExecutionScreen({
   const slideAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  // Extrator blindado de texto
   const extractText = (field: any, fieldName: string, fallback: string) => {
     if (mission?.translations?.[userLanguage]?.[fieldName]) {
       return mission.translations[userLanguage][fieldName];
@@ -80,7 +80,6 @@ export default function MissionExecutionScreen({
     "Hoje, sente-se de frente para o seu parceiro(a), segurem as mãos e olhem-se nos olhos por 2 minutos ininterruptos, sem falar nada.",
   );
 
-  // Busca o progresso da missão atual (Passo a Passo)
   useEffect(() => {
     let isMounted = true;
 
@@ -121,7 +120,7 @@ export default function MissionExecutionScreen({
     };
   }, [isReviewMode]);
 
-  // Busca o texto escrito no diário se estiver no Modo de Revisão
+  // 🔥 LÓGICA DE DESCRIPTOGRAFIA NO MODO REVISÃO
   useEffect(() => {
     let isMounted = true;
 
@@ -145,7 +144,23 @@ export default function MissionExecutionScreen({
           if (isMounted) {
             if (!snapshot.empty) {
               const data = snapshot.docs[0].data();
-              setFetchedJournal(data.text || "");
+
+              // 🛡️ DESCRIPTOGRAFIA EM TEMPO REAL
+              if (data.textEncrypted) {
+                const userDoc = await getDoc(doc(db, "users", uid));
+                const pId = userDoc.data()?.partnerId;
+                const vaultKey = pId
+                  ? generateVaultKey(uid, pId)
+                  : generateVaultKey(uid, uid);
+
+                const decryptedText = decryptData(data.textEncrypted, vaultKey);
+                setFetchedJournal(
+                  decryptedText || "⚠️ Falha ao descriptografar.",
+                );
+              } else {
+                // Fallback para dados velhos não criptografados
+                setFetchedJournal(data.text || "");
+              }
             } else {
               setFetchedJournal("");
             }
@@ -189,7 +204,6 @@ export default function MissionExecutionScreen({
     ).start();
   }, [pulseAnim]);
 
-  // 🔥 NAVEGAÇÃO LIVRE PELOS PASSOS (Clicando nos botões ou na barra superior)
   const goToStep = async (nextStep: number) => {
     if (currentStep === nextStep) return;
 
@@ -209,7 +223,6 @@ export default function MissionExecutionScreen({
         useNativeDriver: false,
       }).start();
 
-      // Salva o passo no banco para manter o progresso se ele sair
       if (!isReviewMode) {
         const userId = auth.currentUser?.uid;
         if (userId) {
@@ -265,9 +278,6 @@ export default function MissionExecutionScreen({
 
   const isGold = mission?.isGoldChallenge;
 
-  // 🔥 =========================================================
-  // 🔥 MODO REVISÃO (TAREFA JÁ CONCLUÍDA) - LAYOUT DE CARDS
-  // 🔥 =========================================================
   if (isReviewMode) {
     return (
       <SafeAreaView style={styles.container}>
@@ -305,7 +315,7 @@ export default function MissionExecutionScreen({
               ]}
             >
               <FontAwesome5
-                name={isGold ? "star" : "check"}
+                name={isGold ? "infinity" : "check"}
                 size={24}
                 color="#FFF"
                 solid={isGold}
@@ -330,7 +340,9 @@ export default function MissionExecutionScreen({
                   fontWeight: "bold",
                 }}
               >
-                {isGold ? "🏆 Desafio Concluído (+150 PE)" : "Missão Cumprida"}
+                {isGold
+                  ? "🏆 Desafio Concluído (+150 Bonds)"
+                  : "Missão Cumprida"}
               </Text>
             </View>
           </View>
@@ -403,10 +415,6 @@ export default function MissionExecutionScreen({
     );
   }
 
-  // 🔥 =========================================================
-  // 🔥 MODO ATIVO: EXIBE O WIZARD PASSO A PASSO
-  // 🔥 =========================================================
-
   const progressBarWidth = progressAnim.interpolate({
     inputRange: [0, 50, 100],
     outputRange: ["0%", "50%", "100%"],
@@ -434,7 +442,6 @@ export default function MissionExecutionScreen({
             />
           </View>
 
-          {/* 🔥 NODES SUPERIORES INTERATIVOS */}
           <View style={styles.trailNodes}>
             <TouchableOpacity
               activeOpacity={0.8}
@@ -449,7 +456,7 @@ export default function MissionExecutionScreen({
               ]}
             >
               <FontAwesome5
-                name={isGold ? "star" : "lightbulb"}
+                name={isGold ? "infinity" : "lightbulb"}
                 solid
                 size={14}
                 color={
@@ -658,7 +665,7 @@ export default function MissionExecutionScreen({
 
               <Text style={styles.subText}>
                 {isGold
-                  ? "Incrível! Vocês completaram o Desafio de Ouro da semana. Registrem abaixo o momento para ganhar +150 PE!"
+                  ? "Incrível! Vocês completaram o Desafio de Ouro da semana. Registrem abaixo o momento para gerar +150 Bonds!"
                   : "O elo de vocês foi fortalecido. Que tal registrar no diário de bordo como foi a experiência antes de concluir?"}
               </Text>
 
@@ -690,7 +697,7 @@ export default function MissionExecutionScreen({
                 />
                 <View style={styles.floatingFireIcon}>
                   <FontAwesome5
-                    name={isGold ? "star" : "fire"}
+                    name={isGold ? "infinity" : "fire"}
                     solid
                     size={16}
                     color="#FFF"
@@ -746,7 +753,7 @@ export default function MissionExecutionScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F0F4F8", // Azul-Cinza Suave
+    backgroundColor: "#F0F4F8",
   },
   header: {
     padding: 25,
@@ -771,7 +778,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: "900",
-    color: "#1A2F3B", // Azul Petróleo
+    color: "#1A2F3B",
   },
   closeBtn: {
     position: "absolute",
@@ -970,7 +977,7 @@ const styles = StyleSheet.create({
     height: 180,
     borderRadius: 90,
     borderWidth: 6,
-    borderColor: "#E5A93C", // Ouro/Ocitocina no highlight ativo
+    borderColor: "#E5A93C",
     borderLeftColor: "#D1D9E0",
     borderTopColor: "#D1D9E0",
     justifyContent: "center",
@@ -1010,7 +1017,6 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
 
-  // 🔥 ESTILOS PARA O MODO REVISÃO (CARDS)
   missionHeaderCardReview: {
     flexDirection: "row",
     alignItems: "center",
@@ -1028,7 +1034,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: "#4BDE95", // Sucesso / Check
+    backgroundColor: "#4BDE95",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 16,

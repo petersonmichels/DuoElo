@@ -15,7 +15,6 @@ import {
 const { width } = Dimensions.get("window");
 
 export default function MissionRewardScreen({ navigation, route }: any) {
-  // 🔥 VARIÁVEIS DINÂMICAS DO JOGO
   const earnedPE = route?.params?.earnedPE || 50;
   const currentDay90 = route?.params?.currentDay90 || 1;
   const cupidProgress = route?.params?.cupidProgress || 1;
@@ -24,7 +23,6 @@ export default function MissionRewardScreen({ navigation, route }: any) {
   const isCupidAwake = cupidProgress >= cupidTotal;
   const cupidPercentage = Math.min((cupidProgress / cupidTotal) * 100, 100);
 
-  // Animações das barras de progresso e ícones
   const bar1Anim = useRef(new Animated.Value(0)).current;
   const bar2Anim = useRef(new Animated.Value(0)).current;
   const bar3Anim = useRef(new Animated.Value(0)).current;
@@ -33,7 +31,6 @@ export default function MissionRewardScreen({ navigation, route }: any) {
   const popAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // 1. Animação de entrada da tela
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -48,7 +45,6 @@ export default function MissionRewardScreen({ navigation, route }: any) {
       }),
     ]).start();
 
-    // 2. Animação das barras e do troféu enchendo dinamicamente
     setTimeout(() => {
       Animated.stagger(300, [
         Animated.timing(bar1Anim, {
@@ -79,7 +75,6 @@ export default function MissionRewardScreen({ navigation, route }: any) {
     }, 500);
   }, [cupidPercentage]);
 
-  // Interpolações
   const bar1Width = bar1Anim.interpolate({
     inputRange: [0, 100],
     outputRange: ["0%", "100%"],
@@ -93,7 +88,6 @@ export default function MissionRewardScreen({ navigation, route }: any) {
     outputRange: ["0%", "100%"],
   });
 
-  // Função segura para voltar à Home limpando a pilha de navegação
   const handleContinue = () => {
     navigation.reset({
       index: 0,
@@ -115,12 +109,10 @@ export default function MissionRewardScreen({ navigation, route }: any) {
             alignItems: "center",
           }}
         >
-          {/* TÍTULO PRINCIPAL (Verde Cura) */}
-          <Text style={styles.heroTitle}>+{earnedPE} Pontos PE!</Text>
+          {/* 🔥 TÍTULO COM O NOVO TERMO */}
+          <Text style={styles.heroTitle}>+{earnedPE} Bonds!</Text>
 
-          {/* CARD PRINCIPAL DE MISSÕES */}
           <View style={styles.card}>
-            {/* ITEM 1: Missão Diária (PE) - Verde Esmeralda */}
             <View style={styles.missionItem}>
               <Text style={styles.missionLabel}>Missão Diária Concluída</Text>
               <View style={styles.progressRow}>
@@ -148,7 +140,6 @@ export default function MissionRewardScreen({ navigation, route }: any) {
 
             <View style={styles.divider} />
 
-            {/* ITEM 2: Ofensiva - Ouro Suave (Sem vermelho) */}
             <View style={styles.missionItem}>
               <Text style={styles.missionLabel}>Ofensiva Mantida</Text>
               <View style={styles.progressRow}>
@@ -159,7 +150,6 @@ export default function MissionRewardScreen({ navigation, route }: any) {
                       { width: bar2Width, backgroundColor: "#E5A93C" },
                     ]}
                   />
-                  {/* WCAG AA: Azul Escuro sobre Fundo Ouro */}
                   <Text style={[styles.progressTextOver, { color: "#1A2F3B" }]}>
                     1 / 1
                   </Text>
@@ -177,7 +167,6 @@ export default function MissionRewardScreen({ navigation, route }: any) {
 
             <View style={styles.divider} />
 
-            {/* ITEM 3: Baú do Cupido (Desafio Semanal) - Azul Petróleo / Ouro */}
             <View style={styles.missionItem}>
               <Text style={styles.missionLabel}>
                 {isCupidAwake
@@ -211,8 +200,9 @@ export default function MissionRewardScreen({ navigation, route }: any) {
                     },
                   ]}
                 >
+                  {/* 🔥 ÍCONE INFINITY NO CUPIDO */}
                   <FontAwesome5
-                    name={isCupidAwake ? "star" : "box"}
+                    name={isCupidAwake ? "infinity" : "box"}
                     solid
                     size={24}
                     color={isCupidAwake ? "#E5A93C" : "#1A2F3B"}
@@ -222,7 +212,6 @@ export default function MissionRewardScreen({ navigation, route }: any) {
             </View>
           </View>
 
-          {/* CARD SECUNDÁRIO: JORNADA 90 DIAS */}
           <View style={[styles.card, styles.badgeCard]}>
             <View style={{ flex: 1 }}>
               <Text style={styles.badgeTitle}>Jornada de 90 Dias</Text>
@@ -239,7 +228,6 @@ export default function MissionRewardScreen({ navigation, route }: any) {
         </Animated.View>
       </ScrollView>
 
-      {/* BOTÃO FLUTUANTE (Ancoragem Azul-Petróleo) */}
       <View style={styles.footer}>
         <TouchableOpacity
           style={styles.continueBtn}
@@ -256,7 +244,7 @@ export default function MissionRewardScreen({ navigation, route }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F0F4F8", // Fundo Clínico Azul-Cinza
+    backgroundColor: "#F0F4F8",
   },
   scrollContent: {
     paddingHorizontal: 20,
@@ -267,7 +255,7 @@ const styles = StyleSheet.create({
   heroTitle: {
     fontSize: 28,
     fontWeight: "900",
-    color: "#4BDE95", // Sucesso
+    color: "#4BDE95",
     marginBottom: 25,
     textAlign: "center",
   },
@@ -276,7 +264,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF",
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: "#D1D9E0", // Borda Clínica
+    borderColor: "#D1D9E0",
     paddingVertical: 10,
     marginBottom: 20,
     shadowColor: "#000",
@@ -292,13 +280,13 @@ const styles = StyleSheet.create({
   missionLabel: {
     fontSize: 16,
     fontWeight: "900",
-    color: "#1A2F3B", // Texto Principal
+    color: "#1A2F3B",
     marginBottom: 6,
   },
   missionSubLabel: {
     fontSize: 12,
     fontWeight: "bold",
-    color: "#60646C", // Texto Secundário
+    color: "#60646C",
   },
   progressRow: {
     flexDirection: "row",
@@ -308,7 +296,7 @@ const styles = StyleSheet.create({
   progressBarBg: {
     flex: 1,
     height: 24,
-    backgroundColor: "#F0F4F8", // Fundo da barra macio
+    backgroundColor: "#F0F4F8",
     borderRadius: 12,
     overflow: "hidden",
     justifyContent: "center",
@@ -366,7 +354,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 2,
-    borderColor: "#E5A93C", // Borda Ouro
+    borderColor: "#E5A93C",
   },
   footer: {
     position: "absolute",
@@ -381,7 +369,7 @@ const styles = StyleSheet.create({
   },
   continueBtn: {
     width: "100%",
-    backgroundColor: "#1A2F3B", // Azul Petróleo (Ancoragem)
+    backgroundColor: "#1A2F3B",
     paddingVertical: 18,
     borderRadius: 16,
     justifyContent: "center",
@@ -393,7 +381,7 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   continueBtnText: {
-    color: "#FFF", // WCAG AAA
+    color: "#FFF",
     fontSize: 16,
     fontWeight: "900",
     letterSpacing: 1.5,

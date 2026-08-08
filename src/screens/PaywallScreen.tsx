@@ -1,8 +1,8 @@
 import { FontAwesome5 } from "@expo/vector-icons";
-import { doc, setDoc } from "firebase/firestore";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Animated,
   Dimensions,
   SafeAreaView,
@@ -12,7 +12,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-
+// 🔥 Importamos o Firestore novamente para simular o Webhook liberando o acesso
+import { doc, setDoc } from "firebase/firestore";
 import { auth, db } from "../config/firebase";
 
 const { width } = Dimensions.get("window");
@@ -46,23 +47,41 @@ export default function PaywallScreen({ navigation }: any) {
     setIsProcessing(true);
 
     try {
-      // 1. Simula o tempo do Gateway (Apple/Google Pay)
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      const currentUid = auth.currentUser?.uid;
 
-      // 2. Injeta o Premium no Banco usando setDoc para evitar "No document to update"
-      const userId = auth.currentUser?.uid;
-      if (userId) {
-        await setDoc(
-          doc(db, "users", userId),
-          { isPremium: true },
-          { merge: true },
-        );
+      if (!currentUid) {
+        Alert.alert("Erro", "Você não está conectado no momento.");
+        setIsProcessing(false);
+        return;
       }
 
-      // 3. Joga o usuário direto pra Home
-      navigation.navigate("Home");
-    } catch (error) {
-      console.error("Erro na simulação do pagamento", error);
+      // 🛠️ MODO DE TESTE (SIMULADOR DE COMPRA)
+      // Como a loja real ainda não está configurada, nós pulamos o RevenueCat
+      // e fazemos o que o Webhook faria: liberar a catraca no banco de dados!
+
+      // Simula um tempo de carregamento da operadora de cartão de crédito (1.5 segundos)
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+
+      // Vai lá no documento do usuário e avisa que ele pagou
+      await setDoc(
+        doc(db, "users", currentUid),
+        {
+          isPremium: true,
+          planSelected: selectedPlan, // Salva o plano que ele escolheu só por curiosidade
+        },
+        { merge: true }, // Não apaga as outras informações, só atualiza o premium
+      );
+
+      Alert.alert(
+        "Sucesso! 🎉",
+        "Assinatura (de Teste) confirmada! A jornada de vocês foi liberada.",
+      );
+
+      navigation.goBack();
+    } catch (error: any) {
+      Alert.alert("Erro na Compra", "Falha ao liberar a conta de teste.");
+      console.error(error);
+    } finally {
       setIsProcessing(false);
     }
   };
@@ -151,7 +170,6 @@ export default function PaywallScreen({ navigation }: any) {
             reacender a paixão e blindar a sua família contra qualquer crise.
           </Text>
 
-          {/* 🔥 PLANOS AGORA ESTÃO AQUI EM CIMA */}
           <View style={styles.plansWrapper}>
             {plans.map((plan) => {
               const isSelected = selectedPlan === plan.id;
@@ -186,7 +204,6 @@ export default function PaywallScreen({ navigation }: any) {
             })}
           </View>
 
-          {/* 🔥 GARANTIA DE TEMPO: VERDE SEGURANÇA */}
           <View style={styles.guaranteeBox}>
             <View style={styles.guaranteeHeader}>
               <FontAwesome5 name="shield-alt" size={16} color="#4BDE95" />
@@ -205,7 +222,6 @@ export default function PaywallScreen({ navigation }: any) {
             </Text>
           </View>
 
-          {/* 🔥 LISTA DE BENEFÍCIOS */}
           <View style={styles.featuresContainer}>
             <Text style={styles.featuresSectionTitle}>
               O que está incluso no Premium?
@@ -258,7 +274,7 @@ export default function PaywallScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F0F4F8" }, // Azul-Cinza Suave
+  container: { flex: 1, backgroundColor: "#F0F4F8" },
   header: {
     paddingHorizontal: 24,
     paddingTop: 10,
@@ -277,7 +293,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: "#E8F4F1", // Verde Menta Suave
+    backgroundColor: "#E8F4F1",
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 20,
@@ -316,7 +332,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#FFF", // Branco para contraste
+    backgroundColor: "#FFF",
     borderWidth: 2,
     borderColor: "#D1D9E0",
     borderRadius: 16,
@@ -324,8 +340,8 @@ const styles = StyleSheet.create({
     position: "relative",
   },
   planCardSelected: {
-    borderColor: "#E5A93C", // Borda Ouro Suave
-    backgroundColor: "#FFFDF5", // Levissímo tom quente
+    borderColor: "#E5A93C",
+    backgroundColor: "#FFFDF5",
     shadowColor: "#E5A93C",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
@@ -342,27 +358,20 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   badgeText: {
-    color: "#1A2F3B", // Texto Azul-Petróleo para Contraste AAA
+    color: "#1A2F3B",
     fontSize: 10,
     fontWeight: "900",
     letterSpacing: 1,
   },
-  planInfo: {
-    flex: 1,
-  },
+  planInfo: { flex: 1 },
   planName: {
     fontSize: 16,
     fontWeight: "bold",
     color: "#1A2F3B",
     marginBottom: 4,
   },
-  planDesc: {
-    fontSize: 13,
-    color: "#60646C",
-  },
-  planPriceBox: {
-    alignItems: "flex-end",
-  },
+  planDesc: { fontSize: 13, color: "#60646C" },
+  planPriceBox: { alignItems: "flex-end" },
   planPrice: {
     fontSize: 20,
     fontWeight: "900",
@@ -375,12 +384,12 @@ const styles = StyleSheet.create({
   },
 
   guaranteeBox: {
-    backgroundColor: "#E8F4F1", // Fundo Menta calmante
+    backgroundColor: "#E8F4F1",
     padding: 18,
     borderRadius: 16,
     width: "100%",
     borderWidth: 1,
-    borderColor: "#4BDE95", // Borda Verde Sucesso
+    borderColor: "#4BDE95",
   },
   guaranteeHeader: {
     flexDirection: "row",
@@ -443,11 +452,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingBottom: 30,
     paddingTop: 10,
-    backgroundColor: "#F0F4F8", // Acompanha o fundo geral
+    backgroundColor: "#F0F4F8",
   },
   ctaButton: {
     flexDirection: "row",
-    backgroundColor: "#E5A93C", // Ouro Suave Premium
+    backgroundColor: "#E5A93C",
     paddingVertical: 20,
     borderRadius: 16,
     justifyContent: "center",
@@ -461,7 +470,7 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   ctaButtonText: {
-    color: "#1A2F3B", // Texto Azul-Petróleo para Leitura Perfeita
+    color: "#1A2F3B",
     fontSize: 17,
     fontWeight: "900",
     textTransform: "uppercase",

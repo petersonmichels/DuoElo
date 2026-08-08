@@ -1,4 +1,5 @@
 import { FontAwesome5 } from "@expo/vector-icons";
+import * as Clipboard from "expo-clipboard";
 import * as ImagePicker from "expo-image-picker";
 import { deleteUser, signOut } from "firebase/auth";
 import { deleteDoc, doc, onSnapshot, setDoc } from "firebase/firestore";
@@ -123,25 +124,7 @@ export default function ProfileScreen({ navigation }: any) {
     }
   };
 
-  const handlePickImage = async () => {
-    const permissionResult =
-      await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (permissionResult.granted === false) {
-      Alert.alert(
-        "Permissão necessária",
-        "Você precisa permitir o acesso à galeria para alterar a foto.",
-      );
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.05,
-      base64: true,
-    });
-
+  const processImageResult = async (result: ImagePicker.ImagePickerResult) => {
     if (!result.canceled && result.assets[0].base64) {
       const currentUid = auth.currentUser?.uid;
       const base64Image = `data:image/jpeg;base64,${result.assets[0].base64}`;
@@ -168,6 +151,82 @@ export default function ProfileScreen({ navigation }: any) {
           setLoading(false);
         }
       }
+    }
+  };
+
+  const handlePickImage = () => {
+    Alert.alert(
+      "Foto de Perfil",
+      "De onde você quer pegar a imagem?",
+      [
+        {
+          text: "Tirar Foto (Câmera)",
+          onPress: async () => {
+            const permissionResult =
+              await ImagePicker.requestCameraPermissionsAsync();
+            if (permissionResult.granted === false) {
+              Alert.alert(
+                "Permissão necessária",
+                "Você precisa permitir o acesso à câmera para tirar fotos.",
+              );
+              return;
+            }
+
+            const result = await ImagePicker.launchCameraAsync({
+              mediaTypes: ["images"],
+              allowsEditing: true,
+              aspect: [1, 1],
+              quality: 0.05,
+              base64: true,
+            });
+
+            processImageResult(result);
+          },
+        },
+        {
+          text: "Escolher da Galeria",
+          onPress: async () => {
+            const permissionResult =
+              await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (permissionResult.granted === false) {
+              Alert.alert(
+                "Permissão necessária",
+                "Você precisa permitir o acesso à galeria para alterar a foto.",
+              );
+              return;
+            }
+
+            const result = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ["images"],
+              allowsEditing: true,
+              aspect: [1, 1],
+              quality: 0.05,
+              base64: true,
+            });
+
+            processImageResult(result);
+          },
+        },
+        {
+          text: "Cancelar",
+          style: "cancel",
+        },
+      ],
+      { cancelable: true },
+    );
+  };
+
+  // 🚀 CORREÇÃO: Agora ele copia e exibe o myInviteCode (O código curto de Match)
+  const handleCopyCode = async () => {
+    // Tenta usar o código amigável primeiro, se não tiver, usa o UID do firebase por segurança
+    const codeToCopy = userData?.myInviteCode || auth.currentUser?.uid;
+
+    if (codeToCopy) {
+      await Clipboard.setStringAsync(codeToCopy);
+      Alert.alert(
+        "ID Copiado!",
+        "Seu DuoElo ID foi copiado. Envie para o seu parceiro(a) buscar por você!",
+      );
     }
   };
 
@@ -370,6 +429,31 @@ export default function ProfileScreen({ navigation }: any) {
           </View>
 
           <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Seu DuoElo ID</Text>
+            <View style={styles.matchCodeCard}>
+              <Text style={styles.matchCodeLabel}>
+                Esta é a sua identidade única no app. Compartilhe este ID para
+                criar sua conexão:
+              </Text>
+              <View style={styles.matchCodeRow}>
+                {/* 🚀 CORREÇÃO: Exibindo o myInviteCode ou fallback */}
+                <Text style={styles.matchCodeText} selectable={true}>
+                  {userData?.myInviteCode ||
+                    auth.currentUser?.uid ||
+                    "Carregando..."}
+                </Text>
+                <TouchableOpacity
+                  style={styles.copyBtn}
+                  onPress={handleCopyCode}
+                >
+                  <FontAwesome5 name="copy" size={16} color="#1A2F3B" />
+                  <Text style={styles.copyBtnText}>Copiar</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.section}>
             <Text style={styles.sectionTitle}>Sua Conexão</Text>
             {hasPartner ? (
               <View style={styles.partnerCard}>
@@ -431,9 +515,9 @@ export default function ProfileScreen({ navigation }: any) {
                 <Text style={styles.statLabel}>Dias Seguidos</Text>
               </View>
               <View style={styles.statBox}>
-                <FontAwesome5 name="star" solid size={24} color="#E5A93C" />
+                <FontAwesome5 name="infinity" size={24} color="#E5A93C" />
                 <Text style={styles.statValue}>{userData?.totalPE || 0}</Text>
-                <Text style={styles.statLabel}>Pontos PE</Text>
+                <Text style={styles.statLabel}>Bonds</Text>
               </View>
             </View>
           </View>
@@ -657,7 +741,10 @@ export default function ProfileScreen({ navigation }: any) {
               <FontAwesome5 name="envelope" size={14} color="#D1D9E0" />
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.menuOption} onPress={handleLogout}>
+            <TouchableOpacity
+              style={[styles.menuOption, { borderBottomWidth: 0 }]}
+              onPress={handleLogout}
+            >
               <View style={styles.menuOptionLeft}>
                 <View
                   style={[styles.menuIconBg, { backgroundColor: "#F0F4F8" }]}
@@ -668,23 +755,16 @@ export default function ProfileScreen({ navigation }: any) {
               </View>
               <FontAwesome5 name="chevron-right" size={14} color="#D1D9E0" />
             </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.menuOption, { borderBottomWidth: 0 }]}
-              onPress={handleDeleteAccount}
-            >
-              <View style={styles.menuOptionLeft}>
-                <View
-                  style={[styles.menuIconBg, { backgroundColor: "#FFF0F0" }]}
-                >
-                  <FontAwesome5 name="trash-alt" size={16} color="#D96C6C" />
-                </View>
-                <Text style={[styles.menuOptionText, { color: "#D96C6C" }]}>
-                  Excluir Conta
-                </Text>
-              </View>
-            </TouchableOpacity>
           </View>
+
+          <TouchableOpacity
+            style={styles.deleteAccountLink}
+            onPress={handleDeleteAccount}
+          >
+            <Text style={styles.deleteAccountText}>
+              Excluir minha conta permanentemente
+            </Text>
+          </TouchableOpacity>
 
           <Text style={styles.versionText}>DuoElo v1.0.0</Text>
         </ScrollView>
@@ -731,7 +811,7 @@ const styles = StyleSheet.create({
     borderRadius: 50,
     backgroundColor: "#FFF",
     borderWidth: 4,
-    borderColor: "#E5A93C", // Ouro suave
+    borderColor: "#E5A93C",
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 15,
@@ -747,7 +827,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: 0,
     width: "100%",
-    backgroundColor: "rgba(26,47,59,0.7)", // Azul petróleo transparente
+    backgroundColor: "rgba(26,47,59,0.7)",
     paddingVertical: 4,
     alignItems: "center",
   },
@@ -769,7 +849,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   premiumText: {
-    color: "#1A2F3B", // Texto de alto contraste
+    color: "#1A2F3B",
     fontSize: 12,
     fontWeight: "900",
     textTransform: "uppercase",
@@ -783,6 +863,62 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     marginBottom: 15,
   },
+
+  matchCodeCard: {
+    backgroundColor: "#1A2F3B",
+    padding: 20,
+    borderRadius: 20,
+    alignItems: "center",
+    shadowColor: "#1A2F3B",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  matchCodeLabel: {
+    color: "#D1D9E0",
+    fontSize: 13,
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  matchCodeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#0D181E",
+    borderRadius: 12,
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    width: "100%",
+    justifyContent: "space-between",
+    borderWidth: 1,
+    borderColor: "#2A4555",
+  },
+  matchCodeText: {
+    color: "#4BDE95",
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: "bold",
+    fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
+    flex: 1,
+    marginRight: 10,
+    flexWrap: "wrap",
+  },
+  copyBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#E5A93C",
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    gap: 6,
+  },
+  copyBtnText: {
+    color: "#1A2F3B",
+    fontSize: 13,
+    fontWeight: "bold",
+    textTransform: "uppercase",
+  },
+
   partnerCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -790,7 +926,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 20,
     borderWidth: 2,
-    borderColor: "#4BDE95", // Borda Sucesso Verde
+    borderColor: "#4BDE95",
     shadowColor: "#4BDE95",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
@@ -801,7 +937,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: "#E8F4F1", // Fundo Menta
+    backgroundColor: "#E8F4F1",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 15,
@@ -861,7 +997,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   input: {
-    backgroundColor: "#F0F4F8", // Fundo cinza/azul sutil
+    backgroundColor: "#F0F4F8",
     borderWidth: 1,
     borderColor: "#D1D9E0",
     borderRadius: 12,
@@ -870,7 +1006,7 @@ const styles = StyleSheet.create({
     color: "#1A2F3B",
   },
   saveBtn: {
-    backgroundColor: "#1A2F3B", // Azul Petróleo (estabilidade para salvar dados)
+    backgroundColor: "#1A2F3B",
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: "center",
@@ -903,6 +1039,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   menuOptionText: { fontSize: 16, fontWeight: "bold", color: "#1A2F3B" },
+
+  deleteAccountLink: {
+    alignItems: "center",
+    marginTop: 10,
+    marginBottom: 10,
+    padding: 10,
+  },
+  deleteAccountText: {
+    color: "#AFAFAF",
+    fontSize: 13,
+    fontWeight: "bold",
+    textDecorationLine: "underline",
+  },
+
   versionText: {
     textAlign: "center",
     color: "#D1D9E0",

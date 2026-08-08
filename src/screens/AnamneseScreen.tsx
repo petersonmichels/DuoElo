@@ -11,6 +11,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Animated,
   Dimensions,
   Easing,
@@ -25,6 +26,9 @@ import {
   View,
 } from "react-native";
 import { auth, db } from "../config/firebase";
+
+// 🔥 IMPORT DO NOSSO COFRE DE SEGURANÇA
+import { encryptData, generateVaultKey } from "../utils/security";
 
 const { width, height } = Dimensions.get("window");
 
@@ -81,6 +85,9 @@ export default function AnamnesisScreen({ navigation }: any) {
     useState(false);
   const [isMatchAnimationVisible, setIsMatchAnimationVisible] = useState(false);
 
+  // 🚀 ESTADO DE BLOQUEIO ANTIDUPLO CLIQUE SEGURO
+  const [isAnimating, setIsAnimating] = useState(false);
+
   const matchAnimTranslateX = useRef(new Animated.Value(0)).current;
   const matchHeartScale = useRef(new Animated.Value(0)).current;
 
@@ -126,13 +133,13 @@ export default function AnamnesisScreen({ navigation }: any) {
           toValue: 1.05,
           duration: 1000,
           easing: Easing.inOut(Easing.ease),
-          useNativeDriver: false,
+          useNativeDriver: true,
         }),
         Animated.timing(pulseAnim, {
           toValue: 1,
           duration: 1000,
           easing: Easing.inOut(Easing.ease),
-          useNativeDriver: false,
+          useNativeDriver: true,
         }),
       ]),
     ).start();
@@ -201,22 +208,21 @@ export default function AnamnesisScreen({ navigation }: any) {
             data.translations?.["pt-BR"] ||
             "Pergunta não encontrada",
           options: (data.options || []).map((opt: any, index: number) => {
-            // 🔥 PALETA CLÍNICA NAS OPÇÕES DE RESPOSTA
             let defaultIcon = "smile-beam";
-            let defaultColor = "#4BDE95"; // Verde Sucesso (Bom)
+            let defaultColor = "#4BDE95";
             let fallbackScore = 1;
 
             if (index === 1) {
               defaultIcon = "meh";
-              defaultColor = "#E5A93C"; // Ouro Suave (Médio)
+              defaultColor = "#E5A93C";
               fallbackScore = 4;
             } else if (index === 2) {
               defaultIcon = "sad-tear";
-              defaultColor = "#E28743"; // Terracota Mudo (Ruim, mas sem alerta vermelho)
+              defaultColor = "#E28743";
               fallbackScore = 7;
             } else if (index > 2) {
               defaultIcon = "frown";
-              defaultColor = "#D96C6C"; // Rosa terroso (Muito Ruim, suave)
+              defaultColor = "#D96C6C";
               fallbackScore = 10;
             }
 
@@ -248,7 +254,6 @@ export default function AnamnesisScreen({ navigation }: any) {
     setUserLang(langCode);
     setIsLangModalVisible(false);
 
-    // Salva a preferência no banco
     const userId = auth.currentUser?.uid;
     if (userId) {
       await setDoc(
@@ -258,101 +263,147 @@ export default function AnamnesisScreen({ navigation }: any) {
       );
     }
 
-    // Recarrega as questões do novo idioma
     loadQuestionsFromFirebase(langCode);
   };
 
   const handleStart = () => setScreenState("questions");
 
+  // 🚀 TRANSIÇÃO DE VOLTAR FLUIDA
   const handleBack = () => {
+    if (isAnimating) return;
+
     if (currentIndex > 0) {
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: false,
-      }).start(() => {
+      setIsAnimating(true);
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: 120,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: 40,
+          duration: 120,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
         setCurrentIndex(currentIndex - 1);
-        slideAnim.setValue(-30);
+        slideAnim.setValue(-40);
         Animated.parallel([
           Animated.timing(fadeAnim, {
             toValue: 1,
-            duration: 300,
-            useNativeDriver: false,
+            duration: 200,
+            useNativeDriver: true,
           }),
           Animated.timing(slideAnim, {
             toValue: 0,
-            duration: 300,
-            easing: Easing.out(Easing.back(1.5)),
-            useNativeDriver: false,
+            duration: 200,
+            easing: Easing.out(Easing.quad),
+            useNativeDriver: true,
           }),
-        ]).start();
+        ]).start(() => {
+          setIsAnimating(false);
+        });
       });
     }
   };
 
+  // 🚀 TRANSIÇÃO DE AVANÇAR FLUIDA
   const handleForward = () => {
+    if (isAnimating) return;
+
     if (
       currentIndex < selectedAnswers.length &&
       currentIndex < questionsBank.length - 1
     ) {
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: false,
-      }).start(() => {
+      setIsAnimating(true);
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: 120,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: -40,
+          duration: 120,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
         setCurrentIndex(currentIndex + 1);
-        slideAnim.setValue(30);
+        slideAnim.setValue(40);
         Animated.parallel([
           Animated.timing(fadeAnim, {
             toValue: 1,
-            duration: 300,
-            useNativeDriver: false,
+            duration: 200,
+            useNativeDriver: true,
           }),
           Animated.timing(slideAnim, {
             toValue: 0,
-            duration: 300,
-            easing: Easing.out(Easing.back(1.5)),
-            useNativeDriver: false,
+            duration: 200,
+            easing: Easing.out(Easing.quad),
+            useNativeDriver: true,
           }),
-        ]).start();
+        ]).start(() => {
+          setIsAnimating(false);
+        });
       });
     }
   };
 
+  // 🚀 TRANSIÇÃO DE RESPOSTA CORRIGIDA (SEM TRAVAMENTO)
   const handleAnswer = (option: any) => {
-    Animated.timing(fadeAnim, {
-      toValue: 0,
-      duration: 250,
-      useNativeDriver: false,
-    }).start(() => {
-      const newAnswers = [...selectedAnswers];
-      newAnswers[currentIndex] = {
-        questionId: questionsBank[currentIndex].id,
-        pillar: questionsBank[currentIndex].title,
-        score: Number(option.score) || 0,
-        tag: option.tag,
-        label: option.label,
-      };
+    if (isAnimating) return;
+    setIsAnimating(true);
 
-      setSelectedAnswers(newAnswers);
+    // 1. Salva a resposta do usuário
+    const newAnswers = [...selectedAnswers];
+    newAnswers[currentIndex] = {
+      questionId: questionsBank[currentIndex].id,
+      pillar: questionsBank[currentIndex].title,
+      score: Number(option.score) || 0,
+      tag: option.tag,
+      label: option.label,
+    };
+    setSelectedAnswers(newAnswers);
 
+    // 2. Animação fluida de saída (desliza para esquerda) e entrada da nova pergunta
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 140,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: -40,
+        duration: 140,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
       if (currentIndex < questionsBank.length - 1) {
-        setCurrentIndex(currentIndex + 1);
-        slideAnim.setValue(50);
+        // Avança o índice
+        setCurrentIndex((prev) => prev + 1);
+        slideAnim.setValue(40);
+
+        // Animação de entrada da nova pergunta
         Animated.parallel([
           Animated.timing(fadeAnim, {
             toValue: 1,
-            duration: 300,
-            useNativeDriver: false,
+            duration: 220,
+            useNativeDriver: true,
           }),
           Animated.timing(slideAnim, {
             toValue: 0,
-            duration: 300,
-            easing: Easing.out(Easing.back(1.5)),
-            useNativeDriver: false,
+            duration: 220,
+            easing: Easing.out(Easing.quad),
+            useNativeDriver: true,
           }),
-        ]).start();
+        ]).start(() => {
+          setIsAnimating(false); // Liberado para a próxima pergunta!
+        });
       } else {
+        // Chegou ao fim da anamnese
+        fadeAnim.setValue(1);
+        slideAnim.setValue(0);
+        setIsAnimating(false);
         startCalculation(newAnswers);
       }
     });
@@ -453,6 +504,7 @@ export default function AnamnesisScreen({ navigation }: any) {
     }).start();
   };
 
+  // 🔥 SALVAR DADOS NO BANCO COM CRIPTOGRAFIA (O COFRE)
   const saveAssessmentToFirebase = async () => {
     const userId = auth.currentUser?.uid;
     if (!userId) return false;
@@ -487,13 +539,21 @@ export default function AnamnesisScreen({ navigation }: any) {
         .slice(0, 3)
         .map((p) => p.name);
 
+      const pId = currentUserData?.partnerId;
+      const vaultKey = pId
+        ? generateVaultKey(userId, pId)
+        : generateVaultKey(userId, userId);
+
+      const encryptedTags = encryptData(diagnosticTags, vaultKey);
+      const encryptedScores = encryptData(priorityPillars, vaultKey);
+
       const payloadToSave = {
         hasCompletedAnamnesis: true,
         anamnesisScore: finalTemperature,
         priorityModules:
           priorityModulesNames.length > 0 ? priorityModulesNames : ["Geral"],
-        diagnosticTags: diagnosticTags,
-        anamnesisScores: priorityPillars,
+        diagnosticTagsEncrypted: encryptedTags,
+        anamnesisScoresEncrypted: encryptedScores,
         anamnesisCompletedAt: new Date().toISOString(),
       };
 
@@ -591,50 +651,30 @@ export default function AnamnesisScreen({ navigation }: any) {
 
     setTimeout(async () => {
       try {
-        const partnerId = pendingMatchPartner.id;
-        const partnerDataDb = pendingMatchPartner.data;
         const userId = auth.currentUser?.uid;
-
         if (!userId) return;
 
-        const partnerIsPremium = partnerDataDb?.isPremium || false;
-        const finalPremiumStatus = isPremium || partnerIsPremium;
+        const cleanCode = inviteCodeInput.trim().toUpperCase();
 
         await setDoc(
           doc(db, "users", userId),
-          { partnerId: partnerId, isPremium: finalPremiumStatus },
-          { merge: true },
-        );
-        await setDoc(
-          doc(db, "users", partnerId),
-          { partnerId: userId, isPremium: finalPremiumStatus },
+          { linkedInviteCode: cleanCode },
           { merge: true },
         );
 
         setHasPartner(true);
-        if (finalPremiumStatus) setIsPremium(true);
-
         setInviteCodeInput("");
 
-        if (finalPremiumStatus && !isPremium) {
-          showCustomAlert(
-            "Match Perfeito! ❤️",
-            "Contas conectadas! Como o seu amor já ativou a jornada, o seu acesso Premium foi liberado instantaneamente.",
-            "gift",
-            "#4BDE95",
-          );
-        } else {
-          showCustomAlert(
-            "Match Realizado! ❤️",
-            "Vocês estão conectados! Avance na avaliação para descobrir a temperatura da relação de vocês.",
-            "heart",
-            "#4BDE95",
-          );
-        }
+        showCustomAlert(
+          "Conectando Almas! ❤️",
+          "Seu código foi enviado aos nossos servidores com segurança. Em poucos instantes a jornada de vocês estará oficialmente conectada!",
+          "heart",
+          "#4BDE95",
+        );
       } catch (error) {
         showCustomAlert(
-          "Erro de Conexão",
-          "Não foi possível efetivar o match.",
+          "Erro de Comunicação",
+          "Não foi possível enviar o seu pedido de match ao servidor. Tente novamente.",
           "times-circle",
           "#D96C6C",
         );
@@ -652,33 +692,33 @@ export default function AnamnesisScreen({ navigation }: any) {
     setIsSaving(true);
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
       const userId = auth.currentUser?.uid;
-
-      if (userId) {
-        await setDoc(
-          doc(db, "users", userId),
-          { isPremium: true },
-          { merge: true },
-        );
-
-        const snap = await getDoc(doc(db, "users", userId));
-        if (snap.exists()) {
-          const pId = snap.data().partnerId;
-          if (pId) {
-            await setDoc(
-              doc(db, "users", pId),
-              { isPremium: true },
-              { merge: true },
-            );
-          }
-        }
+      if (!userId) {
+        Alert.alert("Erro", "Usuário não conectado.");
+        return;
       }
 
+      await new Promise((resolve) => setTimeout(resolve, 2000));
       await saveAssessmentToFirebase();
+
+      await setDoc(
+        doc(db, "users", userId),
+        {
+          isPremium: true,
+          planSelected: selectedPlan,
+        },
+        { merge: true },
+      );
+
+      Alert.alert(
+        "Sucesso! 🎉",
+        "Assinatura (de Teste) confirmada! A jornada foi liberada para vocês.",
+      );
+
       navigation.navigate("Home");
     } catch (error) {
-      console.error("Erro no fluxo unificado:", error);
+      console.error("Erro no fluxo:", error);
+      Alert.alert("Erro", "Falha ao processar a assinatura de teste.");
     } finally {
       setIsSaving(false);
     }
@@ -817,7 +857,7 @@ export default function AnamnesisScreen({ navigation }: any) {
         <View style={styles.navHeader}>
           <TouchableOpacity
             onPress={handleBack}
-            disabled={currentIndex === 0}
+            disabled={currentIndex === 0 || isAnimating}
             style={[styles.navBtn, currentIndex === 0 && styles.navBtnDisabled]}
           >
             <FontAwesome5
@@ -840,7 +880,7 @@ export default function AnamnesisScreen({ navigation }: any) {
 
           <TouchableOpacity
             onPress={handleForward}
-            disabled={!canGoForward}
+            disabled={!canGoForward || isAnimating}
             style={[styles.navBtn, !canGoForward && styles.navBtnDisabled]}
           >
             <FontAwesome5
@@ -851,11 +891,12 @@ export default function AnamnesisScreen({ navigation }: any) {
           </TouchableOpacity>
         </View>
 
+        {/* 🚀 TRANSIÇÃO HORIZONTAL COMPATÍVEL E ULTRA FLUIDA */}
         <Animated.View
           style={{
             flex: 1,
             opacity: fadeAnim,
-            transform: [{ translateY: slideAnim }],
+            transform: [{ translateX: slideAnim }],
           }}
         >
           <View style={styles.questionHeader}>
@@ -863,7 +904,11 @@ export default function AnamnesisScreen({ navigation }: any) {
             <Text style={styles.questionText}>{question.text}</Text>
           </View>
 
-          <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            key={currentIndex}
+            style={{ flex: 1 }}
+            showsVerticalScrollIndicator={false}
+          >
             <View style={styles.answersContainer}>
               {question.options.map((opt: any, i: number) => {
                 const isSelected =
@@ -878,6 +923,7 @@ export default function AnamnesisScreen({ navigation }: any) {
                     ]}
                     activeOpacity={0.7}
                     onPress={() => handleAnswer(opt)}
+                    disabled={isAnimating}
                   >
                     <View
                       style={[
@@ -949,22 +995,21 @@ export default function AnamnesisScreen({ navigation }: any) {
     let resultDesc = "";
     let tempColor = "";
 
-    // 🔥 NOVO PARADIGMA CLÍNICO DO TERMÔMETRO
     if (finalTemperature < 40) {
       resultTitle = "Distanciamento Emocional ❄️";
       resultDesc =
         "A rotina esfriou a relação. Mas a base do amor ainda está aí, esperando para ser nutrida e reconectada através da jornada.";
-      tempColor = "#2C3E50"; // Frio, Estável, Afastado (Azul Slate)
+      tempColor = "#2C3E50";
     } else if (finalTemperature < 75) {
       resultTitle = "Morno, com Grande Potencial 🌥️";
       resultDesc =
         "Vocês têm uma base sólida, mas caíram no modo automático. A jornada de 90 dias vai reacender essa chama com tranquilidade.";
-      tempColor = "#E5A93C"; // Aquecendo, Dourado (Ouro Suave)
+      tempColor = "#E5A93C";
     } else {
       resultTitle = "Conexão Segura e Forte 🌿";
       resultDesc =
         "Incrível! Vocês têm uma sintonia rara. A jornada será perfeita para blindar essa relação contra qualquer crise.";
-      tempColor = "#4BDE95"; // Saúde, Sucesso, Vitalidade (Verde Esmeralda)
+      tempColor = "#4BDE95";
     }
 
     const fillHeight = thermometerFill.interpolate({
@@ -1440,7 +1485,7 @@ export default function AnamnesisScreen({ navigation }: any) {
         <View
           style={[
             styles.modalOverlayCenter,
-            { backgroundColor: "rgba(26,47,59,0.95)" }, // Fundo Azul-Petróleo Elegante
+            { backgroundColor: "rgba(26,47,59,0.95)" },
           ]}
         >
           <Text
@@ -1584,7 +1629,7 @@ export default function AnamnesisScreen({ navigation }: any) {
               opacity: 0.8,
             }}
           >
-            A mágica está acontecendo no banco de dados...
+            A mágica está acontecendo no servidor...
           </Text>
         </View>
       </Modal>
@@ -1659,7 +1704,7 @@ export default function AnamnesisScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F0F4F8" }, // 🔥 Azul-Cinza Suave
+  container: { flex: 1, backgroundColor: "#F0F4F8" },
   centerContainer: {
     flex: 1,
     justifyContent: "center",
@@ -1675,7 +1720,7 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(26, 47, 59, 0.6)", // Escurecido com a paleta
+    backgroundColor: "rgba(26, 47, 59, 0.6)",
     justifyContent: "flex-start",
     alignItems: "flex-end",
   },
@@ -1714,7 +1759,7 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: "#E8F4F1", // Verde Menta suave
+    backgroundColor: "#E8F4F1",
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 30,
@@ -1727,14 +1772,14 @@ const styles = StyleSheet.create({
   introTitle: {
     fontSize: 28,
     fontWeight: "900",
-    color: "#1A2F3B", // Azul Petróleo
+    color: "#1A2F3B",
     textAlign: "center",
     marginBottom: 15,
     lineHeight: 34,
   },
   introText: {
     fontSize: 16,
-    color: "#2C3E50", // Slate Blue
+    color: "#2C3E50",
     textAlign: "center",
     marginBottom: 40,
     lineHeight: 24,
@@ -1791,7 +1836,7 @@ const styles = StyleSheet.create({
   },
   progressBarFill: {
     height: "100%",
-    backgroundColor: "#E5A93C", // Ouro Suave
+    backgroundColor: "#E5A93C",
     borderRadius: 4,
   },
   progressText: {
@@ -1824,14 +1869,14 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 20,
     borderWidth: 2,
-    borderColor: "#FFF", // Sem borda pesada até selecionar
+    borderColor: "#FFF",
     elevation: 2,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
   },
-  answerBtnSelected: { borderColor: "#4BDE95", backgroundColor: "#E8F4F1" }, // Verde sucesso ao selecionar
+  answerBtnSelected: { borderColor: "#4BDE95", backgroundColor: "#E8F4F1" },
   answerIconBg: {
     width: 44,
     height: 44,
@@ -1971,7 +2016,7 @@ const styles = StyleSheet.create({
   riskText: { fontSize: 13, color: "#60646C", lineHeight: 20 },
   hopeBox: {
     flexDirection: "row",
-    backgroundColor: "#E8F4F1", // Verde Menta suave
+    backgroundColor: "#E8F4F1",
     padding: 16,
     borderRadius: 16,
     alignItems: "center",
@@ -2029,7 +2074,7 @@ const styles = StyleSheet.create({
   },
   planCardSelected: {
     backgroundColor: "#FFF",
-    borderColor: "#E5A93C", // Ouro Suave selecionado
+    borderColor: "#E5A93C",
   },
   badgeContainer: {
     position: "absolute",
@@ -2143,7 +2188,7 @@ const styles = StyleSheet.create({
 
   modalOverlayCenter: {
     flex: 1,
-    backgroundColor: "rgba(26,47,59,0.7)", // Azul petróleo transparente
+    backgroundColor: "rgba(26,47,59,0.7)",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -2196,7 +2241,7 @@ const styles = StyleSheet.create({
 
   bottomSheetOverlay: {
     flex: 1,
-    backgroundColor: "rgba(26,47,59,0.7)",
+    backgroundColor: "rgba(26,47,59,0.6)",
     justifyContent: "flex-end",
   },
   bottomSheetContainer: {
@@ -2212,6 +2257,16 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 10,
     width: "100%",
+  },
+  bottomSheetContainerLg: {
+    backgroundColor: "#FFF",
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    padding: 24,
+    paddingBottom: 40,
+    alignItems: "center",
+    width: "100%",
+    minHeight: 450,
   },
   bottomSheetHandle: {
     width: 50,
@@ -2237,7 +2292,7 @@ const styles = StyleSheet.create({
   },
   bottomSheetText: {
     fontSize: 15,
-    color: "#60646C",
+    color: "#2C3E50",
     textAlign: "center",
     marginBottom: 20,
     lineHeight: 22,
@@ -2263,8 +2318,162 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   bottomSheetButtonSecondaryText: {
-    color: "#60646C",
+    color: "#2C3E50",
     fontSize: 16,
     fontWeight: "bold",
+  },
+
+  workflowMainTitle: {
+    fontSize: 24,
+    fontWeight: "900",
+    color: "#1A2F3B",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  workflowSubTitle: {
+    fontSize: 14,
+    color: "#2C3E50",
+    textAlign: "center",
+    marginBottom: 25,
+    lineHeight: 20,
+  },
+  workflowLineVertical: {
+    position: "absolute",
+    left: 28,
+    top: 35,
+    bottom: 45,
+    width: 2,
+    backgroundColor: "#D1D9E0",
+    zIndex: 0,
+  },
+  workflowStepModal: {
+    flexDirection: "row",
+    marginBottom: 25,
+    zIndex: 1,
+  },
+  stepIconContainerModal: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#FFF",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    marginRight: 15,
+  },
+  stepIconActive: { backgroundColor: "#1A2F3B" },
+  stepIconSuccess: { backgroundColor: "#4BDE95" },
+  stepIconInactive: {
+    backgroundColor: "#F0F4F8",
+    borderWidth: 1,
+    borderColor: "#D1D9E0",
+    elevation: 0,
+  },
+  stepTitle: {
+    fontSize: 15,
+    fontWeight: "bold",
+    color: "#1A2F3B",
+    marginTop: 8,
+  },
+  stepTextSuccess: { color: "#4BDE95" },
+  stepTextActive: { color: "#1A2F3B" },
+  stepTextInactive: { color: "#60646C" },
+  stepDoneText: { fontSize: 13, color: "#2C3E50", marginTop: 4 },
+
+  statusBoxLg: {
+    backgroundColor: "#F0F4F8",
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#D1D9E0",
+    width: "100%",
+    marginTop: 15,
+    gap: 10,
+  },
+  statusRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  statusLabel: {
+    fontSize: 14,
+    color: "#2C3E50",
+    fontWeight: "bold",
+  },
+  statusValue: {
+    fontSize: 14,
+    fontWeight: "900",
+    color: "#1A2F3B",
+  },
+
+  statusBox: {
+    backgroundColor: "#F0F4F8",
+    padding: 12,
+    borderRadius: 10,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: "#D1D9E0",
+  },
+  statusBoxText: {
+    fontSize: 13,
+    fontWeight: "bold",
+    color: "#1A2F3B",
+    marginVertical: 3,
+  },
+  codeContainerMini: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#FFF",
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#D1D9E0",
+    marginBottom: 10,
+  },
+  codeValueMini: {
+    fontSize: 16,
+    fontWeight: "900",
+    color: "#1A2F3B",
+    letterSpacing: 2,
+  },
+  whatsappButtonMini: {
+    flexDirection: "row",
+    backgroundColor: "#25D366",
+    borderRadius: 8,
+    paddingVertical: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 15,
+  },
+  whatsappButtonTextMini: {
+    color: "#FFF",
+    fontSize: 14,
+    fontWeight: "bold",
+    marginLeft: 8,
+  },
+  haveCodeLinkTextMini: {
+    color: "#1A2F3B",
+    fontWeight: "bold",
+    fontSize: 13,
+    textAlign: "center",
+    textDecorationLine: "underline",
+  },
+
+  loadingCard: {
+    width: "85%",
+    backgroundColor: "#FFF",
+    borderRadius: 20,
+    padding: 30,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 10,
   },
 });

@@ -1,10 +1,10 @@
 import { FontAwesome5 } from "@expo/vector-icons";
-import { ResizeMode, Video } from "expo-av";
 import Constants from "expo-constants";
 import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
 import {
   collection,
+  deleteDoc,
   doc,
   getDocs,
   increment,
@@ -16,12 +16,13 @@ import {
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Animated,
   Image,
+  Linking,
   Modal,
   Platform,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -29,6 +30,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+// 🚀 CORREÇÃO DO SAFEAREAVIEW: Importação correta da nova biblioteca
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import Svg, { Circle } from "react-native-svg";
 
@@ -40,6 +43,8 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 });
 
@@ -125,7 +130,7 @@ const SegmentedRing = ({ progress = 0, size = 106 }) => {
             cx={size / 2}
             cy={size / 2}
             r={radius}
-            stroke={isLit ? "#E5A93C" : "#D1D9E0"} // 🔥 Ouro Suave para progresso
+            stroke={isLit ? "#E5A93C" : "#D1D9E0"}
             strokeWidth={7}
             fill="none"
             strokeDasharray={`${lineLength} ${gapLength}`}
@@ -449,9 +454,9 @@ export default function HomeScreen({ navigation }: any) {
     ).start();
   }, [floatAnim, pulseAnim, ringPulseAnim]);
 
-  const hasCompletedAnamnesis = userData?.hasCompletedAnamnesis || false;
-  const partnerCompletedAnamnesis = partnerData?.hasCompletedAnamnesis || false;
-  const isPremium = userData?.isPremium || false;
+  const hasCompletedAnamnesis = userData?.hasCompletedAnamnesis ?? false;
+  const partnerCompletedAnamnesis = partnerData?.hasCompletedAnamnesis ?? false;
+  const isPremium = userData?.isPremium ?? false;
   const hasPartner = !!userData?.partnerId;
   const iAmReady = !!userData?.isReadyToStart;
   const partnerIsReady = !!partnerData?.isReadyToStart;
@@ -514,7 +519,10 @@ export default function HomeScreen({ navigation }: any) {
       const idealScrollY = Math.max(0, absoluteY - 250);
       const distance = Math.abs(offsetY - idealScrollY);
 
-      const shouldShow = distance > 300;
+      // 🔥 CORREÇÃO: Reduzimos a distância de 300 para 50!
+      // Agora o botão aparece quase que instantaneamente ao tirar a missão de foco.
+      const shouldShow = distance > 50;
+
       if (shouldShow !== fabVisibleRef.current) {
         fabVisibleRef.current = shouldShow;
         setShowFab(shouldShow);
@@ -628,9 +636,32 @@ export default function HomeScreen({ navigation }: any) {
   const handleCopyCode = async () => {
     setInviteSent(true);
   };
+
   const handleSendInvite = async () => {
-    setInviteSent(true);
+    const message = `Amor, estou investindo na nossa relação porque você é muito importante pra mim. Vamos fazer juntos essa jornada de 90 dias do DuoElo? É só baixar o app e colocar o meu código pra gente dar o match: *${myInviteCode}* 👇\n\nhttps://duoelo.com/app`;
+
+    const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
+
+    try {
+      const canOpen = await Linking.canOpenURL(whatsappUrl);
+      if (canOpen) {
+        await Linking.openURL(whatsappUrl);
+        setInviteSent(true);
+      } else {
+        const webUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+        await Linking.openURL(webUrl);
+        setInviteSent(true);
+      }
+    } catch (error) {
+      console.error("Erro ao abrir WhatsApp", error);
+      Alert.alert(
+        "WhatsApp indisponível",
+        "Não conseguimos abrir o WhatsApp. Por favor, copie o código e envie manualmente.",
+      );
+      setInviteSent(true);
+    }
   };
+
   const handleLinkPartnerCode = async () => {
     const cleanCode = inviteCodeInput.trim().toUpperCase();
 
@@ -715,56 +746,23 @@ export default function HomeScreen({ navigation }: any) {
 
     setTimeout(async () => {
       try {
-        const partnerId = pendingMatchPartner.id;
-        const partnerDataDb = pendingMatchPartner.data;
-
-        const partnerIsPremium = partnerDataDb?.isPremium || false;
-        const currentUserIsPremium = userData?.isPremium || false;
-        const finalPremiumStatus = partnerIsPremium || currentUserIsPremium;
+        if (!currentUid) return;
+        const cleanCode = inviteCodeInput.trim().toUpperCase();
 
         await setDoc(
-          doc(db, "users", currentUid!),
-          {
-            partnerId: partnerId,
-            isPremium: finalPremiumStatus,
-          },
+          doc(db, "users", currentUid),
+          { linkedInviteCode: cleanCode },
           { merge: true },
         );
-
-        await setDoc(
-          doc(db, "users", partnerId),
-          {
-            partnerId: currentUid,
-            isPremium: finalPremiumStatus,
-          },
-          { merge: true },
-        );
-
-        if (partnerDataDb?.pushToken) {
-          sendPushNotificationDirectly(
-            partnerDataDb.pushToken,
-            "Match Perfeito! ❤️",
-            "Sua conta foi conectada com sucesso! Corra para o app e faça o Check-in.",
-          );
-        }
 
         setInviteCodeInput("");
 
-        if (finalPremiumStatus && !currentUserIsPremium) {
-          showCustomAlert(
-            "Match Perfeito! ❤️",
-            "Contas conectadas! Como o seu amor já ativou a jornada, o seu acesso Premium foi liberado instantaneamente.",
-            "gift",
-            "#4BDE95",
-          );
-        } else {
-          showCustomAlert(
-            "Match Realizado! ❤️",
-            "Vocês estão conectados! Avance para a próxima etapa do Check-in.",
-            "heart",
-            "#4BDE95",
-          );
-        }
+        showCustomAlert(
+          "Conectando Almas! ❤️",
+          "Seu pedido foi enviado ao nosso servidor seguro. Em instantes a jornada de vocês estará conectada!",
+          "heart",
+          "#4BDE95",
+        );
       } catch (error) {
         showCustomAlert(
           "Erro de Conexão",
@@ -781,7 +779,22 @@ export default function HomeScreen({ navigation }: any) {
     }, 2800);
   };
 
-  const confirmStartSolo = () => {};
+  const confirmStartSolo = () => {
+    setIsPitStopModalVisible(false);
+
+    setTimeout(() => {
+      showCustomAlert(
+        "Modo Solo 🚀",
+        "Atenção: Ao iniciar a jornada sozinho(a), a opção de vincular a conta de um parceiro(a) será desativada permanentemente nesta trilha.\n\nDeseja gerar suas missões e seguir sozinho(a)?",
+        "user-astronaut",
+        "#E5A93C",
+        "Sim, Iniciar",
+        () => {
+          handleStartSolo();
+        },
+      );
+    }, 400);
+  };
 
   const handleStartSolo = async () => {
     setIsGeneratingJourney(true);
@@ -799,11 +812,10 @@ export default function HomeScreen({ navigation }: any) {
 
     setTimeout(async () => {
       setIsGeneratingJourney(false);
-      setIsPitStopModalVisible(false);
       showCustomAlert(
         "Jornada Solo Gerada! 🚀",
         "Cruzamos os dados da sua avaliação. Sua trilha individual de 90 dias está liberada. Boa sorte!",
-        "user-astronaut",
+        "check-circle",
         "#4BDE95",
       );
     }, 2000);
@@ -953,7 +965,7 @@ export default function HomeScreen({ navigation }: any) {
           matchedMission = { ...matchedMission, displayPhase: stepIndex + 1 };
 
           setActiveMission(matchedMission);
-          setIsReviewMode(isCompleted);
+          setIsReviewMode(Boolean(isCompleted));
           setIsModalVisible(true);
         } else {
           showCustomAlert(
@@ -997,14 +1009,13 @@ export default function HomeScreen({ navigation }: any) {
 
         showCustomAlert(
           "Desafio de Ouro Concluído! 🏆",
-          "O elo de vocês ficou ainda mais forte neste fim de semana. +150 PE adicionados!",
-          "star",
+          "O elo de vocês ficou ainda mais forte neste fim de semana. +150 Bonds gerados!",
+          "infinity",
           "#E5A93C",
         );
         return;
       }
 
-      // Conclusão direta da Missão Diária
       const todayDate = new Date();
       const lastDate = userData?.lastTaskDate
         ? new Date(userData.lastTaskDate)
@@ -1182,7 +1193,7 @@ export default function HomeScreen({ navigation }: any) {
         </View>
 
         <View style={styles.topBarItem}>
-          <FontAwesome5 name="star" solid size={20} color="#E5A93C" />
+          <FontAwesome5 name="infinity" solid size={20} color="#E5A93C" />
           <Text style={[styles.topBarText, { color: "#E5A93C" }]}>
             {userData?.totalPE || 0}
           </Text>
@@ -1439,7 +1450,7 @@ export default function HomeScreen({ navigation }: any) {
               const isNextUp = isTrailUnlocked ? index === currentStep : false;
               const isLocked = !isTrailUnlocked ? true : index > currentStep;
 
-              const bypassDailyLock = userData?.bypassDailyLock || false;
+              const bypassDailyLock = userData?.bypassDailyLock ?? false;
 
               const isWaitingForTomorrow =
                 isNextUp && hasCompletedTaskToday && !bypassDailyLock;
@@ -1499,8 +1510,8 @@ export default function HomeScreen({ navigation }: any) {
                   iconName = "check";
                   iconColor = "#FFF";
                 } else if (isActive) {
-                  faceColor = "#E5A93C"; // Ouro Suave para andamento
-                  baseColor = "#DCA052"; // Sombra do ouro
+                  faceColor = "#E5A93C";
+                  baseColor = "#DCA052";
                   iconColor = "#FFF";
                 } else if (isWaitingForTomorrow) {
                   faceColor = "#E8F4F1";
@@ -1649,7 +1660,7 @@ export default function HomeScreen({ navigation }: any) {
                               }
                             >
                               <FontAwesome5
-                                name="star"
+                                name="infinity"
                                 solid
                                 size={24}
                                 color="#1A2F3B"
@@ -1681,7 +1692,7 @@ export default function HomeScreen({ navigation }: any) {
                           {[1, 2, 3].map((starNum) => (
                             <FontAwesome5
                               key={starNum}
-                              name="star"
+                              name="infinity"
                               solid
                               size={10}
                               color={
@@ -1742,7 +1753,7 @@ export default function HomeScreen({ navigation }: any) {
         </TouchableOpacity>
       )}
 
-      {/* 🔥 MENU INFERIOR - ESTILO DUOLINGO NA PALETA CLINICA */}
+      {/* 🔥 MENU INFERIOR */}
       <View style={styles.bottomMenu}>
         <TouchableOpacity style={[styles.menuItem, styles.menuItemActive]}>
           <FontAwesome5 name="home" size={24} color="#E5A93C" />
@@ -1753,7 +1764,7 @@ export default function HomeScreen({ navigation }: any) {
           onPress={() =>
             showCustomAlert(
               "Loja em Breve! 🛍️",
-              "Nesta loja você poderá trocar seus Pontos PE (Estrelas) por presentes reais, jantares e surpresas para o seu amor!",
+              "Nesta loja você poderá trocar seus Bonds por presentes reais...",
               "store",
               "#4BDE95",
             )
@@ -1831,17 +1842,17 @@ export default function HomeScreen({ navigation }: any) {
             </TouchableOpacity>
           </View>
           <View style={styles.floatingVideoContainer}>
-            <Video
-              source={require("../assets/Jornada_de_90_Dias.mp4")}
-              style={styles.fullscreenVideo}
-              useNativeControls
-              resizeMode={ResizeMode.CONTAIN}
-              shouldPlay={isJourneyVideoVisible}
-              onPlaybackStatusUpdate={(status) => {
-                if (status.isLoaded && status.didJustFinish)
-                  setIsJourneyVideoVisible(false);
+            {/* 🚀 CORREÇÃO 2: Tag de vídeo temporariamente desativada */}
+            <Text
+              style={{
+                color: "#FFF",
+                textAlign: "center",
+                padding: 20,
+                fontSize: 16,
               }}
-            />
+            >
+              O vídeo de instruções está temporariamente indisponível.
+            </Text>
           </View>
         </View>
       </Modal>
@@ -2287,53 +2298,35 @@ export default function HomeScreen({ navigation }: any) {
                 setIsHardResetModalVisible(false);
                 if (currentUid) {
                   try {
-                    if (userData?.partnerId) {
-                      try {
-                        await setDoc(
-                          doc(db, "users", userData.partnerId),
-                          {
-                            partnerId: null,
-                            partnerPhotoURL: null,
-                            partnerPhotoUrl: null,
-                            isReadyToStart: false,
-                          },
-                          { merge: true },
-                        );
-                      } catch (e) {}
-                    }
-                    await setDoc(
-                      doc(db, "users", currentUid),
-                      {
-                        hasCompletedAnamnesis: false,
-                        isPremium: false,
-                        priorityModules: [],
-                        diagnosticTags: [],
-                        anamnesisScores: [],
-                        anamnesisScore: 0,
-                        currentPhase: 1,
-                        currentTaskStep: 0,
-                        totalPE: 0,
-                        streak: 0,
-                        cutucadas: 0,
-                        partnerId: null,
-                        linkedInviteCode: null,
-                        partnerPhotoURL: null,
-                        partnerPhotoUrl: null,
-                        lastTaskDate: null,
-                        isReadyToStart: false,
-                      },
-                      { merge: true },
-                    );
+                    // 1. Mostrar um alerta de carregamento
                     showCustomAlert(
-                      "Auditoria Concluída",
-                      "Sistema limpo com sucesso. Você voltou para o Modo Gratuito / Dia 0.",
-                      "check-circle",
-                      "#4BDE95",
+                      "Limpando o Banco...",
+                      "Aguarde, destruindo todos os dados desta conta.",
+                      "spinner",
+                      "#E5A93C",
                     );
+
+                    // 2. Apagar a subcoleção de Diários
+                    const journalsSnap = await getDocs(
+                      collection(db, "users", currentUid, "journals"),
+                    );
+                    const deletePromises = journalsSnap.docs.map((d) =>
+                      deleteDoc(d.ref),
+                    );
+                    await Promise.all(deletePromises);
+
+                    // 3. Destruir o documento principal do Usuário
+                    await deleteDoc(doc(db, "users", currentUid));
+
+                    // 4. Deslogar o usuário do App
+                    await auth.signOut();
                   } catch (error) {
+                    // 🔥 OLHA O NOSSO ESPIÃO AQUI:
+                    console.error("🕵️ ERRO REAL AO ZERAR O BANCO:", error);
+
                     showCustomAlert(
                       "Erro de Reset",
-                      "Não foi possível resetar os dados.",
+                      "Verifique o terminal do VS Code para ver o motivo exato!",
                       "times-circle",
                       "#D96C6C",
                     );
@@ -2346,7 +2339,7 @@ export default function HomeScreen({ navigation }: any) {
               >
                 <FontAwesome5 name="trash-alt" size={16} color="#FFF" />
                 <Text style={styles.bottomSheetButtonPrimaryText}>
-                  SIM, APAGAR TUDO
+                  SIM, DESTRUIR MINHA CONTA
                 </Text>
               </View>
             </TouchableOpacity>
@@ -2580,7 +2573,7 @@ export default function HomeScreen({ navigation }: any) {
               opacity: 0.8,
             }}
           >
-            A mágica está acontecendo no banco de dados...
+            A mágica está acontecendo no servidor...
           </Text>
         </View>
       </Modal>

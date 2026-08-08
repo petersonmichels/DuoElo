@@ -1,6 +1,10 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import { initializeAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
+
+// Extraímos a função via 'require' para o TypeScript não encher o saco
+const firebaseAuth = require("firebase/auth");
 
 // Credenciais de produção/teste do DuoElo
 const firebaseConfig = {
@@ -15,8 +19,12 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
+// Inicializamos a Autenticação COM persistência local usando a função importada de forma silenciosa
+export const auth = initializeAuth(app, {
+  persistence: firebaseAuth.getReactNativePersistence(AsyncStorage),
+});
+
 // Exportamos as instâncias para usar no resto do app
-export const auth = getAuth(app);
 export const db = getFirestore(app);
 
 // Lá no final do seu arquivo config/firebase.js (junto com os exports)
