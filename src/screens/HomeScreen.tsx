@@ -1,4 +1,5 @@
 import { FontAwesome5 } from "@expo/vector-icons";
+import * as Clipboard from "expo-clipboard";
 import Constants from "expo-constants";
 import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
@@ -156,12 +157,12 @@ const FloatingHearts = () => {
           Animated.timing(anim, {
             toValue: 1,
             duration: 2200,
-            useNativeDriver: false,
+            useNativeDriver: true,
           }),
           Animated.timing(anim, {
             toValue: 0,
             duration: 0,
-            useNativeDriver: false,
+            useNativeDriver: true,
           }),
         ]),
       );
@@ -292,6 +293,8 @@ export default function HomeScreen({ navigation }: any) {
     color: "#202D3A",
     confirmText: "",
     onConfirm: null as any,
+    secondaryText: "",
+    onSecondary: null as any,
   });
 
   const showCustomAlert = (
@@ -301,6 +304,8 @@ export default function HomeScreen({ navigation }: any) {
     color = "#202D3A",
     confirmText = "",
     onConfirm: any = null,
+    secondaryText = "",
+    onSecondary: any = null,
   ) => {
     setCustomAlert({
       visible: true,
@@ -310,6 +315,8 @@ export default function HomeScreen({ navigation }: any) {
       color,
       confirmText,
       onConfirm,
+      secondaryText,
+      onSecondary,
     });
   };
 
@@ -412,12 +419,12 @@ export default function HomeScreen({ navigation }: any) {
         Animated.timing(floatAnim, {
           toValue: -6,
           duration: 1200,
-          useNativeDriver: false,
+          useNativeDriver: true,
         }),
         Animated.timing(floatAnim, {
           toValue: 0,
           duration: 1200,
-          useNativeDriver: false,
+          useNativeDriver: true,
         }),
       ]),
     ).start();
@@ -427,12 +434,12 @@ export default function HomeScreen({ navigation }: any) {
         Animated.timing(pulseAnim, {
           toValue: 1.05,
           duration: 1200,
-          useNativeDriver: false,
+          useNativeDriver: true,
         }),
         Animated.timing(pulseAnim, {
           toValue: 1,
           duration: 1200,
-          useNativeDriver: false,
+          useNativeDriver: true,
         }),
       ]),
     ).start();
@@ -462,13 +469,31 @@ export default function HomeScreen({ navigation }: any) {
   const partnerIsReady = !!partnerData?.isReadyToStart;
 
   const isMatchOrSoloDone = hasPartner || isSoloMode;
+
+  // 🔥 REGRA MATADORA: O Play só habilita se for Solo ou (se for Duo e O PARCEIRO FEZ A AVALIAÇÃO)
+  const canActuallyPlay =
+    isSoloMode || (hasPartner && partnerCompletedAnamnesis);
+
   const isTrailUnlocked =
     hasCompletedAnamnesis &&
     isPremium &&
     iAmReady &&
     (isSoloMode || (partnerIsReady && partnerCompletedAnamnesis));
 
-  const myInviteCode = currentUid?.substring(0, 6).toUpperCase() || "DUE-123";
+  const myInviteCode =
+    userData?.myInviteCode ||
+    currentUid?.substring(0, 6).toUpperCase() ||
+    "DUE-123";
+
+  const handleCopyCode = async () => {
+    await Clipboard.setStringAsync(myInviteCode);
+    showCustomAlert(
+      "Código Copiado! 📋",
+      "O código foi copiado para a área de transferência. Envie para o seu amor!",
+      "copy",
+      "#67D4A8",
+    );
+  };
 
   const scrollToActiveNode = (animated = false) => {
     const targetY = nodePositions[currentStep];
@@ -554,6 +579,7 @@ export default function HomeScreen({ navigation }: any) {
     lastTaskDateObj.getMonth() === today.getMonth() &&
     lastTaskDateObj.getFullYear() === today.getFullYear();
 
+  // 🔥 ALGORITMO INTELIGENTE: GERA MATRIZES DESLOCADAS PARA QUE O CASAL NUNCA RECEBA A MESMA TAREFA NO MESMO DIA
   const generateTrailMatrix = async (
     uid: string,
     partnerId: string | null,
@@ -573,24 +599,26 @@ export default function HomeScreen({ navigation }: any) {
         .sort((a: any, b: any) => a.day - b.day);
       let myPersonalTrail: number[] = [];
 
+      // Checa se os IDs determinam rotação
       let isShifted = false;
       if (!isSolo && partnerId) {
-        isShifted = uid > partnerId;
+        isShifted = uid > partnerId; // Desloca a ordem das tarefas do parceiro com ID alfanumérico superior
       }
 
       for (let i = 0; i < allTasks.length; i += 5) {
         let chunk = allTasks.slice(i, i + 5).map((t) => t.day);
 
         if (isShifted && chunk.length > 1) {
-          const first = chunk.shift();
-          if (first !== undefined) chunk.push(first);
+          // Rotaciona o bloco de 5 dias em 2 posições
+          const firstTwo = chunk.splice(0, 2);
+          chunk.push(...firstTwo);
         }
         myPersonalTrail.push(...chunk);
       }
 
       return myPersonalTrail;
     } catch (error) {
-      console.error("Erro ao gerar matriz:", error);
+      console.error("Erro ao gerar matriz de tarefas:", error);
       return Array.from({ length: 90 }, (_, i) => i + 1);
     }
   };
@@ -599,7 +627,6 @@ export default function HomeScreen({ navigation }: any) {
   const handleSendNudge = async () => {};
   const handleCloseNudges = async () => setIsNotificationsVisible(false);
 
-  // 🔥 COMPARTILHAR WHATSAPP
   const handleSendInvite = async () => {
     const message = `Amor, estou investindo na nossa relação porque você é muito importante pra mim. Vamos fazer juntos essa jornada de 90 dias do DuoElo? É só baixar o app e colar o meu código pra gente dar o match: *${myInviteCode}* 👇\n\nhttps://duoelo.com/app`;
     const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
@@ -620,7 +647,6 @@ export default function HomeScreen({ navigation }: any) {
     }
   };
 
-  // 🔥 BUSCA DUPLA PARA MATCH VIA MODAL (CÓDIGO OU @USERNAME)
   const handleLinkPartnerCode = async () => {
     const rawInput = inviteCodeInput.trim();
 
@@ -638,7 +664,7 @@ export default function HomeScreen({ navigation }: any) {
     setIsMatching(true);
 
     try {
-      const cleanCode = rawInput.toUpperCase();
+      const cleanCode = rawInput.replace(/^@/, "").toUpperCase();
       let q = query(
         collection(db, "users"),
         where("myInviteCode", "==", cleanCode),
@@ -646,7 +672,7 @@ export default function HomeScreen({ navigation }: any) {
       let querySnapshot = await getDocs(q);
 
       if (querySnapshot.empty) {
-        const cleanUsername = rawInput.replace("@", "").toLowerCase();
+        const cleanUsername = rawInput.replace(/^@/, "").toLowerCase();
         q = query(
           collection(db, "users"),
           where("username", "==", cleanUsername),
@@ -1253,7 +1279,7 @@ export default function HomeScreen({ navigation }: any) {
         scrollEventThrottle={16}
       >
         <View style={styles.trailContainer}>
-          {/* 🔥 NÓ 1: AVALIAÇÃO (COM ALERTA AMIGÁVEL PARA EXCLUIR/REFAZER) 🔥 */}
+          {/* NÓ 1: AVALIAÇÃO */}
           <View style={styles.anamnesisNodeContainer}>
             {!hasCompletedAnamnesis && (
               <Animated.View
@@ -1277,24 +1303,43 @@ export default function HomeScreen({ navigation }: any) {
               activeOpacity={0.8}
               onPress={() => {
                 if (hasCompletedAnamnesis) {
-                  if (!isTrailUnlocked) {
+                  if (!isMatchOrSoloDone) {
                     showCustomAlert(
-                      "Diagnóstico Concluído ✅",
-                      "Sua avaliação já foi feita! Caso queira refazer a avaliação do zero, sua avaliação precisa ser excluída.",
-                      "clipboard-check",
-                      "#202D3A",
-                      "Excluir para Refazer",
-                      () => setIsHardResetModalVisible(true),
+                      "Refazer Avaliação?",
+                      "Você já concluiu sua avaliação. Deseja manter o resultado atual ou refazer?",
+                      "heartbeat",
+                      "#EAB64A",
+                      "MANTER AVALIAÇÃO",
+                      () => {},
+                      "Refazer Avaliação",
+                      async () => {
+                        if (currentUid) {
+                          await setDoc(
+                            doc(db, "users", currentUid),
+                            {
+                              hasCompletedAnamnesis: false,
+                              anamnesisScore: null,
+                              diagnosticTagsEncrypted: null,
+                              anamnesisScoresEncrypted: null,
+                              anamnesisCompletedAt: null,
+                            },
+                            { merge: true },
+                          );
+                          navigation.navigate("Anamnesis");
+                        }
+                      },
                     );
                   } else {
                     showCustomAlert(
-                      "Diagnóstico Blindado 🔒",
-                      "A jornada já começou! Focaremos nas missões do mapa.",
-                      "lock",
-                      "#202D3A",
+                      "Diagnóstico Concluído ✅",
+                      "Sua avaliação já foi integrada à jornada do casal.",
+                      "clipboard-check",
+                      "#67D4A8",
                     );
                   }
-                } else navigation.navigate("Anamnesis");
+                } else {
+                  navigation.navigate("Anamnesis");
+                }
               }}
             >
               <FontAwesome5
@@ -1313,7 +1358,7 @@ export default function HomeScreen({ navigation }: any) {
 
           <View style={styles.trailConnector} />
 
-          {/* 🔥 NÓ 2: CADEIA DE MATCH (MUDA PARA VERDE COM CHECK APÓS FEITO) 🔥 */}
+          {/* NÓ 2: CADEIA DE MATCH */}
           <View style={styles.specialNodeContainer}>
             <TouchableOpacity
               style={[
@@ -1323,12 +1368,12 @@ export default function HomeScreen({ navigation }: any) {
                       backgroundColor: "#67D4A8",
                       borderColor: "#E8F4F1",
                       shadowColor: "#67D4A8",
-                    } // 🔥 VERDE MENTA COM CHECK
+                    }
                   : {
                       backgroundColor: "#EAB64A",
                       borderColor: "#FFF9E6",
                       shadowColor: "#EAB64A",
-                    }, // 🔥 OURO VIBRANTE ATRATIVO
+                    },
               ]}
               activeOpacity={0.8}
               onPress={() => {
@@ -1371,10 +1416,9 @@ export default function HomeScreen({ navigation }: any) {
 
           <View style={styles.trailConnector} />
 
-          {/* 🔥 NÓ 3: DAR O PLAY (Só habilita DEPOIS do Match ou Solo) 🔥 */}
+          {/* NÓ 3: DAR O PLAY (COM A TRAVA MATADORA SE O PARCEIRO NÃO FEZ A AVALIAÇÃO) */}
           <View style={styles.specialNodeContainer}>
             {isTrailUnlocked ? (
-              // ✅ TRILHA LIBERADA
               <View style={{ alignItems: "center" }}>
                 <TouchableOpacity
                   style={[
@@ -1388,7 +1432,6 @@ export default function HomeScreen({ navigation }: any) {
                 <Text style={styles.mapLabelText}>Trilha Ativa</Text>
               </View>
             ) : iAmReady ? (
-              // ⏳ EU DEI O PLAY (Esperando o parceiro dar Play)
               <View style={{ alignItems: "center" }}>
                 <TouchableOpacity
                   style={[
@@ -1402,24 +1445,30 @@ export default function HomeScreen({ navigation }: any) {
                 <Text style={styles.mapLabelText}>Aguardando {pName}...</Text>
               </View>
             ) : (
-              // ▶️ BOTÃO DE PLAY (Destravado apenas se isMatchOrSoloDone === true)
               <Animated.View
                 style={{
                   alignItems: "center",
-                  transform: isMatchOrSoloDone
-                    ? [{ scale: pulseAnim }]
-                    : [{ scale: 1 }],
+                  transform:
+                    isMatchOrSoloDone && canActuallyPlay
+                      ? [{ scale: pulseAnim }]
+                      : [{ scale: 1 }],
                 }}
               >
                 <TouchableOpacity
                   style={[
                     styles.startJourneyBtn,
                     isMatchOrSoloDone
-                      ? {
-                          backgroundColor: "#67D4A8",
-                          borderColor: "#E8F4F1",
-                          shadowColor: "#67D4A8",
-                        }
+                      ? canActuallyPlay
+                        ? {
+                            backgroundColor: "#67D4A8",
+                            borderColor: "#E8F4F1",
+                            shadowColor: "#67D4A8",
+                          }
+                        : {
+                            backgroundColor: "#EAB64A",
+                            borderColor: "#FFF9E6",
+                            shadowColor: "#EAB64A",
+                          }
                       : {
                           backgroundColor: "#F0F4F8",
                           borderColor: "#D1D9E0",
@@ -1434,6 +1483,16 @@ export default function HomeScreen({ navigation }: any) {
                       return;
                     }
                     if (hasPartner) {
+                      if (!partnerCompletedAnamnesis) {
+                        showCustomAlert(
+                          "Aguardando o Amor ⏳",
+                          "O parceiro(a) ainda não concluiu a avaliação inicial.\n\nA largada só pode ser dada quando os dois finalizarem o diagnóstico!",
+                          "clipboard-list",
+                          "#EAB64A",
+                          "Entendi",
+                        );
+                        return;
+                      }
                       handleStartHandshake();
                     } else if (isSoloMode) {
                       handleStartSolo();
@@ -1441,25 +1500,37 @@ export default function HomeScreen({ navigation }: any) {
                   }}
                 >
                   <FontAwesome5
-                    name="play"
+                    name={
+                      canActuallyPlay || !isMatchOrSoloDone
+                        ? "play"
+                        : "hourglass-half"
+                    }
                     size={28}
                     color={isMatchOrSoloDone ? "#FFF" : "#AFAFAF"}
-                    style={{ marginLeft: 4 }}
+                    style={
+                      canActuallyPlay || !isMatchOrSoloDone
+                        ? { marginLeft: 4 }
+                        : {}
+                    }
                   />
                 </TouchableOpacity>
                 <Text
                   style={[
                     styles.mapLabelText,
                     !isMatchOrSoloDone && { color: "#AFAFAF" },
+                    isMatchOrSoloDone &&
+                      !canActuallyPlay && { color: "#EAB64A" },
                   ]}
                 >
-                  Dar o Play
+                  {isMatchOrSoloDone && !canActuallyPlay
+                    ? "Aguardando Avaliação"
+                    : "Dar o Play"}
                 </Text>
               </Animated.View>
             )}
           </View>
 
-          {/* 🔥 4. A TRILHA DE 90 DIAS (OPACIDADE SE BLOQUEADA) 🔥 */}
+          {/* TRILHA DE 90 DIAS */}
           <View
             style={[
               styles.nodesWrapper,
@@ -1837,7 +1908,7 @@ export default function HomeScreen({ navigation }: any) {
         </TouchableOpacity>
       </Modal>
 
-      {/* 🔥 MODAL DE CONECTAR MATCH OU ESCOLHER SOLO (COM WHATSAPP MANTIDO) 🔥 */}
+      {/* MODAL DE CONECTAR MATCH OU ESCOLHER SOLO (COM CÓDIGO COPIÁVEL DENTRO) */}
       <Modal visible={isInviteModalVisible} transparent animationType="fade">
         <View style={styles.modalOverlayCenter}>
           <View style={styles.codeModalCard}>
@@ -1847,9 +1918,21 @@ export default function HomeScreen({ navigation }: any) {
               jornada.
             </Text>
 
+            {/* CARD DO PRÓPRIO CÓDIGO COM CLIQUE PARA COPIAR */}
+            <View style={styles.myCodeBox}>
+              <Text style={styles.myCodeLabel}>SEU CÓDIGO DE MATCH:</Text>
+              <TouchableOpacity
+                style={styles.myCodeRow}
+                onPress={handleCopyCode}
+              >
+                <Text style={styles.myCodeValue}>{myInviteCode}</Text>
+                <FontAwesome5 name="copy" size={18} color="#202D3A" />
+              </TouchableOpacity>
+            </View>
+
             <TextInput
               style={styles.codeInputField}
-              placeholder="Código ou @username"
+              placeholder="Código ou @username do amor"
               placeholderTextColor="#AFAFAF"
               autoCapitalize="none"
               value={inviteCodeInput}
@@ -1868,7 +1951,6 @@ export default function HomeScreen({ navigation }: any) {
               )}
             </TouchableOpacity>
 
-            {/* 🔥 BOTAO WHATSAPP MANTIDO */}
             <TouchableOpacity
               style={styles.whatsappButtonMini}
               onPress={handleSendInvite}
@@ -1888,7 +1970,6 @@ export default function HomeScreen({ navigation }: any) {
               }}
             />
 
-            {/* 🔥 MODO SOLO DENTRO DO MATCH */}
             <TouchableOpacity
               style={[
                 styles.cancelLinkButton,
@@ -2362,46 +2443,36 @@ export default function HomeScreen({ navigation }: any) {
             <Text style={styles.bottomSheetTitle}>{customAlert.title}</Text>
             <Text style={styles.bottomSheetText}>{customAlert.message}</Text>
 
-            {customAlert.confirmText ? (
-              <View style={{ width: "100%", gap: 10, marginTop: 10 }}>
-                <TouchableOpacity
-                  style={[
-                    styles.bottomSheetButtonPrimary,
-                    { backgroundColor: customAlert.color },
-                  ]}
-                  onPress={() => {
-                    setCustomAlert({ ...customAlert, visible: false });
-                    if (customAlert.onConfirm) customAlert.onConfirm();
-                  }}
-                >
-                  <Text style={styles.bottomSheetButtonPrimaryText}>
-                    {customAlert.confirmText}
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.bottomSheetButtonSecondary}
-                  onPress={() =>
-                    setCustomAlert({ ...customAlert, visible: false })
-                  }
-                >
-                  <Text style={styles.bottomSheetButtonSecondaryText}>
-                    Cancelar
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
+            <View style={{ width: "100%", gap: 10, marginTop: 10 }}>
               <TouchableOpacity
                 style={[
                   styles.bottomSheetButtonPrimary,
-                  { backgroundColor: customAlert.color, marginTop: 10 },
+                  { backgroundColor: customAlert.color },
                 ]}
-                onPress={() =>
-                  setCustomAlert({ ...customAlert, visible: false })
-                }
+                onPress={() => {
+                  setCustomAlert({ ...customAlert, visible: false });
+                  if (customAlert.onConfirm) customAlert.onConfirm();
+                }}
               >
-                <Text style={styles.bottomSheetButtonPrimaryText}>Entendi</Text>
+                <Text style={styles.bottomSheetButtonPrimaryText}>
+                  {customAlert.confirmText || "Entendi"}
+                </Text>
               </TouchableOpacity>
-            )}
+
+              {customAlert.secondaryText ? (
+                <TouchableOpacity
+                  style={styles.bottomSheetButtonSecondary}
+                  onPress={() => {
+                    setCustomAlert({ ...customAlert, visible: false });
+                    if (customAlert.onSecondary) customAlert.onSecondary();
+                  }}
+                >
+                  <Text style={styles.bottomSheetButtonSecondaryText}>
+                    {customAlert.secondaryText}
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
           </View>
         </View>
       </Modal>
@@ -2521,73 +2592,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingTop: 20,
     paddingBottom: 120,
-  },
-  intelligentCard: {
-    width: "85%",
-    backgroundColor: "#E8F4F1",
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 2,
-    borderColor: "#67D4A8",
-    marginBottom: 10,
-    shadowColor: "#67D4A8",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  intelligentCardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  intelligentCardIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "#202D3A",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 10,
-  },
-  intelligentCardTitle: {
-    fontFamily: "Montserrat_900Black",
-    fontSize: 18,
-    color: "#202D3A",
-  },
-  intelligentCardSub: {
-    fontFamily: "Montserrat_400Regular",
-    fontSize: 13,
-    color: "#2C3E50",
-    marginBottom: 15,
-    lineHeight: 18,
-  },
-  intelligentCardInputRow: { flexDirection: "row", gap: 10 },
-  intelligentCardInput: {
-    fontFamily: "Montserrat_700Bold",
-    flex: 1,
-    backgroundColor: "#FFF",
-    borderRadius: 10,
-    paddingHorizontal: 15,
-    fontSize: 15,
-    color: "#202D3A",
-    borderWidth: 1,
-    borderColor: "#67D4A8",
-    textAlign: "center",
-    letterSpacing: 1,
-  },
-  intelligentCardBtn: {
-    backgroundColor: "#202D3A",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 10,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  intelligentCardBtnText: {
-    fontFamily: "Montserrat_900Black",
-    color: "#FFF",
-    fontSize: 14,
   },
   trailConnector: {
     width: 2,
@@ -2891,6 +2895,36 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 20,
   },
+
+  myCodeBox: {
+    width: "100%",
+    backgroundColor: "#FFF9E6",
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: "#EAB64A",
+    padding: 12,
+    alignItems: "center",
+    marginBottom: 15,
+  },
+  myCodeLabel: {
+    fontSize: 10,
+    fontFamily: "Montserrat_900Black",
+    color: "#60646C",
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+  myCodeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  myCodeValue: {
+    fontSize: 18,
+    fontFamily: "Montserrat_900Black",
+    color: "#202D3A",
+    letterSpacing: 2,
+  },
+
   codeInputField: {
     fontFamily: "Montserrat_700Bold",
     width: "100%",

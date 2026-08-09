@@ -2,7 +2,16 @@ import { FontAwesome5 } from "@expo/vector-icons";
 import {
   createUserWithEmailAndPassword,
   sendEmailVerification,
+  signOut,
 } from "firebase/auth";
+import {
+  collection,
+  doc,
+  getDocs,
+  query,
+  setDoc,
+  where,
+} from "firebase/firestore";
 import { useState } from "react";
 import {
   ActivityIndicator,
@@ -16,9 +25,9 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-// 🔥 Importação correta e moderna do SafeAreaView
+
 import { SafeAreaView } from "react-native-safe-area-context";
-import { auth } from "../config/firebase";
+import { auth, authControls, db } from "../config/firebase";
 
 // Adaptador de Alertas para funcionar perfeitamente na Web e no Celular
 const showAlert = (title: string, message: string) => {
@@ -30,13 +39,28 @@ const showAlert = (title: string, message: string) => {
 };
 
 export default function RegisterScreen({ navigation }: any) {
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   const handleRegister = async () => {
-    if (!email || !password) {
-      showAlert("Atenção", "Preencha e-mail e senha para continuar.");
+    const cleanEmail = email.trim();
+    const cleanUsername = username
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9_]/g, "");
+
+    if (!cleanEmail || !password || !cleanUsername) {
+      showAlert("Atenção", "Preencha todos os campos para continuar.");
+      return;
+    }
+
+    if (cleanUsername.length < 3) {
+      showAlert(
+        "Nome de Usuário Curto",
+        "O seu @username deve ter pelo menos 3 caracteres.",
+      );
       return;
     }
 
@@ -48,24 +72,67 @@ export default function RegisterScreen({ navigation }: any) {
     setIsLoading(true);
 
     try {
-      // 1. Cria o usuário no Firebase
+      // 1. Verifica se o @username já está em uso no Firestore
+      const usernameQuery = query(
+        collection(db, "users"),
+        where("username", "==", cleanUsername),
+      );
+      const usernameSnap = await getDocs(usernameQuery);
+
+      if (!usernameSnap.empty) {
+        setIsLoading(false);
+        showAlert(
+          "Nome Indisponível",
+          "Este @username já está sendo usado. Por favor, escolha outro.",
+        );
+        return;
+      }
+
+      // 2. Trava a transição automática do AppNavigator durante a criação
+      if (authControls) authControls.isCreatingAccount = true;
+
+      // 3. Cria o usuário no Firebase Auth
       const userCredential = await createUserWithEmailAndPassword(
         auth,
-        email.trim(),
+        cleanEmail,
         password,
       );
+      const uid = userCredential.user.uid;
 
-      // 2. Envia o e-mail de verificação oficial do Firebase
+      // 4. Cria o documento oficial no Firestore com todos os dados padrão do DuoElo
+      const myGeneratedCode = uid.substring(0, 6).toUpperCase();
+      const userDataToSave: any = {
+        email: cleanEmail,
+        username: cleanUsername,
+        myInviteCode: myGeneratedCode,
+        createdAt: new Date().toISOString(),
+        isPremium: false,
+        hasCompletedAnamnesis: false,
+        totalPE: 0,
+        streak: 0,
+        currentPhase: 1,
+        currentTaskStep: 0,
+        partnerId: null,
+      };
+
+      await setDoc(doc(db, "users", uid), userDataToSave, { merge: true });
+
+      // 5. Envia o e-mail de verificação oficial do Firebase
       await sendEmailVerification(userCredential.user);
+
+      // 6. Libera a trava de segurança e desloga o usuário para fazê-lo confirmar o e-mail antes de entrar
+      if (authControls) authControls.isCreatingAccount = false;
+      await signOut(auth);
 
       showAlert(
         "Conta Criada com Sucesso! 🎉",
         "Enviamos um link de confirmação para o seu e-mail. Por favor, verifique sua caixa de entrada (e o spam) antes de entrar.",
       );
 
-      // Volta para o login após criar a conta
+      // Volta para a tela de login
       navigation.goBack();
     } catch (error: any) {
+      if (authControls) authControls.isCreatingAccount = false;
       let errorMessage = "Ocorreu um erro ao tentar criar a conta.";
 
       if (error.code === "auth/email-already-in-use") {
@@ -106,6 +173,26 @@ export default function RegisterScreen({ navigation }: any) {
           </View>
 
           <View style={styles.formContainer}>
+            {/* CAMPO DE USERNAME */}
+            <View style={styles.inputGroup}>
+              <FontAwesome5
+                name="at"
+                size={16}
+                color="#60646C"
+                style={styles.inputIcon}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Nome de usuário (ex: joao_silva)"
+                placeholderTextColor="#AFAFAF"
+                value={username}
+                onChangeText={setUsername}
+                autoCapitalize="none"
+                editable={!isLoading}
+              />
+            </View>
+
+            {/* CAMPO DE E-MAIL */}
             <View style={styles.inputGroup}>
               <FontAwesome5
                 name="envelope"
@@ -125,6 +212,7 @@ export default function RegisterScreen({ navigation }: any) {
               />
             </View>
 
+            {/* CAMPO DE SENHA */}
             <View style={styles.inputGroup}>
               <FontAwesome5
                 name="lock"

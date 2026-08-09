@@ -32,7 +32,7 @@ const { width } = Dimensions.get("window");
 
 export default function MissionExecutionScreen({
   mission,
-  userLanguage,
+  userLanguage = "pt-BR",
   onClose,
   onComplete,
   isReviewMode,
@@ -183,6 +183,7 @@ export default function MissionExecutionScreen({
     };
   }, [isReviewMode, mission]);
 
+  // 🔥 Otimizado para Native Driver na animação do Loop
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
@@ -190,13 +191,13 @@ export default function MissionExecutionScreen({
           toValue: 1.05,
           duration: 1000,
           easing: Easing.inOut(Easing.ease),
-          useNativeDriver: false,
+          useNativeDriver: true,
         }),
         Animated.timing(pulseAnim, {
           toValue: 1,
           duration: 1000,
           easing: Easing.inOut(Easing.ease),
-          useNativeDriver: false,
+          useNativeDriver: true,
         }),
       ]),
     ).start();
@@ -257,6 +258,7 @@ export default function MissionExecutionScreen({
   };
 
   const handleFinish = async () => {
+    if (isFinishing) return;
     setIsFinishing(true);
     await onComplete(journalEntry);
   };
@@ -677,6 +679,7 @@ export default function MissionExecutionScreen({
                   textAlignVertical="top"
                   value={journalEntry}
                   onChangeText={setJournalEntry}
+                  editable={!isFinishing}
                 />
                 <FontAwesome5
                   name="book-open"
@@ -718,6 +721,7 @@ export default function MissionExecutionScreen({
                           backgroundColor: "#EAB64A",
                           shadowColor: "#EAB64A",
                         },
+                        isFinishing && { opacity: 0.7 },
                       ]}
                       activeOpacity={0.8}
                       onPress={handleFinish}
@@ -740,7 +744,9 @@ export default function MissionExecutionScreen({
                 </Animated.View>
               </View>
 
-              <Text style={styles.bigCheckLabel}>MARCAR COMO CUMPRIDA</Text>
+              <Text style={styles.bigCheckLabel}>
+                {isFinishing ? "FINALIZANDO..." : "MARCAR COMO CUMPRIDA"}
+              </Text>
             </View>
           )}
         </Animated.View>

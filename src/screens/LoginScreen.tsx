@@ -1,4 +1,5 @@
 import { FontAwesome5 } from "@expo/vector-icons";
+import * as Clipboard from "expo-clipboard";
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -21,6 +22,7 @@ import {
   Easing,
   Image,
   KeyboardAvoidingView,
+  Linking,
   Modal,
   Platform,
   ScrollView,
@@ -30,23 +32,23 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-// 🔥 IMPORTAÇÃO MODERNA E CORRETA DO SAFE AREA
 import { SafeAreaView } from "react-native-safe-area-context";
 import { auth, authControls, db } from "../config/firebase";
 
 const { width } = Dimensions.get("window");
 
 export default function LoginScreen({ navigation }: any) {
-  const [isLogin, setIsLogin] = useState(false);
+  const [isLogin, setIsLogin] = useState(true);
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [inviteCode, setInviteCode] = useState("");
+  const [inviteCodeInput, setInviteCodeInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isMatchingLogin, setIsMatchingLogin] = useState(false);
 
   const [currentUserData, setCurrentUserData] = useState<any>(null);
 
-  // 🔥 ESTADOS PARA A ANIMAÇÃO E CONFIRMAÇÃO DO MATCH
+  // ESTADOS PARA A ANIMAÇÃO E CONFIRMAÇÃO DO MATCH
   const [pendingMatchPartner, setPendingMatchPartner] = useState<any>(null);
   const [isMatchConfirmationVisible, setIsMatchConfirmationVisible] =
     useState(false);
@@ -61,8 +63,10 @@ export default function LoginScreen({ navigation }: any) {
     message: "",
     icon: "info-circle",
     color: "#202D3A",
-    showButton: false,
+    confirmText: "Entendi",
     onConfirm: null as (() => void) | null,
+    secondaryText: "",
+    onSecondary: null as (() => void) | null,
   });
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -70,7 +74,6 @@ export default function LoginScreen({ navigation }: any) {
   const floatAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  // 🔥 PALETA CLÍNICA APLICADA: Azul-Petróleo para Login (Estabilidade), Ouro Suave para Criar (Acolhimento)
   const btnColor = isLogin ? "#202D3A" : "#EAB64A";
   const btnIcon = isLogin ? "sign-in-alt" : "arrow-right";
   const btnTextColor = isLogin ? "#FFF" : "#202D3A";
@@ -131,8 +134,10 @@ export default function LoginScreen({ navigation }: any) {
     message: string,
     icon = "info-circle",
     color = "#202D3A",
-    showButton = false,
+    confirmText = "Entendi",
     onConfirm: (() => void) | null = null,
+    secondaryText = "",
+    onSecondary: (() => void) | null = null,
   ) => {
     setCustomAlert({
       visible: true,
@@ -140,15 +145,109 @@ export default function LoginScreen({ navigation }: any) {
       message,
       icon,
       color,
-      showButton,
+      confirmText,
       onConfirm,
+      secondaryText,
+      onSecondary,
     });
+  };
 
-    if (!showButton) {
-      setTimeout(() => {
-        setCustomAlert((prev) => ({ ...prev, visible: false }));
-        if (onConfirm) onConfirm();
-      }, 2500);
+  const handleCopyCode = async () => {
+    const codeToCopy = currentUserData?.myInviteCode || "DUE-XXX";
+    await Clipboard.setStringAsync(codeToCopy);
+    showCustomAlert(
+      "Copiado!",
+      "Código copiado para a área de transferência.",
+      "copy",
+      "#67D4A8",
+    );
+  };
+
+  const handleSendInvite = async () => {
+    const myCode = currentUserData?.myInviteCode || "DUE-123";
+    const message = `Amor, estou investindo na nossa relação. Vamos fazer juntos a jornada de 90 dias do DuoElo? Baixe o app e use o meu código pra gente dar o match: *${myCode}* 👇\n\nhttps://duoelo.com/app`;
+    const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
+
+    try {
+      const canOpen = await Linking.canOpenURL(whatsappUrl);
+      if (canOpen) {
+        await Linking.openURL(whatsappUrl);
+      } else {
+        const webUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+        await Linking.openURL(webUrl);
+      }
+    } catch (error) {
+      showCustomAlert(
+        "Erro",
+        "Não conseguimos abrir o WhatsApp. Envie o código manualmente.",
+        "exclamation-triangle",
+        "#EAB64A",
+      );
+    }
+  };
+
+  const handleLinkPartnerCodeInLogin = async () => {
+    const rawInput = inviteCodeInput.trim();
+
+    if (rawInput.length < 3) {
+      showCustomAlert(
+        "Atenção",
+        "Digite um código ou @username válido.",
+        "exclamation-triangle",
+        "#EAB64A",
+      );
+      return;
+    }
+
+    setIsMatchingLogin(true);
+
+    try {
+      const cleanCode = rawInput.replace(/^@/, "").toUpperCase();
+      let q = query(
+        collection(db, "users"),
+        where("myInviteCode", "==", cleanCode),
+      );
+      let querySnapshot = await getDocs(q);
+
+      if (querySnapshot.empty) {
+        const cleanUsername = rawInput.replace(/^@/, "").toLowerCase();
+        q = query(
+          collection(db, "users"),
+          where("username", "==", cleanUsername),
+        );
+        querySnapshot = await getDocs(q);
+      }
+
+      if (querySnapshot.empty) {
+        showCustomAlert(
+          "Match Não Encontrado",
+          "Não encontramos ninguém com esse código ou @username.",
+          "search-minus",
+          "#EAB64A",
+        );
+        setIsMatchingLogin(false);
+        return;
+      }
+
+      const partnerDoc = querySnapshot.docs[0];
+      const partnerDataDb = partnerDoc.data();
+      const partnerId = partnerDoc.id;
+
+      setPendingMatchPartner({
+        id: partnerId,
+        data: partnerDataDb,
+        isNewUser: false,
+      });
+      setIsMatchConfirmationVisible(true);
+    } catch (error) {
+      showCustomAlert(
+        "Erro de Conexão",
+        "Ocorreu um problema ao buscar o usuário.",
+        "times-circle",
+        "#D96C6C",
+      );
+    } finally {
+      setIsMatchingLogin(false);
     }
   };
 
@@ -161,18 +260,19 @@ export default function LoginScreen({ navigation }: any) {
         "Sucesso! Agora faça o login com sua nova conta para acessar a jornada.",
         "check-circle",
         "#67D4A8",
-        false,
+        "ENTRAR",
         () => setIsLogin(true),
       );
     } else {
       setIsLoading(false);
+      if (navigation && navigation.navigate) {
+        navigation.navigate("MainTabs", { screen: "Home" });
+      }
     }
   };
 
   const handleAuth = async () => {
-    const cleanEmail = email.trim();
-    const cleanCode = inviteCode.trim().toUpperCase();
-
+    const cleanEmail = email.trim().toLowerCase();
     const cleanUsername = username
       .trim()
       .toLowerCase()
@@ -184,7 +284,6 @@ export default function LoginScreen({ navigation }: any) {
         "Preencha todos os campos obrigatórios para continuar.",
         "exclamation-triangle",
         "#EAB64A",
-        false,
       );
       return;
     }
@@ -195,7 +294,6 @@ export default function LoginScreen({ navigation }: any) {
         "Seu nome de usuário deve ter pelo menos 3 caracteres.",
         "user",
         "#EAB64A",
-        false,
       );
       return;
     }
@@ -206,7 +304,6 @@ export default function LoginScreen({ navigation }: any) {
         "Sua senha deve ter pelo menos 6 caracteres.",
         "lock",
         "#EAB64A",
-        false,
       );
       return;
     }
@@ -218,6 +315,7 @@ export default function LoginScreen({ navigation }: any) {
       let isNewUser = false;
 
       if (isLogin) {
+        // 🔥 EXECUTA O LOGIN NO FIREBASE AUTH
         const userCred = await signInWithEmailAndPassword(
           auth,
           cleanEmail,
@@ -225,6 +323,7 @@ export default function LoginScreen({ navigation }: any) {
         );
         uid = userCred.user.uid;
       } else {
+        // 🔥 EXECUTA O CADASTRO NO FIREBASE AUTH
         const usernameQuery = query(
           collection(db, "users"),
           where("username", "==", cleanUsername),
@@ -238,7 +337,6 @@ export default function LoginScreen({ navigation }: any) {
             "Este @username já está sendo usado. Por favor, escolha outro.",
             "user-times",
             "#EAB64A",
-            false,
           );
           return;
         }
@@ -277,72 +375,60 @@ export default function LoginScreen({ navigation }: any) {
         : { email: cleanEmail, isPremium: false };
       setCurrentUserData(myData);
 
-      if (cleanCode.length > 0) {
-        const q = query(
-          collection(db, "users"),
-          where("myInviteCode", "==", cleanCode),
-        );
-        const snap = await getDocs(q);
-
-        if (!snap.empty) {
-          const partnerId = snap.docs[0].id;
-          const partnerData = snap.docs[0].data();
-
-          if (partnerId !== uid) {
-            setPendingMatchPartner({
-              id: partnerId,
-              data: partnerData,
-              isNewUser,
-              uid,
-            });
-            setIsLoading(false);
-            setIsMatchConfirmationVisible(true);
-            return;
-          }
-        } else {
-          showCustomAlert(
-            "Match Não Encontrado",
-            "O código inserido não existe. Prosseguindo...",
-            "search-minus",
-            "#EAB64A",
-            false,
-          );
-        }
-      }
-
       finalizeAuth(isNewUser);
     } catch (error: any) {
       if (authControls) authControls.isCreatingAccount = false;
       setIsLoading(false);
-      console.error("ERRO DE AUTH:", error);
+      console.error("ERRO DE AUTH:", error.code || error.message);
 
       if (error.code === "auth/email-already-in-use") {
         showCustomAlert(
-          "Bem-vindo de volta! 👋",
-          "Este e-mail já está cadastrado. Estamos te redirecionando para a área de Login.",
+          "E-mail Cadastrado 👋",
+          "Este e-mail já possui conta no DuoElo. Alterne para a aba de Login para entrar.",
           "info-circle",
           "#202D3A",
-          false,
+          "IR PARA LOGIN",
           () => setIsLogin(true),
         );
-      } else {
-        let msg = "Ocorreu um erro inesperado.";
-
-        if (
-          error.code === "auth/invalid-credential" ||
-          error.code === "auth/user-not-found" ||
-          error.code === "auth/wrong-password"
-        ) {
-          msg = "E-mail não encontrado ou senha incorreta.";
-        } else if (error.code === "auth/too-many-requests") {
-          msg = "Muitas tentativas. Aguarde um momento.";
-        } else if (error.code === "auth/invalid-email") {
-          msg = "Formato de e-mail inválido.";
-        } else if (error.message) {
-          msg = `Erro interno: ${error.code || error.message}`;
+      } else if (
+        error.code === "auth/invalid-credential" ||
+        error.code === "auth/user-not-found" ||
+        error.code === "auth/wrong-password"
+      ) {
+        if (isLogin) {
+          // 🔥 QUANDO O LOGIN FALHAR (CONTA NÃO EXISTE OU DADOS INCORRETOS)
+          showCustomAlert(
+            "Conta não encontrada! 🧐",
+            `Não encontramos uma conta para "${cleanEmail}" ou a senha está incorreta.\n\nDeseja criar uma nova conta agora?`,
+            "user-plus",
+            "#EAB64A",
+            "CRIAR CONTA",
+            () => setIsLogin(false), // Alterne para a tela de Cadastro mantendo o e-mail
+            "Tentar Novamente",
+            () => {},
+          );
+        } else {
+          showCustomAlert(
+            "Erro de Cadastro",
+            "Verifique as informações digitadas e tente novamente.",
+            "times-circle",
+            "#D96C6C",
+          );
         }
-
-        showCustomAlert("Ops!", msg, "times-circle", "#D96C6C", false);
+      } else if (error.code === "auth/too-many-requests") {
+        showCustomAlert(
+          "Bloqueio Temporário",
+          "Muitas tentativas sem sucesso. Aguarde alguns instantes antes de tentar novamente.",
+          "hourglass-half",
+          "#EAB64A",
+        );
+      } else {
+        showCustomAlert(
+          "Ops!",
+          "Ocorreu um erro de autenticação. Verifique sua conexão.",
+          "times-circle",
+          "#D96C6C",
+        );
       }
     }
   };
@@ -366,11 +452,26 @@ export default function LoginScreen({ navigation }: any) {
 
     setTimeout(async () => {
       try {
-        const partnerId = pendingMatchPartner.id;
-        const partnerDataDb = pendingMatchPartner.data;
-        const userId = pendingMatchPartner.uid;
+        const cleanEmail = email.trim().toLowerCase();
 
-        if (userId) {
+        let userId = auth.currentUser?.uid;
+        if (!userId && cleanEmail && password) {
+          try {
+            const userCred = await signInWithEmailAndPassword(
+              auth,
+              cleanEmail,
+              password,
+            );
+            userId = userCred.user.uid;
+          } catch (e) {
+            console.log("Usuário não autenticado antes do match:", e);
+          }
+        }
+
+        const partnerId = pendingMatchPartner?.id;
+        const partnerDataDb = pendingMatchPartner?.data;
+
+        if (userId && partnerId) {
           const partnerIsPremium = partnerDataDb?.isPremium || false;
           const currentUserIsPremium = currentUserData?.isPremium || false;
           const finalPremiumStatus = partnerIsPremium || currentUserIsPremium;
@@ -390,8 +491,8 @@ export default function LoginScreen({ navigation }: any) {
         console.error("Erro ao finalizar o match na animação:", e);
       } finally {
         setIsMatchAnimationVisible(false);
-        setInviteCode("");
-        finalizeAuth(pendingMatchPartner.isNewUser);
+        setInviteCodeInput("");
+        finalizeAuth(Boolean(pendingMatchPartner?.isNewUser));
         setPendingMatchPartner(null);
         matchAnimTranslateX.setValue(0);
         matchHeartScale.setValue(0);
@@ -405,7 +506,6 @@ export default function LoginScreen({ navigation }: any) {
       `O login com ${provider} será ativado na próxima fase.`,
       "clock",
       "#AFAFAF",
-      false,
     );
   };
 
@@ -522,7 +622,6 @@ export default function LoginScreen({ navigation }: any) {
                     "Em breve.",
                     "envelope",
                     "#202D3A",
-                    false,
                   )
                 }
               >
@@ -532,24 +631,48 @@ export default function LoginScreen({ navigation }: any) {
               </TouchableOpacity>
             )}
 
-            <View style={styles.inviteBox}>
-              <View style={styles.inviteHeader}>
-                <FontAwesome5 name="heart" solid size={16} color="#67D4A8" />
-                <Text style={styles.inviteTitle}>Conexão DuoElo</Text>
+            {/* SEÇÃO MATCH EXCLUSIVA PARA O LOGIN */}
+            {isLogin && (
+              <View style={styles.sectionMatchContainer}>
+                <Text style={styles.matchSectionTitle}>
+                  2. JÁ TEM UM CÓDIGO OU @?
+                </Text>
+                <View style={styles.matchCardGreen}>
+                  <Text style={styles.matchCardDesc}>
+                    Cole o código ou o @username do seu parceiro(a) abaixo para
+                    dar o Match.
+                  </Text>
+
+                  <View style={styles.inputRow}>
+                    <TextInput
+                      style={styles.matchInput}
+                      placeholder="Código ou @username"
+                      placeholderTextColor="#AFAFAF"
+                      autoCapitalize="none"
+                      value={inviteCodeInput}
+                      onChangeText={setInviteCodeInput}
+                    />
+                    <TouchableOpacity
+                      style={[
+                        styles.btnActionConnect,
+                        (!inviteCodeInput || isMatchingLogin) &&
+                          styles.btnDisabled,
+                      ]}
+                      onPress={handleLinkPartnerCodeInLogin}
+                      disabled={
+                        isMatchingLogin || inviteCodeInput.trim().length < 3
+                      }
+                    >
+                      {isMatchingLogin ? (
+                        <ActivityIndicator size="small" color="#FFF" />
+                      ) : (
+                        <Text style={styles.btnActionText}>Conectar</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </View>
               </View>
-              <Text style={styles.inviteDesc}>
-                Se possui o código de match do parceiro(a), insira aqui antes de{" "}
-                {isLogin ? "entrar" : "criar a conta"}.
-              </Text>
-              <TextInput
-                style={styles.inviteInput}
-                placeholder="Código de Match (Opcional)"
-                placeholderTextColor="#AFAFAF"
-                autoCapitalize="characters"
-                value={inviteCode}
-                onChangeText={setInviteCode}
-              />
-            </View>
+            )}
 
             <Animated.View
               style={[
@@ -694,9 +817,8 @@ export default function LoginScreen({ navigation }: any) {
               style={styles.cancelLinkButton}
               onPress={() => {
                 setIsMatchConfirmationVisible(false);
-                finalizeAuth(pendingMatchPartner.isNewUser);
                 setPendingMatchPartner(null);
-                setInviteCode("");
+                setInviteCodeInput("");
               }}
             >
               <Text style={styles.cancelLinkButtonText}>
@@ -855,11 +977,12 @@ export default function LoginScreen({ navigation }: any) {
               opacity: 0.8,
             }}
           >
-            A mágica está acontecendo no banco de dados...
+            A mágica está acontecendo no servidor...
           </Text>
         </View>
       </Modal>
 
+      {/* MODAL DE ALERTAS COM SUPORTE A BOTAO SECUNDARIO */}
       <Modal visible={customAlert.visible} transparent animationType="fade">
         <View style={styles.bottomSheetOverlay}>
           <View style={styles.bottomSheetContainer}>
@@ -881,20 +1004,36 @@ export default function LoginScreen({ navigation }: any) {
             <Text style={styles.bottomSheetTitle}>{customAlert.title}</Text>
             <Text style={styles.bottomSheetText}>{customAlert.message}</Text>
 
-            {customAlert.showButton && (
+            <View style={{ width: "100%", gap: 10, marginTop: 10 }}>
               <TouchableOpacity
                 style={[
                   styles.bottomSheetButtonPrimary,
-                  { backgroundColor: customAlert.color, marginTop: 10 },
+                  { backgroundColor: customAlert.color },
                 ]}
                 onPress={() => {
                   setCustomAlert({ ...customAlert, visible: false });
                   if (customAlert.onConfirm) customAlert.onConfirm();
                 }}
               >
-                <Text style={styles.bottomSheetButtonPrimaryText}>Entendi</Text>
+                <Text style={styles.bottomSheetButtonPrimaryText}>
+                  {customAlert.confirmText || "Entendi"}
+                </Text>
               </TouchableOpacity>
-            )}
+
+              {customAlert.secondaryText ? (
+                <TouchableOpacity
+                  style={styles.bottomSheetButtonSecondary}
+                  onPress={() => {
+                    setCustomAlert({ ...customAlert, visible: false });
+                    if (customAlert.onSecondary) customAlert.onSecondary();
+                  }}
+                >
+                  <Text style={styles.bottomSheetButtonSecondaryText}>
+                    {customAlert.secondaryText}
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
           </View>
         </View>
       </Modal>
@@ -968,11 +1107,96 @@ const styles = StyleSheet.create({
     color: "#202D3A",
     fontFamily: "Montserrat_600SemiBold",
   },
-  forgotPasswordBtn: { alignSelf: "flex-end", marginBottom: 20, marginTop: -5 },
+  forgotPasswordBtn: { alignSelf: "flex-end", marginBottom: 15, marginTop: -5 },
   forgotPasswordText: {
     color: "#60646C",
     fontSize: 14,
     fontFamily: "Montserrat_700Bold",
+  },
+
+  // ESTILOS DA SEÇÃO MATCH
+  sectionMatchContainer: {
+    marginBottom: 20,
+    width: "100%",
+  },
+  matchSectionTitle: {
+    fontSize: 13,
+    fontFamily: "Montserrat_900Black",
+    color: "#202D3A",
+    textTransform: "uppercase",
+    letterSpacing: 1,
+    marginBottom: 8,
+  },
+  matchCardGreen: {
+    backgroundColor: "#E8F4F1",
+    padding: 18,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: "#67D4A8",
+    shadowColor: "#67D4A8",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  matchCardDesc: {
+    fontSize: 13,
+    fontFamily: "Montserrat_400Regular",
+    color: "#2C3E50",
+    lineHeight: 18,
+    marginBottom: 14,
+  },
+  inputRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  matchInput: {
+    flex: 1,
+    backgroundColor: "#FFF",
+    borderWidth: 1.5,
+    borderColor: "#67D4A8",
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    fontSize: 14,
+    fontFamily: "Montserrat_700Bold",
+    color: "#202D3A",
+    textAlign: "center",
+  },
+  btnActionConnect: {
+    backgroundColor: "#202D3A",
+    paddingHorizontal: 18,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  btnDisabled: { opacity: 0.6 },
+  btnActionText: {
+    color: "#FFF",
+    fontFamily: "Montserrat_900Black",
+    fontSize: 14,
+  },
+
+  floatingBtnWrapper: { width: "100%", marginTop: 5, marginBottom: 10 },
+  floatingBtn: {
+    flexDirection: "row",
+    paddingVertical: 18,
+    borderRadius: 30,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 10,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 8,
+    borderWidth: 2,
+    borderColor: "#FFF",
+  },
+  floatingBtnText: {
+    fontSize: 18,
+    fontFamily: "Montserrat_900Black",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   dividerContainer: {
     flexDirection: "row",
@@ -993,64 +1217,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 40,
     marginBottom: 25,
-  },
-  inviteBox: {
-    backgroundColor: "#E8F4F1",
-    padding: 18,
-    borderRadius: 16,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: "#67D4A8",
-  },
-  inviteHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    marginBottom: 8,
-  },
-  inviteTitle: {
-    fontSize: 16,
-    fontFamily: "Montserrat_700Bold",
-    color: "#202D3A",
-  },
-  inviteDesc: {
-    fontSize: 13,
-    color: "#2C3E50",
-    marginBottom: 15,
-    fontFamily: "Montserrat_400Regular",
-  },
-  inviteInput: {
-    backgroundColor: "#FFF",
-    borderRadius: 12,
-    padding: 14,
-    fontSize: 15,
-    color: "#202D3A",
-    borderWidth: 1,
-    borderColor: "#D1D9E0",
-    textAlign: "center",
-    fontFamily: "Montserrat_900Black",
-    letterSpacing: 2,
-  },
-  floatingBtnWrapper: { width: "100%", marginTop: 10, marginBottom: 10 },
-  floatingBtn: {
-    flexDirection: "row",
-    paddingVertical: 18,
-    borderRadius: 30,
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 10,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 8,
-    borderWidth: 2,
-    borderColor: "#FFF",
-  },
-  floatingBtnText: {
-    fontSize: 18,
-    fontFamily: "Montserrat_900Black",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
   },
   toggleContainer: {
     flexDirection: "row",
@@ -1190,7 +1356,7 @@ const styles = StyleSheet.create({
   },
   bottomSheetButtonSecondaryText: {
     color: "#60646C",
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: "Montserrat_700Bold",
   },
 });

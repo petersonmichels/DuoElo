@@ -16,6 +16,7 @@ import {
   Image,
   KeyboardAvoidingView,
   Linking,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -37,6 +38,11 @@ export default function ConexoesScreen() {
   const [inviteCodeInput, setInviteCodeInput] = useState("");
   const [isMatching, setIsMatching] = useState(false);
 
+  // 🔥 ESTADOS PARA O MODAL DE CONFIRMAÇÃO DO MATCH
+  const [pendingMatchPartner, setPendingMatchPartner] = useState<any>(null);
+  const [isMatchConfirmationVisible, setIsMatchConfirmationVisible] =
+    useState(false);
+
   useEffect(() => {
     const unsubscribeAuth = auth.onAuthStateChanged((user) => {
       setCurrentUid(user?.uid || null);
@@ -55,7 +61,7 @@ export default function ConexoesScreen() {
         const data = docSnap.data();
         setUserData(data);
 
-        // Se ainda não tiver myInviteCode, cria um
+        // Se ainda não tiver myInviteCode, cria um no documento do Firestore
         if (!data.myInviteCode) {
           const generatedCode = currentUid.substring(0, 6).toUpperCase();
           setDoc(
@@ -89,7 +95,7 @@ export default function ConexoesScreen() {
     const codeToCopy = userData?.myInviteCode || currentUid;
     if (codeToCopy) {
       await Clipboard.setStringAsync(codeToCopy);
-      Alert.alert("Código Copiado!", "Envie para o seu parceiro(a)!");
+      Alert.alert("Código Copiado! 📋", "Envie para o seu parceiro(a)!");
     }
   };
 
@@ -114,12 +120,12 @@ export default function ConexoesScreen() {
     }
   };
 
-  // 🔥 BUSCA DUPLA (@USERNAME ou CÓDIGO) E CONEXÃO DEFINITIVA NO BANCO
+  // 🔥 PASSO 1: BUSCA O PARCEIRO E ABRE O MODAL DE CONFIRMAÇÃO
   const handleLinkPartnerCode = async () => {
-    const rawInput = inviteCodeInput.trim();
+    const rawClean = inviteCodeInput.trim().replace(/^@/, "");
 
-    if (rawInput.length < 3) {
-      Alert.alert("Inválido", "Digite um código ou @username válido.");
+    if (rawClean.length < 3) {
+      Alert.alert("Atenção", "Digite um código ou @username válido.");
       return;
     }
 
@@ -127,17 +133,17 @@ export default function ConexoesScreen() {
     setIsMatching(true);
 
     try {
-      // 1. Tenta buscar pelo Código (Sempre em Maiúsculo)
-      const cleanCode = rawInput.toUpperCase();
+      // 1. Tenta buscar pelo Código (Formatado em Maiúsculas)
+      const cleanCode = rawClean.toUpperCase();
       let q = query(
         collection(db, "users"),
         where("myInviteCode", "==", cleanCode),
       );
       let querySnapshot = await getDocs(q);
 
-      // 2. Se não achar, tenta buscar pelo @username (Sem o @ e minúsculo)
+      // 2. Se não encontrar pelo código, busca pelo @username (Sempre em Minúsculas)
       if (querySnapshot.empty) {
-        const cleanUsername = rawInput.replace("@", "").toLowerCase();
+        const cleanUsername = rawClean.toLowerCase();
         q = query(
           collection(db, "users"),
           where("username", "==", cleanUsername),
@@ -148,7 +154,7 @@ export default function ConexoesScreen() {
       if (querySnapshot.empty) {
         Alert.alert(
           "Match Não Encontrado",
-          "Não encontramos ninguém com esse código ou @username.",
+          "Não encontramos ninguém com esse código ou @username. Verifique se digitou corretamente.",
         );
         setIsMatching(false);
         return;
@@ -161,41 +167,78 @@ export default function ConexoesScreen() {
       if (partnerId === currentUid) {
         Alert.alert(
           "Ação Bloqueada",
-          "Você não pode usar o seu próprio usuário/código!",
+          "Você não pode utilizar o seu próprio código ou usuário!",
         );
         setIsMatching(false);
         return;
       }
 
-      // 3. Compartilha o status Premium se alguém pagou
-      const partnerIsPremium = partnerDataDb?.isPremium || false;
-      const currentUserIsPremium = userData?.isPremium || false;
-      const finalPremiumStatus = partnerIsPremium || currentUserIsPremium;
+      if (partnerDataDb?.partnerId && partnerDataDb.partnerId !== currentUid) {
+        Alert.alert(
+          "Usuário Ocupado",
+          "Este perfil já está conectado a outro parceiro no DuoElo.",
+        );
+        setIsMatching(false);
+        return;
+      }
 
-      // 4. Une as Contas Oficialmente no Banco de Dados
-      await setDoc(
-        doc(db, "users", currentUid),
-        { partnerId: partnerId, isPremium: finalPremiumStatus },
-        { merge: true },
-      );
-      await setDoc(
-        doc(db, "users", partnerId),
-        { partnerId: currentUid, isPremium: finalPremiumStatus },
-        { merge: true },
-      );
-
-      setInviteCodeInput("");
-      Alert.alert(
-        "Match Realizado! ❤️",
-        "As contas foram conectadas. Vá para a aba Home para dar a largada na jornada juntos.",
-      );
+      // 🔥 Abre o Modal de Confirmação antes de gravar no banco!
+      setPendingMatchPartner({ id: partnerId, data: partnerDataDb });
+      setIsMatchConfirmationVisible(true);
     } catch (error) {
+      console.error("Erro ao buscar parceiro:", error);
       Alert.alert(
         "Erro de Conexão",
         "Ocorreu um problema ao tentar buscar a conta. Tente novamente.",
       );
     } finally {
       setIsMatching(false);
+    }
+  };
+
+  // 🔥 PASSO 2: EXECUTA O MATCH DEFINITIVO NO BANCO DE DADOS
+  const confirmMatchCode = async () => {
+    setIsMatchConfirmationVisible(false);
+
+    if (!currentUid || !pendingMatchPartner) return;
+
+    try {
+      const partnerId = pendingMatchPartner.id;
+      const partnerDataDb = pendingMatchPartner.data;
+
+      const partnerIsPremium = partnerDataDb?.isPremium || false;
+      const currentUserIsPremium = userData?.isPremium || false;
+      const finalPremiumStatus = partnerIsPremium || currentUserIsPremium;
+
+      await setDoc(
+        doc(db, "users", currentUid),
+        {
+          partnerId: partnerId,
+          isPremium: finalPremiumStatus,
+          isSoloMode: false,
+        },
+        { merge: true },
+      );
+      await setDoc(
+        doc(db, "users", partnerId),
+        {
+          partnerId: currentUid,
+          isPremium: finalPremiumStatus,
+          isSoloMode: false,
+        },
+        { merge: true },
+      );
+
+      setInviteCodeInput("");
+      setPendingMatchPartner(null);
+
+      Alert.alert(
+        "Match Realizado! ❤️",
+        "As contas foram conectadas com sucesso. Vá para a aba Home para dar a largada na jornada juntos.",
+      );
+    } catch (error) {
+      console.error("Erro ao confirmar o match:", error);
+      Alert.alert("Erro", "Não foi possível efetivar a conexão no momento.");
     }
   };
 
@@ -224,7 +267,23 @@ export default function ConexoesScreen() {
       ? `${partnerData.billingFirstName} ${partnerData.billingLastName}`
       : partnerData?.displayName ||
         partnerData?.email?.split("@")[0] ||
-        "Parceiro(a)";
+        (partnerData?.username ? `@${partnerData.username}` : "Parceiro(a)");
+
+  const pendingPhoto = isValidPhoto(pendingMatchPartner?.data?.photoURL)
+    ? pendingMatchPartner.data.photoURL
+    : isValidPhoto(pendingMatchPartner?.data?.photoUrl)
+      ? pendingMatchPartner.data.photoUrl
+      : null;
+
+  const pendingName =
+    pendingMatchPartner?.data?.billingFirstName &&
+    pendingMatchPartner?.data?.billingLastName
+      ? `${pendingMatchPartner.data.billingFirstName} ${pendingMatchPartner.data.billingLastName}`
+      : pendingMatchPartner?.data?.displayName ||
+        pendingMatchPartner?.data?.email?.split("@")[0] ||
+        (pendingMatchPartner?.data?.username
+          ? `@${pendingMatchPartner.data.username}`
+          : "Usuário Misterioso");
 
   const hasPartner = !!userData?.partnerId;
 
@@ -374,6 +433,54 @@ export default function ConexoesScreen() {
           )}
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* 🔥 MODAL DE CONFIRMAÇÃO DO MATCH */}
+      <Modal
+        visible={isMatchConfirmationVisible}
+        transparent
+        animationType="fade"
+      >
+        <View style={styles.modalOverlayCenter}>
+          <View style={styles.codeModalCard}>
+            <Text style={styles.codeModalTitle}>É esta pessoa?</Text>
+            <Text style={styles.codeModalSub}>
+              Verifique se a conta abaixo pertence ao seu amor.
+            </Text>
+
+            <View style={{ alignItems: "center", marginBottom: 25 }}>
+              {pendingPhoto ? (
+                <Image
+                  source={{ uri: pendingPhoto }}
+                  style={styles.pendingAvatarImage}
+                />
+              ) : (
+                <View style={styles.pendingAvatarPlaceholder}>
+                  <FontAwesome5 name="user-alt" size={30} color="#202D3A" />
+                </View>
+              )}
+              <Text style={styles.pendingNameText}>{pendingName}</Text>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.linkButton, { backgroundColor: "#67D4A8" }]}
+              onPress={confirmMatchCode}
+            >
+              <Text style={styles.linkButtonText}>Sim, Conectar!</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.cancelLinkButton}
+              onPress={() => {
+                setIsMatchConfirmationVisible(false);
+                setPendingMatchPartner(null);
+              }}
+            >
+              <Text style={styles.cancelLinkButtonText}>
+                Não, errei o código
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -525,5 +632,77 @@ const styles = StyleSheet.create({
     color: "#FFF",
     fontFamily: "Montserrat_900Black",
     fontSize: 15,
+  },
+
+  // ESTILOS DO MODAL DE CONFIRMAÇÃO
+  modalOverlayCenter: {
+    flex: 1,
+    backgroundColor: "rgba(32, 45, 58, 0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  codeModalCard: {
+    width: "85%",
+    backgroundColor: "#FFF",
+    borderRadius: 20,
+    padding: 24,
+    alignItems: "center",
+  },
+  codeModalTitle: {
+    fontSize: 20,
+    fontFamily: "Montserrat_900Black",
+    color: "#202D3A",
+    marginBottom: 10,
+  },
+  codeModalSub: {
+    fontSize: 14,
+    fontFamily: "Montserrat_400Regular",
+    color: "#60646C",
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  pendingAvatarImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    marginBottom: 15,
+    borderWidth: 3,
+    borderColor: "#202D3A",
+  },
+  pendingAvatarPlaceholder: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "#F0F4F8",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 15,
+  },
+  pendingNameText: {
+    fontSize: 20,
+    fontFamily: "Montserrat_900Black",
+    color: "#202D3A",
+  },
+  linkButton: {
+    width: "100%",
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  linkButtonText: {
+    color: "#FFF",
+    fontSize: 16,
+    fontFamily: "Montserrat_700Bold",
+  },
+  cancelLinkButton: {
+    width: "100%",
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  cancelLinkButtonText: {
+    color: "#60646C",
+    fontSize: 14,
+    fontFamily: "Montserrat_700Bold",
   },
 });

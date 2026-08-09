@@ -1,5 +1,5 @@
 import { FontAwesome5 } from "@expo/vector-icons";
-import { useFocusEffect } from "@react-navigation/native"; // 🔥 NOVO: Atualiza a tela ao entrar nela
+import { useFocusEffect } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
 import { deleteUser, sendEmailVerification, signOut } from "firebase/auth";
 import { deleteDoc, doc, onSnapshot, setDoc } from "firebase/firestore";
@@ -44,7 +44,7 @@ export default function ProfileScreen({ navigation }: any) {
   const [bypassDailyLock, setBypassDailyLock] = useState(false);
   const isFirstLoad = useRef(true);
 
-  // 🔥 MÁGICA AQUI: Toda vez que o usuário abrir a aba "Perfil", o Firebase checa o e-mail em silêncio
+  // Atualiza status do e-mail ao focar na tela
   useFocusEffect(
     useCallback(() => {
       const checkEmailVerification = async () => {
@@ -65,7 +65,6 @@ export default function ProfileScreen({ navigation }: any) {
     const currentUid = auth.currentUser?.uid;
     if (!currentUid) return;
 
-    // Também checa se o usuário foi no app de e-mail e voltou pro app do DuoElo sem trocar de aba
     const appStateSubscription = AppState.addEventListener(
       "change",
       async (nextAppState) => {
@@ -231,7 +230,7 @@ export default function ProfileScreen({ navigation }: any) {
               return;
             }
             const result = await ImagePicker.launchCameraAsync({
-              mediaTypes: ["images"],
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
               allowsEditing: true,
               aspect: [1, 1],
               quality: 0.05,
@@ -253,7 +252,7 @@ export default function ProfileScreen({ navigation }: any) {
               return;
             }
             const result = await ImagePicker.launchImageLibraryAsync({
-              mediaTypes: ["images"],
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
               allowsEditing: true,
               aspect: [1, 1],
               quality: 0.05,
@@ -283,10 +282,22 @@ export default function ProfileScreen({ navigation }: any) {
     }
   };
 
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-    } catch (error) {}
+  // 🔥 Confirmação de Logout adicionada
+  const handleLogout = () => {
+    Alert.alert("Sair da Conta", "Tem certeza de que deseja sair?", [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Sair",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await signOut(auth);
+          } catch (error) {
+            console.error("Erro ao deslogar:", error);
+          }
+        },
+      },
+    ]);
   };
 
   const handleDeleteAccount = () => {
@@ -381,9 +392,10 @@ export default function ProfileScreen({ navigation }: any) {
         style={{ flex: 1 }}
       >
         <View style={styles.header}>
+          {/* 🔥 Navegação corrigida para MainTabs -> Home */}
           <TouchableOpacity
             style={styles.backBtn}
-            onPress={() => navigation.goBack()}
+            onPress={() => navigation.navigate("MainTabs", { screen: "Home" })}
           >
             <FontAwesome5 name="chevron-left" size={20} color="#202D3A" />
           </TouchableOpacity>

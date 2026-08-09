@@ -1,4 +1,5 @@
 import { FontAwesome5 } from "@expo/vector-icons";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -12,22 +13,49 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-// 🔥 Importamos o Firestore novamente para simular o Webhook liberando o acesso
-import { doc, setDoc } from "firebase/firestore";
 import { auth, db } from "../config/firebase";
 
 const { width } = Dimensions.get("window");
 
 export default function PaywallScreen({ navigation }: any) {
+  // Modalidade de plano: 'duo' (Casal - 2 Acessos) ou 'individual' (1 Acesso)
+  const [planCategory, setPlanCategory] = useState<"duo" | "individual">("duo");
+
+  // Período selecionado
   const [selectedPlan, setSelectedPlan] = useState<
     "mensal" | "trimestral" | "anual"
   >("trimestral");
+
   const [isProcessing, setIsProcessing] = useState(false);
+  const [hasPartner, setHasPartner] = useState(false);
+  const [partnerId, setPartnerId] = useState<string | null>(null);
 
   const slideAnim = useRef(new Animated.Value(50)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
+  // Busca dados do usuário para identificar se ele já possui um Match
   useEffect(() => {
+    const fetchUserData = async () => {
+      const currentUid = auth.currentUser?.uid;
+      if (currentUid) {
+        try {
+          const userSnap = await getDoc(doc(db, "users", currentUid));
+          if (userSnap.exists()) {
+            const data = userSnap.data();
+            if (data.partnerId) {
+              setHasPartner(true);
+              setPartnerId(data.partnerId);
+              setPlanCategory("duo"); // Se já tem parceiro, trava a modalidade no Duo
+            }
+          }
+        } catch (error) {
+          console.error("Erro ao carregar dados do usuário no Paywall:", error);
+        }
+      }
+    };
+
+    fetchUserData();
+
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -56,28 +84,44 @@ export default function PaywallScreen({ navigation }: any) {
       }
 
       // 🛠️ MODO DE TESTE (SIMULADOR DE COMPRA)
-      // Como a loja real ainda não está configurada, nós pulamos o RevenueCat
-      // e fazemos o que o Webhook faria: liberar a catraca no banco de dados!
-
-      // Simula um tempo de carregamento da operadora de cartão de crédito (1.5 segundos)
       await new Promise((resolve) => setTimeout(resolve, 1500));
 
-      // Vai lá no documento do usuário e avisa que ele pagou
-      await setDoc(
-        doc(db, "users", currentUid),
-        {
-          isPremium: true,
-          planSelected: selectedPlan, // Salva o plano que ele escolheu só por curiosidade
-        },
-        { merge: true }, // Não apaga as outras informações, só atualiza o premium
-      );
+      const payloadToSave = {
+        isPremium: true,
+        planSelected: selectedPlan,
+        planCategory: planCategory,
+        isSoloMode: planCategory === "individual",
+      };
+
+      // 1. Atualiza a conta de quem efetuou a compra
+      await setDoc(doc(db, "users", currentUid), payloadToSave, {
+        merge: true,
+      });
+
+      // 2. Se for plano Duo e o usuário tiver um parceiro conectado, libera a conta dele também!
+      if (planCategory === "duo" && partnerId) {
+        await setDoc(doc(db, "users", partnerId), payloadToSave, {
+          merge: true,
+        });
+      }
 
       Alert.alert(
         "Sucesso! 🎉",
-        "Assinatura (de Teste) confirmada! A jornada de vocês foi liberada.",
+        planCategory === "duo"
+          ? "Assinatura Casal Duo confirmada! A jornada da dupla foi liberada."
+          : "Assinatura Individual confirmada! Seu acesso foi liberado.",
       );
 
-      navigation.goBack();
+      // Redireciona com segurança para a aba 'Home'
+      navigation.reset({
+        index: 0,
+        routes: [
+          {
+            name: "MainTabs",
+            params: { screen: "Home" },
+          },
+        ],
+      });
     } catch (error: any) {
       Alert.alert("Erro na Compra", "Falha ao liberar a conta de teste.");
       console.error(error);
@@ -86,53 +130,90 @@ export default function PaywallScreen({ navigation }: any) {
     }
   };
 
-  const features = [
+  const featuresDuo = [
+    {
+      icon: "users",
+      title: "1 Assinatura Cobre 2 Pessoas",
+      desc: "Você e seu amor conectados sem precisar pagar dois acessos.",
+    },
     {
       icon: "map-marked-alt",
-      title: "Trilha Completa de 90 Dias",
-      desc: "Desafios guiados passo a passo para reacender a conexão do casal.",
+      title: "Trilha Sincronizada de 90 Dias",
+      desc: "Desafios em tempo real para blindar e resgatar o relacionamento.",
     },
     {
-      icon: "user-plus",
-      title: "Inclusão do Parceiro(a) Grátis",
-      desc: "Sua assinatura já cobre a conexão da dupla, sem custos extras.",
-    },
-    {
-      icon: "star",
-      title: "Missões Práticas do Cupido",
-      desc: "Desafios semanais extras para quebrar a rotina e inovar.",
-    },
-    {
-      icon: "shield-alt",
-      title: "Sinal Verde Imediato",
-      desc: "Libere o Modo Casal e inicie a trilha agora mesmo.",
+      icon: "heart",
+      title: "Desafios de Ouro do Casal",
+      desc: "Missões bônus nos fins de semana para sair da rotina.",
     },
   ];
 
-  const plans = [
+  const featuresIndividual = [
+    {
+      icon: "user",
+      title: "Acesso Individual (Modo Solo)",
+      desc: "Para quem quer iniciar a jornada de autocuidado primeiro.",
+    },
+    {
+      icon: "map-marked-alt",
+      title: "Trilha de 90 Dias Unilateral",
+      desc: "Missões focadas em postura, escuta ativa e mudança pessoal.",
+    },
+  ];
+
+  const duoPlans = [
     {
       id: "mensal",
-      name: "Mensal",
-      desc: "Renovação mês a mês",
+      name: "Duo Mensal",
+      desc: "R$ 19,90/mês para o casal",
       price: "19,90",
       period: "/mês",
     },
     {
       id: "trimestral",
       name: "Jornada 90 Dias",
-      desc: "O tempo exato da trilha",
+      desc: "R$ 16,60/mês (Total R$ 49,90)",
       price: "49,90",
       period: "/trimestre",
-      highlight: "RECOMENDADO",
+      highlight: "RECOMENDADO (CASAL)",
     },
     {
       id: "anual",
-      name: "Anual",
-      desc: "Proteção a longo prazo",
-      price: "199,90",
+      name: "Duo Anual",
+      desc: "R$ 14,99/mês (Total R$ 179,90)",
+      price: "179,90",
       period: "/ano",
     },
   ];
+
+  const individualPlans = [
+    {
+      id: "mensal",
+      name: "Individual Mensal",
+      desc: "Renovação mês a mês",
+      price: "14,90",
+      period: "/mês",
+    },
+    {
+      id: "trimestral",
+      name: "Trimestral Solo",
+      desc: "R$ 13,30/mês (Total R$ 39,90)",
+      price: "39,90",
+      period: "/trimestre",
+      highlight: "MELHOR VALOR SOLO",
+    },
+    {
+      id: "anual",
+      name: "Anual Solo",
+      desc: "R$ 10,82/mês (Total R$ 129,90)",
+      price: "129,90",
+      period: "/ano",
+    },
+  ];
+
+  const activePlans = planCategory === "duo" ? duoPlans : individualPlans;
+  const activeFeatures =
+    planCategory === "duo" ? featuresDuo : featuresIndividual;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -166,12 +247,74 @@ export default function PaywallScreen({ navigation }: any) {
             O Plano de Resgate da Sua Relação
           </Text>
           <Text style={styles.heroSub}>
-            Com base no seu diagnóstico, estruturamos o caminho exato para
-            reacender a paixão e blindar a sua família contra qualquer crise.
+            Escolha como prefere iniciar. Lembre-se: no Plano Duo, uma única
+            assinatura libera o aplicativo para os dois!
           </Text>
 
+          {/* CHAVE SELETORA: CASAL DUO VS INDIVIDUAL (Se não tiver parceiro fixado) */}
+          {!hasPartner && (
+            <View style={styles.categoryToggleContainer}>
+              <TouchableOpacity
+                style={[
+                  styles.categoryToggleBtn,
+                  planCategory === "duo" && styles.categoryToggleBtnActive,
+                ]}
+                onPress={() => setPlanCategory("duo")}
+              >
+                <FontAwesome5
+                  name="user-friends"
+                  size={14}
+                  color={planCategory === "duo" ? "#202D3A" : "#60646C"}
+                />
+                <Text
+                  style={[
+                    styles.categoryToggleText,
+                    planCategory === "duo" && styles.categoryToggleTextActive,
+                  ]}
+                >
+                  Casal Duo (2 Acessos)
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.categoryToggleBtn,
+                  planCategory === "individual" &&
+                    styles.categoryToggleBtnActive,
+                ]}
+                onPress={() => setPlanCategory("individual")}
+              >
+                <FontAwesome5
+                  name="user"
+                  size={14}
+                  color={planCategory === "individual" ? "#202D3A" : "#60646C"}
+                />
+                <Text
+                  style={[
+                    styles.categoryToggleText,
+                    planCategory === "individual" &&
+                      styles.categoryToggleTextActive,
+                  ]}
+                >
+                  Individual Solo
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {hasPartner && (
+            <View style={styles.partnerNoticeBox}>
+              <FontAwesome5 name="heart" solid size={16} color="#67D4A8" />
+              <Text style={styles.partnerNoticeText}>
+                Vocês já estão conectados! Apenas uma assinatura Duo libera o
+                acesso dos dois.
+              </Text>
+            </View>
+          )}
+
+          {/* LISTA DE CARDS DE PLANOS */}
           <View style={styles.plansWrapper}>
-            {plans.map((plan) => {
+            {activePlans.map((plan) => {
               const isSelected = selectedPlan === plan.id;
               return (
                 <TouchableOpacity
@@ -204,6 +347,7 @@ export default function PaywallScreen({ navigation }: any) {
             })}
           </View>
 
+          {/* BOX DE GARANTIA E REGRAS */}
           <View style={styles.guaranteeBox}>
             <View style={styles.guaranteeHeader}>
               <FontAwesome5 name="shield-alt" size={16} color="#67D4A8" />
@@ -212,23 +356,25 @@ export default function PaywallScreen({ navigation }: any) {
               </Text>
             </View>
             <Text style={styles.priceSub}>
-              O período da Jornada de 90 dias{" "}
+              A Jornada de 90 dias{" "}
               <Text
                 style={{ fontFamily: "Montserrat_700Bold", color: "#202D3A" }}
               >
-                só começa a contar a partir da sua primeira tarefa concluída.
+                só começa a contar a partir da sua primeira tarefa.
               </Text>{" "}
-              Caso precise de mais tempo, a assinatura será ajustada
-              automaticamente para R$ 19,90/mês após os 90 dias para você
-              continuar no seu ritmo.
+              {planCategory === "duo"
+                ? "Sua assinatura cobre você e seu parceiro(a) sem taxas adicionais."
+                : "Você pode atualizar para o Plano Duo a qualquer momento."}
             </Text>
           </View>
 
+          {/* O QUE ESTÁ INCLUSO */}
           <View style={styles.featuresContainer}>
             <Text style={styles.featuresSectionTitle}>
-              O que está incluso no Premium?
+              O que está incluso no{" "}
+              {planCategory === "duo" ? "Plano Duo" : "Plano Solo"}?
             </Text>
-            {features.map((feat, index) => (
+            {activeFeatures.map((feat, index) => (
               <View key={index} style={styles.featureItem}>
                 <View style={styles.featureIconBg}>
                   <FontAwesome5 name={feat.icon} size={20} color="#202D3A" />
@@ -256,7 +402,7 @@ export default function PaywallScreen({ navigation }: any) {
             <>
               <FontAwesome5 name="star" solid size={18} color="#202D3A" />
               <Text style={styles.ctaButtonText}>
-                Assinar Plano{" "}
+                Assinar Plano {planCategory === "duo" ? "Duo" : "Solo"}{" "}
                 {selectedPlan === "mensal"
                   ? "Mensal"
                   : selectedPlan === "trimestral"
@@ -287,7 +433,7 @@ const styles = StyleSheet.create({
 
   scrollContent: {
     paddingHorizontal: 24,
-    paddingBottom: 40,
+    paddingBottom: 120,
     alignItems: "center",
   },
 
@@ -313,16 +459,71 @@ const styles = StyleSheet.create({
     color: "#202D3A",
     textAlign: "center",
     lineHeight: 34,
-    marginBottom: 15,
+    marginBottom: 10,
   },
   heroSub: {
-    fontSize: 15,
+    fontSize: 14,
     color: "#60646C",
     textAlign: "center",
-    lineHeight: 22,
-    marginBottom: 25,
+    lineHeight: 20,
+    marginBottom: 20,
     paddingHorizontal: 5,
     fontFamily: "Montserrat_400Regular",
+  },
+
+  // CHAVE SELETORA
+  categoryToggleContainer: {
+    flexDirection: "row",
+    backgroundColor: "#E2E8F0",
+    borderRadius: 14,
+    padding: 4,
+    width: "100%",
+    marginBottom: 20,
+  },
+  categoryToggleBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    borderRadius: 10,
+    gap: 8,
+  },
+  categoryToggleBtnActive: {
+    backgroundColor: "#FFF",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  categoryToggleText: {
+    fontFamily: "Montserrat_700Bold",
+    fontSize: 13,
+    color: "#60646C",
+  },
+  categoryToggleTextActive: {
+    color: "#202D3A",
+  },
+
+  partnerNoticeBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#E8F4F1",
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#67D4A8",
+    gap: 10,
+    marginBottom: 20,
+    width: "100%",
+  },
+  partnerNoticeText: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: "Montserrat_700Bold",
+    color: "#202D3A",
+    lineHeight: 18,
   },
 
   plansWrapper: {
@@ -424,12 +625,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF",
     borderRadius: 24,
     padding: 20,
-    marginTop: 30,
+    marginTop: 25,
     borderWidth: 1,
     borderColor: "#D1D9E0",
   },
   featuresSectionTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: "Montserrat_700Bold",
     color: "#60646C",
     textAlign: "center",
@@ -437,11 +638,11 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     letterSpacing: 0.5,
   },
-  featureItem: { flexDirection: "row", alignItems: "center", marginBottom: 20 },
+  featureItem: { flexDirection: "row", alignItems: "center", marginBottom: 18 },
   featureIconBg: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     backgroundColor: "#F0F4F8",
     justifyContent: "center",
     alignItems: "center",
@@ -449,15 +650,15 @@ const styles = StyleSheet.create({
   },
   featureTextContainer: { flex: 1 },
   featureTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: "Montserrat_700Bold",
     color: "#202D3A",
-    marginBottom: 4,
+    marginBottom: 2,
   },
   featureDesc: {
-    fontSize: 13,
+    fontSize: 12,
     color: "#60646C",
-    lineHeight: 18,
+    lineHeight: 16,
     fontFamily: "Montserrat_400Regular",
   },
 
@@ -467,7 +668,7 @@ const styles = StyleSheet.create({
     width: "100%",
     paddingHorizontal: 24,
     paddingTop: 15,
-    paddingBottom: 35,
+    paddingBottom: 30,
     backgroundColor: "#F0F4F8",
     borderTopWidth: 1,
     borderTopColor: "#D1D9E0",
@@ -475,7 +676,7 @@ const styles = StyleSheet.create({
   ctaButton: {
     flexDirection: "row",
     backgroundColor: "#EAB64A",
-    paddingVertical: 20,
+    paddingVertical: 18,
     borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
@@ -485,11 +686,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 5,
-    marginBottom: 15,
+    marginBottom: 12,
   },
   ctaButtonText: {
     color: "#202D3A",
-    fontSize: 17,
+    fontSize: 16,
     fontFamily: "Montserrat_900Black",
     textTransform: "uppercase",
     letterSpacing: 0.5,

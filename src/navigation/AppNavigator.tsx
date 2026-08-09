@@ -11,7 +11,7 @@ import {
   View,
 } from "react-native";
 
-// 🔥 Seu controle de segurança
+// 🔥 Controle de segurança do Firebase
 import { auth, authControls } from "../config/firebase";
 
 // Suas Telas Oficiais
@@ -106,7 +106,7 @@ function MainTabs() {
         }}
       />
 
-      {/* 🔥 A TELA DA TRILHA DENTRO DAS TABS */}
+      {/* 🔥 TELA DA TRILHA DENTRO DAS TABS */}
       <Tab.Screen
         name="Home"
         component={HomeScreen}
@@ -185,8 +185,10 @@ export default function AppNavigator() {
     >
       {user ? (
         <Stack.Group>
-          {/* 🔥 APENAS MainTabs COMO CONTAINER DAS ABAS (Sem duplicar nome Home) */}
+          {/* 🔥 UNICO CONTAINER DE ABAS NA RAIZ (Sem a rota duplicada 'Home' aqui) */}
           <Stack.Screen name="MainTabs" component={MainTabs} />
+
+          {/* Telas secundarias empilhadas acima das abas */}
           <Stack.Screen name="Anamnesis" component={AnamneseScreen} />
           <Stack.Screen name="Paywall" component={PaywallScreen} />
           <Stack.Screen name="MissionReward" component={MissionRewardScreen} />

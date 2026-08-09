@@ -1,4 +1,5 @@
 import { FontAwesome5 } from "@expo/vector-icons";
+import { doc, onSnapshot, setDoc } from "firebase/firestore";
 import { useEffect, useRef, useState } from "react";
 import {
   Alert,
@@ -12,27 +13,49 @@ import {
 } from "react-native";
 // 🔥 IMPORTAÇÃO CORRETA E MODERNA DO SAFE AREA
 import { SafeAreaView } from "react-native-safe-area-context";
-// 🔥 Importando a autenticação do Firebase para pegar o UID real
-import { auth } from "../config/firebase";
+// 🔥 Importando a autenticação e o banco do Firebase
+import { auth, db } from "../config/firebase";
 
 export default function InvitePartnerScreen({ navigation }: any) {
   // 0 = Inicial (Convidar) | 1 = Aguardando Parceiro | 2 = Conectados
   const [connectionStep, setConnectionStep] = useState(0);
 
-  // 🔥 Estado do código gerado dinamicamente
+  // Estado do código gerado dinamicamente
   const [myInviteCode, setMyInviteCode] = useState("CARREGANDO...");
 
   // Animação de pulsação para o estado "Aguardando"
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  // Busca o UID do Firebase ao carregar a tela para formar o código
+  // Busca o UID do Firebase e monitora o status do Match em tempo real
   useEffect(() => {
-    const uid = auth.currentUser?.uid;
-    if (uid) {
-      setMyInviteCode(uid.substring(0, 6).toUpperCase());
-    } else {
-      setMyInviteCode("DUE-000"); // Fallback de segurança
+    const currentUid = auth.currentUser?.uid;
+    if (!currentUid) {
+      setMyInviteCode("DUE-000");
+      return;
     }
+
+    // Gera o código a partir do UID do Firebase
+    const code = currentUid.substring(0, 6).toUpperCase();
+    setMyInviteCode(code);
+
+    // Salva o código no documento do usuário caso ainda não exista
+    setDoc(
+      doc(db, "users", currentUid),
+      { myInviteCode: code },
+      { merge: true },
+    ).catch(() => {});
+
+    // Escutador em tempo real: se o parceiro se conectar, avança para o passo 2 automaticamente!
+    const unsubscribe = onSnapshot(doc(db, "users", currentUid), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.partnerId) {
+          setConnectionStep(2);
+        }
+      }
+    });
+
+    return () => unsubscribe();
   }, []);
 
   useEffect(() => {
@@ -56,7 +79,7 @@ export default function InvitePartnerScreen({ navigation }: any) {
     }
   }, [connectionStep, pulseAnim]);
 
-  // AÇÃO PRINCIPAL COM O WHATSAPP
+  // AÇÃO PRINCIPAL COM O WHATSAPP E NAVEGAÇÃO
   const handleMainAction = async () => {
     if (connectionStep === 0) {
       const message = `Amor, estou investindo na nossa relação porque você é muito importante pra mim. Vamos fazer juntos essa jornada de 90 dias do DuoElo? É só baixar o app e colocar o meu código pra gente dar o match: *${myInviteCode}* 👇\n\nhttps://duoelo.com/app`;
@@ -78,10 +101,14 @@ export default function InvitePartnerScreen({ navigation }: any) {
         console.error("Erro ao abrir WhatsApp", error);
       }
     } else if (connectionStep === 1) {
-      // Simula o parceiro aceitando e completando o Match
-      setConnectionStep(2);
+      // Força a re-checagem ou avança
+      Alert.alert(
+        "Aguardando...",
+        "Assim que seu parceiro(a) inserir o código no app dele, vocês serão conectados automaticamente!",
+      );
     } else if (connectionStep === 2) {
-      navigation.navigate("Home");
+      // 🔥 NAVEGAÇÃO CORRIGIDA PARA MainTabs -> Home
+      navigation.navigate("MainTabs", { screen: "Home" });
     }
   };
 
@@ -197,7 +224,7 @@ export default function InvitePartnerScreen({ navigation }: any) {
                       ? [{ scale: pulseAnim }]
                       : [{ scale: 1 }],
                   borderWidth: connectionStep === 1 ? 4 : 0,
-                  borderColor: "rgba(234, 182, 74, 0.3)", // Glow Ouro Suave usando EAB64A
+                  borderColor: "rgba(234, 182, 74, 0.3)",
                 },
               ]}
             >
@@ -294,6 +321,9 @@ export default function InvitePartnerScreen({ navigation }: any) {
             <TouchableOpacity
               style={styles.secondaryButton}
               activeOpacity={0.6}
+              onPress={() =>
+                navigation.navigate("MainTabs", { screen: "Match" })
+              }
             >
               <Text style={styles.secondaryButtonText}>Já tenho um código</Text>
             </TouchableOpacity>
@@ -311,7 +341,7 @@ export default function InvitePartnerScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#F0F4F8", // Azul-Cinza Suave
+    backgroundColor: "#F0F4F8",
   },
   container: {
     flex: 1,
@@ -356,19 +386,19 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   partnerAvatarConnected: {
-    backgroundColor: "#E8F4F1", // Verde Menta Suave
+    backgroundColor: "#E8F4F1",
   },
   title: {
     fontSize: 26,
     fontFamily: "Montserrat_900Black",
-    color: "#202D3A", // Petróleo
+    color: "#202D3A",
     marginBottom: 10,
     textAlign: "center",
   },
   subtitle: {
     fontSize: 15,
     fontFamily: "Montserrat_400Regular",
-    color: "#2C3E50", // Slate Blue
+    color: "#2C3E50",
     textAlign: "center",
     lineHeight: 22,
     paddingHorizontal: 15,
@@ -422,7 +452,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#202D3A",
   },
   stepIconWaiting: {
-    backgroundColor: "#FFF9E6", // Fundo do Ouro Suave
+    backgroundColor: "#FFF9E6",
   },
   stepIconSuccess: {
     backgroundColor: "#67D4A8",
@@ -484,7 +514,7 @@ const styles = StyleSheet.create({
   },
   mainButton: {
     flexDirection: "row",
-    backgroundColor: "#25D366", // Verde WhatsApp (mantido para reconhecimento da marca da rede social)
+    backgroundColor: "#25D366",
     borderRadius: 16,
     paddingVertical: 18,
     width: "100%",
@@ -498,11 +528,11 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   mainButtonWaiting: {
-    backgroundColor: "#202D3A", // Petróleo para botão neutro
+    backgroundColor: "#202D3A",
     shadowColor: "#202D3A",
   },
   mainButtonConnected: {
-    backgroundColor: "#67D4A8", // Menta
+    backgroundColor: "#67D4A8",
     shadowColor: "#67D4A8",
   },
   mainButtonText: {

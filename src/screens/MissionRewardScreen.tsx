@@ -89,10 +89,16 @@ export default function MissionRewardScreen({ navigation, route }: any) {
     outputRange: ["0%", "100%"],
   });
 
+  // 🔥 NAVEGAÇÃO AJUSTADA PARA MainTabs -> Home
   const handleContinue = () => {
     navigation.reset({
       index: 0,
-      routes: [{ name: "Home" }],
+      routes: [
+        {
+          name: "MainTabs",
+          params: { screen: "Home" },
+        },
+      ],
     });
   };
 
