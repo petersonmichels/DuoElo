@@ -17,7 +17,6 @@ import {
   Easing,
   Image,
   Modal,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -25,9 +24,10 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+// 🔥 CORREÇÃO 1: SafeAreaView importado da biblioteca correta
+import { SafeAreaView } from "react-native-safe-area-context";
 import { auth, db } from "../config/firebase";
 
-// 🔥 IMPORT DO NOSSO COFRE DE SEGURANÇA
 import { encryptData, generateVaultKey } from "../utils/security";
 
 const { width, height } = Dimensions.get("window");
@@ -72,7 +72,6 @@ export default function AnamnesisScreen({ navigation }: any) {
     "mensal" | "trimestral" | "anual"
   >("trimestral");
 
-  // 🔥 ESTADOS DO IDIOMA
   const [userLang, setUserLang] = useState("pt-BR");
   const [isLangModalVisible, setIsLangModalVisible] = useState(false);
 
@@ -85,7 +84,6 @@ export default function AnamnesisScreen({ navigation }: any) {
     useState(false);
   const [isMatchAnimationVisible, setIsMatchAnimationVisible] = useState(false);
 
-  // 🚀 ESTADO DE BLOQUEIO ANTIDUPLO CLIQUE SEGURO
   const [isAnimating, setIsAnimating] = useState(false);
 
   const matchAnimTranslateX = useRef(new Animated.Value(0)).current;
@@ -96,7 +94,7 @@ export default function AnamnesisScreen({ navigation }: any) {
     title: "",
     message: "",
     icon: "info-circle",
-    color: "#1A2F3B",
+    color: "#202D3A",
     confirmText: "",
     onConfirm: null as any,
   });
@@ -105,7 +103,7 @@ export default function AnamnesisScreen({ navigation }: any) {
     title: string,
     message: string,
     icon = "info-circle",
-    color = "#1A2F3B",
+    color = "#202D3A",
     confirmText = "",
     onConfirm: any = null,
   ) => {
@@ -145,15 +143,13 @@ export default function AnamnesisScreen({ navigation }: any) {
     ).start();
   }, [pulseAnim]);
 
-  // 🔥 BUSCA INICIAL DE USUÁRIO PARA PEGAR O IDIOMA SALVO E O STATUS
+  // 🔥 CORREÇÃO 2: Firebase Permissions. Espera o Firebase dar o OK da autenticação antes de buscar os dados
   useEffect(() => {
-    const fetchUserDataAndQuestions = async () => {
-      const userId = auth.currentUser?.uid;
-      let currentLang = "pt-BR";
-
-      if (userId) {
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      if (user) {
+        let currentLang = "pt-BR";
         try {
-          const snap = await getDoc(doc(db, "users", userId));
+          const snap = await getDoc(doc(db, "users", user.uid));
           if (snap.exists()) {
             const data = snap.data();
             setCurrentUserData(data);
@@ -168,17 +164,16 @@ export default function AnamnesisScreen({ navigation }: any) {
         } catch (e) {
           console.log("Erro ao checar status do usuário:", e);
         }
+        setIsCheckingUser(false);
+        loadQuestionsFromFirebase(currentLang);
+      } else {
+        setIsCheckingUser(false);
       }
-      setIsCheckingUser(false);
+    });
 
-      // Busca as perguntas usando o idioma descoberto
-      loadQuestionsFromFirebase(currentLang);
-    };
-
-    fetchUserDataAndQuestions();
+    return () => unsubscribe();
   }, []);
 
-  // 🔥 FUNÇÃO ISOLADA PARA BUSCAR AS PERGUNTAS FILTRANDO POR IDIOMA
   const loadQuestionsFromFirebase = async (langToFetch: string) => {
     setIsLoadingQuestions(true);
     try {
@@ -188,7 +183,6 @@ export default function AnamnesisScreen({ navigation }: any) {
       );
       let qSnap = await getDocs(q);
 
-      // Fallback de segurança se o idioma escolhido não tiver perguntas carregadas
       if (qSnap.empty) {
         q = query(
           collection(db, "anamnesis"),
@@ -209,12 +203,12 @@ export default function AnamnesisScreen({ navigation }: any) {
             "Pergunta não encontrada",
           options: (data.options || []).map((opt: any, index: number) => {
             let defaultIcon = "smile-beam";
-            let defaultColor = "#4BDE95";
+            let defaultColor = "#67D4A8"; // Nova Menta
             let fallbackScore = 1;
 
             if (index === 1) {
               defaultIcon = "meh";
-              defaultColor = "#E5A93C";
+              defaultColor = "#EAB64A"; // Novo Ouro
               fallbackScore = 4;
             } else if (index === 2) {
               defaultIcon = "sad-tear";
@@ -268,7 +262,6 @@ export default function AnamnesisScreen({ navigation }: any) {
 
   const handleStart = () => setScreenState("questions");
 
-  // 🚀 TRANSIÇÃO DE VOLTAR FLUIDA
   const handleBack = () => {
     if (isAnimating) return;
 
@@ -307,7 +300,6 @@ export default function AnamnesisScreen({ navigation }: any) {
     }
   };
 
-  // 🚀 TRANSIÇÃO DE AVANÇAR FLUIDA
   const handleForward = () => {
     if (isAnimating) return;
 
@@ -349,12 +341,10 @@ export default function AnamnesisScreen({ navigation }: any) {
     }
   };
 
-  // 🚀 TRANSIÇÃO DE RESPOSTA CORRIGIDA (SEM TRAVAMENTO)
   const handleAnswer = (option: any) => {
     if (isAnimating) return;
     setIsAnimating(true);
 
-    // 1. Salva a resposta do usuário
     const newAnswers = [...selectedAnswers];
     newAnswers[currentIndex] = {
       questionId: questionsBank[currentIndex].id,
@@ -365,7 +355,6 @@ export default function AnamnesisScreen({ navigation }: any) {
     };
     setSelectedAnswers(newAnswers);
 
-    // 2. Animação fluida de saída (desliza para esquerda) e entrada da nova pergunta
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 0,
@@ -379,11 +368,9 @@ export default function AnamnesisScreen({ navigation }: any) {
       }),
     ]).start(() => {
       if (currentIndex < questionsBank.length - 1) {
-        // Avança o índice
         setCurrentIndex((prev) => prev + 1);
         slideAnim.setValue(40);
 
-        // Animação de entrada da nova pergunta
         Animated.parallel([
           Animated.timing(fadeAnim, {
             toValue: 1,
@@ -397,10 +384,9 @@ export default function AnamnesisScreen({ navigation }: any) {
             useNativeDriver: true,
           }),
         ]).start(() => {
-          setIsAnimating(false); // Liberado para a próxima pergunta!
+          setIsAnimating(false);
         });
       } else {
-        // Chegou ao fim da anamnese
         fadeAnim.setValue(1);
         slideAnim.setValue(0);
         setIsAnimating(false);
@@ -504,7 +490,6 @@ export default function AnamnesisScreen({ navigation }: any) {
     }).start();
   };
 
-  // 🔥 SALVAR DADOS NO BANCO COM CRIPTOGRAFIA (O COFRE)
   const saveAssessmentToFirebase = async () => {
     const userId = auth.currentUser?.uid;
     if (!userId) return false;
@@ -573,7 +558,7 @@ export default function AnamnesisScreen({ navigation }: any) {
         "Código Inválido",
         "Digite um código válido com pelo menos 5 caracteres.",
         "exclamation-circle",
-        "#E5A93C",
+        "#EAB64A",
       );
       return;
     }
@@ -595,7 +580,7 @@ export default function AnamnesisScreen({ navigation }: any) {
           "Match Não Encontrado",
           "Não encontramos nenhuma conta com esse código. Verifique se o parceiro já acessou o app.",
           "search-minus",
-          "#E5A93C",
+          "#EAB64A",
         );
         setIsMatching(false);
         return;
@@ -620,7 +605,6 @@ export default function AnamnesisScreen({ navigation }: any) {
       setIsInviteModalVisible(false);
       setIsMatchConfirmationVisible(true);
     } catch (error) {
-      console.error("Erro ao buscar match:", error);
       showCustomAlert(
         "Erro de Conexão",
         "Ocorreu um problema ao tentar buscar a conta. Tente novamente.",
@@ -669,7 +653,7 @@ export default function AnamnesisScreen({ navigation }: any) {
           "Conectando Almas! ❤️",
           "Seu código foi enviado aos nossos servidores com segurança. Em poucos instantes a jornada de vocês estará oficialmente conectada!",
           "heart",
-          "#4BDE95",
+          "#67D4A8",
         );
       } catch (error) {
         showCustomAlert(
@@ -717,7 +701,6 @@ export default function AnamnesisScreen({ navigation }: any) {
 
       navigation.navigate("Home");
     } catch (error) {
-      console.error("Erro no fluxo:", error);
       Alert.alert("Erro", "Falha ao processar a assinatura de teste.");
     } finally {
       setIsSaving(false);
@@ -751,8 +734,14 @@ export default function AnamnesisScreen({ navigation }: any) {
   if (isLoadingQuestions || isCheckingUser) {
     return (
       <SafeAreaView style={[styles.container, styles.centerContainer]}>
-        <ActivityIndicator size="large" color="#1A2F3B" />
-        <Text style={{ marginTop: 20, color: "#60646C", fontWeight: "bold" }}>
+        <ActivityIndicator size="large" color="#202D3A" />
+        <Text
+          style={{
+            marginTop: 20,
+            color: "#60646C",
+            fontFamily: "Montserrat_700Bold",
+          }}
+        >
           Carregando informações...
         </Text>
       </SafeAreaView>
@@ -778,12 +767,7 @@ export default function AnamnesisScreen({ navigation }: any) {
         Foque nas missões da sua jornada!
       </Text>
       <TouchableOpacity
-        style={[
-          styles.primaryBtn,
-          {
-            paddingHorizontal: 40,
-          },
-        ]}
+        style={[styles.primaryBtn, { paddingHorizontal: 40 }]}
         activeOpacity={0.8}
         onPress={() => navigation.navigate("Home")}
       >
@@ -805,7 +789,7 @@ export default function AnamnesisScreen({ navigation }: any) {
       <Animated.View
         style={[styles.iconWrapper, { transform: [{ scale: pulseAnim }] }]}
       >
-        <FontAwesome5 name="heartbeat" size={70} color="#4BDE95" />
+        <FontAwesome5 name="heartbeat" size={70} color="#67D4A8" />
       </Animated.View>
       <Text style={styles.introTitle}>
         Descubra a Temperatura da sua Relação
@@ -832,8 +816,8 @@ export default function AnamnesisScreen({ navigation }: any) {
         >
           <Text
             style={{
-              color: "#1A2F3B",
-              fontWeight: "bold",
+              color: "#202D3A",
+              fontFamily: "Montserrat_700Bold",
               textDecorationLine: "underline",
             }}
           >
@@ -863,7 +847,7 @@ export default function AnamnesisScreen({ navigation }: any) {
             <FontAwesome5
               name="chevron-left"
               size={18}
-              color={currentIndex === 0 ? "#D1D9E0" : "#1A2F3B"}
+              color={currentIndex === 0 ? "#D1D9E0" : "#202D3A"}
             />
           </TouchableOpacity>
 
@@ -886,12 +870,11 @@ export default function AnamnesisScreen({ navigation }: any) {
             <FontAwesome5
               name="chevron-right"
               size={18}
-              color={!canGoForward ? "#D1D9E0" : "#1A2F3B"}
+              color={!canGoForward ? "#D1D9E0" : "#202D3A"}
             />
           </TouchableOpacity>
         </View>
 
-        {/* 🚀 TRANSIÇÃO HORIZONTAL COMPATÍVEL E ULTRA FLUIDA */}
         <Animated.View
           style={{
             flex: 1,
@@ -941,7 +924,10 @@ export default function AnamnesisScreen({ navigation }: any) {
                     <Text
                       style={[
                         styles.answerBtnText,
-                        isSelected && { color: "#1A2F3B", fontWeight: "900" },
+                        isSelected && {
+                          color: "#202D3A",
+                          fontFamily: "Montserrat_900Black",
+                        },
                       ]}
                     >
                       {opt.label}
@@ -952,7 +938,7 @@ export default function AnamnesisScreen({ navigation }: any) {
                         name="check-circle"
                         solid
                         size={20}
-                        color="#4BDE95"
+                        color="#67D4A8"
                         style={{ marginLeft: 10 }}
                       />
                     )}
@@ -976,7 +962,7 @@ export default function AnamnesisScreen({ navigation }: any) {
       <View style={styles.centerContainer}>
         <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
           <View style={styles.spinnerRing}>
-            <FontAwesome5 name="brain" size={40} color="#1A2F3B" />
+            <FontAwesome5 name="brain" size={40} color="#202D3A" />
           </View>
         </Animated.View>
         <Text style={styles.calcTitle}>Avaliando Conexão</Text>
@@ -1004,12 +990,12 @@ export default function AnamnesisScreen({ navigation }: any) {
       resultTitle = "Morno, com Grande Potencial 🌥️";
       resultDesc =
         "Vocês têm uma base sólida, mas caíram no modo automático. A jornada de 90 dias vai reacender essa chama com tranquilidade.";
-      tempColor = "#E5A93C";
+      tempColor = "#EAB64A";
     } else {
       resultTitle = "Conexão Segura e Forte 🌿";
       resultDesc =
         "Incrível! Vocês têm uma sintonia rara. A jornada será perfeita para blindar essa relação contra qualquer crise.";
-      tempColor = "#4BDE95";
+      tempColor = "#67D4A8";
     }
 
     const fillHeight = thermometerFill.interpolate({
@@ -1099,7 +1085,7 @@ export default function AnamnesisScreen({ navigation }: any) {
           </View>
           <Text style={styles.riskText}>
             Baseado em análises e padrões clínicos, seu cenário atual apresenta{" "}
-            <Text style={{ fontWeight: "bold" }}>
+            <Text style={{ fontFamily: "Montserrat_700Bold" }}>
               {finalRisk}% de risco de afastamento
             </Text>{" "}
             no longo prazo se não for cuidado. O verdadeiro destruidor de
@@ -1109,10 +1095,12 @@ export default function AnamnesisScreen({ navigation }: any) {
         </View>
 
         <View style={styles.hopeBox}>
-          <FontAwesome5 name="seedling" size={22} color="#1A2F3B" />
+          <FontAwesome5 name="seedling" size={22} color="#202D3A" />
           <Text style={styles.hopeText}>
             Com base no seu diagnóstico, estruturamos a{" "}
-            <Text style={{ fontWeight: "bold", color: "#1A2F3B" }}>
+            <Text
+              style={{ fontFamily: "Montserrat_700Bold", color: "#202D3A" }}
+            >
               Jornada de 90 Dias
             </Text>{" "}
             ideal para blindar e resgatar o seu relacionamento.
@@ -1123,7 +1111,7 @@ export default function AnamnesisScreen({ navigation }: any) {
           <View style={styles.impulseBuyBox}>
             <Text style={styles.impulseBuyPriceText}>
               Acesso Liberado{" "}
-              <Text style={[styles.priceHighlight, { color: "#4BDE95" }]}>
+              <Text style={[styles.priceHighlight, { color: "#67D4A8" }]}>
                 ✓
               </Text>
             </Text>
@@ -1133,7 +1121,7 @@ export default function AnamnesisScreen({ navigation }: any) {
             </Text>
 
             <TouchableOpacity
-              style={[styles.paywallBtn, { backgroundColor: "#4BDE95" }]}
+              style={[styles.paywallBtn, { backgroundColor: "#67D4A8" }]}
               activeOpacity={0.9}
               onPress={handleFinishFree}
               disabled={isSaving || isSkipping}
@@ -1153,7 +1141,7 @@ export default function AnamnesisScreen({ navigation }: any) {
             <Text
               style={[
                 styles.resultHeader,
-                { marginBottom: 15, color: "#1A2F3B" },
+                { marginBottom: 15, color: "#202D3A" },
               ]}
             >
               Libere sua Trilha Agora
@@ -1216,7 +1204,9 @@ export default function AnamnesisScreen({ navigation }: any) {
             <View style={styles.guaranteeBox}>
               <Text style={styles.priceSub}>
                 Os 90 dias{" "}
-                <Text style={{ fontWeight: "bold", color: "#1A2F3B" }}>
+                <Text
+                  style={{ fontFamily: "Montserrat_700Bold", color: "#202D3A" }}
+                >
                   só começam a contar a partir da sua primera tarefa.
                 </Text>{" "}
                 Passe disso e sua assinatura ajusta para R$ 19,90/mês para
@@ -1231,7 +1221,7 @@ export default function AnamnesisScreen({ navigation }: any) {
               {features.map((feat, index) => (
                 <View key={index} style={styles.featureItem}>
                   <View style={styles.featureIconBg}>
-                    <FontAwesome5 name={feat.icon} size={16} color="#1A2F3B" />
+                    <FontAwesome5 name={feat.icon} size={16} color="#202D3A" />
                   </View>
                   <View style={styles.featureTextContainer}>
                     <Text style={styles.featureTitle}>{feat.title}</Text>
@@ -1272,7 +1262,7 @@ export default function AnamnesisScreen({ navigation }: any) {
                 <Text
                   style={{
                     color: "#2C3E50",
-                    fontWeight: "bold",
+                    fontFamily: "Montserrat_700Bold",
                     textDecorationLine: "underline",
                   }}
                 >
@@ -1338,7 +1328,6 @@ export default function AnamnesisScreen({ navigation }: any) {
         </>
       )}
 
-      {/* 🔥 MODAL DE SELEÇÃO DE IDIOMA */}
       <Modal visible={isLangModalVisible} transparent animationType="fade">
         <TouchableOpacity
           style={styles.modalOverlay}
@@ -1362,7 +1351,6 @@ export default function AnamnesisScreen({ navigation }: any) {
         </TouchableOpacity>
       </Modal>
 
-      {/* 🔥 MODAL DE INSERIR CÓDIGO */}
       <Modal visible={isInviteModalVisible} transparent animationType="fade">
         <View style={styles.modalOverlayCenter}>
           <View style={styles.codeModalCard}>
@@ -1401,7 +1389,6 @@ export default function AnamnesisScreen({ navigation }: any) {
         </View>
       </Modal>
 
-      {/* 🔥 MODAL DE CONFIRMAÇÃO DE IDENTIDADE */}
       <Modal
         visible={isMatchConfirmationVisible}
         transparent
@@ -1429,7 +1416,7 @@ export default function AnamnesisScreen({ navigation }: any) {
                     borderRadius: 40,
                     marginBottom: 15,
                     borderWidth: 3,
-                    borderColor: "#E5A93C",
+                    borderColor: "#EAB64A",
                   }}
                 />
               ) : (
@@ -1450,7 +1437,11 @@ export default function AnamnesisScreen({ navigation }: any) {
                 </View>
               )}
               <Text
-                style={{ fontSize: 20, fontWeight: "900", color: "#1A2F3B" }}
+                style={{
+                  fontFamily: "Montserrat_900Black",
+                  fontSize: 20,
+                  color: "#202D3A",
+                }}
               >
                 {pendingMatchPartner?.data?.displayName ||
                   pendingMatchPartner?.data?.email?.split("@")[0] ||
@@ -1459,7 +1450,7 @@ export default function AnamnesisScreen({ navigation }: any) {
             </View>
 
             <TouchableOpacity
-              style={[styles.linkButton, { backgroundColor: "#4BDE95" }]}
+              style={[styles.linkButton, { backgroundColor: "#67D4A8" }]}
               onPress={confirmMatchCode}
             >
               <Text style={styles.linkButtonText}>Sim, Conectar!</Text>
@@ -1480,19 +1471,18 @@ export default function AnamnesisScreen({ navigation }: any) {
         </View>
       </Modal>
 
-      {/* 🔥 MODAL DA ANIMAÇÃO DE CONEXÃO */}
       <Modal visible={isMatchAnimationVisible} transparent animationType="fade">
         <View
           style={[
             styles.modalOverlayCenter,
-            { backgroundColor: "rgba(26,47,59,0.95)" },
+            { backgroundColor: "rgba(32,45,58,0.95)" },
           ]}
         >
           <Text
             style={{
               color: "#FFF",
               fontSize: 24,
-              fontWeight: "900",
+              fontFamily: "Montserrat_900Black",
               marginBottom: 50,
               letterSpacing: 1,
             }}
@@ -1545,7 +1535,7 @@ export default function AnamnesisScreen({ navigation }: any) {
                     borderColor: "#FFF",
                   }}
                 >
-                  <FontAwesome5 name="user-alt" size={35} color="#1A2F3B" />
+                  <FontAwesome5 name="user-alt" size={35} color="#202D3A" />
                 </View>
               )}
             </Animated.View>
@@ -1568,7 +1558,7 @@ export default function AnamnesisScreen({ navigation }: any) {
                   elevation: 10,
                 }}
               >
-                <FontAwesome5 name="heart" solid size={35} color="#E5A93C" />
+                <FontAwesome5 name="heart" solid size={35} color="#EAB64A" />
               </View>
             </Animated.View>
 
@@ -1614,7 +1604,7 @@ export default function AnamnesisScreen({ navigation }: any) {
                     borderColor: "#FFF",
                   }}
                 >
-                  <FontAwesome5 name="user-alt" size={35} color="#1A2F3B" />
+                  <FontAwesome5 name="user-alt" size={35} color="#202D3A" />
                 </View>
               )}
             </Animated.View>
@@ -1624,7 +1614,7 @@ export default function AnamnesisScreen({ navigation }: any) {
             style={{
               color: "#FFF",
               fontSize: 16,
-              fontWeight: "bold",
+              fontFamily: "Montserrat_700Bold",
               marginTop: 50,
               opacity: 0.8,
             }}
@@ -1634,7 +1624,6 @@ export default function AnamnesisScreen({ navigation }: any) {
         </View>
       </Modal>
 
-      {/* 🔥 CUSTOM ALERT */}
       <Modal visible={customAlert.visible} transparent animationType="slide">
         <View style={styles.bottomSheetOverlay}>
           <View style={styles.bottomSheetContainer}>
@@ -1720,7 +1709,7 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(26, 47, 59, 0.6)",
+    backgroundColor: "rgba(32, 45, 58, 0.6)",
     justifyContent: "flex-start",
     alignItems: "flex-end",
   },
@@ -1752,7 +1741,7 @@ const styles = StyleSheet.create({
   compactFlagBtnActive: {
     backgroundColor: "#E8F4F1",
     borderWidth: 2,
-    borderColor: "#4BDE95",
+    borderColor: "#67D4A8",
   },
   compactFlagText: { fontSize: 28 },
   iconWrapper: {
@@ -1764,21 +1753,22 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 30,
     elevation: 10,
-    shadowColor: "#1A2F3B",
+    shadowColor: "#202D3A",
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.1,
     shadowRadius: 15,
   },
   introTitle: {
     fontSize: 28,
-    fontWeight: "900",
-    color: "#1A2F3B",
+    fontFamily: "Montserrat_900Black",
+    color: "#202D3A",
     textAlign: "center",
     marginBottom: 15,
     lineHeight: 34,
   },
   introText: {
     fontSize: 16,
+    fontFamily: "Montserrat_400Regular",
     color: "#2C3E50",
     textAlign: "center",
     marginBottom: 40,
@@ -1786,19 +1776,23 @@ const styles = StyleSheet.create({
   },
   primaryBtn: {
     flexDirection: "row",
-    backgroundColor: "#1A2F3B",
+    backgroundColor: "#202D3A",
     paddingVertical: 18,
     paddingHorizontal: 30,
     borderRadius: 30,
     alignItems: "center",
     gap: 10,
     elevation: 5,
-    shadowColor: "#1A2F3B",
+    shadowColor: "#202D3A",
     shadowOffset: { width: 0, height: 5 },
     shadowOpacity: 0.4,
     shadowRadius: 10,
   },
-  primaryBtnText: { color: "#FFF", fontSize: 18, fontWeight: "bold" },
+  primaryBtnText: {
+    color: "#FFF",
+    fontSize: 18,
+    fontFamily: "Montserrat_700Bold",
+  },
   questionContainer: { flex: 1, padding: 24, paddingTop: 30 },
   navHeader: {
     flexDirection: "row",
@@ -1836,29 +1830,29 @@ const styles = StyleSheet.create({
   },
   progressBarFill: {
     height: "100%",
-    backgroundColor: "#E5A93C",
+    backgroundColor: "#EAB64A",
     borderRadius: 4,
   },
   progressText: {
     fontSize: 12,
     color: "#60646C",
-    fontWeight: "bold",
+    fontFamily: "Montserrat_700Bold",
     textTransform: "uppercase",
     textAlign: "center",
   },
   questionHeader: { marginBottom: 35 },
   questionCategory: {
-    color: "#E5A93C",
+    color: "#EAB64A",
     fontSize: 16,
-    fontWeight: "900",
+    fontFamily: "Montserrat_900Black",
     textTransform: "uppercase",
     letterSpacing: 1,
     marginBottom: 10,
   },
   questionText: {
     fontSize: 26,
-    fontWeight: "bold",
-    color: "#1A2F3B",
+    fontFamily: "Montserrat_700Bold",
+    color: "#202D3A",
     lineHeight: 34,
   },
   answersContainer: { gap: 12, paddingBottom: 20 },
@@ -1876,7 +1870,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 4,
   },
-  answerBtnSelected: { borderColor: "#4BDE95", backgroundColor: "#E8F4F1" },
+  answerBtnSelected: { borderColor: "#67D4A8", backgroundColor: "#E8F4F1" },
   answerIconBg: {
     width: 44,
     height: 44,
@@ -1885,22 +1879,27 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginRight: 15,
   },
-  answerBtnText: { fontSize: 16, fontWeight: "700", color: "#2C3E50", flex: 1 },
+  answerBtnText: {
+    fontSize: 16,
+    fontFamily: "Montserrat_700Bold",
+    color: "#2C3E50",
+    flex: 1,
+  },
   spinnerRing: {
     width: 100,
     height: 100,
     borderRadius: 50,
     borderWidth: 6,
     borderColor: "#D1D9E0",
-    borderTopColor: "#1A2F3B",
+    borderTopColor: "#202D3A",
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 30,
   },
   calcTitle: {
     fontSize: 24,
-    fontWeight: "bold",
-    color: "#1A2F3B",
+    fontFamily: "Montserrat_900Black",
+    color: "#202D3A",
     marginBottom: 30,
   },
   loadingBarContainer: {
@@ -1913,13 +1912,13 @@ const styles = StyleSheet.create({
   },
   loadingBarFill: {
     height: "100%",
-    backgroundColor: "#4BDE95",
+    backgroundColor: "#67D4A8",
     borderRadius: 6,
   },
   loadingMessageText: {
     fontSize: 16,
     color: "#60646C",
-    fontWeight: "bold",
+    fontFamily: "Montserrat_600SemiBold",
     textAlign: "center",
     fontStyle: "italic",
   },
@@ -1931,7 +1930,7 @@ const styles = StyleSheet.create({
   },
   resultHeader: {
     fontSize: 16,
-    fontWeight: "800",
+    fontFamily: "Montserrat_900Black",
     color: "#60646C",
     textTransform: "uppercase",
     letterSpacing: 2,
@@ -1982,13 +1981,14 @@ const styles = StyleSheet.create({
   },
   resultTitle: {
     fontSize: 26,
-    fontWeight: "900",
+    fontFamily: "Montserrat_900Black",
     marginBottom: 10,
     textAlign: "center",
   },
   resultText: {
     fontSize: 15,
     color: "#2C3E50",
+    fontFamily: "Montserrat_400Regular",
     textAlign: "center",
     lineHeight: 22,
     marginBottom: 20,
@@ -2012,8 +2012,17 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 8,
   },
-  riskTitle: { fontSize: 16, fontWeight: "900", textTransform: "uppercase" },
-  riskText: { fontSize: 13, color: "#60646C", lineHeight: 20 },
+  riskTitle: {
+    fontSize: 16,
+    fontFamily: "Montserrat_900Black",
+    textTransform: "uppercase",
+  },
+  riskText: {
+    fontSize: 13,
+    color: "#60646C",
+    lineHeight: 20,
+    fontFamily: "Montserrat_400Regular",
+  },
   hopeBox: {
     flexDirection: "row",
     backgroundColor: "#E8F4F1",
@@ -2024,7 +2033,13 @@ const styles = StyleSheet.create({
     marginBottom: 30,
     width: "100%",
   },
-  hopeText: { flex: 1, fontSize: 14, color: "#1A2F3B", lineHeight: 20 },
+  hopeText: {
+    flex: 1,
+    fontSize: 14,
+    color: "#202D3A",
+    lineHeight: 20,
+    fontFamily: "Montserrat_400Regular",
+  },
   impulseBuyBox: {
     width: "100%",
     backgroundColor: "#FFF",
@@ -2044,9 +2059,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#2C3E50",
     marginBottom: 8,
-    fontWeight: "700",
+    fontFamily: "Montserrat_700Bold",
   },
-  priceHighlight: { fontSize: 24, fontWeight: "900", color: "#1A2F3B" },
+  priceHighlight: {
+    fontSize: 24,
+    fontFamily: "Montserrat_900Black",
+    color: "#202D3A",
+  },
   impulseBuySubText: {
     fontSize: 12,
     color: "#60646C",
@@ -2054,6 +2073,7 @@ const styles = StyleSheet.create({
     marginBottom: 18,
     lineHeight: 18,
     paddingHorizontal: 10,
+    fontFamily: "Montserrat_400Regular",
   },
   plansWrapper: {
     width: "100%",
@@ -2074,36 +2094,48 @@ const styles = StyleSheet.create({
   },
   planCardSelected: {
     backgroundColor: "#FFF",
-    borderColor: "#E5A93C",
+    borderColor: "#EAB64A",
   },
   badgeContainer: {
     position: "absolute",
     top: -10,
     left: 15,
-    backgroundColor: "#E5A93C",
+    backgroundColor: "#EAB64A",
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 8,
   },
   badgeText: {
-    color: "#1A2F3B",
+    color: "#202D3A",
     fontSize: 10,
-    fontWeight: "900",
+    fontFamily: "Montserrat_900Black",
     letterSpacing: 1,
   },
   planInfo: { flex: 1 },
-  planName: { fontSize: 16, fontWeight: "bold", color: "#2C3E50" },
+  planName: {
+    fontSize: 16,
+    fontFamily: "Montserrat_700Bold",
+    color: "#2C3E50",
+  },
   planPriceBox: { alignItems: "flex-end" },
-  planPrice: { fontSize: 18, fontWeight: "900", color: "#1A2F3B" },
-  planPeriod: { fontSize: 12, color: "#60646C", fontWeight: "bold" },
-  planTextSelected: { color: "#E5A93C" },
+  planPrice: {
+    fontSize: 18,
+    fontFamily: "Montserrat_900Black",
+    color: "#202D3A",
+  },
+  planPeriod: {
+    fontSize: 12,
+    color: "#60646C",
+    fontFamily: "Montserrat_700Bold",
+  },
+  planTextSelected: { color: "#EAB64A" },
   guaranteeBox: {
     backgroundColor: "#E8F4F1",
     padding: 12,
     borderRadius: 12,
     width: "100%",
     borderWidth: 1,
-    borderColor: "#4BDE95",
+    borderColor: "#67D4A8",
     marginBottom: 20,
   },
   priceSub: {
@@ -2111,11 +2143,12 @@ const styles = StyleSheet.create({
     color: "#2C3E50",
     textAlign: "center",
     lineHeight: 18,
+    fontFamily: "Montserrat_400Regular",
   },
   featuresContainer: { width: "100%", marginBottom: 25, paddingHorizontal: 5 },
   featuresSectionTitle: {
     fontSize: 14,
-    fontWeight: "bold",
+    fontFamily: "Montserrat_700Bold",
     color: "#60646C",
     textAlign: "center",
     textTransform: "uppercase",
@@ -2135,15 +2168,20 @@ const styles = StyleSheet.create({
   featureTextContainer: { flex: 1 },
   featureTitle: {
     fontSize: 14,
-    fontWeight: "bold",
-    color: "#1A2F3B",
+    fontFamily: "Montserrat_700Bold",
+    color: "#202D3A",
     marginBottom: 2,
   },
-  featureDesc: { fontSize: 12, color: "#60646C", lineHeight: 16 },
+  featureDesc: {
+    fontSize: 12,
+    color: "#60646C",
+    lineHeight: 16,
+    fontFamily: "Montserrat_400Regular",
+  },
   paywallBtn: {
     flexDirection: "row",
     width: "100%",
-    backgroundColor: "#1A2F3B",
+    backgroundColor: "#202D3A",
     paddingVertical: 18,
     borderRadius: 16,
     justifyContent: "center",
@@ -2158,14 +2196,14 @@ const styles = StyleSheet.create({
   paywallBtnText: {
     color: "#FFF",
     fontSize: 16,
-    fontWeight: "900",
+    fontFamily: "Montserrat_900Black",
     textTransform: "uppercase",
   },
   skipLink: { marginTop: 10, padding: 10 },
   skipLinkText: {
     color: "#60646C",
     fontSize: 13,
-    fontWeight: "bold",
+    fontFamily: "Montserrat_700Bold",
     textDecorationLine: "underline",
   },
   floatingCartBtn: {
@@ -2175,10 +2213,10 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: "#E5A93C",
+    backgroundColor: "#EAB64A",
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#E5A93C",
+    shadowColor: "#EAB64A",
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.4,
     shadowRadius: 8,
@@ -2188,7 +2226,7 @@ const styles = StyleSheet.create({
 
   modalOverlayCenter: {
     flex: 1,
-    backgroundColor: "rgba(26,47,59,0.7)",
+    backgroundColor: "rgba(32,45,58,0.7)",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -2201,8 +2239,8 @@ const styles = StyleSheet.create({
   },
   codeModalTitle: {
     fontSize: 20,
-    fontWeight: "900",
-    color: "#1A2F3B",
+    fontFamily: "Montserrat_900Black",
+    color: "#202D3A",
     marginBottom: 10,
   },
   codeModalSub: {
@@ -2210,6 +2248,7 @@ const styles = StyleSheet.create({
     color: "#60646C",
     textAlign: "center",
     marginBottom: 20,
+    fontFamily: "Montserrat_400Regular",
   },
   codeInputField: {
     width: "100%",
@@ -2217,31 +2256,39 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     fontSize: 18,
-    fontWeight: "bold",
+    fontFamily: "Montserrat_700Bold",
     textAlign: "center",
     letterSpacing: 2,
     marginBottom: 20,
-    color: "#1A2F3B",
+    color: "#202D3A",
   },
   linkButton: {
-    backgroundColor: "#E5A93C",
+    backgroundColor: "#EAB64A",
     width: "100%",
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: "center",
     marginBottom: 10,
   },
-  linkButtonText: { color: "#1A2F3B", fontSize: 16, fontWeight: "bold" },
+  linkButtonText: {
+    color: "#202D3A",
+    fontSize: 16,
+    fontFamily: "Montserrat_700Bold",
+  },
   cancelLinkButton: {
     width: "100%",
     paddingVertical: 12,
     alignItems: "center",
   },
-  cancelLinkButtonText: { color: "#60646C", fontSize: 14, fontWeight: "bold" },
+  cancelLinkButtonText: {
+    color: "#60646C",
+    fontSize: 14,
+    fontFamily: "Montserrat_700Bold",
+  },
 
   bottomSheetOverlay: {
     flex: 1,
-    backgroundColor: "rgba(26,47,59,0.6)",
+    backgroundColor: "rgba(32,45,58,0.6)",
     justifyContent: "flex-end",
   },
   bottomSheetContainer: {
@@ -2285,8 +2332,8 @@ const styles = StyleSheet.create({
   },
   bottomSheetTitle: {
     fontSize: 22,
-    fontWeight: "900",
-    color: "#1A2F3B",
+    fontFamily: "Montserrat_900Black",
+    color: "#202D3A",
     marginBottom: 10,
     textAlign: "center",
   },
@@ -2296,6 +2343,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 20,
     lineHeight: 22,
+    fontFamily: "Montserrat_400Regular",
   },
   bottomSheetButtonPrimary: {
     flexDirection: "row",
@@ -2308,7 +2356,7 @@ const styles = StyleSheet.create({
   bottomSheetButtonPrimaryText: {
     color: "#FFF",
     fontSize: 16,
-    fontWeight: "bold",
+    fontFamily: "Montserrat_700Bold",
   },
   bottomSheetButtonSecondary: {
     flexDirection: "row",
@@ -2320,160 +2368,6 @@ const styles = StyleSheet.create({
   bottomSheetButtonSecondaryText: {
     color: "#2C3E50",
     fontSize: 16,
-    fontWeight: "bold",
-  },
-
-  workflowMainTitle: {
-    fontSize: 24,
-    fontWeight: "900",
-    color: "#1A2F3B",
-    textAlign: "center",
-    marginBottom: 8,
-  },
-  workflowSubTitle: {
-    fontSize: 14,
-    color: "#2C3E50",
-    textAlign: "center",
-    marginBottom: 25,
-    lineHeight: 20,
-  },
-  workflowLineVertical: {
-    position: "absolute",
-    left: 28,
-    top: 35,
-    bottom: 45,
-    width: 2,
-    backgroundColor: "#D1D9E0",
-    zIndex: 0,
-  },
-  workflowStepModal: {
-    flexDirection: "row",
-    marginBottom: 25,
-    zIndex: 1,
-  },
-  stepIconContainerModal: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#FFF",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    marginRight: 15,
-  },
-  stepIconActive: { backgroundColor: "#1A2F3B" },
-  stepIconSuccess: { backgroundColor: "#4BDE95" },
-  stepIconInactive: {
-    backgroundColor: "#F0F4F8",
-    borderWidth: 1,
-    borderColor: "#D1D9E0",
-    elevation: 0,
-  },
-  stepTitle: {
-    fontSize: 15,
-    fontWeight: "bold",
-    color: "#1A2F3B",
-    marginTop: 8,
-  },
-  stepTextSuccess: { color: "#4BDE95" },
-  stepTextActive: { color: "#1A2F3B" },
-  stepTextInactive: { color: "#60646C" },
-  stepDoneText: { fontSize: 13, color: "#2C3E50", marginTop: 4 },
-
-  statusBoxLg: {
-    backgroundColor: "#F0F4F8",
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#D1D9E0",
-    width: "100%",
-    marginTop: 15,
-    gap: 10,
-  },
-  statusRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  statusLabel: {
-    fontSize: 14,
-    color: "#2C3E50",
-    fontWeight: "bold",
-  },
-  statusValue: {
-    fontSize: 14,
-    fontWeight: "900",
-    color: "#1A2F3B",
-  },
-
-  statusBox: {
-    backgroundColor: "#F0F4F8",
-    padding: 12,
-    borderRadius: 10,
-    marginTop: 10,
-    borderWidth: 1,
-    borderColor: "#D1D9E0",
-  },
-  statusBoxText: {
-    fontSize: 13,
-    fontWeight: "bold",
-    color: "#1A2F3B",
-    marginVertical: 3,
-  },
-  codeContainerMini: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: "#FFF",
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#D1D9E0",
-    marginBottom: 10,
-  },
-  codeValueMini: {
-    fontSize: 16,
-    fontWeight: "900",
-    color: "#1A2F3B",
-    letterSpacing: 2,
-  },
-  whatsappButtonMini: {
-    flexDirection: "row",
-    backgroundColor: "#25D366",
-    borderRadius: 8,
-    paddingVertical: 12,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 15,
-  },
-  whatsappButtonTextMini: {
-    color: "#FFF",
-    fontSize: 14,
-    fontWeight: "bold",
-    marginLeft: 8,
-  },
-  haveCodeLinkTextMini: {
-    color: "#1A2F3B",
-    fontWeight: "bold",
-    fontSize: 13,
-    textAlign: "center",
-    textDecorationLine: "underline",
-  },
-
-  loadingCard: {
-    width: "85%",
-    backgroundColor: "#FFF",
-    borderRadius: 20,
-    padding: 30,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.2,
-    shadowRadius: 20,
-    elevation: 10,
+    fontFamily: "Montserrat_700Bold",
   },
 });

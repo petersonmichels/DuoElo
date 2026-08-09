@@ -9,7 +9,6 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -17,6 +16,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+// 🔥 Importação correta e moderna do SafeAreaView
+import { SafeAreaView } from "react-native-safe-area-context";
 import { auth } from "../config/firebase";
 
 // Adaptador de Alertas para funcionar perfeitamente na Web e no Celular
@@ -95,7 +96,7 @@ export default function RegisterScreen({ navigation }: any) {
         >
           <View style={styles.header}>
             <View style={styles.iconWrapper}>
-              <FontAwesome5 name="seedling" size={36} color="#E5A93C" />
+              <FontAwesome5 name="seedling" size={36} color="#EAB64A" />
             </View>
             <Text style={styles.title}>Criar Conta</Text>
             <Text style={styles.subtitle}>
@@ -153,14 +154,14 @@ export default function RegisterScreen({ navigation }: any) {
                 activeOpacity={0.8}
               >
                 {isLoading ? (
-                  <ActivityIndicator color="#1A2F3B" />
+                  <ActivityIndicator color="#202D3A" />
                 ) : (
                   <>
                     <Text style={styles.buttonText}>Cadastrar Conta</Text>
                     <FontAwesome5
                       name="arrow-right"
                       size={16}
-                      color="#1A2F3B"
+                      color="#202D3A"
                     />
                   </>
                 )}
@@ -208,8 +209,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 20,
     borderWidth: 2,
-    borderColor: "#E5A93C", // Borda Ouro Suave
-    shadowColor: "#E5A93C",
+    borderColor: "#EAB64A", // Borda Ouro Suave Oficial
+    shadowColor: "#EAB64A",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 10,
@@ -217,13 +218,14 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: "900",
-    color: "#1A2F3B", // Azul Petróleo Escuro
+    fontFamily: "Montserrat_900Black",
+    color: "#202D3A", // Azul Petróleo Oficial
     textAlign: "center",
     marginBottom: 10,
   },
   subtitle: {
     fontSize: 15,
+    fontFamily: "Montserrat_400Regular",
     color: "#60646C",
     textAlign: "center",
     lineHeight: 22,
@@ -256,7 +258,8 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
     paddingHorizontal: 10,
     fontSize: 16,
-    color: "#1A2F3B",
+    color: "#202D3A",
+    fontFamily: "Montserrat_600SemiBold",
   },
   actionWrapper: {
     marginTop: 10,
@@ -264,21 +267,21 @@ const styles = StyleSheet.create({
   },
   buttonMain: {
     flexDirection: "row",
-    backgroundColor: "#E5A93C", // Ouro Suave (Destaque acolhedor)
+    backgroundColor: "#EAB64A", // Ouro Suave Oficial
     paddingVertical: 18,
     borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
-    shadowColor: "#E5A93C",
+    shadowColor: "#EAB64A",
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 5,
   },
   buttonText: {
-    color: "#1A2F3B", // Acessibilidade WCAG AAA
-    fontWeight: "900",
+    color: "#202D3A", // Petróleo
+    fontFamily: "Montserrat_900Black",
     fontSize: 17,
     textTransform: "uppercase",
     letterSpacing: 0.5,
@@ -293,11 +296,12 @@ const styles = StyleSheet.create({
   toggleText: {
     color: "#60646C",
     fontSize: 15,
+    fontFamily: "Montserrat_400Regular",
   },
   toggleLink: {
-    color: "#1A2F3B",
+    color: "#202D3A",
     fontSize: 15,
-    fontWeight: "bold",
+    fontFamily: "Montserrat_700Bold",
     textDecorationLine: "underline",
   },
 });

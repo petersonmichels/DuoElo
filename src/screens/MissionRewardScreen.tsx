@@ -4,13 +4,14 @@ import {
   Animated,
   Dimensions,
   Easing,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+// 🔥 IMPORTAÇÃO CORRETA E MODERNA DO SAFE AREA
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const { width } = Dimensions.get("window");
 
@@ -120,7 +121,7 @@ export default function MissionRewardScreen({ navigation, route }: any) {
                   <Animated.View
                     style={[
                       styles.progressBarFill,
-                      { width: bar1Width, backgroundColor: "#4BDE95" },
+                      { width: bar1Width, backgroundColor: "#67D4A8" },
                     ]}
                   />
                   <Text style={[styles.progressTextOver, { color: "#FFF" }]}>
@@ -133,7 +134,7 @@ export default function MissionRewardScreen({ navigation, route }: any) {
                     { transform: [{ scale: popAnim }] },
                   ]}
                 >
-                  <FontAwesome5 name="gift" solid size={24} color="#4BDE95" />
+                  <FontAwesome5 name="gift" solid size={24} color="#67D4A8" />
                 </Animated.View>
               </View>
             </View>
@@ -147,10 +148,10 @@ export default function MissionRewardScreen({ navigation, route }: any) {
                   <Animated.View
                     style={[
                       styles.progressBarFill,
-                      { width: bar2Width, backgroundColor: "#E5A93C" },
+                      { width: bar2Width, backgroundColor: "#EAB64A" },
                     ]}
                   />
-                  <Text style={[styles.progressTextOver, { color: "#1A2F3B" }]}>
+                  <Text style={[styles.progressTextOver, { color: "#202D3A" }]}>
                     1 / 1
                   </Text>
                 </View>
@@ -160,7 +161,7 @@ export default function MissionRewardScreen({ navigation, route }: any) {
                     { transform: [{ scale: popAnim }] },
                   ]}
                 >
-                  <FontAwesome5 name="fire" solid size={24} color="#E5A93C" />
+                  <FontAwesome5 name="fire" solid size={24} color="#EAB64A" />
                 </Animated.View>
               </View>
             </View>
@@ -184,7 +185,7 @@ export default function MissionRewardScreen({ navigation, route }: any) {
                   <Animated.View
                     style={[
                       styles.progressBarFill,
-                      { width: bar3Width, backgroundColor: "#1A2F3B" },
+                      { width: bar3Width, backgroundColor: "#202D3A" },
                     ]}
                   />
                   <Text style={[styles.progressTextOver, { color: "#FFF" }]}>
@@ -200,12 +201,11 @@ export default function MissionRewardScreen({ navigation, route }: any) {
                     },
                   ]}
                 >
-                  {/* 🔥 ÍCONE INFINITY NO CUPIDO */}
                   <FontAwesome5
                     name={isCupidAwake ? "infinity" : "box"}
                     solid
                     size={24}
-                    color={isCupidAwake ? "#E5A93C" : "#1A2F3B"}
+                    color={isCupidAwake ? "#EAB64A" : "#202D3A"}
                   />
                 </Animated.View>
               </View>
@@ -222,7 +222,7 @@ export default function MissionRewardScreen({ navigation, route }: any) {
             <Animated.View
               style={[styles.badgeIconBg, { transform: [{ scale: popAnim }] }]}
             >
-              <FontAwesome5 name="trophy" solid size={30} color="#E5A93C" />
+              <FontAwesome5 name="trophy" solid size={30} color="#EAB64A" />
             </Animated.View>
           </View>
         </Animated.View>
@@ -254,8 +254,8 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     fontSize: 28,
-    fontWeight: "900",
-    color: "#4BDE95",
+    fontFamily: "Montserrat_900Black",
+    color: "#67D4A8",
     marginBottom: 25,
     textAlign: "center",
   },
@@ -279,13 +279,13 @@ const styles = StyleSheet.create({
   },
   missionLabel: {
     fontSize: 16,
-    fontWeight: "900",
-    color: "#1A2F3B",
+    fontFamily: "Montserrat_900Black",
+    color: "#202D3A",
     marginBottom: 6,
   },
   missionSubLabel: {
     fontSize: 12,
-    fontWeight: "bold",
+    fontFamily: "Montserrat_700Bold",
     color: "#60646C",
   },
   progressRow: {
@@ -313,7 +313,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     width: "100%",
     textAlign: "center",
-    fontWeight: "900",
+    fontFamily: "Montserrat_900Black",
     fontSize: 13,
     letterSpacing: 1,
   },
@@ -337,14 +337,14 @@ const styles = StyleSheet.create({
   },
   badgeTitle: {
     fontSize: 17,
-    fontWeight: "bold",
-    color: "#1A2F3B",
+    fontFamily: "Montserrat_700Bold",
+    color: "#202D3A",
     marginBottom: 5,
   },
   badgeProgressText: {
     fontSize: 16,
-    fontWeight: "900",
-    color: "#4BDE95",
+    fontFamily: "Montserrat_900Black",
+    color: "#67D4A8",
   },
   badgeIconBg: {
     width: 60,
@@ -354,7 +354,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 2,
-    borderColor: "#E5A93C",
+    borderColor: "#EAB64A",
   },
   footer: {
     position: "absolute",
@@ -369,12 +369,12 @@ const styles = StyleSheet.create({
   },
   continueBtn: {
     width: "100%",
-    backgroundColor: "#1A2F3B",
+    backgroundColor: "#202D3A",
     paddingVertical: 18,
     borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#1A2F3B",
+    shadowColor: "#202D3A",
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -383,7 +383,7 @@ const styles = StyleSheet.create({
   continueBtnText: {
     color: "#FFF",
     fontSize: 16,
-    fontWeight: "900",
+    fontFamily: "Montserrat_900Black",
     letterSpacing: 1.5,
   },
 });

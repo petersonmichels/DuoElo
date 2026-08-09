@@ -1,17 +1,18 @@
 import { FontAwesome5 } from "@expo/vector-icons";
-import * as Clipboard from "expo-clipboard";
+import { useFocusEffect } from "@react-navigation/native"; // 🔥 NOVO: Atualiza a tela ao entrar nela
 import * as ImagePicker from "expo-image-picker";
-import { deleteUser, signOut } from "firebase/auth";
+import { deleteUser, sendEmailVerification, signOut } from "firebase/auth";
 import { deleteDoc, doc, onSnapshot, setDoc } from "firebase/firestore";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Animated,
+  AppState,
   Image,
   KeyboardAvoidingView,
   Linking,
   Platform,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Switch,
@@ -20,11 +21,11 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { auth, db } from "../config/firebase";
 
 export default function ProfileScreen({ navigation }: any) {
   const [userData, setUserData] = useState<any>(null);
-  const [partnerData, setPartnerData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   const [firstName, setFirstName] = useState("");
@@ -32,22 +33,54 @@ export default function ProfileScreen({ navigation }: any) {
   const [address, setAddress] = useState("");
   const [zipCode, setZipCode] = useState("");
   const [phone, setPhone] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
+
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">(
+    "idle",
+  );
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [isEmailVerified, setIsEmailVerified] = useState(false);
+  const saveAnim = useRef(new Animated.Value(0)).current;
 
   const [bypassDailyLock, setBypassDailyLock] = useState(false);
-
   const isFirstLoad = useRef(true);
+
+  // 🔥 MÁGICA AQUI: Toda vez que o usuário abrir a aba "Perfil", o Firebase checa o e-mail em silêncio
+  useFocusEffect(
+    useCallback(() => {
+      const checkEmailVerification = async () => {
+        if (auth.currentUser) {
+          try {
+            await auth.currentUser.reload();
+            setIsEmailVerified(auth.currentUser.emailVerified || false);
+          } catch (e) {
+            console.log("Erro ao recarregar status do usuário", e);
+          }
+        }
+      };
+      checkEmailVerification();
+    }, []),
+  );
 
   useEffect(() => {
     const currentUid = auth.currentUser?.uid;
     if (!currentUid) return;
+
+    // Também checa se o usuário foi no app de e-mail e voltou pro app do DuoElo sem trocar de aba
+    const appStateSubscription = AppState.addEventListener(
+      "change",
+      async (nextAppState) => {
+        if (nextAppState === "active" && auth.currentUser) {
+          await auth.currentUser.reload();
+          setIsEmailVerified(auth.currentUser.emailVerified || false);
+        }
+      },
+    );
 
     const userRef = doc(db, "users", currentUid);
     const unsubscribeUser = onSnapshot(userRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
         setUserData(data);
-
         setBypassDailyLock(data.bypassDailyLock || false);
 
         if (isFirstLoad.current) {
@@ -58,26 +91,77 @@ export default function ProfileScreen({ navigation }: any) {
           setPhone(data.billingPhone || "");
           isFirstLoad.current = false;
         }
-
-        if (data.partnerId) {
-          const partnerRef = doc(db, "users", data.partnerId);
-          onSnapshot(partnerRef, (partnerSnap) => {
-            if (partnerSnap.exists()) {
-              setPartnerData(partnerSnap.data());
-            }
-          });
-        }
       }
       setLoading(false);
     });
 
-    return () => unsubscribeUser();
+    return () => {
+      unsubscribeUser();
+      appStateSubscription.remove();
+    };
   }, []);
+
+  const handleAutoSave = async (field: string, value: string) => {
+    const currentUid = auth.currentUser?.uid;
+    if (!currentUid || userData?.[field] === value) return;
+
+    setSaveStatus("saving");
+    triggerSaveAnimation(1);
+
+    try {
+      await setDoc(
+        doc(db, "users", currentUid),
+        { [field]: value },
+        { merge: true },
+      );
+      setSaveStatus("saved");
+      setTimeout(
+        () => triggerSaveAnimation(0, () => setSaveStatus("idle")),
+        2000,
+      );
+    } catch (e) {
+      setSaveStatus("idle");
+      triggerSaveAnimation(0);
+    }
+  };
+
+  const triggerSaveAnimation = (toValue: number, callback?: () => void) => {
+    Animated.timing(saveAnim, {
+      toValue,
+      duration: 300,
+      useNativeDriver: true,
+    }).start(callback);
+  };
+
+  const handleVerifyEmail = async () => {
+    if (!auth.currentUser) return;
+    setIsSendingEmail(true);
+    try {
+      await sendEmailVerification(auth.currentUser);
+      Alert.alert(
+        "E-mail Enviado! ✉️",
+        "Um link de confirmação foi enviado para a sua caixa de entrada. Clique no link para verificar a sua conta.",
+      );
+    } catch (error: any) {
+      if (error.code === "auth/too-many-requests") {
+        Alert.alert(
+          "Aguarde",
+          "Já enviamos um e-mail recentemente. Verifique sua caixa de spam ou aguarde alguns minutos.",
+        );
+      } else {
+        Alert.alert(
+          "Erro",
+          "Não foi possível enviar o e-mail de verificação no momento.",
+        );
+      }
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
 
   const handlePhoneChange = (text: string) => {
     let cleaned = text.replace(/\D/g, "");
     let formatted = cleaned;
-
     if (cleaned.length > 0) {
       if (cleaned.length <= 2) formatted = `+${cleaned}`;
       else if (cleaned.length <= 4)
@@ -97,31 +181,6 @@ export default function ProfileScreen({ navigation }: any) {
       formatted = `${cleaned.slice(0, 5)}-${cleaned.slice(5, 8)}`;
     }
     setZipCode(formatted);
-  };
-
-  const handleSaveBilling = async () => {
-    const currentUid = auth.currentUser?.uid;
-    if (!currentUid) return;
-
-    setIsSaving(true);
-    try {
-      await setDoc(
-        doc(db, "users", currentUid),
-        {
-          billingFirstName: firstName,
-          billingLastName: lastName,
-          billingAddress: address,
-          billingZipCode: zipCode,
-          billingPhone: phone,
-        },
-        { merge: true },
-      );
-      Alert.alert("Sucesso", "Seus dados de faturamento foram salvos!");
-    } catch (e) {
-      Alert.alert("Erro", "Falha ao salvar os dados. Tente novamente.");
-    } finally {
-      setIsSaving(false);
-    }
   };
 
   const processImageResult = async (result: ImagePicker.ImagePickerResult) => {
@@ -166,12 +225,11 @@ export default function ProfileScreen({ navigation }: any) {
               await ImagePicker.requestCameraPermissionsAsync();
             if (permissionResult.granted === false) {
               Alert.alert(
-                "Permissão necessária",
+                "Permissão",
                 "Você precisa permitir o acesso à câmera para tirar fotos.",
               );
               return;
             }
-
             const result = await ImagePicker.launchCameraAsync({
               mediaTypes: ["images"],
               allowsEditing: true,
@@ -179,7 +237,6 @@ export default function ProfileScreen({ navigation }: any) {
               quality: 0.05,
               base64: true,
             });
-
             processImageResult(result);
           },
         },
@@ -190,12 +247,11 @@ export default function ProfileScreen({ navigation }: any) {
               await ImagePicker.requestMediaLibraryPermissionsAsync();
             if (permissionResult.granted === false) {
               Alert.alert(
-                "Permissão necessária",
+                "Permissão",
                 "Você precisa permitir o acesso à galeria para alterar a foto.",
               );
               return;
             }
-
             const result = await ImagePicker.launchImageLibraryAsync({
               mediaTypes: ["images"],
               allowsEditing: true,
@@ -203,31 +259,13 @@ export default function ProfileScreen({ navigation }: any) {
               quality: 0.05,
               base64: true,
             });
-
             processImageResult(result);
           },
         },
-        {
-          text: "Cancelar",
-          style: "cancel",
-        },
+        { text: "Cancelar", style: "cancel" },
       ],
       { cancelable: true },
     );
-  };
-
-  // 🚀 CORREÇÃO: Agora ele copia e exibe o myInviteCode (O código curto de Match)
-  const handleCopyCode = async () => {
-    // Tenta usar o código amigável primeiro, se não tiver, usa o UID do firebase por segurança
-    const codeToCopy = userData?.myInviteCode || auth.currentUser?.uid;
-
-    if (codeToCopy) {
-      await Clipboard.setStringAsync(codeToCopy);
-      Alert.alert(
-        "ID Copiado!",
-        "Seu DuoElo ID foi copiado. Envie para o seu parceiro(a) buscar por você!",
-      );
-    }
   };
 
   const toggleBypassLock = async (value: boolean) => {
@@ -241,7 +279,6 @@ export default function ProfileScreen({ navigation }: any) {
         { merge: true },
       );
     } catch (e) {
-      Alert.alert("Erro", "Não foi possível alterar a trava.");
       setBypassDailyLock(!value);
     }
   };
@@ -249,15 +286,13 @@ export default function ProfileScreen({ navigation }: any) {
   const handleLogout = async () => {
     try {
       await signOut(auth);
-    } catch (error) {
-      Alert.alert("Erro", "Não foi possível sair da conta.");
-    }
+    } catch (error) {}
   };
 
   const handleDeleteAccount = () => {
     Alert.alert(
       "Excluir Conta Permanentemente",
-      "⚠️ Atenção: Esta ação é irreversível. Todos os seus dados, histórico, e a conexão com o seu parceiro serão apagados. Deseja continuar?",
+      "⚠️ Atenção: Esta ação é irreversível. Deseja continuar?",
       [
         { text: "Cancelar", style: "cancel" },
         {
@@ -283,12 +318,7 @@ export default function ProfileScreen({ navigation }: any) {
               if (error.code === "auth/requires-recent-login") {
                 Alert.alert(
                   "Segurança",
-                  "Para excluir sua conta, por favor, saia do aplicativo e faça login novamente para confirmar sua identidade.",
-                );
-              } else {
-                Alert.alert(
-                  "Erro",
-                  "Não foi possível excluir a conta no momento.",
+                  "Para excluir sua conta, faça login novamente para confirmar sua identidade.",
                 );
               }
             }
@@ -299,11 +329,9 @@ export default function ProfileScreen({ navigation }: any) {
   };
 
   const handleManageSubscription = () => {
-    if (Platform.OS === "ios") {
+    if (Platform.OS === "ios")
       Linking.openURL("https://apps.apple.com/account/subscriptions");
-    } else {
-      Linking.openURL("https://play.google.com/store/account/subscriptions");
-    }
+    else Linking.openURL("https://play.google.com/store/account/subscriptions");
   };
 
   const handleSupport = () => {
@@ -323,50 +351,28 @@ export default function ProfileScreen({ navigation }: any) {
   if (loading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#1A2F3B" />
+        <ActivityIndicator size="large" color="#202D3A" />
       </SafeAreaView>
     );
   }
 
-  const isValidPhoto = (url: any) => {
-    if (!url || typeof url !== "string") return false;
-    const trimmed = url.trim();
-    if (
-      trimmed.length <= 5 ||
-      trimmed.toLowerCase() === "null" ||
-      trimmed.toLowerCase() === "undefined"
-    )
-      return false;
-    return true;
-  };
-
+  const isValidPhoto = (url: any) =>
+    url &&
+    typeof url === "string" &&
+    url.length > 5 &&
+    url.toLowerCase() !== "null";
   const getFirstName = (nameStr?: string) =>
     nameStr ? nameStr.split(" ")[0] : null;
 
-  const myName =
-    getFirstName(userData?.displayName) ||
-    userData?.email?.split("@")[0] ||
-    "Usuário";
   const myPhoto = isValidPhoto(userData?.photoURL)
     ? userData.photoURL
     : isValidPhoto(userData?.photoUrl)
       ? userData.photoUrl
       : null;
-  const partnerPhoto = isValidPhoto(partnerData?.photoURL)
-    ? partnerData.photoURL
-    : isValidPhoto(partnerData?.photoUrl)
-      ? partnerData.photoUrl
-      : null;
-
-  const partnerName =
-    partnerData?.billingFirstName && partnerData?.billingLastName
-      ? `${partnerData.billingFirstName} ${partnerData.billingLastName}`
-      : partnerData?.displayName && partnerData.displayName.trim().length > 0
-        ? partnerData.displayName
-        : partnerData?.email?.split("@")[0] || "Parceiro(a)";
-
-  const hasPartner = !!userData?.partnerId;
   const isPremium = userData?.isPremium || false;
+  const displayUsername = userData?.username
+    ? `@${userData.username}`
+    : getFirstName(userData?.displayName) || "Usuário";
 
   return (
     <SafeAreaView style={styles.container}>
@@ -379,10 +385,21 @@ export default function ProfileScreen({ navigation }: any) {
             style={styles.backBtn}
             onPress={() => navigation.goBack()}
           >
-            <FontAwesome5 name="chevron-left" size={20} color="#1A2F3B" />
+            <FontAwesome5 name="chevron-left" size={20} color="#202D3A" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Meu Perfil</Text>
           <View style={{ width: 40 }} />
+
+          <Animated.View style={[styles.autoSaveToast, { opacity: saveAnim }]}>
+            <FontAwesome5
+              name={saveStatus === "saving" ? "sync" : "check"}
+              size={12}
+              color="#FFF"
+            />
+            <Text style={styles.autoSaveText}>
+              {saveStatus === "saving" ? "Salvando..." : "Salvo ✓"}
+            </Text>
+          </Animated.View>
         </View>
 
         <ScrollView
@@ -403,23 +420,65 @@ export default function ProfileScreen({ navigation }: any) {
                   style={styles.avatarImage}
                 />
               ) : (
-                <FontAwesome5 name="user-alt" size={40} color="#E5A93C" />
+                <FontAwesome5 name="user-alt" size={40} color="#EAB64A" />
               )}
               <View style={styles.editPhotoBadge}>
                 <FontAwesome5 name="camera" size={12} color="#FFF" />
               </View>
             </TouchableOpacity>
-            <Text style={styles.userName}>{myName}</Text>
-            <Text style={styles.userEmail}>{userData?.email}</Text>
+
+            <Text style={styles.userName}>{displayUsername}</Text>
+
+            <View style={styles.emailContainer}>
+              <Text style={styles.userEmail}>{auth.currentUser?.email}</Text>
+              {isEmailVerified ? (
+                <View style={styles.verifiedBadge}>
+                  <FontAwesome5
+                    name="check-circle"
+                    solid
+                    size={14}
+                    color="#67D4A8"
+                  />
+                </View>
+              ) : (
+                <View style={styles.unverifiedBadge}>
+                  <FontAwesome5
+                    name="exclamation-circle"
+                    solid
+                    size={14}
+                    color="#EAB64A"
+                  />
+                </View>
+              )}
+            </View>
+
+            {!isEmailVerified && (
+              <TouchableOpacity
+                style={styles.verifyEmailBtn}
+                onPress={handleVerifyEmail}
+                disabled={isSendingEmail}
+              >
+                {isSendingEmail ? (
+                  <ActivityIndicator size="small" color="#EAB64A" />
+                ) : (
+                  <Text style={styles.verifyEmailText}>
+                    Enviar link de verificação
+                  </Text>
+                )}
+              </TouchableOpacity>
+            )}
 
             {isPremium ? (
-              <View style={styles.premiumBadge}>
-                <FontAwesome5 name="crown" size={12} color="#1A2F3B" />
+              <View style={[styles.premiumBadge, { marginTop: 15 }]}>
+                <FontAwesome5 name="crown" size={12} color="#202D3A" />
                 <Text style={styles.premiumText}>DuoElo Premium</Text>
               </View>
             ) : (
               <View
-                style={[styles.premiumBadge, { backgroundColor: "#D1D9E0" }]}
+                style={[
+                  styles.premiumBadge,
+                  { backgroundColor: "#D1D9E0", marginTop: 15 },
+                ]}
               >
                 <Text style={[styles.premiumText, { color: "#60646C" }]}>
                   Plano Gratuito
@@ -429,93 +488,15 @@ export default function ProfileScreen({ navigation }: any) {
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Seu DuoElo ID</Text>
-            <View style={styles.matchCodeCard}>
-              <Text style={styles.matchCodeLabel}>
-                Esta é a sua identidade única no app. Compartilhe este ID para
-                criar sua conexão:
-              </Text>
-              <View style={styles.matchCodeRow}>
-                {/* 🚀 CORREÇÃO: Exibindo o myInviteCode ou fallback */}
-                <Text style={styles.matchCodeText} selectable={true}>
-                  {userData?.myInviteCode ||
-                    auth.currentUser?.uid ||
-                    "Carregando..."}
-                </Text>
-                <TouchableOpacity
-                  style={styles.copyBtn}
-                  onPress={handleCopyCode}
-                >
-                  <FontAwesome5 name="copy" size={16} color="#1A2F3B" />
-                  <Text style={styles.copyBtnText}>Copiar</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Sua Conexão</Text>
-            {hasPartner ? (
-              <View style={styles.partnerCard}>
-                <View style={styles.partnerAvatarContainer}>
-                  {partnerPhoto ? (
-                    <Image
-                      key={partnerPhoto.substring(0, 100)}
-                      source={{ uri: partnerPhoto }}
-                      style={styles.partnerAvatarImage}
-                    />
-                  ) : (
-                    <FontAwesome5 name="heart" size={24} color="#4BDE95" />
-                  )}
-                </View>
-                <View style={styles.partnerInfo}>
-                  <Text style={styles.partnerLabel}>Conectado com</Text>
-                  <Text style={styles.partnerName} numberOfLines={1}>
-                    {partnerName}
-                  </Text>
-                </View>
-                <FontAwesome5
-                  name="check-circle"
-                  solid
-                  size={24}
-                  color="#4BDE95"
-                />
-              </View>
-            ) : (
-              <View
-                style={[
-                  styles.partnerCard,
-                  { backgroundColor: "#FFF", borderColor: "#D1D9E0" },
-                ]}
-              >
-                <View
-                  style={[
-                    styles.partnerAvatarContainer,
-                    { backgroundColor: "#F0F4F8" },
-                  ]}
-                >
-                  <FontAwesome5 name="user-plus" size={20} color="#D1D9E0" />
-                </View>
-                <View style={styles.partnerInfo}>
-                  <Text style={styles.partnerLabel}>Nenhuma conexão</Text>
-                  <Text style={[styles.partnerName, { color: "#60646C" }]}>
-                    Aguardando Match
-                  </Text>
-                </View>
-              </View>
-            )}
-          </View>
-
-          <View style={styles.section}>
             <Text style={styles.sectionTitle}>Estatísticas da Jornada</Text>
             <View style={styles.statsContainer}>
               <View style={styles.statBox}>
-                <FontAwesome5 name="fire" size={24} color="#E5A93C" />
+                <FontAwesome5 name="fire" size={24} color="#EAB64A" />
                 <Text style={styles.statValue}>{userData?.streak || 0}</Text>
                 <Text style={styles.statLabel}>Dias Seguidos</Text>
               </View>
               <View style={styles.statBox}>
-                <FontAwesome5 name="infinity" size={24} color="#E5A93C" />
+                <FontAwesome5 name="infinity" size={24} color="#EAB64A" />
                 <Text style={styles.statValue}>{userData?.totalPE || 0}</Text>
                 <Text style={styles.statLabel}>Bonds</Text>
               </View>
@@ -523,7 +504,9 @@ export default function ProfileScreen({ navigation }: any) {
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Dados de Faturamento</Text>
+            <Text style={styles.sectionTitle}>
+              Dados Pessoais (Salvo Automaticamente)
+            </Text>
             <View style={styles.formCard}>
               <View style={styles.rowFields}>
                 <View style={[styles.inputGroup, styles.halfInput]}>
@@ -534,6 +517,7 @@ export default function ProfileScreen({ navigation }: any) {
                     placeholderTextColor="#AFAFAF"
                     value={firstName}
                     onChangeText={setFirstName}
+                    onBlur={() => handleAutoSave("billingFirstName", firstName)}
                   />
                 </View>
                 <View style={[styles.inputGroup, styles.halfInput]}>
@@ -544,6 +528,7 @@ export default function ProfileScreen({ navigation }: any) {
                     placeholderTextColor="#AFAFAF"
                     value={lastName}
                     onChangeText={setLastName}
+                    onBlur={() => handleAutoSave("billingLastName", lastName)}
                   />
                 </View>
               </View>
@@ -556,6 +541,7 @@ export default function ProfileScreen({ navigation }: any) {
                   placeholderTextColor="#AFAFAF"
                   value={address}
                   onChangeText={setAddress}
+                  onBlur={() => handleAutoSave("billingAddress", address)}
                 />
               </View>
 
@@ -569,6 +555,7 @@ export default function ProfileScreen({ navigation }: any) {
                     keyboardType="number-pad"
                     value={zipCode}
                     onChangeText={handleZipChange}
+                    onBlur={() => handleAutoSave("billingZipCode", zipCode)}
                     maxLength={9}
                   />
                 </View>
@@ -581,23 +568,11 @@ export default function ProfileScreen({ navigation }: any) {
                     keyboardType="phone-pad"
                     value={phone}
                     onChangeText={handlePhoneChange}
+                    onBlur={() => handleAutoSave("billingPhone", phone)}
                     maxLength={19}
                   />
                 </View>
               </View>
-
-              <TouchableOpacity
-                style={styles.saveBtn}
-                activeOpacity={0.8}
-                onPress={handleSaveBilling}
-                disabled={isSaving}
-              >
-                {isSaving ? (
-                  <ActivityIndicator size="small" color="#FFF" />
-                ) : (
-                  <Text style={styles.saveBtnText}>Salvar Dados</Text>
-                )}
-              </TouchableOpacity>
             </View>
           </View>
 
@@ -612,7 +587,7 @@ export default function ProfileScreen({ navigation }: any) {
                 <View
                   style={[styles.menuIconBg, { backgroundColor: "#F0F4F8" }]}
                 >
-                  <FontAwesome5 name="credit-card" size={16} color="#E5A93C" />
+                  <FontAwesome5 name="credit-card" size={16} color="#EAB64A" />
                 </View>
                 <Text style={styles.menuOptionText}>Gerenciar Assinatura</Text>
               </View>
@@ -632,7 +607,7 @@ export default function ProfileScreen({ navigation }: any) {
                 <View
                   style={[styles.menuIconBg, { backgroundColor: "#E8F4F1" }]}
                 >
-                  <FontAwesome5 name="sync-alt" size={16} color="#4BDE95" />
+                  <FontAwesome5 name="sync-alt" size={16} color="#67D4A8" />
                 </View>
                 <Text style={styles.menuOptionText}>Restaurar Compras</Text>
               </View>
@@ -650,7 +625,7 @@ export default function ProfileScreen({ navigation }: any) {
                   <FontAwesome5
                     name="file-contract"
                     size={16}
-                    color="#1A2F3B"
+                    color="#202D3A"
                   />
                 </View>
                 <Text style={styles.menuOptionText}>Termos de Uso</Text>
@@ -670,7 +645,7 @@ export default function ProfileScreen({ navigation }: any) {
                 <View
                   style={[styles.menuIconBg, { backgroundColor: "#F0F4F8" }]}
                 >
-                  <FontAwesome5 name="user-shield" size={16} color="#1A2F3B" />
+                  <FontAwesome5 name="user-shield" size={16} color="#202D3A" />
                 </View>
                 <Text style={styles.menuOptionText}>
                   Política de Privacidade
@@ -692,21 +667,26 @@ export default function ProfileScreen({ navigation }: any) {
                 <View
                   style={[styles.menuIconBg, { backgroundColor: "#F0F4F8" }]}
                 >
-                  <FontAwesome5 name="unlock-alt" size={16} color="#E5A93C" />
+                  <FontAwesome5 name="unlock-alt" size={16} color="#EAB64A" />
                 </View>
                 <View>
                   <Text style={styles.menuOptionText}>
                     Ignorar Trava Diária
                   </Text>
                   <Text
-                    style={{ fontSize: 11, color: "#60646C", marginTop: 2 }}
+                    style={{
+                      fontSize: 11,
+                      color: "#60646C",
+                      marginTop: 2,
+                      fontFamily: "Montserrat_400Regular",
+                    }}
                   >
                     Permite fazer várias tarefas no mesmo dia
                   </Text>
                 </View>
               </View>
               <Switch
-                trackColor={{ false: "#D1D9E0", true: "#4BDE95" }}
+                trackColor={{ false: "#D1D9E0", true: "#67D4A8" }}
                 thumbColor={"#FFF"}
                 ios_backgroundColor="#D1D9E0"
                 onValueChange={toggleBypassLock}
@@ -722,7 +702,7 @@ export default function ProfileScreen({ navigation }: any) {
                 <View
                   style={[styles.menuIconBg, { backgroundColor: "#F0F4F8" }]}
                 >
-                  <FontAwesome5 name="bell" size={16} color="#1A2F3B" />
+                  <FontAwesome5 name="bell" size={16} color="#202D3A" />
                 </View>
                 <Text style={styles.menuOptionText}>Ajustar Notificações</Text>
               </View>
@@ -734,7 +714,7 @@ export default function ProfileScreen({ navigation }: any) {
                 <View
                   style={[styles.menuIconBg, { backgroundColor: "#F0F4F8" }]}
                 >
-                  <FontAwesome5 name="headset" size={16} color="#1A2F3B" />
+                  <FontAwesome5 name="headset" size={16} color="#202D3A" />
                 </View>
                 <Text style={styles.menuOptionText}>Fale com o Suporte</Text>
               </View>
@@ -788,6 +768,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 15,
     paddingBottom: 20,
+    position: "relative",
+  },
+  autoSaveToast: {
+    position: "absolute",
+    top: 15,
+    right: 24,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#202D3A",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 15,
+    gap: 6,
+  },
+  autoSaveText: {
+    color: "#FFF",
+    fontSize: 12,
+    fontFamily: "Montserrat_700Bold",
   },
   backBtn: {
     width: 40,
@@ -802,7 +800,11 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 2,
   },
-  headerTitle: { fontSize: 18, fontWeight: "900", color: "#1A2F3B" },
+  headerTitle: {
+    fontSize: 18,
+    fontFamily: "Montserrat_900Black",
+    color: "#202D3A",
+  },
   scrollContent: { paddingHorizontal: 24, paddingBottom: 40 },
   avatarSection: { alignItems: "center", marginTop: 10, marginBottom: 30 },
   avatarContainer: {
@@ -811,142 +813,86 @@ const styles = StyleSheet.create({
     borderRadius: 50,
     backgroundColor: "#FFF",
     borderWidth: 4,
-    borderColor: "#E5A93C",
+    borderColor: "#EAB64A",
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 15,
-    shadowColor: "#E5A93C",
+    shadowColor: "#EAB64A",
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.2,
     shadowRadius: 10,
     elevation: 8,
     overflow: "hidden",
-    position: "relative",
   },
   editPhotoBadge: {
     position: "absolute",
     bottom: 0,
     width: "100%",
-    backgroundColor: "rgba(26,47,59,0.7)",
+    backgroundColor: "rgba(32,45,58,0.7)",
     paddingVertical: 4,
     alignItems: "center",
   },
   avatarImage: { width: "100%", height: "100%" },
   userName: {
     fontSize: 24,
-    fontWeight: "900",
-    color: "#1A2F3B",
+    fontFamily: "Montserrat_900Black",
+    color: "#202D3A",
     marginBottom: 4,
   },
-  userEmail: { fontSize: 14, color: "#60646C", marginBottom: 12 },
+
+  emailContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 5,
+  },
+  userEmail: {
+    fontSize: 14,
+    color: "#60646C",
+    fontFamily: "Montserrat_400Regular",
+  },
+  verifiedBadge: { justifyContent: "center", alignItems: "center" },
+  unverifiedBadge: { justifyContent: "center", alignItems: "center" },
+
+  verifyEmailBtn: {
+    marginTop: 5,
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: "rgba(234, 182, 74, 0.15)",
+  },
+  verifyEmailText: {
+    color: "#EAB64A",
+    fontSize: 12,
+    fontFamily: "Montserrat_700Bold",
+  },
+
   premiumBadge: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#E5A93C",
+    backgroundColor: "#EAB64A",
     paddingHorizontal: 16,
     paddingVertical: 6,
     borderRadius: 20,
     gap: 6,
   },
   premiumText: {
-    color: "#1A2F3B",
+    color: "#202D3A",
     fontSize: 12,
-    fontWeight: "900",
+    fontFamily: "Montserrat_900Black",
     textTransform: "uppercase",
   },
+
   section: { marginBottom: 30 },
   sectionTitle: {
     fontSize: 14,
-    fontWeight: "900",
-    color: "#1A2F3B",
+    fontFamily: "Montserrat_900Black",
+    color: "#202D3A",
     textTransform: "uppercase",
     letterSpacing: 1,
     marginBottom: 15,
   },
 
-  matchCodeCard: {
-    backgroundColor: "#1A2F3B",
-    padding: 20,
-    borderRadius: 20,
-    alignItems: "center",
-    shadowColor: "#1A2F3B",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    elevation: 5,
-  },
-  matchCodeLabel: {
-    color: "#D1D9E0",
-    fontSize: 13,
-    marginBottom: 12,
-    textAlign: "center",
-  },
-  matchCodeRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#0D181E",
-    borderRadius: 12,
-    paddingHorizontal: 15,
-    paddingVertical: 12,
-    width: "100%",
-    justifyContent: "space-between",
-    borderWidth: 1,
-    borderColor: "#2A4555",
-  },
-  matchCodeText: {
-    color: "#4BDE95",
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: "bold",
-    fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
-    flex: 1,
-    marginRight: 10,
-    flexWrap: "wrap",
-  },
-  copyBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#E5A93C",
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 8,
-    gap: 6,
-  },
-  copyBtnText: {
-    color: "#1A2F3B",
-    fontSize: 13,
-    fontWeight: "bold",
-    textTransform: "uppercase",
-  },
-
-  partnerCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#FFF",
-    padding: 16,
-    borderRadius: 20,
-    borderWidth: 2,
-    borderColor: "#4BDE95",
-    shadowColor: "#4BDE95",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  partnerAvatarContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: "#E8F4F1",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 15,
-    overflow: "hidden",
-  },
-  partnerAvatarImage: { width: "100%", height: "100%" },
-  partnerInfo: { flex: 1 },
-  partnerLabel: { fontSize: 13, color: "#60646C", marginBottom: 2 },
-  partnerName: { fontSize: 18, fontWeight: "900", color: "#1A2F3B" },
   statsContainer: { flexDirection: "row", gap: 15 },
   statBox: {
     flex: 1,
@@ -964,17 +910,18 @@ const styles = StyleSheet.create({
   },
   statValue: {
     fontSize: 22,
-    fontWeight: "900",
-    color: "#1A2F3B",
+    fontFamily: "Montserrat_900Black",
+    color: "#202D3A",
     marginTop: 10,
     marginBottom: 2,
   },
   statLabel: {
     fontSize: 12,
     color: "#60646C",
-    fontWeight: "bold",
+    fontFamily: "Montserrat_700Bold",
     textTransform: "uppercase",
   },
+
   formCard: {
     backgroundColor: "#FFF",
     padding: 20,
@@ -992,7 +939,7 @@ const styles = StyleSheet.create({
   inputGroup: { marginBottom: 15 },
   inputLabel: {
     fontSize: 13,
-    fontWeight: "bold",
+    fontFamily: "Montserrat_700Bold",
     color: "#60646C",
     marginBottom: 6,
   },
@@ -1003,22 +950,10 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 14,
     fontSize: 15,
-    color: "#1A2F3B",
+    color: "#202D3A",
+    fontFamily: "Montserrat_600SemiBold",
   },
-  saveBtn: {
-    backgroundColor: "#1A2F3B",
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 10,
-  },
-  saveBtnText: {
-    color: "#FFF",
-    fontSize: 16,
-    fontWeight: "bold",
-    textTransform: "uppercase",
-  },
+
   menuOption: {
     flexDirection: "row",
     alignItems: "center",
@@ -1038,7 +973,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  menuOptionText: { fontSize: 16, fontWeight: "bold", color: "#1A2F3B" },
+  menuOptionText: {
+    fontSize: 16,
+    fontFamily: "Montserrat_700Bold",
+    color: "#202D3A",
+  },
 
   deleteAccountLink: {
     alignItems: "center",
@@ -1049,14 +988,13 @@ const styles = StyleSheet.create({
   deleteAccountText: {
     color: "#AFAFAF",
     fontSize: 13,
-    fontWeight: "bold",
+    fontFamily: "Montserrat_700Bold",
     textDecorationLine: "underline",
   },
-
   versionText: {
     textAlign: "center",
     color: "#D1D9E0",
-    fontWeight: "bold",
+    fontFamily: "Montserrat_700Bold",
     marginTop: 10,
     marginBottom: 20,
   },

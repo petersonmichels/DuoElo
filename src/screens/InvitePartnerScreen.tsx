@@ -5,12 +5,13 @@ import {
   Animated,
   Linking,
   Platform,
-  SafeAreaView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+// 🔥 IMPORTAÇÃO CORRETA E MODERNA DO SAFE AREA
+import { SafeAreaView } from "react-native-safe-area-context";
 // 🔥 Importando a autenticação do Firebase para pegar o UID real
 import { auth } from "../config/firebase";
 
@@ -117,7 +118,7 @@ export default function InvitePartnerScreen({ navigation }: any) {
             {/* Foto do Usuário atual */}
             <View style={[styles.avatarWrapper, { zIndex: 2 }]}>
               <View style={styles.avatarPlaceholder}>
-                <FontAwesome5 name="user-alt" size={32} color="#1A2F3B" />
+                <FontAwesome5 name="user-alt" size={32} color="#202D3A" />
               </View>
             </View>
 
@@ -138,7 +139,7 @@ export default function InvitePartnerScreen({ navigation }: any) {
                 <FontAwesome5
                   name="user-alt"
                   size={32}
-                  color={connectionStep === 2 ? "#4BDE95" : "#D1D9E0"}
+                  color={connectionStep === 2 ? "#67D4A8" : "#D1D9E0"}
                 />
               </View>
             </View>
@@ -196,7 +197,7 @@ export default function InvitePartnerScreen({ navigation }: any) {
                       ? [{ scale: pulseAnim }]
                       : [{ scale: 1 }],
                   borderWidth: connectionStep === 1 ? 4 : 0,
-                  borderColor: "rgba(229, 169, 60, 0.3)", // Glow Ouro Suave
+                  borderColor: "rgba(234, 182, 74, 0.3)", // Glow Ouro Suave usando EAB64A
                 },
               ]}
             >
@@ -205,7 +206,7 @@ export default function InvitePartnerScreen({ navigation }: any) {
                 size={16}
                 color={
                   connectionStep === 1
-                    ? "#E5A93C"
+                    ? "#EAB64A"
                     : connectionStep === 2
                       ? "#FFF"
                       : "#AFAFAF"
@@ -359,13 +360,14 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 26,
-    fontWeight: "900",
-    color: "#1A2F3B", // Azul Petróleo Escuro
+    fontFamily: "Montserrat_900Black",
+    color: "#202D3A", // Petróleo
     marginBottom: 10,
     textAlign: "center",
   },
   subtitle: {
     fontSize: 15,
+    fontFamily: "Montserrat_400Regular",
     color: "#2C3E50", // Slate Blue
     textAlign: "center",
     lineHeight: 22,
@@ -417,13 +419,13 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   stepIconActive: {
-    backgroundColor: "#1A2F3B",
+    backgroundColor: "#202D3A",
   },
   stepIconWaiting: {
     backgroundColor: "#FFF9E6", // Fundo do Ouro Suave
   },
   stepIconSuccess: {
-    backgroundColor: "#4BDE95",
+    backgroundColor: "#67D4A8",
   },
   stepIconInactive: {
     backgroundColor: "#F0F4F8",
@@ -438,18 +440,17 @@ const styles = StyleSheet.create({
   },
   stepTitle: {
     fontSize: 15,
-    fontWeight: "600",
-    color: "#1A2F3B",
+    fontFamily: "Montserrat_600SemiBold",
+    color: "#202D3A",
   },
   stepTextSuccess: {
-    color: "#4BDE95",
+    color: "#67D4A8",
   },
   stepTextWaiting: {
-    color: "#E5A93C",
+    color: "#EAB64A",
   },
   stepTextInactive: {
     color: "#60646C",
-    fontWeight: "500",
   },
 
   // --- ACTIONS ---
@@ -472,18 +473,18 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#60646C",
     textTransform: "uppercase",
-    fontWeight: "bold",
+    fontFamily: "Montserrat_700Bold",
     marginBottom: 4,
   },
   codeValue: {
     fontSize: 20,
-    fontWeight: "900",
-    color: "#1A2F3B",
+    fontFamily: "Montserrat_900Black",
+    color: "#202D3A",
     letterSpacing: 2,
   },
   mainButton: {
     flexDirection: "row",
-    backgroundColor: "#25D366", // Verde WhatsApp Mantido por reconhecimento de marca
+    backgroundColor: "#25D366", // Verde WhatsApp (mantido para reconhecimento da marca da rede social)
     borderRadius: 16,
     paddingVertical: 18,
     width: "100%",
@@ -497,17 +498,17 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   mainButtonWaiting: {
-    backgroundColor: "#1A2F3B", // Azul Petróleo Escuro para botão neutro
-    shadowColor: "#1A2F3B",
+    backgroundColor: "#202D3A", // Petróleo para botão neutro
+    shadowColor: "#202D3A",
   },
   mainButtonConnected: {
-    backgroundColor: "#4BDE95", // Verde Sucesso
-    shadowColor: "#4BDE95",
+    backgroundColor: "#67D4A8", // Menta
+    shadowColor: "#67D4A8",
   },
   mainButtonText: {
     color: "#FFFFFF",
     fontSize: 17,
-    fontWeight: "bold",
+    fontFamily: "Montserrat_700Bold",
     marginLeft: 10,
   },
   secondaryButton: {
@@ -522,12 +523,12 @@ const styles = StyleSheet.create({
   secondaryButtonText: {
     color: "#2C3E50",
     fontSize: 15,
-    fontWeight: "bold",
+    fontFamily: "Montserrat_700Bold",
   },
   welcomeText: {
     marginTop: 10,
     fontSize: 16,
-    fontWeight: "bold",
+    fontFamily: "Montserrat_700Bold",
     color: "#60646C",
   },
 });

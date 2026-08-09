@@ -14,7 +14,6 @@ import {
   Animated,
   Dimensions,
   Easing,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -23,8 +22,10 @@ import {
   View,
 } from "react-native";
 
+// 🔥 SafeAreaView moderno importado corretamente
+import { SafeAreaView } from "react-native-safe-area-context";
+
 import { auth, db } from "../config/firebase";
-// 🔥 IMPORT DA SEGURANÇA PARA DESCRIPTOGRAFIA
 import { decryptData, generateVaultKey } from "../utils/security";
 
 const { width } = Dimensions.get("window");
@@ -120,7 +121,6 @@ export default function MissionExecutionScreen({
     };
   }, [isReviewMode]);
 
-  // 🔥 LÓGICA DE DESCRIPTOGRAFIA NO MODO REVISÃO
   useEffect(() => {
     let isMounted = true;
 
@@ -145,7 +145,6 @@ export default function MissionExecutionScreen({
             if (!snapshot.empty) {
               const data = snapshot.docs[0].data();
 
-              // 🛡️ DESCRIPTOGRAFIA EM TEMPO REAL
               if (data.textEncrypted) {
                 const userDoc = await getDoc(doc(db, "users", uid));
                 const pId = userDoc.data()?.partnerId;
@@ -158,7 +157,6 @@ export default function MissionExecutionScreen({
                   decryptedText || "⚠️ Falha ao descriptografar.",
                 );
               } else {
-                // Fallback para dados velhos não criptografados
                 setFetchedJournal(data.text || "");
               }
             } else {
@@ -271,7 +269,7 @@ export default function MissionExecutionScreen({
           { justifyContent: "center", alignItems: "center" },
         ]}
       >
-        <ActivityIndicator size="large" color="#1A2F3B" />
+        <ActivityIndicator size="large" color="#202D3A" />
       </View>
     );
   }
@@ -290,7 +288,7 @@ export default function MissionExecutionScreen({
             style={styles.closeBtnReview}
             hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
           >
-            <FontAwesome5 name="times" size={20} color="#1A2F3B" />
+            <FontAwesome5 name="times" size={20} color="#202D3A" />
           </TouchableOpacity>
         </View>
 
@@ -303,7 +301,7 @@ export default function MissionExecutionScreen({
               styles.missionHeaderCard,
               isGold && {
                 backgroundColor: "#FFF9E6",
-                borderColor: "#E5A93C",
+                borderColor: "#EAB64A",
                 borderWidth: 2,
               },
             ]}
@@ -311,7 +309,7 @@ export default function MissionExecutionScreen({
             <View
               style={[
                 styles.missionIconBadge,
-                { backgroundColor: isGold ? "#E5A93C" : "#4BDE95" },
+                { backgroundColor: isGold ? "#EAB64A" : "#67D4A8" },
               ]}
             >
               <FontAwesome5
@@ -325,7 +323,7 @@ export default function MissionExecutionScreen({
               <Text
                 style={[
                   styles.missionMainTitle,
-                  isGold && { color: "#1A2F3B" },
+                  isGold && { color: "#202D3A" },
                 ]}
               >
                 {mission.title ||
@@ -336,8 +334,8 @@ export default function MissionExecutionScreen({
               <Text
                 style={{
                   fontSize: 13,
-                  color: isGold ? "#E5A93C" : "#4BDE95",
-                  fontWeight: "bold",
+                  color: isGold ? "#EAB64A" : "#67D4A8",
+                  fontFamily: "Montserrat_700Bold",
                 }}
               >
                 {isGold
@@ -353,7 +351,7 @@ export default function MissionExecutionScreen({
                 <FontAwesome5
                   name="lightbulb"
                   solid
-                  color={isGold ? "#E5A93C" : "#1A2F3B"}
+                  color={isGold ? "#EAB64A" : "#202D3A"}
                 />{" "}
                 O Conceito
               </Text>
@@ -364,7 +362,7 @@ export default function MissionExecutionScreen({
           {actionText && (
             <View style={styles.card}>
               <Text style={styles.cardTitle}>
-                <FontAwesome5 name="bullseye" solid color="#E5A93C" /> Ação
+                <FontAwesome5 name="bullseye" solid color="#EAB64A" /> Ação
                 Prática
               </Text>
               <Text style={styles.cardText}>{actionText}</Text>
@@ -380,7 +378,7 @@ export default function MissionExecutionScreen({
             {loadingJournal ? (
               <ActivityIndicator
                 size="small"
-                color="#1A2F3B"
+                color="#202D3A"
                 style={{ marginTop: 10, alignSelf: "flex-start" }}
               />
             ) : (
@@ -428,7 +426,7 @@ export default function MissionExecutionScreen({
           onPress={onClose}
           hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
         >
-          <FontAwesome5 name="times" size={20} color="#1A2F3B" />
+          <FontAwesome5 name="times" size={20} color="#202D3A" />
         </TouchableOpacity>
 
         <View style={styles.trailContainer}>
@@ -437,7 +435,7 @@ export default function MissionExecutionScreen({
               style={[
                 styles.trailLineFill,
                 { width: progressBarWidth },
-                isGold && { backgroundColor: "#E5A93C" },
+                isGold && { backgroundColor: "#EAB64A" },
               ]}
             />
           </View>
@@ -450,7 +448,7 @@ export default function MissionExecutionScreen({
                 styles.node,
                 currentStep >= 1
                   ? isGold
-                    ? { backgroundColor: "#E5A93C", borderColor: "#FFF" }
+                    ? { backgroundColor: "#EAB64A", borderColor: "#FFF" }
                     : styles.nodeActive
                   : styles.nodeInactive,
               ]}
@@ -460,7 +458,7 @@ export default function MissionExecutionScreen({
                 solid
                 size={14}
                 color={
-                  currentStep >= 1 ? (isGold ? "#1A2F3B" : "#FFF") : "#60646C"
+                  currentStep >= 1 ? (isGold ? "#202D3A" : "#FFF") : "#60646C"
                 }
               />
             </TouchableOpacity>
@@ -471,7 +469,7 @@ export default function MissionExecutionScreen({
                 styles.node,
                 currentStep >= 2
                   ? isGold
-                    ? { backgroundColor: "#E5A93C", borderColor: "#FFF" }
+                    ? { backgroundColor: "#EAB64A", borderColor: "#FFF" }
                     : styles.nodeActive
                   : styles.nodeInactive,
               ]}
@@ -480,7 +478,7 @@ export default function MissionExecutionScreen({
                 name="hands-helping"
                 size={12}
                 color={
-                  currentStep >= 2 ? (isGold ? "#1A2F3B" : "#FFF") : "#60646C"
+                  currentStep >= 2 ? (isGold ? "#202D3A" : "#FFF") : "#60646C"
                 }
               />
             </TouchableOpacity>
@@ -523,7 +521,7 @@ export default function MissionExecutionScreen({
                 ]}
               >
                 <Text
-                  style={[styles.stepBadgeText, isGold && { color: "#E5A93C" }]}
+                  style={[styles.stepBadgeText, isGold && { color: "#EAB64A" }]}
                 >
                   {isGold ? "DESAFIO DE OURO" : "PASSO 1 DE 3"}
                 </Text>
@@ -536,7 +534,7 @@ export default function MissionExecutionScreen({
                 style={[
                   styles.contentCard,
                   isGold && {
-                    borderColor: "#E5A93C",
+                    borderColor: "#EAB64A",
                     backgroundColor: "#FFF9E6",
                   },
                 ]}
@@ -544,7 +542,7 @@ export default function MissionExecutionScreen({
                 <FontAwesome5
                   name={isGold ? "crown" : "quote-left"}
                   size={24}
-                  color={isGold ? "#E5A93C" : "#D1D9E0"}
+                  color={isGold ? "#EAB64A" : "#D1D9E0"}
                   style={{ marginBottom: 15 }}
                 />
                 <Text style={styles.contentText}>{conceptText}</Text>
@@ -554,8 +552,8 @@ export default function MissionExecutionScreen({
                 style={[
                   styles.primaryBtn,
                   isGold && {
-                    backgroundColor: "#E5A93C",
-                    shadowColor: "#E5A93C",
+                    backgroundColor: "#EAB64A",
+                    shadowColor: "#EAB64A",
                   },
                 ]}
                 activeOpacity={0.8}
@@ -564,7 +562,7 @@ export default function MissionExecutionScreen({
                 <Text
                   style={[
                     styles.primaryBtnText,
-                    isGold && { color: "#1A2F3B" },
+                    isGold && { color: "#202D3A" },
                   ]}
                 >
                   Avançar para Ação
@@ -572,7 +570,7 @@ export default function MissionExecutionScreen({
                 <FontAwesome5
                   name="arrow-right"
                   size={16}
-                  color={isGold ? "#1A2F3B" : "#FFF"}
+                  color={isGold ? "#202D3A" : "#FFF"}
                 />
               </TouchableOpacity>
             </View>
@@ -587,7 +585,7 @@ export default function MissionExecutionScreen({
                 ]}
               >
                 <Text
-                  style={[styles.stepBadgeText, isGold && { color: "#E5A93C" }]}
+                  style={[styles.stepBadgeText, isGold && { color: "#EAB64A" }]}
                 >
                   PASSO 2 DE 3
                 </Text>
@@ -597,23 +595,24 @@ export default function MissionExecutionScreen({
               <View
                 style={[
                   styles.contentCard,
-                  { borderColor: "#E5A93C", backgroundColor: "#FFF9E6" },
+                  { borderColor: "#EAB64A", backgroundColor: "#FFF9E6" },
                 ]}
               >
                 <FontAwesome5
                   name="bolt"
                   size={24}
-                  color="#E5A93C"
+                  color="#EAB64A"
                   style={{ marginBottom: 15 }}
                 />
                 <Text
                   style={[
                     styles.contentText,
                     {
-                      color: "#1A2F3B",
+                      color: "#202D3A",
                       fontSize: 18,
                       lineHeight: 26,
                       textAlign: "center",
+                      fontFamily: "Montserrat_600SemiBold",
                     },
                   ]}
                 >
@@ -624,15 +623,15 @@ export default function MissionExecutionScreen({
               <TouchableOpacity
                 style={[
                   styles.primaryBtn,
-                  { backgroundColor: "#E5A93C", shadowColor: "#E5A93C" },
+                  { backgroundColor: "#EAB64A", shadowColor: "#EAB64A" },
                 ]}
                 activeOpacity={0.8}
                 onPress={() => goToStep(3)}
               >
-                <Text style={[styles.primaryBtnText, { color: "#1A2F3B" }]}>
+                <Text style={[styles.primaryBtnText, { color: "#202D3A" }]}>
                   Avançar para Finalização
                 </Text>
-                <FontAwesome5 name="arrow-right" size={16} color="#1A2F3B" />
+                <FontAwesome5 name="arrow-right" size={16} color="#202D3A" />
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -656,7 +655,7 @@ export default function MissionExecutionScreen({
                 ]}
               >
                 <Text
-                  style={[styles.stepBadgeText, isGold && { color: "#E5A93C" }]}
+                  style={[styles.stepBadgeText, isGold && { color: "#EAB64A" }]}
                 >
                   PASSO 3 DE 3
                 </Text>
@@ -692,7 +691,7 @@ export default function MissionExecutionScreen({
                   name="heart"
                   solid
                   size={20}
-                  color="#E5A93C"
+                  color="#EAB64A"
                   style={styles.floatingHeartIcon}
                 />
                 <View style={styles.floatingFireIcon}>
@@ -708,7 +707,7 @@ export default function MissionExecutionScreen({
                   style={[
                     styles.outerRing,
                     { transform: [{ scale: pulseAnim }] },
-                    isGold && { borderColor: "#E5A93C" },
+                    isGold && { borderColor: "#EAB64A" },
                   ]}
                 >
                   <View style={styles.innerRing}>
@@ -716,8 +715,8 @@ export default function MissionExecutionScreen({
                       style={[
                         styles.bigCheckButton,
                         isGold && {
-                          backgroundColor: "#E5A93C",
-                          shadowColor: "#E5A93C",
+                          backgroundColor: "#EAB64A",
+                          shadowColor: "#EAB64A",
                         },
                       ]}
                       activeOpacity={0.8}
@@ -727,13 +726,13 @@ export default function MissionExecutionScreen({
                       {isFinishing ? (
                         <ActivityIndicator
                           size="large"
-                          color={isGold ? "#1A2F3B" : "#FFF"}
+                          color={isGold ? "#202D3A" : "#FFF"}
                         />
                       ) : (
                         <FontAwesome5
                           name="check"
                           size={40}
-                          color={isGold ? "#1A2F3B" : "#FFF"}
+                          color={isGold ? "#202D3A" : "#FFF"}
                         />
                       )}
                     </TouchableOpacity>
@@ -777,8 +776,8 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: "900",
-    color: "#1A2F3B",
+    fontFamily: "Montserrat_900Black",
+    color: "#202D3A",
   },
   closeBtn: {
     position: "absolute",
@@ -813,7 +812,7 @@ const styles = StyleSheet.create({
   },
   trailLineFill: {
     height: "100%",
-    backgroundColor: "#1A2F3B",
+    backgroundColor: "#202D3A",
     borderRadius: 2,
   },
   trailNodes: {
@@ -832,16 +831,16 @@ const styles = StyleSheet.create({
   },
   nodeInactive: { backgroundColor: "#D1D9E0" },
   nodeActive: {
-    backgroundColor: "#1A2F3B",
-    shadowColor: "#1A2F3B",
+    backgroundColor: "#202D3A",
+    shadowColor: "#202D3A",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 3,
   },
   nodeComplete: {
-    backgroundColor: "#4BDE95",
-    shadowColor: "#4BDE95",
+    backgroundColor: "#67D4A8",
+    shadowColor: "#67D4A8",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
@@ -859,22 +858,23 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   stepBadgeText: {
-    color: "#1A2F3B",
+    color: "#202D3A",
     fontSize: 12,
-    fontWeight: "900",
+    fontFamily: "Montserrat_900Black",
     letterSpacing: 1,
   },
 
   titleText: {
     fontSize: 32,
-    fontWeight: "900",
-    color: "#1A2F3B",
+    fontFamily: "Montserrat_900Black",
+    color: "#202D3A",
     marginBottom: 25,
     textAlign: "center",
   },
   subText: {
     fontSize: 15,
     color: "#60646C",
+    fontFamily: "Montserrat_400Regular",
     textAlign: "center",
     lineHeight: 22,
     marginBottom: 20,
@@ -891,7 +891,8 @@ const styles = StyleSheet.create({
     paddingRight: 45,
     paddingTop: 20,
     fontSize: 15,
-    color: "#1A2F3B",
+    fontFamily: "Montserrat_600SemiBold",
+    color: "#202D3A",
     borderWidth: 1,
     borderColor: "#D1D9E0",
     shadowColor: "#000",
@@ -916,24 +917,33 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 2,
   },
-  contentText: { fontSize: 16, color: "#2C3E50", lineHeight: 26 },
+  contentText: {
+    fontSize: 16,
+    color: "#2C3E50",
+    lineHeight: 26,
+    fontFamily: "Montserrat_400Regular",
+  },
 
   primaryBtn: {
     width: "100%",
     flexDirection: "row",
-    backgroundColor: "#1A2F3B",
+    backgroundColor: "#202D3A",
     paddingVertical: 18,
     borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
     gap: 12,
-    shadowColor: "#1A2F3B",
+    shadowColor: "#202D3A",
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 5,
   },
-  primaryBtnText: { color: "#FFF", fontSize: 16, fontWeight: "bold" },
+  primaryBtnText: {
+    color: "#FFF",
+    fontSize: 16,
+    fontFamily: "Montserrat_700Bold",
+  },
 
   secondaryBtn: {
     flexDirection: "row",
@@ -946,7 +956,7 @@ const styles = StyleSheet.create({
   secondaryBtnText: {
     color: "#60646C",
     fontSize: 15,
-    fontWeight: "bold",
+    fontFamily: "Montserrat_700Bold",
     textDecorationLine: "underline",
   },
 
@@ -961,7 +971,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 10,
     top: 0,
-    backgroundColor: "#DCA052",
+    backgroundColor: "#EAB64A",
     width: 28,
     height: 28,
     borderRadius: 14,
@@ -977,7 +987,7 @@ const styles = StyleSheet.create({
     height: 180,
     borderRadius: 90,
     borderWidth: 6,
-    borderColor: "#E5A93C",
+    borderColor: "#EAB64A",
     borderLeftColor: "#D1D9E0",
     borderTopColor: "#D1D9E0",
     justifyContent: "center",
@@ -989,7 +999,7 @@ const styles = StyleSheet.create({
     height: 140,
     borderRadius: 70,
     borderWidth: 4,
-    borderColor: "#4BDE95",
+    borderColor: "#67D4A8",
     borderRightColor: "#D1D9E0",
     justifyContent: "center",
     alignItems: "center",
@@ -999,10 +1009,10 @@ const styles = StyleSheet.create({
     width: 110,
     height: 110,
     borderRadius: 55,
-    backgroundColor: "#1A2F3B",
+    backgroundColor: "#202D3A",
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#1A2F3B",
+    shadowColor: "#202D3A",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.5,
     shadowRadius: 10,
@@ -1011,13 +1021,13 @@ const styles = StyleSheet.create({
   bigCheckLabel: {
     marginTop: 15,
     fontSize: 14,
-    fontWeight: "900",
+    fontFamily: "Montserrat_900Black",
     color: "#60646C",
     letterSpacing: 1.5,
     textTransform: "uppercase",
   },
 
-  missionHeaderCardReview: {
+  missionHeaderCard: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#FFF",
@@ -1030,19 +1040,19 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
-  missionIconBadgeReview: {
+  missionIconBadge: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: "#4BDE95",
+    backgroundColor: "#67D4A8",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 16,
   },
-  missionMainTitleReview: {
+  missionMainTitle: {
     fontSize: 22,
-    fontWeight: "900",
-    color: "#1A2F3B",
+    fontFamily: "Montserrat_900Black",
+    color: "#202D3A",
     marginBottom: 4,
   },
   card: {
@@ -1058,19 +1068,21 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: 16,
-    fontWeight: "900",
-    color: "#1A2F3B",
+    fontFamily: "Montserrat_900Black",
+    color: "#202D3A",
     marginBottom: 10,
   },
   cardSubtitle: {
     fontSize: 13,
     color: "#60646C",
+    fontFamily: "Montserrat_400Regular",
     marginBottom: 15,
     lineHeight: 18,
   },
   cardText: {
     fontSize: 15,
     color: "#2C3E50",
+    fontFamily: "Montserrat_400Regular",
     lineHeight: 24,
   },
   textInput: {
@@ -1081,7 +1093,7 @@ const styles = StyleSheet.create({
     padding: 16,
     height: 120,
     fontSize: 15,
-    color: "#1A2F3B",
+    color: "#202D3A",
     textAlignVertical: "top",
   },
 });

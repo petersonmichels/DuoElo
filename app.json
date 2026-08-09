@@ -5,12 +5,12 @@
     "scheme": "duelo",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./duoelo_browser_icon.jpg",
+    "icon": "./src/assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/images/splash-icon.png",
+      "image": "./src/assets/icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#1A2F3B"
     },
     "ios": {
       "supportsTablet": true,
@@ -19,18 +19,19 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./duoelo_browser_icon.jpg",
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./src/assets/icon.png",
+        "backgroundColor": "#1A2F3B"
       },
       "package": "com.anonymous.duelo"
     },
     "web": {
-      "favicon": "./duoelo_browser_icon.jpg"
+      "favicon": "./src/assets/favicon.png"
     },
     "plugins": [
       "expo-apple-authentication",
       "@react-native-google-signin/google-signin",
-      "expo-image"
+      "expo-image",
+      "expo-font"
     ],
     "extra": {
       "eas": {

@@ -142,7 +142,7 @@ export default function PaywallScreen({ navigation }: any) {
           onPress={() => navigation.goBack()}
           disabled={isProcessing}
         >
-          <FontAwesome5 name="times" size={24} color="#1A2F3B" />
+          <FontAwesome5 name="times" size={24} color="#202D3A" />
         </TouchableOpacity>
       </View>
 
@@ -159,7 +159,7 @@ export default function PaywallScreen({ navigation }: any) {
           }}
         >
           <View style={styles.iconWrapper}>
-            <FontAwesome5 name="heartbeat" size={40} color="#4BDE95" />
+            <FontAwesome5 name="heartbeat" size={40} color="#67D4A8" />
           </View>
 
           <Text style={styles.heroTitle}>
@@ -206,14 +206,16 @@ export default function PaywallScreen({ navigation }: any) {
 
           <View style={styles.guaranteeBox}>
             <View style={styles.guaranteeHeader}>
-              <FontAwesome5 name="shield-alt" size={16} color="#4BDE95" />
+              <FontAwesome5 name="shield-alt" size={16} color="#67D4A8" />
               <Text style={styles.guaranteeTitle}>
                 Seu tempo está protegido!
               </Text>
             </View>
             <Text style={styles.priceSub}>
               O período da Jornada de 90 dias{" "}
-              <Text style={{ fontWeight: "bold", color: "#1A2F3B" }}>
+              <Text
+                style={{ fontFamily: "Montserrat_700Bold", color: "#202D3A" }}
+              >
                 só começa a contar a partir da sua primeira tarefa concluída.
               </Text>{" "}
               Caso precise de mais tempo, a assinatura será ajustada
@@ -229,7 +231,7 @@ export default function PaywallScreen({ navigation }: any) {
             {features.map((feat, index) => (
               <View key={index} style={styles.featureItem}>
                 <View style={styles.featureIconBg}>
-                  <FontAwesome5 name={feat.icon} size={20} color="#1A2F3B" />
+                  <FontAwesome5 name={feat.icon} size={20} color="#202D3A" />
                 </View>
                 <View style={styles.featureTextContainer}>
                   <Text style={styles.featureTitle}>{feat.title}</Text>
@@ -249,10 +251,10 @@ export default function PaywallScreen({ navigation }: any) {
           disabled={isProcessing}
         >
           {isProcessing ? (
-            <ActivityIndicator size="small" color="#1A2F3B" />
+            <ActivityIndicator size="small" color="#202D3A" />
           ) : (
             <>
-              <FontAwesome5 name="star" solid size={18} color="#1A2F3B" />
+              <FontAwesome5 name="star" solid size={18} color="#202D3A" />
               <Text style={styles.ctaButtonText}>
                 Assinar Plano{" "}
                 {selectedPlan === "mensal"
@@ -307,8 +309,8 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     fontSize: 28,
-    fontWeight: "900",
-    color: "#1A2F3B",
+    fontFamily: "Montserrat_900Black",
+    color: "#202D3A",
     textAlign: "center",
     lineHeight: 34,
     marginBottom: 15,
@@ -320,6 +322,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     marginBottom: 25,
     paddingHorizontal: 5,
+    fontFamily: "Montserrat_400Regular",
   },
 
   plansWrapper: {
@@ -340,9 +343,9 @@ const styles = StyleSheet.create({
     position: "relative",
   },
   planCardSelected: {
-    borderColor: "#E5A93C",
+    borderColor: "#EAB64A",
     backgroundColor: "#FFFDF5",
-    shadowColor: "#E5A93C",
+    shadowColor: "#EAB64A",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 8,
@@ -352,35 +355,39 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: -10,
     left: 20,
-    backgroundColor: "#E5A93C",
+    backgroundColor: "#EAB64A",
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
   },
   badgeText: {
-    color: "#1A2F3B",
+    color: "#202D3A",
     fontSize: 10,
-    fontWeight: "900",
+    fontFamily: "Montserrat_900Black",
     letterSpacing: 1,
   },
   planInfo: { flex: 1 },
   planName: {
     fontSize: 16,
-    fontWeight: "bold",
-    color: "#1A2F3B",
+    fontFamily: "Montserrat_700Bold",
+    color: "#202D3A",
     marginBottom: 4,
   },
-  planDesc: { fontSize: 13, color: "#60646C" },
+  planDesc: {
+    fontSize: 13,
+    color: "#60646C",
+    fontFamily: "Montserrat_400Regular",
+  },
   planPriceBox: { alignItems: "flex-end" },
   planPrice: {
     fontSize: 20,
-    fontWeight: "900",
-    color: "#1A2F3B",
+    fontFamily: "Montserrat_900Black",
+    color: "#202D3A",
   },
   planPeriod: {
     fontSize: 12,
     color: "#60646C",
-    fontWeight: "bold",
+    fontFamily: "Montserrat_700Bold",
   },
 
   guaranteeBox: {
@@ -389,7 +396,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     width: "100%",
     borderWidth: 1,
-    borderColor: "#4BDE95",
+    borderColor: "#67D4A8",
   },
   guaranteeHeader: {
     flexDirection: "row",
@@ -400,8 +407,8 @@ const styles = StyleSheet.create({
   },
   guaranteeTitle: {
     fontSize: 14,
-    fontWeight: "bold",
-    color: "#1A2F3B",
+    fontFamily: "Montserrat_700Bold",
+    color: "#202D3A",
     textTransform: "uppercase",
   },
   priceSub: {
@@ -409,6 +416,7 @@ const styles = StyleSheet.create({
     color: "#2C3E50",
     textAlign: "center",
     lineHeight: 20,
+    fontFamily: "Montserrat_400Regular",
   },
 
   featuresContainer: {
@@ -422,7 +430,7 @@ const styles = StyleSheet.create({
   },
   featuresSectionTitle: {
     fontSize: 16,
-    fontWeight: "bold",
+    fontFamily: "Montserrat_700Bold",
     color: "#60646C",
     textAlign: "center",
     textTransform: "uppercase",
@@ -442,27 +450,37 @@ const styles = StyleSheet.create({
   featureTextContainer: { flex: 1 },
   featureTitle: {
     fontSize: 16,
-    fontWeight: "bold",
-    color: "#1A2F3B",
+    fontFamily: "Montserrat_700Bold",
+    color: "#202D3A",
     marginBottom: 4,
   },
-  featureDesc: { fontSize: 13, color: "#60646C", lineHeight: 18 },
+  featureDesc: {
+    fontSize: 13,
+    color: "#60646C",
+    lineHeight: 18,
+    fontFamily: "Montserrat_400Regular",
+  },
 
   footer: {
+    position: "absolute",
+    bottom: 0,
+    width: "100%",
     paddingHorizontal: 24,
-    paddingBottom: 30,
-    paddingTop: 10,
+    paddingTop: 15,
+    paddingBottom: 35,
     backgroundColor: "#F0F4F8",
+    borderTopWidth: 1,
+    borderTopColor: "#D1D9E0",
   },
   ctaButton: {
     flexDirection: "row",
-    backgroundColor: "#E5A93C",
+    backgroundColor: "#EAB64A",
     paddingVertical: 20,
     borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
     gap: 12,
-    shadowColor: "#E5A93C",
+    shadowColor: "#EAB64A",
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -470,9 +488,9 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   ctaButtonText: {
-    color: "#1A2F3B",
+    color: "#202D3A",
     fontSize: 17,
-    fontWeight: "900",
+    fontFamily: "Montserrat_900Black",
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
@@ -480,6 +498,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     color: "#60646C",
     fontSize: 12,
-    fontWeight: "600",
+    fontFamily: "Montserrat_600SemiBold",
   },
 });

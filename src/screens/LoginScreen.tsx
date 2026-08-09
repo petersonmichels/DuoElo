@@ -23,7 +23,6 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -31,12 +30,15 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+// 🔥 IMPORTAÇÃO MODERNA E CORRETA DO SAFE AREA
+import { SafeAreaView } from "react-native-safe-area-context";
 import { auth, authControls, db } from "../config/firebase";
 
 const { width } = Dimensions.get("window");
 
 export default function LoginScreen({ navigation }: any) {
   const [isLogin, setIsLogin] = useState(false);
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [inviteCode, setInviteCode] = useState("");
@@ -58,7 +60,7 @@ export default function LoginScreen({ navigation }: any) {
     title: "",
     message: "",
     icon: "info-circle",
-    color: "#1A2F3B",
+    color: "#202D3A",
     showButton: false,
     onConfirm: null as (() => void) | null,
   });
@@ -69,9 +71,9 @@ export default function LoginScreen({ navigation }: any) {
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   // 🔥 PALETA CLÍNICA APLICADA: Azul-Petróleo para Login (Estabilidade), Ouro Suave para Criar (Acolhimento)
-  const btnColor = isLogin ? "#1A2F3B" : "#E5A93C";
+  const btnColor = isLogin ? "#202D3A" : "#EAB64A";
   const btnIcon = isLogin ? "sign-in-alt" : "arrow-right";
-  const btnTextColor = isLogin ? "#FFF" : "#1A2F3B"; // Acessibilidade WCAG (Contraste)
+  const btnTextColor = isLogin ? "#FFF" : "#202D3A";
 
   useEffect(() => {
     Animated.parallel([
@@ -128,7 +130,7 @@ export default function LoginScreen({ navigation }: any) {
     title: string,
     message: string,
     icon = "info-circle",
-    color = "#1A2F3B",
+    color = "#202D3A",
     showButton = false,
     onConfirm: (() => void) | null = null,
   ) => {
@@ -150,7 +152,6 @@ export default function LoginScreen({ navigation }: any) {
     }
   };
 
-  // 🔥 FUNÇÃO DE FINALIZAÇÃO PÓS-AUTH (Login ou Cadastro)
   const finalizeAuth = async (wasCreated: boolean) => {
     if (wasCreated) {
       await signOut(auth);
@@ -159,7 +160,7 @@ export default function LoginScreen({ navigation }: any) {
         "Conta Criada! 🎉",
         "Sucesso! Agora faça o login com sua nova conta para acessar a jornada.",
         "check-circle",
-        "#4BDE95", // Verde Sucesso
+        "#67D4A8",
         false,
         () => setIsLogin(true),
       );
@@ -168,17 +169,32 @@ export default function LoginScreen({ navigation }: any) {
     }
   };
 
-  // 🔥 LÓGICA PRINCIPAL DE AUTENTICAÇÃO E BUSCA DE MATCH
   const handleAuth = async () => {
     const cleanEmail = email.trim();
     const cleanCode = inviteCode.trim().toUpperCase();
 
-    if (!cleanEmail || !password) {
+    const cleanUsername = username
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9_]/g, "");
+
+    if (!cleanEmail || !password || (!isLogin && !cleanUsername)) {
       showCustomAlert(
         "Atenção",
-        "Preencha e-mail e senha para continuar.",
+        "Preencha todos os campos obrigatórios para continuar.",
         "exclamation-triangle",
-        "#E5A93C", // Ouro Suave (Aviso)
+        "#EAB64A",
+        false,
+      );
+      return;
+    }
+
+    if (!isLogin && cleanUsername.length < 3) {
+      showCustomAlert(
+        "Nome Curto",
+        "Seu nome de usuário deve ter pelo menos 3 caracteres.",
+        "user",
+        "#EAB64A",
         false,
       );
       return;
@@ -189,7 +205,7 @@ export default function LoginScreen({ navigation }: any) {
         "Senha Curta",
         "Sua senha deve ter pelo menos 6 caracteres.",
         "lock",
-        "#E5A93C",
+        "#EAB64A",
         false,
       );
       return;
@@ -201,7 +217,6 @@ export default function LoginScreen({ navigation }: any) {
       let uid = "";
       let isNewUser = false;
 
-      // 1. FAZ A AUTENTICAÇÃO OU CADASTRO
       if (isLogin) {
         const userCred = await signInWithEmailAndPassword(
           auth,
@@ -210,6 +225,24 @@ export default function LoginScreen({ navigation }: any) {
         );
         uid = userCred.user.uid;
       } else {
+        const usernameQuery = query(
+          collection(db, "users"),
+          where("username", "==", cleanUsername),
+        );
+        const usernameSnap = await getDocs(usernameQuery);
+
+        if (!usernameSnap.empty) {
+          setIsLoading(false);
+          showCustomAlert(
+            "Nome Indisponível",
+            "Este @username já está sendo usado. Por favor, escolha outro.",
+            "user-times",
+            "#EAB64A",
+            false,
+          );
+          return;
+        }
+
         if (authControls) authControls.isCreatingAccount = true;
         const userCred = await createUserWithEmailAndPassword(
           auth,
@@ -222,6 +255,7 @@ export default function LoginScreen({ navigation }: any) {
         const myGeneratedCode = uid.substring(0, 6).toUpperCase();
         const userDataToSave: any = {
           email: cleanEmail,
+          username: cleanUsername,
           myInviteCode: myGeneratedCode,
           createdAt: new Date().toISOString(),
           isPremium: false,
@@ -237,14 +271,12 @@ export default function LoginScreen({ navigation }: any) {
         if (authControls) authControls.isCreatingAccount = false;
       }
 
-      // 2. BUSCA OS DADOS ATUAIS (Para usar na Animação)
       const myDoc = await getDoc(doc(db, "users", uid));
       const myData = myDoc.exists()
         ? myDoc.data()
         : { email: cleanEmail, isPremium: false };
       setCurrentUserData(myData);
 
-      // 3. SE O USUÁRIO DIGITOU UM CÓDIGO, TENTA FAZER O MATCH ANTES DE FINALIZAR
       if (cleanCode.length > 0) {
         const q = query(
           collection(db, "users"),
@@ -257,7 +289,6 @@ export default function LoginScreen({ navigation }: any) {
           const partnerData = snap.docs[0].data();
 
           if (partnerId !== uid) {
-            // Encontrou o parceiro! Pausa tudo e mostra a Confirmação
             setPendingMatchPartner({
               id: partnerId,
               data: partnerData,
@@ -273,45 +304,53 @@ export default function LoginScreen({ navigation }: any) {
             "Match Não Encontrado",
             "O código inserido não existe. Prosseguindo...",
             "search-minus",
-            "#E5A93C",
+            "#EAB64A",
             false,
           );
         }
       }
 
-      // 4. SE NÃO TEM CÓDIGO OU DEU ERRO NO CÓDIGO, SEGUE A VIDA NORMAL
       finalizeAuth(isNewUser);
     } catch (error: any) {
       if (authControls) authControls.isCreatingAccount = false;
       setIsLoading(false);
+      console.error("ERRO DE AUTH:", error);
 
       if (error.code === "auth/email-already-in-use") {
         showCustomAlert(
           "Bem-vindo de volta! 👋",
           "Este e-mail já está cadastrado. Estamos te redirecionando para a área de Login.",
           "info-circle",
-          "#1A2F3B",
+          "#202D3A",
           false,
           () => setIsLogin(true),
         );
       } else {
         let msg = "Ocorreu um erro inesperado.";
-        if (error.code === "auth/invalid-credential")
-          msg = "E-mail ou senha incorretos.";
-        if (error.code === "auth/too-many-requests")
-          msg = "Muitas tentativas. Aguarde um momento.";
 
-        showCustomAlert("Ops!", msg, "times-circle", "#D96C6C", false); // Terracota Mudo (Erro leve)
+        if (
+          error.code === "auth/invalid-credential" ||
+          error.code === "auth/user-not-found" ||
+          error.code === "auth/wrong-password"
+        ) {
+          msg = "E-mail não encontrado ou senha incorreta.";
+        } else if (error.code === "auth/too-many-requests") {
+          msg = "Muitas tentativas. Aguarde um momento.";
+        } else if (error.code === "auth/invalid-email") {
+          msg = "Formato de e-mail inválido.";
+        } else if (error.message) {
+          msg = `Erro interno: ${error.code || error.message}`;
+        }
+
+        showCustomAlert("Ops!", msg, "times-circle", "#D96C6C", false);
       }
     }
   };
 
-  // 🔥 CONFIRMAÇÃO E ANIMAÇÃO DO MATCH DE LOGIN/CADASTRO 🔥
   const confirmMatchCode = async () => {
     setIsMatchConfirmationVisible(false);
     setIsMatchAnimationVisible(true);
 
-    // Inicia a animação de junção
     Animated.sequence([
       Animated.timing(matchAnimTranslateX, {
         toValue: 1,
@@ -325,7 +364,6 @@ export default function LoginScreen({ navigation }: any) {
       }),
     ]).start();
 
-    // Finaliza no banco de dados e encerra
     setTimeout(async () => {
       try {
         const partnerId = pendingMatchPartner.id;
@@ -337,7 +375,6 @@ export default function LoginScreen({ navigation }: any) {
           const currentUserIsPremium = currentUserData?.isPremium || false;
           const finalPremiumStatus = partnerIsPremium || currentUserIsPremium;
 
-          // Atualiza os dois lados e HERDA o Premium
           await setDoc(
             doc(db, "users", userId),
             { partnerId: partnerId, isPremium: finalPremiumStatus },
@@ -354,7 +391,6 @@ export default function LoginScreen({ navigation }: any) {
       } finally {
         setIsMatchAnimationVisible(false);
         setInviteCode("");
-        // Continua o fluxo
         finalizeAuth(pendingMatchPartner.isNewUser);
         setPendingMatchPartner(null);
         matchAnimTranslateX.setValue(0);
@@ -401,9 +437,9 @@ export default function LoginScreen({ navigation }: any) {
             >
               <View style={styles.logoImageContainer}>
                 <Image
-                  source={require("../assets/duoelo_brand_logo.jpg")}
+                  source={require("../assets/duoelo_brand_logo.png")}
                   style={styles.logoImage}
-                  resizeMode="cover"
+                  resizeMode="contain"
                 />
               </View>
             </Animated.View>
@@ -423,7 +459,25 @@ export default function LoginScreen({ navigation }: any) {
               { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
             ]}
           >
-            {/* EMAIL E SENHA */}
+            {!isLogin && (
+              <View style={styles.inputGroup}>
+                <FontAwesome5
+                  name="at"
+                  size={16}
+                  color="#60646C"
+                  style={styles.inputIcon}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Nome de usuário (ex: joao_silva)"
+                  placeholderTextColor="#AFAFAF"
+                  autoCapitalize="none"
+                  value={username}
+                  onChangeText={setUsername}
+                />
+              </View>
+            )}
+
             <View style={styles.inputGroup}>
               <FontAwesome5
                 name="envelope"
@@ -467,7 +521,7 @@ export default function LoginScreen({ navigation }: any) {
                     "Recuperação",
                     "Em breve.",
                     "envelope",
-                    "#1A2F3B",
+                    "#202D3A",
                     false,
                   )
                 }
@@ -478,10 +532,9 @@ export default function LoginScreen({ navigation }: any) {
               </TouchableOpacity>
             )}
 
-            {/* 🔥 CÓDIGO DE MATCH */}
             <View style={styles.inviteBox}>
               <View style={styles.inviteHeader}>
-                <FontAwesome5 name="heart" solid size={16} color="#4BDE95" />
+                <FontAwesome5 name="heart" solid size={16} color="#67D4A8" />
                 <Text style={styles.inviteTitle}>Conexão DuoElo</Text>
               </View>
               <Text style={styles.inviteDesc}>
@@ -498,7 +551,6 @@ export default function LoginScreen({ navigation }: any) {
               />
             </View>
 
-            {/* BOTÃO PRINCIPAL */}
             <Animated.View
               style={[
                 styles.floatingBtnWrapper,
@@ -533,14 +585,12 @@ export default function LoginScreen({ navigation }: any) {
               </TouchableOpacity>
             </Animated.View>
 
-            {/* DIVISOR */}
             <View style={styles.dividerContainer}>
               <View style={styles.dividerLine} />
               <Text style={styles.dividerText}>ou entre com</Text>
               <View style={styles.dividerLine} />
             </View>
 
-            {/* ÍCONES SOCIAIS */}
             <View style={styles.socialIconsWrapper}>
               <TouchableOpacity
                 onPress={() => handleSocialLogin("Google")}
@@ -553,11 +603,10 @@ export default function LoginScreen({ navigation }: any) {
                 onPress={() => handleSocialLogin("Apple")}
                 hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
               >
-                <FontAwesome5 name="apple" size={36} color="#1A2F3B" />
+                <FontAwesome5 name="apple" size={36} color="#202D3A" />
               </TouchableOpacity>
             </View>
 
-            {/* TOGGLE CRIAR CONTA / LOGIN */}
             <View style={styles.toggleContainer}>
               <Text style={styles.toggleText}>
                 {isLogin
@@ -577,7 +626,6 @@ export default function LoginScreen({ navigation }: any) {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* 🔥 MODAL DE CONFIRMAÇÃO DE IDENTIDADE 🔥 */}
       <Modal
         visible={isMatchConfirmationVisible}
         transparent
@@ -605,7 +653,7 @@ export default function LoginScreen({ navigation }: any) {
                     borderRadius: 40,
                     marginBottom: 15,
                     borderWidth: 3,
-                    borderColor: "#E5A93C",
+                    borderColor: "#EAB64A",
                   }}
                 />
               ) : (
@@ -620,11 +668,15 @@ export default function LoginScreen({ navigation }: any) {
                     marginBottom: 15,
                   }}
                 >
-                  <FontAwesome5 name="user-alt" size={30} color="#1A2F3B" />
+                  <FontAwesome5 name="user-alt" size={30} color="#202D3A" />
                 </View>
               )}
               <Text
-                style={{ fontSize: 20, fontWeight: "900", color: "#1A2F3B" }}
+                style={{
+                  fontSize: 20,
+                  fontFamily: "Montserrat_900Black",
+                  color: "#202D3A",
+                }}
               >
                 {pendingMatchPartner?.data?.displayName ||
                   pendingMatchPartner?.data?.email?.split("@")[0] ||
@@ -633,7 +685,7 @@ export default function LoginScreen({ navigation }: any) {
             </View>
 
             <TouchableOpacity
-              style={[styles.linkButton, { backgroundColor: "#4BDE95" }]}
+              style={[styles.linkButton, { backgroundColor: "#67D4A8" }]}
               onPress={confirmMatchCode}
             >
               <Text style={styles.linkButtonText}>Sim, Conectar!</Text>
@@ -655,19 +707,18 @@ export default function LoginScreen({ navigation }: any) {
         </View>
       </Modal>
 
-      {/* 🔥 MODAL DA ANIMAÇÃO DE CONEXÃO 🔥 */}
       <Modal visible={isMatchAnimationVisible} transparent animationType="fade">
         <View
           style={[
             styles.modalOverlayCenter,
-            { backgroundColor: "rgba(26,47,59,0.95)" }, // Fundo Azul-Petróleo Transparente
+            { backgroundColor: "rgba(32,45,58,0.95)" },
           ]}
         >
           <Text
             style={{
               color: "#FFF",
               fontSize: 24,
-              fontWeight: "900",
+              fontFamily: "Montserrat_900Black",
               marginBottom: 50,
               letterSpacing: 1,
             }}
@@ -683,7 +734,6 @@ export default function LoginScreen({ navigation }: any) {
               width: "100%",
             }}
           >
-            {/* Usuário Local */}
             <Animated.View
               style={{
                 transform: [
@@ -721,12 +771,11 @@ export default function LoginScreen({ navigation }: any) {
                     borderColor: "#FFF",
                   }}
                 >
-                  <FontAwesome5 name="user-alt" size={35} color="#1A2F3B" />
+                  <FontAwesome5 name="user-alt" size={35} color="#202D3A" />
                 </View>
               )}
             </Animated.View>
 
-            {/* Coração Central */}
             <Animated.View
               style={{
                 transform: [{ scale: matchHeartScale }],
@@ -745,11 +794,10 @@ export default function LoginScreen({ navigation }: any) {
                   elevation: 10,
                 }}
               >
-                <FontAwesome5 name="heart" solid size={35} color="#E5A93C" />
+                <FontAwesome5 name="heart" solid size={35} color="#EAB64A" />
               </View>
             </Animated.View>
 
-            {/* Parceiro */}
             <Animated.View
               style={{
                 transform: [
@@ -792,7 +840,7 @@ export default function LoginScreen({ navigation }: any) {
                     borderColor: "#FFF",
                   }}
                 >
-                  <FontAwesome5 name="user-alt" size={35} color="#1A2F3B" />
+                  <FontAwesome5 name="user-alt" size={35} color="#202D3A" />
                 </View>
               )}
             </Animated.View>
@@ -802,7 +850,7 @@ export default function LoginScreen({ navigation }: any) {
             style={{
               color: "#FFF",
               fontSize: 16,
-              fontWeight: "bold",
+              fontFamily: "Montserrat_700Bold",
               marginTop: 50,
               opacity: 0.8,
             }}
@@ -812,7 +860,6 @@ export default function LoginScreen({ navigation }: any) {
         </View>
       </Modal>
 
-      {/* MODAL DE ALERTAS */}
       <Modal visible={customAlert.visible} transparent animationType="fade">
         <View style={styles.bottomSheetOverlay}>
           <View style={styles.bottomSheetContainer}>
@@ -856,7 +903,7 @@ export default function LoginScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F0F4F8" }, // Fundo Azul-Cinza Suave
+  container: { flex: 1, backgroundColor: "#F0F4F8" },
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 30,
@@ -873,7 +920,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF",
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#1A2F3B",
+    shadowColor: "#202D3A",
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.1,
     shadowRadius: 10,
@@ -883,8 +930,8 @@ const styles = StyleSheet.create({
   logoImage: { width: "100%", height: "100%" },
   title: {
     fontSize: 26,
-    fontWeight: "900",
-    color: "#1A2F3B", // Azul Petróleo
+    fontFamily: "Montserrat_900Black",
+    color: "#202D3A",
     marginBottom: 10,
     textAlign: "center",
   },
@@ -894,6 +941,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 22,
     paddingHorizontal: 10,
+    fontFamily: "Montserrat_400Regular",
   },
   formContainer: { width: "100%" },
   inputGroup: {
@@ -902,7 +950,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF",
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: "#D1D9E0", // Bordas Clínicas
+    borderColor: "#D1D9E0",
     marginBottom: 15,
     paddingHorizontal: 15,
     shadowColor: "#000",
@@ -917,10 +965,15 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
     paddingHorizontal: 10,
     fontSize: 16,
-    color: "#1A2F3B",
+    color: "#202D3A",
+    fontFamily: "Montserrat_600SemiBold",
   },
   forgotPasswordBtn: { alignSelf: "flex-end", marginBottom: 20, marginTop: -5 },
-  forgotPasswordText: { color: "#60646C", fontSize: 14, fontWeight: "bold" },
+  forgotPasswordText: {
+    color: "#60646C",
+    fontSize: 14,
+    fontFamily: "Montserrat_700Bold",
+  },
   dividerContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -932,7 +985,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 15,
     color: "#AFAFAF",
     fontSize: 14,
-    fontWeight: "600",
+    fontFamily: "Montserrat_600SemiBold",
   },
   socialIconsWrapper: {
     flexDirection: "row",
@@ -942,12 +995,12 @@ const styles = StyleSheet.create({
     marginBottom: 25,
   },
   inviteBox: {
-    backgroundColor: "#E8F4F1", // Verde Menta Suave
+    backgroundColor: "#E8F4F1",
     padding: 18,
     borderRadius: 16,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: "#4BDE95",
+    borderColor: "#67D4A8",
   },
   inviteHeader: {
     flexDirection: "row",
@@ -955,18 +1008,27 @@ const styles = StyleSheet.create({
     gap: 10,
     marginBottom: 8,
   },
-  inviteTitle: { fontSize: 16, fontWeight: "bold", color: "#1A2F3B" },
-  inviteDesc: { fontSize: 13, color: "#2C3E50", marginBottom: 15 },
+  inviteTitle: {
+    fontSize: 16,
+    fontFamily: "Montserrat_700Bold",
+    color: "#202D3A",
+  },
+  inviteDesc: {
+    fontSize: 13,
+    color: "#2C3E50",
+    marginBottom: 15,
+    fontFamily: "Montserrat_400Regular",
+  },
   inviteInput: {
     backgroundColor: "#FFF",
     borderRadius: 12,
     padding: 14,
     fontSize: 15,
-    color: "#1A2F3B",
+    color: "#202D3A",
     borderWidth: 1,
     borderColor: "#D1D9E0",
     textAlign: "center",
-    fontWeight: "bold",
+    fontFamily: "Montserrat_900Black",
     letterSpacing: 2,
   },
   floatingBtnWrapper: { width: "100%", marginTop: 10, marginBottom: 10 },
@@ -986,7 +1048,7 @@ const styles = StyleSheet.create({
   },
   floatingBtnText: {
     fontSize: 18,
-    fontWeight: "900",
+    fontFamily: "Montserrat_900Black",
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
@@ -997,18 +1059,21 @@ const styles = StyleSheet.create({
     marginTop: 20,
     gap: 6,
   },
-  toggleText: { color: "#60646C", fontSize: 15 },
-  toggleLink: {
-    color: "#1A2F3B",
+  toggleText: {
+    color: "#60646C",
     fontSize: 15,
-    fontWeight: "bold",
+    fontFamily: "Montserrat_400Regular",
+  },
+  toggleLink: {
+    color: "#202D3A",
+    fontSize: 15,
+    fontFamily: "Montserrat_700Bold",
     textDecorationLine: "underline",
   },
 
-  // 🔥 ESTILOS DOS MODAIS
   modalOverlayCenter: {
     flex: 1,
-    backgroundColor: "rgba(26,47,59,0.7)",
+    backgroundColor: "rgba(32,45,58,0.7)",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -1021,8 +1086,8 @@ const styles = StyleSheet.create({
   },
   codeModalTitle: {
     fontSize: 20,
-    fontWeight: "900",
-    color: "#1A2F3B",
+    fontFamily: "Montserrat_900Black",
+    color: "#202D3A",
     marginBottom: 10,
   },
   codeModalSub: {
@@ -1030,26 +1095,35 @@ const styles = StyleSheet.create({
     color: "#60646C",
     textAlign: "center",
     marginBottom: 20,
+    fontFamily: "Montserrat_400Regular",
   },
   linkButton: {
-    backgroundColor: "#1A2F3B",
+    backgroundColor: "#202D3A",
     width: "100%",
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: "center",
     marginBottom: 10,
   },
-  linkButtonText: { color: "#FFF", fontSize: 16, fontWeight: "bold" },
+  linkButtonText: {
+    color: "#FFF",
+    fontSize: 16,
+    fontFamily: "Montserrat_700Bold",
+  },
   cancelLinkButton: {
     width: "100%",
     paddingVertical: 12,
     alignItems: "center",
   },
-  cancelLinkButtonText: { color: "#60646C", fontSize: 14, fontWeight: "bold" },
+  cancelLinkButtonText: {
+    color: "#60646C",
+    fontSize: 14,
+    fontFamily: "Montserrat_700Bold",
+  },
 
   bottomSheetOverlay: {
     flex: 1,
-    backgroundColor: "rgba(26,47,59,0.7)",
+    backgroundColor: "rgba(32,45,58,0.7)",
     justifyContent: "flex-end",
   },
   bottomSheetContainer: {
@@ -1083,8 +1157,8 @@ const styles = StyleSheet.create({
   },
   bottomSheetTitle: {
     fontSize: 22,
-    fontWeight: "900",
-    color: "#1A2F3B",
+    fontFamily: "Montserrat_900Black",
+    color: "#202D3A",
     marginBottom: 10,
     textAlign: "center",
   },
@@ -1094,6 +1168,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 20,
     lineHeight: 22,
+    fontFamily: "Montserrat_400Regular",
   },
   bottomSheetButtonPrimary: {
     width: "100%",
@@ -1105,7 +1180,7 @@ const styles = StyleSheet.create({
   bottomSheetButtonPrimaryText: {
     color: "#FFF",
     fontSize: 16,
-    fontWeight: "bold",
+    fontFamily: "Montserrat_700Bold",
   },
   bottomSheetButtonSecondary: {
     width: "100%",
@@ -1116,6 +1191,6 @@ const styles = StyleSheet.create({
   bottomSheetButtonSecondaryText: {
     color: "#60646C",
     fontSize: 16,
-    fontWeight: "bold",
+    fontFamily: "Montserrat_700Bold",
   },
 });
