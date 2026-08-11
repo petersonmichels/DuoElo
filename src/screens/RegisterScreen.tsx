@@ -25,11 +25,10 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-
 import { SafeAreaView } from "react-native-safe-area-context";
 import { auth, authControls, db } from "../config/firebase";
 
-// Adaptador de Alertas para funcionar perfeitamente na Web e no Celular
+// Adaptador de Alertas para funcionar em Web e Celular
 const showAlert = (title: string, message: string) => {
   if (Platform.OS === "web") {
     window.alert(`${title}\n\n${message}`);
@@ -45,7 +44,7 @@ export default function RegisterScreen({ navigation }: any) {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleRegister = async () => {
-    const cleanEmail = email.trim();
+    const cleanEmail = email.trim().toLowerCase();
     const cleanUsername = username
       .trim()
       .toLowerCase()
@@ -276,12 +275,12 @@ export default function RegisterScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#F0F4F8", // Fundo Clínico Azul-Cinza
+    backgroundColor: "#F0F4F8",
   },
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 30,
-    justifyContent: "center",
+    justify.Content: "center",
     paddingVertical: 40,
   },
   header: {
@@ -297,7 +296,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 20,
     borderWidth: 2,
-    borderColor: "#EAB64A", // Borda Ouro Suave Oficial
+    borderColor: "#EAB64A",
     shadowColor: "#EAB64A",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
@@ -307,7 +306,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontFamily: "Montserrat_900Black",
-    color: "#202D3A", // Azul Petróleo Oficial
+    color: "#202D3A",
     textAlign: "center",
     marginBottom: 10,
   },
@@ -328,7 +327,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF",
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: "#D1D9E0", // Borda Clínica
+    borderColor: "#D1D9E0",
     marginBottom: 15,
     paddingHorizontal: 15,
     shadowColor: "#000",
@@ -355,7 +354,7 @@ const styles = StyleSheet.create({
   },
   buttonMain: {
     flexDirection: "row",
-    backgroundColor: "#EAB64A", // Ouro Suave Oficial
+    backgroundColor: "#EAB64A",
     paddingVertical: 18,
     borderRadius: 16,
     alignItems: "center",
@@ -368,7 +367,7 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   buttonText: {
-    color: "#202D3A", // Petróleo
+    color: "#202D3A",
     fontFamily: "Montserrat_900Black",
     fontSize: 17,
     textTransform: "uppercase",

@@ -1,5 +1,5 @@
 import { FontAwesome5 } from "@expo/vector-icons";
-import { doc, onSnapshot, setDoc } from "firebase/firestore";
+import { doc, getDoc, onSnapshot, setDoc } from "firebase/firestore";
 import { useEffect, useRef, useState } from "react";
 import {
   Alert,
@@ -11,9 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-// 🔥 IMPORTAÇÃO CORRETA E MODERNA DO SAFE AREA
 import { SafeAreaView } from "react-native-safe-area-context";
-// 🔥 Importando a autenticação e o banco do Firebase
 import { auth, db } from "../config/firebase";
 
 export default function InvitePartnerScreen({ navigation }: any) {
@@ -79,7 +77,7 @@ export default function InvitePartnerScreen({ navigation }: any) {
     }
   }, [connectionStep, pulseAnim]);
 
-  // AÇÃO PRINCIPAL COM O WHATSAPP E NAVEGAÇÃO
+  // AÇÃO PRINCIPAL COM O WHATSAPP E NAVEGAÇÃO INTELIGENTE
   const handleMainAction = async () => {
     if (connectionStep === 0) {
       const message = `Amor, estou investindo na nossa relação porque você é muito importante pra mim. Vamos fazer juntos essa jornada de 90 dias do DuoElo? É só baixar o app e colocar o meu código pra gente dar o match: *${myInviteCode}* 👇\n\nhttps://duoelo.com/app`;
@@ -107,7 +105,37 @@ export default function InvitePartnerScreen({ navigation }: any) {
         "Assim que seu parceiro(a) inserir o código no app dele, vocês serão conectados automaticamente!",
       );
     } else if (connectionStep === 2) {
-      // 🔥 NAVEGAÇÃO CORRIGIDA PARA MainTabs -> Home
+      // 🔒 ROTEAMENTO INTELIGENTE PÓS-MATCH
+      const currentUid = auth.currentUser?.uid;
+      if (currentUid) {
+        try {
+          const userSnap = await getDoc(doc(db, "users", currentUid));
+          const userData = userSnap.data();
+
+          if (!userData?.hasCompletedAnamnesis) {
+            navigation.navigate("Anamnesis");
+            return;
+          }
+
+          let isUserPremium = Boolean(userData?.isPremium);
+          if (!isUserPremium && userData?.partnerId) {
+            const partnerSnap = await getDoc(
+              doc(db, "users", userData.partnerId),
+            );
+            if (partnerSnap.exists() && partnerSnap.data()?.isPremium) {
+              isUserPremium = true;
+            }
+          }
+
+          if (!isUserPremium) {
+            navigation.navigate("Paywall");
+            return;
+          }
+        } catch (e) {
+          console.error("Erro ao verificar requisitos pós-match:", e);
+        }
+      }
+
       navigation.navigate("MainTabs", { screen: "Home" });
     }
   };
@@ -139,7 +167,7 @@ export default function InvitePartnerScreen({ navigation }: any) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        {/* --- CABEÇALHO COM AVATARES --- */}
+        {/* CABEÇALHO COM AVATARES */}
         <View style={styles.headerSection}>
           <View style={styles.avatarsContainer}>
             {/* Foto do Usuário atual */}
@@ -176,7 +204,7 @@ export default function InvitePartnerScreen({ navigation }: any) {
           <Text style={styles.subtitle}>{sub}</Text>
         </View>
 
-        {/* --- WORKFLOW (LINHA DO TEMPO) --- */}
+        {/* WORKFLOW (LINHA DO TEMPO) */}
         <View style={styles.workflowCard}>
           <View style={styles.workflowLine} />
 
@@ -287,7 +315,7 @@ export default function InvitePartnerScreen({ navigation }: any) {
           </View>
         </View>
 
-        {/* --- ÁREA DOS BOTÕES --- */}
+        {/* ÁREA DOS BOTÕES */}
         <View style={styles.actionSection}>
           {connectionStep === 0 && (
             <View style={styles.codeContainer}>
@@ -351,7 +379,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
 
-  // --- HEADER & AVATARES ---
+  // HEADER & AVATARES
   headerSection: {
     alignItems: "center",
     marginTop: 10,
@@ -404,7 +432,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
   },
 
-  // --- WORKFLOW CARD ---
+  // WORKFLOW CARD
   workflowCard: {
     backgroundColor: "#FFFFFF",
     borderRadius: 24,
@@ -483,7 +511,7 @@ const styles = StyleSheet.create({
     color: "#60646C",
   },
 
-  // --- ACTIONS ---
+  // ACTIONS
   actionSection: {
     width: "100%",
     alignItems: "center",

@@ -462,7 +462,11 @@ export default function HomeScreen({ navigation }: any) {
 
   const hasCompletedAnamnesis = userData?.hasCompletedAnamnesis ?? false;
   const partnerCompletedAnamnesis = partnerData?.hasCompletedAnamnesis ?? false;
-  const isPremium = userData?.isPremium ?? false;
+
+  // 🔥 STATUS PREMIUM COMBINADO: USUÁRIO OU PARCEIRO
+  const isPremium =
+    (userData?.isPremium ?? false) || (partnerData?.isPremium ?? false);
+
   const hasPartner = !!userData?.partnerId;
   const isSoloMode = !!userData?.isSoloMode;
   const iAmReady = !!userData?.isReadyToStart;
@@ -470,7 +474,6 @@ export default function HomeScreen({ navigation }: any) {
 
   const isMatchOrSoloDone = hasPartner || isSoloMode;
 
-  // 🔥 REGRA MATADORA: O Play só habilita se for Solo ou (se for Duo e O PARCEIRO FEZ A AVALIAÇÃO)
   const canActuallyPlay =
     isSoloMode || (hasPartner && partnerCompletedAnamnesis);
 
@@ -579,7 +582,6 @@ export default function HomeScreen({ navigation }: any) {
     lastTaskDateObj.getMonth() === today.getMonth() &&
     lastTaskDateObj.getFullYear() === today.getFullYear();
 
-  // 🔥 ALGORITMO INTELIGENTE: GERA MATRIZES DESLOCADAS PARA QUE O CASAL NUNCA RECEBA A MESMA TAREFA NO MESMO DIA
   const generateTrailMatrix = async (
     uid: string,
     partnerId: string | null,
@@ -599,17 +601,15 @@ export default function HomeScreen({ navigation }: any) {
         .sort((a: any, b: any) => a.day - b.day);
       let myPersonalTrail: number[] = [];
 
-      // Checa se os IDs determinam rotação
       let isShifted = false;
       if (!isSolo && partnerId) {
-        isShifted = uid > partnerId; // Desloca a ordem das tarefas do parceiro com ID alfanumérico superior
+        isShifted = uid > partnerId;
       }
 
       for (let i = 0; i < allTasks.length; i += 5) {
         let chunk = allTasks.slice(i, i + 5).map((t) => t.day);
 
         if (isShifted && chunk.length > 1) {
-          // Rotaciona o bloco de 5 dias em 2 posições
           const firstTwo = chunk.splice(0, 2);
           chunk.push(...firstTwo);
         }
@@ -913,6 +913,7 @@ export default function HomeScreen({ navigation }: any) {
       return;
     }
 
+    // 🔒 CHECAGEM DE ASSINATURA ANTES DE ABRIR A MISSÃO
     if (!isPremium) {
       navigation.navigate("Paywall");
       return;
@@ -1416,7 +1417,7 @@ export default function HomeScreen({ navigation }: any) {
 
           <View style={styles.trailConnector} />
 
-          {/* NÓ 3: DAR O PLAY (COM A TRAVA MATADORA SE O PARCEIRO NÃO FEZ A AVALIAÇÃO) */}
+          {/* NÓ 3: DAR O PLAY */}
           <View style={styles.specialNodeContainer}>
             {isTrailUnlocked ? (
               <View style={{ alignItems: "center" }}>
@@ -1478,6 +1479,7 @@ export default function HomeScreen({ navigation }: any) {
                   activeOpacity={0.8}
                   disabled={!isMatchOrSoloDone}
                   onPress={() => {
+                    // 🔒 CHECAGEM DE PAYWALL
                     if (!isPremium) {
                       navigation.navigate("Paywall");
                       return;
@@ -1908,7 +1910,7 @@ export default function HomeScreen({ navigation }: any) {
         </TouchableOpacity>
       </Modal>
 
-      {/* MODAL DE CONECTAR MATCH OU ESCOLHER SOLO (COM CÓDIGO COPIÁVEL DENTRO) */}
+      {/* MODAL DE CONECTAR MATCH OU ESCOLHER SOLO */}
       <Modal visible={isInviteModalVisible} transparent animationType="fade">
         <View style={styles.modalOverlayCenter}>
           <View style={styles.codeModalCard}>
@@ -1918,7 +1920,6 @@ export default function HomeScreen({ navigation }: any) {
               jornada.
             </Text>
 
-            {/* CARD DO PRÓPRIO CÓDIGO COM CLIQUE PARA COPIAR */}
             <View style={styles.myCodeBox}>
               <Text style={styles.myCodeLabel}>SEU CÓDIGO DE MATCH:</Text>
               <TouchableOpacity
@@ -2086,7 +2087,7 @@ export default function HomeScreen({ navigation }: any) {
         </View>
       </Modal>
 
-      {/* MODAL DE DESTRUIR CONTA / RESET */}
+      {/* MODAL DE RESET DA CONTA */}
       <Modal
         visible={isHardResetModalVisible}
         transparent
@@ -2895,7 +2896,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 20,
   },
-
   myCodeBox: {
     width: "100%",
     backgroundColor: "#FFF9E6",
@@ -2924,7 +2924,6 @@ const styles = StyleSheet.create({
     color: "#202D3A",
     letterSpacing: 2,
   },
-
   codeInputField: {
     fontFamily: "Montserrat_700Bold",
     width: "100%",

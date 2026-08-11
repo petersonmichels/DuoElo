@@ -1,5 +1,5 @@
 import { FontAwesome5 } from "@expo/vector-icons";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -13,6 +13,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import Purchases, { PurchasesPackage } from "react-native-purchases";
 import { auth, db } from "../config/firebase";
 
 const { width } = Dimensions.get("window");
@@ -27,6 +28,10 @@ export default function PaywallScreen({ navigation }: any) {
   >("trimestral");
 
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isLoadingOfferings, setIsLoadingOfferings] = useState(true);
+  const [availablePackages, setAvailablePackages] = useState<
+    PurchasesPackage[]
+  >([]);
   const [hasPartner, setHasPartner] = useState(false);
   const [partnerId, setPartnerId] = useState<string | null>(null);
 
@@ -54,7 +59,29 @@ export default function PaywallScreen({ navigation }: any) {
       }
     };
 
+    const fetchOfferings = async () => {
+      try {
+        setIsLoadingOfferings(true);
+        const offerings = await Purchases.getOfferings();
+        if (
+          offerings.current !== null &&
+          offerings.current.availablePackages.length !== 0
+        ) {
+          setAvailablePackages(offerings.current.availablePackages);
+        }
+      } catch (e: any) {
+        if (__DEV__) {
+          console.log(
+            "ℹ️ RevenueCat: Nenhuma oferta ativa no dashboard ainda. Exibindo planos de fallback.",
+          );
+        }
+      } finally {
+        setIsLoadingOfferings(false);
+      }
+    };
+
     fetchUserData();
+    fetchOfferings();
 
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -70,6 +97,53 @@ export default function PaywallScreen({ navigation }: any) {
     ]).start();
   }, []);
 
+  // Helper inteligente para mapear o pacote do RevenueCat baseado na sua nomenclatura
+  const findPackage = (
+    category: "duo" | "individual",
+    period: "mensal" | "trimestral" | "anual",
+  ) => {
+    return availablePackages.find((pkg) => {
+      const prodId = pkg.product.identifier.toLowerCase();
+      const pkgId = pkg.identifier.toLowerCase();
+
+      if (category === "individual") {
+        if (period === "mensal")
+          return (
+            prodId.includes("duoelo_mensal") || pkgId.includes("solo_monthly")
+          );
+        if (period === "trimestral")
+          return (
+            prodId.includes("duoelo_trimestral") ||
+            pkgId.includes("solo_three_month") ||
+            pkgId.includes("solo_quarterly")
+          );
+        if (period === "anual")
+          return (
+            (prodId.includes("duoelo_anual") &&
+              !prodId.includes("duo_anual")) ||
+            pkgId.includes("solo_annual")
+          );
+      } else {
+        if (period === "mensal")
+          return (
+            prodId.includes("duoelo_duo_mensal") || pkgId.includes("monthly")
+          );
+        if (period === "trimestral")
+          return (
+            prodId.includes("duoelo_duo_trimestral") ||
+            pkgId.includes("three_month") ||
+            pkgId.includes("quarterly")
+          );
+        if (period === "anual")
+          return (
+            prodId.includes("duoelo_duo_anual") || pkgId.includes("annual")
+          );
+      }
+      return false;
+    });
+  };
+
+  // Executa a assinatura (Com Modo de Simulação temporário ativado)
   const handleSubscribe = async () => {
     if (isProcessing) return;
     setIsProcessing(true);
@@ -83,48 +157,121 @@ export default function PaywallScreen({ navigation }: any) {
         return;
       }
 
-      // 🛠️ MODO DE TESTE (SIMULADOR DE COMPRA)
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      const payloadToSave = {
-        isPremium: true,
-        planSelected: selectedPlan,
-        planCategory: planCategory,
-        isSoloMode: planCategory === "individual",
-      };
-
-      // 1. Atualiza a conta de quem efetuou a compra
-      await setDoc(doc(db, "users", currentUid), payloadToSave, {
-        merge: true,
-      });
-
-      // 2. Se for plano Duo e o usuário tiver um parceiro conectado, libera a conta dele também!
-      if (planCategory === "duo" && partnerId) {
-        await setDoc(doc(db, "users", partnerId), payloadToSave, {
-          merge: true,
-        });
-      }
-
+      // 🧪 SIMULAÇÃO DE COMPRA (Bypass para testes enquanto a conta do Google Play Console é verificada)
       Alert.alert(
-        "Sucesso! 🎉",
-        planCategory === "duo"
-          ? "Assinatura Casal Duo confirmada! A jornada da dupla foi liberada."
-          : "Assinatura Individual confirmada! Seu acesso foi liberado.",
-      );
-
-      // Redireciona com segurança para a aba 'Home'
-      navigation.reset({
-        index: 0,
-        routes: [
+        "Modo Desenvolvedor 🧪",
+        `Simulando assinatura do Plano ${
+          planCategory === "duo" ? "Duo" : "Solo"
+        } (${selectedPlan}) com sucesso!`,
+        [
           {
-            name: "MainTabs",
-            params: { screen: "Home" },
+            text: "Acessar App",
+            onPress: () => {
+              navigation.reset({
+                index: 0,
+                routes: [
+                  {
+                    name: "MainTabs",
+                    params: { screen: "Home" },
+                  },
+                ],
+              });
+            },
           },
         ],
-      });
+      );
+      setIsProcessing(false);
+      return;
+
+      /* 
+      ====================================================================
+      🔒 FLUXO REAL DE COMPRA VIA REVENUECAT (ATIVAR AO PUBLICAR NA LOJA)
+      ====================================================================
+
+      let targetPackage =
+        findPackage(planCategory, selectedPlan) || availablePackages[0];
+
+      if (!targetPackage) {
+        Alert.alert(
+          "Aviso",
+          "Nenhum pacote de assinatura ativo encontrado no momento. Tente novamente mais tarde.",
+        );
+        setIsProcessing(false);
+        return;
+      }
+
+      const { customerInfo } = await Purchases.purchasePackage(targetPackage);
+
+      if (
+        customerInfo.entitlements.active["premium"] !== undefined ||
+        Object.keys(customerInfo.entitlements.active).length > 0
+      ) {
+        Alert.alert(
+          "Sucesso! 🎉",
+          planCategory === "duo"
+            ? "Assinatura Casal Duo confirmada! A jornada da dupla foi liberada."
+            : "Assinatura Individual confirmada! Seu acesso foi liberado.",
+        );
+
+        navigation.reset({
+          index: 0,
+          routes: [
+            {
+              name: "MainTabs",
+              params: { screen: "Home" },
+            },
+          ],
+        });
+      }
+      ====================================================================
+      */
     } catch (error: any) {
-      Alert.alert("Erro na Compra", "Falha ao liberar a conta de teste.");
-      console.error(error);
+      if (!error.userCancelled) {
+        Alert.alert(
+          "Erro na Compra",
+          "Não foi possível concluir a transação. Tente novamente.",
+        );
+        console.error("Erro na compra:", error);
+      }
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // 🔥 RESTAURAR COMPRAS (Exigência obrigatória das lojas)
+  const handleRestorePurchases = async () => {
+    if (isProcessing) return;
+    setIsProcessing(true);
+
+    try {
+      const restoredInfo = await Purchases.restorePurchases();
+      if (Object.keys(restoredInfo.entitlements.active).length > 0) {
+        Alert.alert(
+          "Assinatura Restaurada! 🎉",
+          "Sua assinatura ativa foi encontrada e restaurada com sucesso.",
+          [
+            {
+              text: "Ir para o Início",
+              onPress: () =>
+                navigation.reset({
+                  index: 0,
+                  routes: [{ name: "MainTabs", params: { screen: "Home" } }],
+                }),
+            },
+          ],
+        );
+      } else {
+        Alert.alert(
+          "Nenhuma Assinatura Ativa",
+          "Não encontramos nenhuma assinatura ativa vinculada à sua conta das lojas.",
+        );
+      }
+    } catch (error) {
+      Alert.alert(
+        "Erro",
+        "Falha ao tentar restaurar compras. Tente novamente.",
+      );
+      console.error("Erro ao restaurar compras:", error);
     } finally {
       setIsProcessing(false);
     }
@@ -313,39 +460,63 @@ export default function PaywallScreen({ navigation }: any) {
           )}
 
           {/* LISTA DE CARDS DE PLANOS */}
-          <View style={styles.plansWrapper}>
-            {activePlans.map((plan) => {
-              const isSelected = selectedPlan === plan.id;
-              return (
-                <TouchableOpacity
-                  key={plan.id}
-                  style={[
-                    styles.planCard,
-                    isSelected && styles.planCardSelected,
-                  ]}
-                  activeOpacity={0.9}
-                  onPress={() => setSelectedPlan(plan.id as any)}
-                  disabled={isProcessing}
-                >
-                  {plan.highlight && (
-                    <View style={styles.badgeContainer}>
-                      <Text style={styles.badgeText}>{plan.highlight}</Text>
+          {isLoadingOfferings ? (
+            <ActivityIndicator
+              size="large"
+              color="#EAB64A"
+              style={{ marginVertical: 20 }}
+            />
+          ) : (
+            <View style={styles.plansWrapper}>
+              {activePlans.map((plan) => {
+                const isSelected = selectedPlan === plan.id;
+
+                let displayPrice = plan.price;
+                let displayDesc = plan.desc;
+
+                const matchedPkg = findPackage(
+                  planCategory,
+                  plan.id as "mensal" | "trimestral" | "anual",
+                );
+
+                if (matchedPkg && matchedPkg.product.priceString) {
+                  displayPrice = matchedPkg.product.priceString
+                    .replace("R$", "")
+                    .trim();
+                  displayDesc = matchedPkg.product.description || plan.desc;
+                }
+
+                return (
+                  <TouchableOpacity
+                    key={plan.id}
+                    style={[
+                      styles.planCard,
+                      isSelected && styles.planCardSelected,
+                    ]}
+                    activeOpacity={0.9}
+                    onPress={() => setSelectedPlan(plan.id as any)}
+                    disabled={isProcessing}
+                  >
+                    {plan.highlight && (
+                      <View style={styles.badgeContainer}>
+                        <Text style={styles.badgeText}>{plan.highlight}</Text>
+                      </View>
+                    )}
+
+                    <View style={styles.planInfo}>
+                      <Text style={styles.planName}>{plan.name}</Text>
+                      <Text style={styles.planDesc}>{displayDesc}</Text>
                     </View>
-                  )}
 
-                  <View style={styles.planInfo}>
-                    <Text style={styles.planName}>{plan.name}</Text>
-                    <Text style={styles.planDesc}>{plan.desc}</Text>
-                  </View>
-
-                  <View style={styles.planPriceBox}>
-                    <Text style={styles.planPrice}>R$ {plan.price}</Text>
-                    <Text style={styles.planPeriod}>{plan.period}</Text>
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+                    <View style={styles.planPriceBox}>
+                      <Text style={styles.planPrice}>R$ {displayPrice}</Text>
+                      <Text style={styles.planPeriod}>{plan.period}</Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
 
           {/* BOX DE GARANTIA E REGRAS */}
           <View style={styles.guaranteeBox}>
@@ -386,6 +557,15 @@ export default function PaywallScreen({ navigation }: any) {
               </View>
             ))}
           </View>
+
+          {/* BOTÃO RESTAURAR COMPRAS */}
+          <TouchableOpacity
+            style={styles.restoreBtn}
+            onPress={handleRestorePurchases}
+            disabled={isProcessing}
+          >
+            <Text style={styles.restoreBtnText}>Restaurar Compras</Text>
+          </TouchableOpacity>
         </Animated.View>
       </ScrollView>
 
@@ -471,7 +651,6 @@ const styles = StyleSheet.create({
     fontFamily: "Montserrat_400Regular",
   },
 
-  // CHAVE SELETORA
   categoryToggleContainer: {
     flexDirection: "row",
     backgroundColor: "#E2E8F0",
@@ -660,6 +839,19 @@ const styles = StyleSheet.create({
     color: "#60646C",
     lineHeight: 16,
     fontFamily: "Montserrat_400Regular",
+  },
+
+  restoreBtn: {
+    marginTop: 20,
+    marginBottom: 10,
+    padding: 10,
+  },
+  restoreBtnText: {
+    color: "#60646C",
+    fontSize: 13,
+    fontFamily: "Montserrat_700Bold",
+    textDecorationLine: "underline",
+    textAlign: "center",
   },
 
   footer: {

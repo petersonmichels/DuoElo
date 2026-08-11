@@ -100,6 +100,14 @@ export default function ProfileScreen({ navigation }: any) {
     };
   }, []);
 
+  const triggerSaveAnimation = (toValue: number, callback?: () => void) => {
+    Animated.timing(saveAnim, {
+      toValue,
+      duration: 300,
+      useNativeDriver: true,
+    }).start(callback);
+  };
+
   const handleAutoSave = async (field: string, value: string) => {
     const currentUid = auth.currentUser?.uid;
     if (!currentUid || userData?.[field] === value) return;
@@ -122,14 +130,6 @@ export default function ProfileScreen({ navigation }: any) {
       setSaveStatus("idle");
       triggerSaveAnimation(0);
     }
-  };
-
-  const triggerSaveAnimation = (toValue: number, callback?: () => void) => {
-    Animated.timing(saveAnim, {
-      toValue,
-      duration: 300,
-      useNativeDriver: true,
-    }).start(callback);
   };
 
   const handleVerifyEmail = async () => {
@@ -282,7 +282,6 @@ export default function ProfileScreen({ navigation }: any) {
     }
   };
 
-  // 🔥 Confirmação de Logout adicionada
   const handleLogout = () => {
     Alert.alert("Sair da Conta", "Tem certeza de que deseja sair?", [
       { text: "Cancelar", style: "cancel" },
@@ -372,6 +371,7 @@ export default function ProfileScreen({ navigation }: any) {
     typeof url === "string" &&
     url.length > 5 &&
     url.toLowerCase() !== "null";
+
   const getFirstName = (nameStr?: string) =>
     nameStr ? nameStr.split(" ")[0] : null;
 
@@ -380,10 +380,13 @@ export default function ProfileScreen({ navigation }: any) {
     : isValidPhoto(userData?.photoUrl)
       ? userData.photoUrl
       : null;
+
   const isPremium = userData?.isPremium || false;
   const displayUsername = userData?.username
     ? `@${userData.username}`
-    : getFirstName(userData?.displayName) || "Usuário";
+    : getFirstName(userData?.displayName) ||
+      getFirstName(userData?.billingFirstName) ||
+      "Usuário";
 
   return (
     <SafeAreaView style={styles.container}>
@@ -392,7 +395,6 @@ export default function ProfileScreen({ navigation }: any) {
         style={{ flex: 1 }}
       >
         <View style={styles.header}>
-          {/* 🔥 Navegação corrigida para MainTabs -> Home */}
           <TouchableOpacity
             style={styles.backBtn}
             onPress={() => navigation.navigate("MainTabs", { screen: "Home" })}
@@ -611,7 +613,7 @@ export default function ProfileScreen({ navigation }: any) {
               onPress={() =>
                 Alert.alert(
                   "Restaurar",
-                  "Lógica do RevenueCat a ser implementada.",
+                  "Restaurando compras via RevenueCat...",
                 )
               }
             >

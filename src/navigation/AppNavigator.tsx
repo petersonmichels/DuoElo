@@ -185,12 +185,16 @@ export default function AppNavigator() {
     >
       {user ? (
         <Stack.Group>
-          {/* 🔥 UNICO CONTAINER DE ABAS NA RAIZ (Sem a rota duplicada 'Home' aqui) */}
+          {/* 🔥 ÚNICO CONTAINER DE ABAS NA RAIZ */}
           <Stack.Screen name="MainTabs" component={MainTabs} />
 
-          {/* Telas secundarias empilhadas acima das abas */}
+          {/* Telas secundárias empilhadas acima das abas */}
           <Stack.Screen name="Anamnesis" component={AnamneseScreen} />
+          <Stack.Screen name="AnamneseScreen" component={AnamneseScreen} />
+
           <Stack.Screen name="Paywall" component={PaywallScreen} />
+          <Stack.Screen name="PaywallScreen" component={PaywallScreen} />
+
           <Stack.Screen name="MissionReward" component={MissionRewardScreen} />
         </Stack.Group>
       ) : (

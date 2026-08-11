@@ -12,7 +12,6 @@ import {
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Image,
   KeyboardAvoidingView,
   Linking,
@@ -38,10 +37,28 @@ export default function ConexoesScreen() {
   const [inviteCodeInput, setInviteCodeInput] = useState("");
   const [isMatching, setIsMatching] = useState(false);
 
-  // 🔥 ESTADOS PARA O MODAL DE CONFIRMAÇÃO DO MATCH
+  // ESTADOS PARA O MODAL DE CONFIRMAÇÃO DO MATCH
   const [pendingMatchPartner, setPendingMatchPartner] = useState<any>(null);
   const [isMatchConfirmationVisible, setIsMatchConfirmationVisible] =
     useState(false);
+
+  // ESTADO DE ALERTAS PERSONALIZADOS
+  const [customAlert, setCustomAlert] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    icon: "info-circle",
+    color: "#202D3A",
+  });
+
+  const showCustomAlert = (
+    title: string,
+    message: string,
+    icon = "info-circle",
+    color = "#202D3A",
+  ) => {
+    setCustomAlert({ visible: true, title, message, icon, color });
+  };
 
   useEffect(() => {
     const unsubscribeAuth = auth.onAuthStateChanged((user) => {
@@ -61,7 +78,6 @@ export default function ConexoesScreen() {
         const data = docSnap.data();
         setUserData(data);
 
-        // Se ainda não tiver myInviteCode, cria um no documento do Firestore
         if (!data.myInviteCode) {
           const generatedCode = currentUid.substring(0, 6).toUpperCase();
           setDoc(
@@ -95,7 +111,12 @@ export default function ConexoesScreen() {
     const codeToCopy = userData?.myInviteCode || currentUid;
     if (codeToCopy) {
       await Clipboard.setStringAsync(codeToCopy);
-      Alert.alert("Código Copiado! 📋", "Envie para o seu parceiro(a)!");
+      showCustomAlert(
+        "Código Copiado! 📋",
+        "Código copiado para a área de transferência. Envie para o seu amor!",
+        "copy",
+        "#67D4A8",
+      );
     }
   };
 
@@ -113,19 +134,26 @@ export default function ConexoesScreen() {
         await Linking.openURL(webUrl);
       }
     } catch (error) {
-      Alert.alert(
-        "Erro",
+      showCustomAlert(
+        "Erro ao Abrir WhatsApp",
         "Não conseguimos abrir o WhatsApp. Por favor, copie o código e envie manualmente.",
+        "exclamation-triangle",
+        "#EAB64A",
       );
     }
   };
 
-  // 🔥 PASSO 1: BUSCA O PARCEIRO E ABRE O MODAL DE CONFIRMAÇÃO
+  // BUSCA O PARCEIRO E ABRE O MODAL DE CONFIRMAÇÃO
   const handleLinkPartnerCode = async () => {
     const rawClean = inviteCodeInput.trim().replace(/^@/, "");
 
     if (rawClean.length < 3) {
-      Alert.alert("Atenção", "Digite um código ou @username válido.");
+      showCustomAlert(
+        "Atenção",
+        "Digite um código ou @username válido.",
+        "exclamation-triangle",
+        "#EAB64A",
+      );
       return;
     }
 
@@ -133,7 +161,6 @@ export default function ConexoesScreen() {
     setIsMatching(true);
 
     try {
-      // 1. Tenta buscar pelo Código (Formatado em Maiúsculas)
       const cleanCode = rawClean.toUpperCase();
       let q = query(
         collection(db, "users"),
@@ -141,7 +168,6 @@ export default function ConexoesScreen() {
       );
       let querySnapshot = await getDocs(q);
 
-      // 2. Se não encontrar pelo código, busca pelo @username (Sempre em Minúsculas)
       if (querySnapshot.empty) {
         const cleanUsername = rawClean.toLowerCase();
         q = query(
@@ -152,9 +178,11 @@ export default function ConexoesScreen() {
       }
 
       if (querySnapshot.empty) {
-        Alert.alert(
+        showCustomAlert(
           "Match Não Encontrado",
           "Não encontramos ninguém com esse código ou @username. Verifique se digitou corretamente.",
+          "search-minus",
+          "#EAB64A",
         );
         setIsMatching(false);
         return;
@@ -165,38 +193,43 @@ export default function ConexoesScreen() {
       const partnerId = partnerDoc.id;
 
       if (partnerId === currentUid) {
-        Alert.alert(
+        showCustomAlert(
           "Ação Bloqueada",
           "Você não pode utilizar o seu próprio código ou usuário!",
+          "ban",
+          "#D96C6C",
         );
         setIsMatching(false);
         return;
       }
 
       if (partnerDataDb?.partnerId && partnerDataDb.partnerId !== currentUid) {
-        Alert.alert(
+        showCustomAlert(
           "Usuário Ocupado",
           "Este perfil já está conectado a outro parceiro no DuoElo.",
+          "user-lock",
+          "#EAB64A",
         );
         setIsMatching(false);
         return;
       }
 
-      // 🔥 Abre o Modal de Confirmação antes de gravar no banco!
       setPendingMatchPartner({ id: partnerId, data: partnerDataDb });
       setIsMatchConfirmationVisible(true);
     } catch (error) {
       console.error("Erro ao buscar parceiro:", error);
-      Alert.alert(
+      showCustomAlert(
         "Erro de Conexão",
         "Ocorreu um problema ao tentar buscar a conta. Tente novamente.",
+        "times-circle",
+        "#D96C6C",
       );
     } finally {
       setIsMatching(false);
     }
   };
 
-  // 🔥 PASSO 2: EXECUTA O MATCH DEFINITIVO NO BANCO DE DADOS
+  // EXECUTA O MATCH DEFINITIVO NO BANCO DE DADOS
   const confirmMatchCode = async () => {
     setIsMatchConfirmationVisible(false);
 
@@ -206,6 +239,7 @@ export default function ConexoesScreen() {
       const partnerId = pendingMatchPartner.id;
       const partnerDataDb = pendingMatchPartner.data;
 
+      // 🏆 Sincroniza e herda a Assinatura Premium
       const partnerIsPremium = partnerDataDb?.isPremium || false;
       const currentUserIsPremium = userData?.isPremium || false;
       const finalPremiumStatus = partnerIsPremium || currentUserIsPremium;
@@ -232,13 +266,20 @@ export default function ConexoesScreen() {
       setInviteCodeInput("");
       setPendingMatchPartner(null);
 
-      Alert.alert(
+      showCustomAlert(
         "Match Realizado! ❤️",
         "As contas foram conectadas com sucesso. Vá para a aba Home para dar a largada na jornada juntos.",
+        "heart",
+        "#67D4A8",
       );
     } catch (error) {
       console.error("Erro ao confirmar o match:", error);
-      Alert.alert("Erro", "Não foi possível efetivar a conexão no momento.");
+      showCustomAlert(
+        "Erro",
+        "Não foi possível efetivar a conexão no momento.",
+        "times-circle",
+        "#D96C6C",
+      );
     }
   };
 
@@ -434,7 +475,7 @@ export default function ConexoesScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* 🔥 MODAL DE CONFIRMAÇÃO DO MATCH */}
+      {/* MODAL DE CONFIRMAÇÃO DO MATCH */}
       <Modal
         visible={isMatchConfirmationVisible}
         transparent
@@ -477,6 +518,41 @@ export default function ConexoesScreen() {
               <Text style={styles.cancelLinkButtonText}>
                 Não, errei o código
               </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* MODAL DE ALERTAS CUSTOMIZADOS */}
+      <Modal visible={customAlert.visible} transparent animationType="slide">
+        <View style={styles.bottomSheetOverlay}>
+          <View style={styles.bottomSheetContainer}>
+            <View style={styles.bottomSheetHandle} />
+
+            <View
+              style={[
+                styles.alertIconContainer,
+                { backgroundColor: customAlert.color + "20" },
+              ]}
+            >
+              <FontAwesome5
+                name={customAlert.icon}
+                size={30}
+                color={customAlert.color}
+              />
+            </View>
+
+            <Text style={styles.bottomSheetTitle}>{customAlert.title}</Text>
+            <Text style={styles.bottomSheetText}>{customAlert.message}</Text>
+
+            <TouchableOpacity
+              style={[
+                styles.bottomSheetButtonPrimary,
+                { backgroundColor: customAlert.color },
+              ]}
+              onPress={() => setCustomAlert({ ...customAlert, visible: false })}
+            >
+              <Text style={styles.bottomSheetButtonPrimaryText}>Entendi</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -634,7 +710,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
 
-  // ESTILOS DO MODAL DE CONFIRMAÇÃO
   modalOverlayCenter: {
     flex: 1,
     backgroundColor: "rgba(32, 45, 58, 0.7)",
@@ -704,5 +779,68 @@ const styles = StyleSheet.create({
     color: "#60646C",
     fontSize: 14,
     fontFamily: "Montserrat_700Bold",
+  },
+
+  bottomSheetOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(32,45,58,0.6)",
+    justifyContent: "flex-end",
+  },
+  bottomSheetContainer: {
+    backgroundColor: "#FFF",
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    padding: 24,
+    paddingBottom: 40,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 10,
+    width: "100%",
+  },
+  bottomSheetHandle: {
+    width: 50,
+    height: 5,
+    backgroundColor: "#D1D9E0",
+    borderRadius: 3,
+    marginBottom: 20,
+  },
+  alertIconContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 15,
+  },
+  bottomSheetTitle: {
+    fontFamily: "Montserrat_900Black",
+    fontSize: 22,
+    color: "#202D3A",
+    marginBottom: 10,
+    textAlign: "center",
+  },
+  bottomSheetText: {
+    fontFamily: "Montserrat_400Regular",
+    fontSize: 15,
+    color: "#2C3E50",
+    textAlign: "center",
+    marginBottom: 20,
+    lineHeight: 22,
+  },
+  bottomSheetButtonPrimary: {
+    flexDirection: "row",
+    width: "100%",
+    paddingVertical: 16,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  bottomSheetButtonPrimaryText: {
+    fontFamily: "Montserrat_700Bold",
+    color: "#FFF",
+    fontSize: 16,
   },
 });

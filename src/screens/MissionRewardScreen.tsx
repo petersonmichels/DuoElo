@@ -10,7 +10,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-// 🔥 IMPORTAÇÃO CORRETA E MODERNA DO SAFE AREA
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const { width } = Dimensions.get("window");
@@ -89,7 +88,6 @@ export default function MissionRewardScreen({ navigation, route }: any) {
     outputRange: ["0%", "100%"],
   });
 
-  // 🔥 NAVEGAÇÃO AJUSTADA PARA MainTabs -> Home
   const handleContinue = () => {
     navigation.reset({
       index: 0,
@@ -116,7 +114,6 @@ export default function MissionRewardScreen({ navigation, route }: any) {
             alignItems: "center",
           }}
         >
-          {/* 🔥 TÍTULO COM O NOVO TERMO */}
           <Text style={styles.heroTitle}>+{earnedPE} Bonds!</Text>
 
           <View style={styles.card}>
@@ -327,7 +324,7 @@ const styles = StyleSheet.create({
     marginLeft: 15,
     width: 40,
     height: 40,
-    justifyContent: "center",
+    justifyContent: "center", // Corrigido de "justify.Content"
     alignItems: "center",
   },
   divider: {

@@ -1,7 +1,10 @@
 import { FontAwesome5 } from "@expo/vector-icons";
+import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import * as Clipboard from "expo-clipboard";
 import {
   createUserWithEmailAndPassword,
+  GoogleAuthProvider,
+  signInWithCredential,
   signInWithEmailAndPassword,
   signOut,
 } from "firebase/auth";
@@ -77,6 +80,14 @@ export default function LoginScreen({ navigation }: any) {
   const btnColor = isLogin ? "#202D3A" : "#EAB64A";
   const btnIcon = isLogin ? "sign-in-alt" : "arrow-right";
   const btnTextColor = isLogin ? "#FFF" : "#202D3A";
+
+  // 🛠️ INICIALIZAÇÃO DO GOOGLE SIGN-IN NATIVO
+  useEffect(() => {
+    GoogleSignin.configure({
+      webClientId:
+        "504286284116-akoj0ufb3q6rrfb2b3gpskbjaatgeqle.apps.googleusercontent.com",
+    });
+  }, []);
 
   useEffect(() => {
     Animated.parallel([
@@ -251,6 +262,52 @@ export default function LoginScreen({ navigation }: any) {
     }
   };
 
+  // 🔒 REDIRECIONAMENTO INTELIGENTE PÓS-AUTENTICAÇÃO (CHECKIN DE PAYWALL E ANAMNESE)
+  const routeUserAfterLogin = async (uid: string) => {
+    try {
+      const userSnap = await getDoc(doc(db, "users", uid));
+      const userData = userSnap.data();
+
+      // 1. Checa Anamnese
+      if (!userData?.hasCompletedAnamnesis) {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: "AnamneseScreen" }],
+        });
+        return;
+      }
+
+      // 2. Checa status Premium (próprio ou do parceiro)
+      let isUserPremium = Boolean(userData?.isPremium);
+
+      if (!isUserPremium && userData?.partnerId) {
+        const partnerSnap = await getDoc(doc(db, "users", userData.partnerId));
+        if (partnerSnap.exists() && partnerSnap.data()?.isPremium) {
+          isUserPremium = true;
+        }
+      }
+
+      // 3. Direciona para o Paywall ou para a Home
+      if (!isUserPremium) {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: "PaywallScreen" }],
+        });
+      } else {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: "MainTabs", params: { screen: "Home" } }],
+        });
+      }
+    } catch (e) {
+      console.error("Erro ao validar roteamento pós-login:", e);
+      navigation.reset({
+        index: 0,
+        routes: [{ name: "MainTabs", params: { screen: "Home" } }],
+      });
+    }
+  };
+
   const finalizeAuth = async (wasCreated: boolean) => {
     if (wasCreated) {
       await signOut(auth);
@@ -265,7 +322,10 @@ export default function LoginScreen({ navigation }: any) {
       );
     } else {
       setIsLoading(false);
-      if (navigation && navigation.navigate) {
+      const uid = auth.currentUser?.uid;
+      if (uid) {
+        await routeUserAfterLogin(uid);
+      } else if (navigation && navigation.navigate) {
         navigation.navigate("MainTabs", { screen: "Home" });
       }
     }
@@ -315,7 +375,6 @@ export default function LoginScreen({ navigation }: any) {
       let isNewUser = false;
 
       if (isLogin) {
-        // 🔥 EXECUTA O LOGIN NO FIREBASE AUTH
         const userCred = await signInWithEmailAndPassword(
           auth,
           cleanEmail,
@@ -323,7 +382,6 @@ export default function LoginScreen({ navigation }: any) {
         );
         uid = userCred.user.uid;
       } else {
-        // 🔥 EXECUTA O CADASTRO NO FIREBASE AUTH
         const usernameQuery = query(
           collection(db, "users"),
           where("username", "==", cleanUsername),
@@ -396,14 +454,13 @@ export default function LoginScreen({ navigation }: any) {
         error.code === "auth/wrong-password"
       ) {
         if (isLogin) {
-          // 🔥 QUANDO O LOGIN FALHAR (CONTA NÃO EXISTE OU DADOS INCORRETOS)
           showCustomAlert(
             "Conta não encontrada! 🧐",
             `Não encontramos uma conta para "${cleanEmail}" ou a senha está incorreta.\n\nDeseja criar uma nova conta agora?`,
             "user-plus",
             "#EAB64A",
             "CRIAR CONTA",
-            () => setIsLogin(false), // Alterne para a tela de Cadastro mantendo o e-mail
+            () => setIsLogin(false),
             "Tentar Novamente",
             () => {},
           );
@@ -426,6 +483,73 @@ export default function LoginScreen({ navigation }: any) {
         showCustomAlert(
           "Ops!",
           "Ocorreu um erro de autenticação. Verifique sua conexão.",
+          "times-circle",
+          "#D96C6C",
+        );
+      }
+    }
+  };
+
+  // 🚀 FUNÇÃO OFICIAL DO GOOGLE SIGN-IN NATIVO COM VERIFICAÇÃO DE PAYWALL E ANAMNESE
+  const handleGoogleSignIn = async () => {
+    setIsLoading(true);
+    try {
+      await GoogleSignin.hasPlayServices({
+        showPlayServicesUpdateDialog: true,
+      });
+      const signInResult = await GoogleSignin.signIn();
+      const idToken = signInResult.data?.idToken;
+
+      if (!idToken) {
+        throw new Error("Token ID do Google não retornado.");
+      }
+
+      const credential = GoogleAuthProvider.credential(idToken);
+      const userCred = await signInWithCredential(auth, credential);
+      const user = userCred.user;
+
+      // Cria/Atualiza perfil no Firestore
+      const userRef = doc(db, "users", user.uid);
+      const userSnap = await getDoc(userRef);
+
+      if (!userSnap.exists()) {
+        const cleanUsername = (
+          user.displayName ||
+          user.email?.split("@")[0] ||
+          "user"
+        )
+          .toLowerCase()
+          .replace(/[^a-z0-9_]/g, "");
+
+        const myGeneratedCode = user.uid.substring(0, 6).toUpperCase();
+
+        await setDoc(userRef, {
+          uid: user.uid,
+          email: user.email,
+          username: cleanUsername,
+          displayName: user.displayName || "Usuário",
+          photoURL: user.photoURL || null,
+          myInviteCode: myGeneratedCode,
+          createdAt: new Date().toISOString(),
+          isPremium: false,
+          hasCompletedAnamnesis: false,
+          totalPE: 0,
+          streak: 0,
+          currentPhase: 1,
+          currentTaskStep: 0,
+          partnerId: null,
+        });
+      }
+
+      setIsLoading(false);
+      await routeUserAfterLogin(user.uid);
+    } catch (error: any) {
+      setIsLoading(false);
+      console.error("Erro no Google Sign-In:", error);
+      if (error.code !== "ASYNC_OP_IN_PROGRESS") {
+        showCustomAlert(
+          "Login Cancelado",
+          "Não foi possível concluir o login com o Google.",
           "times-circle",
           "#D96C6C",
         );
@@ -501,12 +625,16 @@ export default function LoginScreen({ navigation }: any) {
   };
 
   const handleSocialLogin = (provider: string) => {
-    showCustomAlert(
-      "Em Breve",
-      `O login com ${provider} será ativado na próxima fase.`,
-      "clock",
-      "#AFAFAF",
-    );
+    if (provider === "Google") {
+      handleGoogleSignIn();
+    } else {
+      showCustomAlert(
+        "Em Breve",
+        `O login com ${provider} será ativado na próxima fase.`,
+        "clock",
+        "#AFAFAF",
+      );
+    }
   };
 
   const userPhotoForAnim =

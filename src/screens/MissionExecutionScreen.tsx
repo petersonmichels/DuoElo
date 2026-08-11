@@ -21,8 +21,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-
-// 🔥 SafeAreaView moderno importado corretamente
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { auth, db } from "../config/firebase";
@@ -183,7 +181,6 @@ export default function MissionExecutionScreen({
     };
   }, [isReviewMode, mission]);
 
-  // 🔥 Otimizado para Native Driver na animação do Loop
   useEffect(() => {
     Animated.loop(
       Animated.sequence([

@@ -1,56 +1,148 @@
 import * as admin from "firebase-admin";
 import { onDocumentUpdated } from "firebase-functions/v2/firestore";
+import { onRequest } from "firebase-functions/v2/https";
 
 admin.initializeApp();
 const db = admin.firestore();
 
-export const processMatch = onDocumentUpdated("users/{userId}", async (event) => {
-  const userId = event.params.userId;
-  const newData = event.data?.after.data();
-  const oldData = event.data?.before.data();
+// ============================================================================
+// 1. MATCHMAKER SEGURANÇA (O PADRE)
+// ============================================================================
+export const processMatch = onDocumentUpdated(
+  { region: "europe-west1", document: "users/{userId}" },
+  async (event) => {
+    const userId = event.params.userId;
+    const newData = event.data?.after.data();
+    const oldData = event.data?.before.data();
 
-  if (!newData) return;
+    if (!newData) return;
 
-  const newCode = newData.linkedInviteCode;
-  const oldCode = oldData?.linkedInviteCode;
+    const newCode = newData.linkedInviteCode;
+    const oldCode = oldData?.linkedInviteCode;
 
-  if (newCode && newCode !== oldCode) {
+    if (newCode && newCode !== oldCode) {
+      try {
+        console.log(
+          `Iniciando Match... Usuário ${userId} usou o código ${newCode}`,
+        );
+
+        const usersRef = db.collection("users");
+        const partnerQuery = await usersRef
+          .where("myInviteCode", "==", newCode)
+          .limit(1)
+          .get();
+
+        if (partnerQuery.empty || partnerQuery.docs[0].id === userId) {
+          console.log(
+            "Match falhou: Código inválido ou pertencente ao próprio usuário.",
+          );
+          await usersRef
+            .doc(userId)
+            .update({ linkedInviteCode: admin.firestore.FieldValue.delete() });
+          return;
+        }
+
+        const partnerDoc = partnerQuery.docs[0];
+        const partnerId = partnerDoc.id;
+        const partnerData = partnerDoc.data();
+
+        const finalPremiumStatus =
+          newData.isPremium || partnerData.isPremium || false;
+
+        const batch = db.batch();
+
+        batch.update(usersRef.doc(userId), {
+          partnerId: partnerId,
+          isPremium: finalPremiumStatus,
+          linkedInviteCode: admin.firestore.FieldValue.delete(),
+        });
+
+        batch.update(usersRef.doc(partnerId), {
+          partnerId: userId,
+          isPremium: finalPremiumStatus,
+        });
+
+        await batch.commit();
+        console.log(`✅ MATCH DE SUCESSO! ${userId} e ${partnerId}`);
+      } catch (error) {
+        console.error("❌ Erro grave ao processar o match:", error);
+      }
+    }
+  },
+);
+
+// ============================================================================
+// 2. REVENUECAT WEBHOOK (O CAIXA FINANCEIRO)
+// ============================================================================
+export const revenueCatWebhook = onRequest(
+  { region: "europe-west1" },
+  async (req, res) => {
     try {
-      console.log(`Iniciando Match... Usuário ${userId} usou o código ${newCode}`);
+      const event = req.body.event;
 
-      const usersRef = db.collection("users");
-      const partnerQuery = await usersRef.where("myInviteCode", "==", newCode).limit(1).get();
-
-      if (partnerQuery.empty || partnerQuery.docs[0].id === userId) {
-        console.log("Match falhou: Código inválido ou pertencente ao próprio usuário.");
-        await usersRef.doc(userId).update({ linkedInviteCode: admin.firestore.FieldValue.delete() });
+      if (!event || !event.app_user_id) {
+        res.status(400).send("Bad Request: Missing event data");
         return;
       }
 
-      const partnerDoc = partnerQuery.docs[0];
-      const partnerId = partnerDoc.id;
-      const partnerData = partnerDoc.data();
+      const userId = event.app_user_id;
+      const eventType = event.type;
 
-      const finalPremiumStatus = newData.isPremium || partnerData.isPremium || false;
+      console.log(`💰 Webhook Recebido: ${eventType} para o usuário ${userId}`);
 
-      const batch = db.batch();
+      const usersRef = db.collection("users");
+      const userDoc = await usersRef.doc(userId).get();
 
-      batch.update(usersRef.doc(userId), {
-        partnerId: partnerId,
-        isPremium: finalPremiumStatus,
-        linkedInviteCode: admin.firestore.FieldValue.delete(),
-      });
+      if (!userDoc.exists) {
+        console.warn(`Usuário ${userId} não encontrado no banco de dados.`);
+        res.status(200).send("User not found, but webhook acknowledged.");
+        return;
+      }
 
-      batch.update(usersRef.doc(partnerId), {
-        partnerId: userId,
-        isPremium: finalPremiumStatus,
-      });
+      const userData = userDoc.data();
+      const partnerId = userData?.partnerId;
 
-      await batch.commit();
-      console.log(`✅ MATCH DE SUCESSO! ${userId} e ${partnerId}`);
+      if (
+        eventType === "INITIAL_PURCHASE" ||
+        eventType === "RENEWAL" ||
+        eventType === "NON_RENEWING_PURCHASE" ||
+        eventType === "UNCANCELLATION"
+      ) {
+        const batch = db.batch();
 
+        batch.update(usersRef.doc(userId), { isPremium: true });
+
+        if (partnerId) {
+          batch.update(usersRef.doc(partnerId), { isPremium: true });
+          console.log(
+            `🎁 Premium liberado também para o parceiro: ${partnerId}`,
+          );
+        }
+
+        await batch.commit();
+        console.log(`✅ Premium ATIVADO com sucesso para ${userId}`);
+      } else if (eventType === "EXPIRATION" || eventType === "REVOCATION") {
+        const batch = db.batch();
+
+        batch.update(usersRef.doc(userId), { isPremium: false });
+
+        if (partnerId) {
+          batch.update(usersRef.doc(partnerId), { isPremium: false });
+          console.log(`💔 Premium revogado do parceiro: ${partnerId}`);
+        }
+
+        await batch.commit();
+        console.log(`❌ Premium REVOGADO para ${userId}`);
+      } else {
+        console.log(
+          `ℹ️ Evento ${eventType} processado sem alterações de status.`,
+        );
+      }
+
+      res.status(200).send("Webhook processado com sucesso!");
     } catch (error) {
-      console.error("❌ Erro grave ao processar o match:", error);
+      console.error("Erro ao processar Webhook do RevenueCat:", error);
+      res.status(500).send("Internal Server Error");
     }
-  }
-});
+  },
+);
