@@ -99,7 +99,6 @@ export default function InvitePartnerScreen({ navigation }: any) {
         console.error("Erro ao abrir WhatsApp", error);
       }
     } else if (connectionStep === 1) {
-      // Força a re-checagem ou avança
       Alert.alert(
         "Aguardando...",
         "Assim que seu parceiro(a) inserir o código no app dele, vocês serão conectados automaticamente!",
@@ -113,7 +112,7 @@ export default function InvitePartnerScreen({ navigation }: any) {
           const userData = userSnap.data();
 
           if (!userData?.hasCompletedAnamnesis) {
-            navigation.navigate("Anamnesis");
+            navigation.navigate("AnamneseScreen");
             return;
           }
 
@@ -128,7 +127,7 @@ export default function InvitePartnerScreen({ navigation }: any) {
           }
 
           if (!isUserPremium) {
-            navigation.navigate("Paywall");
+            navigation.navigate("PaywallScreen");
             return;
           }
         } catch (e) {
@@ -167,6 +166,21 @@ export default function InvitePartnerScreen({ navigation }: any) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
+        {/* BOTÃO VOLTAR / FECHAR */}
+        <TouchableOpacity
+          style={styles.floatingCloseBtn}
+          onPress={() => {
+            if (navigation.canGoBack()) {
+              navigation.goBack();
+            } else {
+              navigation.navigate("MainTabs", { screen: "Home" });
+            }
+          }}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <FontAwesome5 name="times" size={22} color="#202D3A" />
+        </TouchableOpacity>
+
         {/* CABEÇALHO COM AVATARES */}
         <View style={styles.headerSection}>
           <View style={styles.avatarsContainer}>
@@ -177,7 +191,7 @@ export default function InvitePartnerScreen({ navigation }: any) {
               </View>
             </View>
 
-            {/* Foto do Parceiro (Cinza até conectar, Verde/Menta após match) */}
+            {/* Foto do Parceiro */}
             <View
               style={[
                 styles.avatarWrapper,
@@ -238,7 +252,7 @@ export default function InvitePartnerScreen({ navigation }: any) {
             </View>
           </View>
 
-          {/* PASSO 2: Aguardando (Ouro Suave) */}
+          {/* PASSO 2: Aguardando */}
           <View style={styles.workflowStep}>
             <Animated.View
               style={[
@@ -349,9 +363,7 @@ export default function InvitePartnerScreen({ navigation }: any) {
             <TouchableOpacity
               style={styles.secondaryButton}
               activeOpacity={0.6}
-              onPress={() =>
-                navigation.navigate("MainTabs", { screen: "Match" })
-              }
+              onPress={() => navigation.navigate("MatchScreen")}
             >
               <Text style={styles.secondaryButtonText}>Já tenho um código</Text>
             </TouchableOpacity>
@@ -377,6 +389,14 @@ const styles = StyleSheet.create({
     paddingTop: 40,
     paddingBottom: 30,
     justifyContent: "space-between",
+    position: "relative",
+  },
+  floatingCloseBtn: {
+    position: "absolute",
+    top: 20,
+    right: 20,
+    zIndex: 10,
+    padding: 10,
   },
 
   // HEADER & AVATARES

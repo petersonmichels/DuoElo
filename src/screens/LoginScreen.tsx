@@ -1,9 +1,13 @@
 import { FontAwesome5 } from "@expo/vector-icons";
-import { GoogleSignin } from "@react-native-google-signin/google-signin";
-import * as Clipboard from "expo-clipboard";
+import {
+  GoogleSignin,
+  statusCodes,
+} from "@react-native-google-signin/google-signin";
+import * as AppleAuthentication from "expo-apple-authentication";
 import {
   createUserWithEmailAndPassword,
   GoogleAuthProvider,
+  OAuthProvider,
   signInWithCredential,
   signInWithEmailAndPassword,
   signOut,
@@ -25,7 +29,6 @@ import {
   Easing,
   Image,
   KeyboardAvoidingView,
-  Linking,
   Modal,
   Platform,
   ScrollView,
@@ -45,20 +48,7 @@ export default function LoginScreen({ navigation }: any) {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [inviteCodeInput, setInviteCodeInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isMatchingLogin, setIsMatchingLogin] = useState(false);
-
-  const [currentUserData, setCurrentUserData] = useState<any>(null);
-
-  // ESTADOS PARA A ANIMAÇÃO E CONFIRMAÇÃO DO MATCH
-  const [pendingMatchPartner, setPendingMatchPartner] = useState<any>(null);
-  const [isMatchConfirmationVisible, setIsMatchConfirmationVisible] =
-    useState(false);
-  const [isMatchAnimationVisible, setIsMatchAnimationVisible] = useState(false);
-
-  const matchAnimTranslateX = useRef(new Animated.Value(0)).current;
-  const matchHeartScale = useRef(new Animated.Value(0)).current;
 
   const [customAlert, setCustomAlert] = useState({
     visible: false,
@@ -163,106 +153,7 @@ export default function LoginScreen({ navigation }: any) {
     });
   };
 
-  const handleCopyCode = async () => {
-    const codeToCopy = currentUserData?.myInviteCode || "DUE-XXX";
-    await Clipboard.setStringAsync(codeToCopy);
-    showCustomAlert(
-      "Copiado!",
-      "Código copiado para a área de transferência.",
-      "copy",
-      "#67D4A8",
-    );
-  };
-
-  const handleSendInvite = async () => {
-    const myCode = currentUserData?.myInviteCode || "DUE-123";
-    const message = `Amor, estou investindo na nossa relação. Vamos fazer juntos a jornada de 90 dias do DuoElo? Baixe o app e use o meu código pra gente dar o match: *${myCode}* 👇\n\nhttps://duoelo.com/app`;
-    const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
-
-    try {
-      const canOpen = await Linking.canOpenURL(whatsappUrl);
-      if (canOpen) {
-        await Linking.openURL(whatsappUrl);
-      } else {
-        const webUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
-        await Linking.openURL(webUrl);
-      }
-    } catch (error) {
-      showCustomAlert(
-        "Erro",
-        "Não conseguimos abrir o WhatsApp. Envie o código manualmente.",
-        "exclamation-triangle",
-        "#EAB64A",
-      );
-    }
-  };
-
-  const handleLinkPartnerCodeInLogin = async () => {
-    const rawInput = inviteCodeInput.trim();
-
-    if (rawInput.length < 3) {
-      showCustomAlert(
-        "Atenção",
-        "Digite um código ou @username válido.",
-        "exclamation-triangle",
-        "#EAB64A",
-      );
-      return;
-    }
-
-    setIsMatchingLogin(true);
-
-    try {
-      const cleanCode = rawInput.replace(/^@/, "").toUpperCase();
-      let q = query(
-        collection(db, "users"),
-        where("myInviteCode", "==", cleanCode),
-      );
-      let querySnapshot = await getDocs(q);
-
-      if (querySnapshot.empty) {
-        const cleanUsername = rawInput.replace(/^@/, "").toLowerCase();
-        q = query(
-          collection(db, "users"),
-          where("username", "==", cleanUsername),
-        );
-        querySnapshot = await getDocs(q);
-      }
-
-      if (querySnapshot.empty) {
-        showCustomAlert(
-          "Match Não Encontrado",
-          "Não encontramos ninguém com esse código ou @username.",
-          "search-minus",
-          "#EAB64A",
-        );
-        setIsMatchingLogin(false);
-        return;
-      }
-
-      const partnerDoc = querySnapshot.docs[0];
-      const partnerDataDb = partnerDoc.data();
-      const partnerId = partnerDoc.id;
-
-      setPendingMatchPartner({
-        id: partnerId,
-        data: partnerDataDb,
-        isNewUser: false,
-      });
-      setIsMatchConfirmationVisible(true);
-    } catch (error) {
-      showCustomAlert(
-        "Erro de Conexão",
-        "Ocorreu um problema ao buscar o usuário.",
-        "times-circle",
-        "#D96C6C",
-      );
-    } finally {
-      setIsMatchingLogin(false);
-    }
-  };
-
-  // 🔒 REDIRECIONAMENTO INTELIGENTE PÓS-AUTENTICAÇÃO (CHECKIN DE PAYWALL E ANAMNESE)
+  // 🔒 REDIRECIONAMENTO INTELIGENTE PÓS-AUTENTICAÇÃO
   const routeUserAfterLogin = async (uid: string) => {
     try {
       const userSnap = await getDoc(doc(db, "users", uid));
@@ -277,7 +168,16 @@ export default function LoginScreen({ navigation }: any) {
         return;
       }
 
-      // 2. Checa status Premium (próprio ou do parceiro)
+      // 2. Checa se o casal possui Match feito (partnerId)
+      if (!userData?.partnerId) {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: "MainTabs", params: { screen: "Match" } }],
+        });
+        return;
+      }
+
+      // 3. Checa status Premium (próprio ou do parceiro)
       let isUserPremium = Boolean(userData?.isPremium);
 
       if (!isUserPremium && userData?.partnerId) {
@@ -287,7 +187,7 @@ export default function LoginScreen({ navigation }: any) {
         }
       }
 
-      // 3. Direciona para o Paywall ou para a Home
+      // 4. Direciona para o Paywall ou para a Home
       if (!isUserPremium) {
         navigation.reset({
           index: 0,
@@ -332,6 +232,8 @@ export default function LoginScreen({ navigation }: any) {
   };
 
   const handleAuth = async () => {
+    if (isLoading) return;
+
     const cleanEmail = email.trim().toLowerCase();
     const cleanUsername = username
       .trim()
@@ -427,12 +329,6 @@ export default function LoginScreen({ navigation }: any) {
         if (authControls) authControls.isCreatingAccount = false;
       }
 
-      const myDoc = await getDoc(doc(db, "users", uid));
-      const myData = myDoc.exists()
-        ? myDoc.data()
-        : { email: cleanEmail, isPremium: false };
-      setCurrentUserData(myData);
-
       finalizeAuth(isNewUser);
     } catch (error: any) {
       if (authControls) authControls.isCreatingAccount = false;
@@ -479,6 +375,13 @@ export default function LoginScreen({ navigation }: any) {
           "hourglass-half",
           "#EAB64A",
         );
+      } else if (error.code === "auth/invalid-email") {
+        showCustomAlert(
+          "E-mail Inválido",
+          "Por favor, digite um endereço de e-mail em formato válido.",
+          "exclamation-circle",
+          "#EAB64A",
+        );
       } else {
         showCustomAlert(
           "Ops!",
@@ -490,13 +393,23 @@ export default function LoginScreen({ navigation }: any) {
     }
   };
 
-  // 🚀 FUNÇÃO OFICIAL DO GOOGLE SIGN-IN NATIVO COM VERIFICAÇÃO DE PAYWALL E ANAMNESE
+  // 🚀 GOOGLE SIGN-IN NATIVO SEGURO (FORÇANDO TELA DE SELEÇÃO DE CONTA)
   const handleGoogleSignIn = async () => {
+    if (isLoading) return;
+
     setIsLoading(true);
     try {
       await GoogleSignin.hasPlayServices({
         showPlayServicesUpdateDialog: true,
       });
+
+      // 🌐 LIMPA A SESSÃO ANTERIOR PARA SEMPRE ABRIR A TELA DE ESCOLHA DE CONTA
+      try {
+        await GoogleSignin.signOut();
+      } catch (e) {
+        // Ignora caso já esteja deslogado
+      }
+
       const signInResult = await GoogleSignin.signIn();
       const idToken = signInResult.data?.idToken;
 
@@ -508,7 +421,6 @@ export default function LoginScreen({ navigation }: any) {
       const userCred = await signInWithCredential(auth, credential);
       const user = userCred.user;
 
-      // Cria/Atualiza perfil no Firestore
       const userRef = doc(db, "users", user.uid);
       const userSnap = await getDoc(userRef);
 
@@ -545,100 +457,128 @@ export default function LoginScreen({ navigation }: any) {
       await routeUserAfterLogin(user.uid);
     } catch (error: any) {
       setIsLoading(false);
-      console.error("Erro no Google Sign-In:", error);
-      if (error.code !== "ASYNC_OP_IN_PROGRESS") {
-        showCustomAlert(
-          "Login Cancelado",
-          "Não foi possível concluir o login com o Google.",
-          "times-circle",
-          "#D96C6C",
-        );
+
+      if (
+        error.code === statusCodes.SIGN_IN_IN_PROGRESS ||
+        error.code === statusCodes.IN_PROGRESS
+      ) {
+        console.log("Google Sign-In já em andamento.");
+        return;
       }
+
+      if (error.code === statusCodes.SIGN_IN_CANCELLED) {
+        console.log("Login com Google cancelado pelo usuário.");
+        return;
+      }
+
+      console.error("Erro no Google Sign-In:", error);
+      showCustomAlert(
+        "Login Cancelado",
+        "Não foi possível concluir o login com o Google.",
+        "times-circle",
+        "#D96C6C",
+      );
     }
   };
 
-  const confirmMatchCode = async () => {
-    setIsMatchConfirmationVisible(false);
-    setIsMatchAnimationVisible(true);
+  // 🍎 APPLE SIGN-IN NATIVO (iOS)
+  const handleAppleSignIn = async () => {
+    if (Platform.OS !== "ios") {
+      showCustomAlert(
+        "Apenas no iOS",
+        "O login com a Apple está disponível apenas em dispositivos iOS (iPhone e iPad). Utilize o Google Sign-In no Android.",
+        "apple",
+        "#202D3A",
+      );
+      return;
+    }
 
-    Animated.sequence([
-      Animated.timing(matchAnimTranslateX, {
-        toValue: 1,
-        duration: 1200,
-        useNativeDriver: true,
-      }),
-      Animated.spring(matchHeartScale, {
-        toValue: 1,
-        friction: 4,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    if (isLoading) return;
+    setIsLoading(true);
 
-    setTimeout(async () => {
-      try {
-        const cleanEmail = email.trim().toLowerCase();
+    try {
+      const appleCredential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
 
-        let userId = auth.currentUser?.uid;
-        if (!userId && cleanEmail && password) {
-          try {
-            const userCred = await signInWithEmailAndPassword(
-              auth,
-              cleanEmail,
-              password,
-            );
-            userId = userCred.user.uid;
-          } catch (e) {
-            console.log("Usuário não autenticado antes do match:", e);
-          }
-        }
-
-        const partnerId = pendingMatchPartner?.id;
-        const partnerDataDb = pendingMatchPartner?.data;
-
-        if (userId && partnerId) {
-          const partnerIsPremium = partnerDataDb?.isPremium || false;
-          const currentUserIsPremium = currentUserData?.isPremium || false;
-          const finalPremiumStatus = partnerIsPremium || currentUserIsPremium;
-
-          await setDoc(
-            doc(db, "users", userId),
-            { partnerId: partnerId, isPremium: finalPremiumStatus },
-            { merge: true },
-          );
-          await setDoc(
-            doc(db, "users", partnerId),
-            { partnerId: userId, isPremium: finalPremiumStatus },
-            { merge: true },
-          );
-        }
-      } catch (e) {
-        console.error("Erro ao finalizar o match na animação:", e);
-      } finally {
-        setIsMatchAnimationVisible(false);
-        setInviteCodeInput("");
-        finalizeAuth(Boolean(pendingMatchPartner?.isNewUser));
-        setPendingMatchPartner(null);
-        matchAnimTranslateX.setValue(0);
-        matchHeartScale.setValue(0);
+      const { identityToken } = appleCredential;
+      if (!identityToken) {
+        throw new Error("Token de identidade da Apple não retornado.");
       }
-    }, 2800);
+
+      const provider = new OAuthProvider("apple.com");
+      const credential = provider.credential({
+        idToken: identityToken,
+      });
+
+      const userCred = await signInWithCredential(auth, credential);
+      const user = userCred.user;
+
+      const userRef = doc(db, "users", user.uid);
+      const userSnap = await getDoc(userRef);
+
+      if (!userSnap.exists()) {
+        const fullName = appleCredential.fullName;
+        const displayName = fullName?.givenName
+          ? `${fullName.givenName} ${fullName.familyName || ""}`.trim()
+          : "Usuário Apple";
+
+        const cleanUsername = (
+          displayName ||
+          user.email?.split("@")[0] ||
+          "apple_user"
+        )
+          .toLowerCase()
+          .replace(/[^a-z0-9_]/g, "");
+
+        const myGeneratedCode = user.uid.substring(0, 6).toUpperCase();
+
+        await setDoc(userRef, {
+          uid: user.uid,
+          email: user.email,
+          username: cleanUsername,
+          displayName,
+          photoURL: user.photoURL || null,
+          myInviteCode: myGeneratedCode,
+          createdAt: new Date().toISOString(),
+          isPremium: false,
+          hasCompletedAnamnesis: false,
+          totalPE: 0,
+          streak: 0,
+          currentPhase: 1,
+          currentTaskStep: 0,
+          partnerId: null,
+        });
+      }
+
+      setIsLoading(false);
+      await routeUserAfterLogin(user.uid);
+    } catch (error: any) {
+      setIsLoading(false);
+      if (error.code === "ERR_REQUEST_CANCELED") {
+        console.log("Login com a Apple cancelado pelo usuário.");
+        return;
+      }
+      console.error("Erro no Apple Sign-In:", error);
+      showCustomAlert(
+        "Erro de Login",
+        "Não foi possível concluir o login com a Apple.",
+        "times-circle",
+        "#D96C6C",
+      );
+    }
   };
 
   const handleSocialLogin = (provider: string) => {
     if (provider === "Google") {
       handleGoogleSignIn();
-    } else {
-      showCustomAlert(
-        "Em Breve",
-        `O login com ${provider} será ativado na próxima fase.`,
-        "clock",
-        "#AFAFAF",
-      );
+    } else if (provider === "Apple") {
+      handleAppleSignIn();
     }
   };
-
-  const userPhotoForAnim =
-    currentUserData?.photoURL || currentUserData?.photoUrl;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -746,8 +686,8 @@ export default function LoginScreen({ navigation }: any) {
                 style={styles.forgotPasswordBtn}
                 onPress={() =>
                   showCustomAlert(
-                    "Recuperação",
-                    "Em breve.",
+                    "Recuperação de Senha",
+                    "Digite seu e-mail no campo acima e entre em contato com o suporte para redefinir sua senha.",
                     "envelope",
                     "#202D3A",
                   )
@@ -757,49 +697,6 @@ export default function LoginScreen({ navigation }: any) {
                   Esqueci minha senha
                 </Text>
               </TouchableOpacity>
-            )}
-
-            {/* SEÇÃO MATCH EXCLUSIVA PARA O LOGIN */}
-            {isLogin && (
-              <View style={styles.sectionMatchContainer}>
-                <Text style={styles.matchSectionTitle}>
-                  2. JÁ TEM UM CÓDIGO OU @?
-                </Text>
-                <View style={styles.matchCardGreen}>
-                  <Text style={styles.matchCardDesc}>
-                    Cole o código ou o @username do seu parceiro(a) abaixo para
-                    dar o Match.
-                  </Text>
-
-                  <View style={styles.inputRow}>
-                    <TextInput
-                      style={styles.matchInput}
-                      placeholder="Código ou @username"
-                      placeholderTextColor="#AFAFAF"
-                      autoCapitalize="none"
-                      value={inviteCodeInput}
-                      onChangeText={setInviteCodeInput}
-                    />
-                    <TouchableOpacity
-                      style={[
-                        styles.btnActionConnect,
-                        (!inviteCodeInput || isMatchingLogin) &&
-                          styles.btnDisabled,
-                      ]}
-                      onPress={handleLinkPartnerCodeInLogin}
-                      disabled={
-                        isMatchingLogin || inviteCodeInput.trim().length < 3
-                      }
-                    >
-                      {isMatchingLogin ? (
-                        <ActivityIndicator size="small" color="#FFF" />
-                      ) : (
-                        <Text style={styles.btnActionText}>Conectar</Text>
-                      )}
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </View>
             )}
 
             <Animated.View
@@ -812,6 +709,7 @@ export default function LoginScreen({ navigation }: any) {
                 style={[
                   styles.floatingBtn,
                   { backgroundColor: btnColor, shadowColor: btnColor },
+                  isLoading && { opacity: 0.6 },
                 ]}
                 activeOpacity={0.9}
                 onPress={handleAuth}
@@ -845,6 +743,8 @@ export default function LoginScreen({ navigation }: any) {
             <View style={styles.socialIconsWrapper}>
               <TouchableOpacity
                 onPress={() => handleSocialLogin("Google")}
+                disabled={isLoading}
+                style={isLoading ? { opacity: 0.5 } : {}}
                 hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
               >
                 <FontAwesome5 name="google" size={32} color="#EA4335" />
@@ -852,6 +752,8 @@ export default function LoginScreen({ navigation }: any) {
 
               <TouchableOpacity
                 onPress={() => handleSocialLogin("Apple")}
+                disabled={isLoading}
+                style={isLoading ? { opacity: 0.5 } : {}}
                 hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
               >
                 <FontAwesome5 name="apple" size={36} color="#202D3A" />
@@ -876,239 +778,6 @@ export default function LoginScreen({ navigation }: any) {
           </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
-
-      <Modal
-        visible={isMatchConfirmationVisible}
-        transparent
-        animationType="fade"
-      >
-        <View style={styles.modalOverlayCenter}>
-          <View style={styles.codeModalCard}>
-            <Text style={styles.codeModalTitle}>É esta pessoa?</Text>
-            <Text style={styles.codeModalSub}>
-              Verifique se a conta abaixo pertence ao seu amor.
-            </Text>
-
-            <View style={{ alignItems: "center", marginBottom: 25 }}>
-              {pendingMatchPartner?.data?.photoURL ||
-              pendingMatchPartner?.data?.photoUrl ? (
-                <Image
-                  source={{
-                    uri:
-                      pendingMatchPartner?.data?.photoURL ||
-                      pendingMatchPartner?.data?.photoUrl,
-                  }}
-                  style={{
-                    width: 80,
-                    height: 80,
-                    borderRadius: 40,
-                    marginBottom: 15,
-                    borderWidth: 3,
-                    borderColor: "#EAB64A",
-                  }}
-                />
-              ) : (
-                <View
-                  style={{
-                    width: 80,
-                    height: 80,
-                    borderRadius: 40,
-                    backgroundColor: "#F0F4F8",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    marginBottom: 15,
-                  }}
-                >
-                  <FontAwesome5 name="user-alt" size={30} color="#202D3A" />
-                </View>
-              )}
-              <Text
-                style={{
-                  fontSize: 20,
-                  fontFamily: "Montserrat_900Black",
-                  color: "#202D3A",
-                }}
-              >
-                {pendingMatchPartner?.data?.displayName ||
-                  pendingMatchPartner?.data?.email?.split("@")[0] ||
-                  "Usuário Misterioso"}
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              style={[styles.linkButton, { backgroundColor: "#67D4A8" }]}
-              onPress={confirmMatchCode}
-            >
-              <Text style={styles.linkButtonText}>Sim, Conectar!</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.cancelLinkButton}
-              onPress={() => {
-                setIsMatchConfirmationVisible(false);
-                setPendingMatchPartner(null);
-                setInviteCodeInput("");
-              }}
-            >
-              <Text style={styles.cancelLinkButtonText}>
-                Não, errei o código
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal visible={isMatchAnimationVisible} transparent animationType="fade">
-        <View
-          style={[
-            styles.modalOverlayCenter,
-            { backgroundColor: "rgba(32,45,58,0.95)" },
-          ]}
-        >
-          <Text
-            style={{
-              color: "#FFF",
-              fontSize: 24,
-              fontFamily: "Montserrat_900Black",
-              marginBottom: 50,
-              letterSpacing: 1,
-            }}
-          >
-            Conectando Almas...
-          </Text>
-
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "center",
-              width: "100%",
-            }}
-          >
-            <Animated.View
-              style={{
-                transform: [
-                  {
-                    translateX: matchAnimTranslateX.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0, 45],
-                    }),
-                  },
-                ],
-                zIndex: 5,
-              }}
-            >
-              {userPhotoForAnim ? (
-                <Image
-                  source={{ uri: userPhotoForAnim }}
-                  style={{
-                    width: 90,
-                    height: 90,
-                    borderRadius: 45,
-                    borderWidth: 4,
-                    borderColor: "#FFF",
-                  }}
-                />
-              ) : (
-                <View
-                  style={{
-                    width: 90,
-                    height: 90,
-                    borderRadius: 45,
-                    backgroundColor: "#FFF",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    borderWidth: 4,
-                    borderColor: "#FFF",
-                  }}
-                >
-                  <FontAwesome5 name="user-alt" size={35} color="#202D3A" />
-                </View>
-              )}
-            </Animated.View>
-
-            <Animated.View
-              style={{
-                transform: [{ scale: matchHeartScale }],
-                zIndex: 10,
-                marginHorizontal: -15,
-              }}
-            >
-              <View
-                style={{
-                  backgroundColor: "#FFF",
-                  padding: 15,
-                  borderRadius: 30,
-                  shadowColor: "#000",
-                  shadowOpacity: 0.2,
-                  shadowRadius: 10,
-                  elevation: 10,
-                }}
-              >
-                <FontAwesome5 name="heart" solid size={35} color="#EAB64A" />
-              </View>
-            </Animated.View>
-
-            <Animated.View
-              style={{
-                transform: [
-                  {
-                    translateX: matchAnimTranslateX.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0, -45],
-                    }),
-                  },
-                ],
-                zIndex: 5,
-              }}
-            >
-              {pendingMatchPartner?.data?.photoURL ||
-              pendingMatchPartner?.data?.photoUrl ? (
-                <Image
-                  source={{
-                    uri:
-                      pendingMatchPartner?.data?.photoURL ||
-                      pendingMatchPartner?.data?.photoUrl,
-                  }}
-                  style={{
-                    width: 90,
-                    height: 90,
-                    borderRadius: 45,
-                    borderWidth: 4,
-                    borderColor: "#FFF",
-                  }}
-                />
-              ) : (
-                <View
-                  style={{
-                    width: 90,
-                    height: 90,
-                    borderRadius: 45,
-                    backgroundColor: "#FFF",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    borderWidth: 4,
-                    borderColor: "#FFF",
-                  }}
-                >
-                  <FontAwesome5 name="user-alt" size={35} color="#202D3A" />
-                </View>
-              )}
-            </Animated.View>
-          </View>
-
-          <Text
-            style={{
-              color: "#FFF",
-              fontSize: 16,
-              fontFamily: "Montserrat_700Bold",
-              marginTop: 50,
-              opacity: 0.8,
-            }}
-          >
-            A mágica está acontecendo no servidor...
-          </Text>
-        </View>
-      </Modal>
 
       {/* MODAL DE ALERTAS COM SUPORTE A BOTAO SECUNDARIO */}
       <Modal visible={customAlert.visible} transparent animationType="fade">
@@ -1242,69 +911,6 @@ const styles = StyleSheet.create({
     fontFamily: "Montserrat_700Bold",
   },
 
-  // ESTILOS DA SEÇÃO MATCH
-  sectionMatchContainer: {
-    marginBottom: 20,
-    width: "100%",
-  },
-  matchSectionTitle: {
-    fontSize: 13,
-    fontFamily: "Montserrat_900Black",
-    color: "#202D3A",
-    textTransform: "uppercase",
-    letterSpacing: 1,
-    marginBottom: 8,
-  },
-  matchCardGreen: {
-    backgroundColor: "#E8F4F1",
-    padding: 18,
-    borderRadius: 20,
-    borderWidth: 1.5,
-    borderColor: "#67D4A8",
-    shadowColor: "#67D4A8",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  matchCardDesc: {
-    fontSize: 13,
-    fontFamily: "Montserrat_400Regular",
-    color: "#2C3E50",
-    lineHeight: 18,
-    marginBottom: 14,
-  },
-  inputRow: {
-    flexDirection: "row",
-    gap: 10,
-  },
-  matchInput: {
-    flex: 1,
-    backgroundColor: "#FFF",
-    borderWidth: 1.5,
-    borderColor: "#67D4A8",
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 10,
-    fontSize: 14,
-    fontFamily: "Montserrat_700Bold",
-    color: "#202D3A",
-    textAlign: "center",
-  },
-  btnActionConnect: {
-    backgroundColor: "#202D3A",
-    paddingHorizontal: 18,
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  btnDisabled: { opacity: 0.6 },
-  btnActionText: {
-    color: "#FFF",
-    fontFamily: "Montserrat_900Black",
-    fontSize: 14,
-  },
-
   floatingBtnWrapper: { width: "100%", marginTop: 5, marginBottom: 10 },
   floatingBtn: {
     flexDirection: "row",
@@ -1363,56 +969,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: "Montserrat_700Bold",
     textDecorationLine: "underline",
-  },
-
-  modalOverlayCenter: {
-    flex: 1,
-    backgroundColor: "rgba(32,45,58,0.7)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  codeModalCard: {
-    width: "85%",
-    backgroundColor: "#FFF",
-    borderRadius: 20,
-    padding: 24,
-    alignItems: "center",
-  },
-  codeModalTitle: {
-    fontSize: 20,
-    fontFamily: "Montserrat_900Black",
-    color: "#202D3A",
-    marginBottom: 10,
-  },
-  codeModalSub: {
-    fontSize: 14,
-    color: "#60646C",
-    textAlign: "center",
-    marginBottom: 20,
-    fontFamily: "Montserrat_400Regular",
-  },
-  linkButton: {
-    backgroundColor: "#202D3A",
-    width: "100%",
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: "center",
-    marginBottom: 10,
-  },
-  linkButtonText: {
-    color: "#FFF",
-    fontSize: 16,
-    fontFamily: "Montserrat_700Bold",
-  },
-  cancelLinkButton: {
-    width: "100%",
-    paddingVertical: 12,
-    alignItems: "center",
-  },
-  cancelLinkButtonText: {
-    color: "#60646C",
-    fontSize: 14,
-    fontFamily: "Montserrat_700Bold",
   },
 
   bottomSheetOverlay: {

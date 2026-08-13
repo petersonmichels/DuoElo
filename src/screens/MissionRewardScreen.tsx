@@ -324,7 +324,7 @@ const styles = StyleSheet.create({
     marginLeft: 15,
     width: 40,
     height: 40,
-    justifyContent: "center", // Corrigido de "justify.Content"
+    justifyContent: "center",
     alignItems: "center",
   },
   divider: {

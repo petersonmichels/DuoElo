@@ -3,6 +3,7 @@ import * as Clipboard from "expo-clipboard";
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
   onSnapshot,
   query,
@@ -12,6 +13,7 @@ import {
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Image,
   KeyboardAvoidingView,
   Linking,
@@ -28,7 +30,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { auth, db } from "../config/firebase";
 
-export default function ConexoesScreen() {
+export default function MatchScreen({ navigation }: any) {
   const [currentUid, setCurrentUid] = useState<string | null>(null);
   const [userData, setUserData] = useState<any>(null);
   const [partnerData, setPartnerData] = useState<any>(null);
@@ -36,6 +38,7 @@ export default function ConexoesScreen() {
 
   const [inviteCodeInput, setInviteCodeInput] = useState("");
   const [isMatching, setIsMatching] = useState(false);
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
 
   // ESTADOS PARA O MODAL DE CONFIRMAÇÃO DO MATCH
   const [pendingMatchPartner, setPendingMatchPartner] = useState<any>(null);
@@ -49,6 +52,7 @@ export default function ConexoesScreen() {
     message: "",
     icon: "info-circle",
     color: "#202D3A",
+    onConfirm: null as (() => void) | null,
   });
 
   const showCustomAlert = (
@@ -56,8 +60,9 @@ export default function ConexoesScreen() {
     message: string,
     icon = "info-circle",
     color = "#202D3A",
+    onConfirm: (() => void) | null = null,
   ) => {
-    setCustomAlert({ visible: true, title, message, icon, color });
+    setCustomAlert({ visible: true, title, message, icon, color, onConfirm });
   };
 
   useEffect(() => {
@@ -97,15 +102,26 @@ export default function ConexoesScreen() {
     if (userData && userData.partnerId) {
       const unsubscribePartner = onSnapshot(
         doc(db, "users", userData.partnerId),
-        (docSnap) => {
-          if (docSnap.exists()) setPartnerData(docSnap.data());
+        async (docSnap) => {
+          if (docSnap.exists()) {
+            const pData = docSnap.data();
+            setPartnerData(pData);
+
+            if (pData.isPremium && !userData.isPremium && currentUid) {
+              await setDoc(
+                doc(db, "users", currentUid),
+                { isPremium: true, isPartnerPremium: true },
+                { merge: true },
+              );
+            }
+          }
         },
       );
       return () => unsubscribePartner();
     } else {
       setPartnerData(null);
     }
-  }, [userData?.partnerId]);
+  }, [userData?.partnerId, userData?.isPremium, currentUid]);
 
   const handleCopyCode = async () => {
     const codeToCopy = userData?.myInviteCode || currentUid;
@@ -143,7 +159,57 @@ export default function ConexoesScreen() {
     }
   };
 
-  // BUSCA O PARCEIRO E ABRE O MODAL DE CONFIRMAÇÃO
+  const handleDisconnectPartner = () => {
+    Alert.alert(
+      "Desconectar Parceiro",
+      "Tem certeza de que deseja desfazer o vínculo? Sua trilha pessoal, histórico e pontos permanecerão salvos intactos.",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Sim, Desconectar",
+          style: "destructive",
+          onPress: async () => {
+            const partnerUid = userData?.partnerId;
+            if (!currentUid) return;
+
+            setIsDisconnecting(true);
+            try {
+              await setDoc(
+                doc(db, "users", currentUid),
+                { partnerId: null, matchStatus: "disconnected" },
+                { merge: true },
+              );
+
+              if (partnerUid) {
+                await setDoc(
+                  doc(db, "users", partnerUid),
+                  { partnerId: null, matchStatus: "disconnected" },
+                  { merge: true },
+                );
+              }
+
+              showCustomAlert(
+                "Desconectado",
+                "O vínculo foi desfeito. Sua trilha individual de progresso permanece salva intacta!",
+                "unlink",
+                "#EAB64A",
+              );
+            } catch (e) {
+              showCustomAlert(
+                "Erro",
+                "Não foi possível desfazer a conexão no momento.",
+                "times-circle",
+                "#D96C6C",
+              );
+            } finally {
+              setIsDisconnecting(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
   const handleLinkPartnerCode = async () => {
     const rawClean = inviteCodeInput.trim().replace(/^@/, "");
 
@@ -229,57 +295,102 @@ export default function ConexoesScreen() {
     }
   };
 
-  // EXECUTA O MATCH DEFINITIVO NO BANCO DE DADOS
   const confirmMatchCode = async () => {
     setIsMatchConfirmationVisible(false);
 
-    if (!currentUid || !pendingMatchPartner) return;
+    const currentUser = auth.currentUser;
+    if (!currentUser || !pendingMatchPartner) {
+      showCustomAlert(
+        "Sessão Expirada 🔒",
+        "Sua sessão expirou. Faça login novamente.",
+        "user-lock",
+        "#D96C6C",
+      );
+      return;
+    }
+
+    setIsMatching(true);
 
     try {
-      const partnerId = pendingMatchPartner.id;
-      const partnerDataDb = pendingMatchPartner.data;
+      const codeToLink = pendingMatchPartner.data?.myInviteCode;
 
-      // 🏆 Sincroniza e herda a Assinatura Premium
-      const partnerIsPremium = partnerDataDb?.isPremium || false;
-      const currentUserIsPremium = userData?.isPremium || false;
-      const finalPremiumStatus = partnerIsPremium || currentUserIsPremium;
+      if (!codeToLink) {
+        showCustomAlert(
+          "Código Indisponível",
+          "Não conseguimos obter o código deste perfil. Tente novamente.",
+          "exclamation-triangle",
+          "#EAB64A",
+        );
+        setIsMatching(false);
+        return;
+      }
 
-      await setDoc(
-        doc(db, "users", currentUid),
-        {
-          partnerId: partnerId,
-          isPremium: finalPremiumStatus,
-          isSoloMode: false,
-        },
-        { merge: true },
-      );
-      await setDoc(
-        doc(db, "users", partnerId),
-        {
-          partnerId: currentUid,
-          isPremium: finalPremiumStatus,
-          isSoloMode: false,
-        },
-        { merge: true },
-      );
+      const userRef = doc(db, "users", currentUser.uid);
+
+      const unsubscribe = onSnapshot(userRef, async (snapshot) => {
+        const updatedData = snapshot.data();
+
+        if (updatedData && updatedData.partnerId) {
+          unsubscribe();
+
+          let isCouplePremium = Boolean(updatedData.isPremium);
+
+          if (!isCouplePremium && updatedData.partnerId) {
+            const partnerSnap = await getDoc(
+              doc(db, "users", updatedData.partnerId),
+            );
+            if (partnerSnap.exists() && partnerSnap.data()?.isPremium) {
+              isCouplePremium = true;
+              await setDoc(
+                userRef,
+                { isPremium: true, isPartnerPremium: true },
+                { merge: true },
+              );
+            }
+          }
+
+          setIsMatching(false);
+
+          showCustomAlert(
+            "Match Realizado! ❤️",
+            "Vocês foram conectados com sucesso!",
+            "heart",
+            "#67D4A8",
+            () => {
+              if (isCouplePremium && navigation) {
+                navigation.reset({
+                  index: 0,
+                  routes: [
+                    {
+                      name: "MainTabs",
+                      state: { routes: [{ name: "Home" }] },
+                    },
+                  ],
+                });
+              } else if (navigation) {
+                navigation.reset({
+                  index: 0,
+                  routes: [{ name: "PaywallScreen" }],
+                });
+              }
+            },
+          );
+        }
+      });
+
+      await setDoc(userRef, { linkedInviteCode: codeToLink }, { merge: true });
 
       setInviteCodeInput("");
       setPendingMatchPartner(null);
-
+    } catch (error: any) {
+      console.error("Erro ao solicitar o match no Firestore:", error);
       showCustomAlert(
-        "Match Realizado! ❤️",
-        "As contas foram conectadas com sucesso. Vá para a aba Home para dar a largada na jornada juntos.",
-        "heart",
-        "#67D4A8",
-      );
-    } catch (error) {
-      console.error("Erro ao confirmar o match:", error);
-      showCustomAlert(
-        "Erro",
-        "Não foi possível efetivar a conexão no momento.",
+        "Erro no Match",
+        "Não foi possível processar a conexão no momento.",
         "times-circle",
         "#D96C6C",
       );
+      setIsMatching(false);
     }
   };
 
@@ -335,7 +446,18 @@ export default function ConexoesScreen() {
         style={{ flex: 1 }}
       >
         <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.closeBtn}
+            onPress={() =>
+              navigation.canGoBack()
+                ? navigation.goBack()
+                : navigation.navigate("MainTabs", { screen: "Home" })
+            }
+          >
+            <FontAwesome5 name="times" size={20} color="#202D3A" />
+          </TouchableOpacity>
           <Text style={styles.headerTitle}>Seu Match</Text>
+          <View style={{ width: 40 }} />
         </View>
 
         <ScrollView
@@ -346,29 +468,49 @@ export default function ConexoesScreen() {
           {/* 1. STATUS DO MATCH */}
           <View style={styles.section}>
             {hasPartner ? (
-              <View style={styles.partnerCard}>
-                <View style={styles.partnerAvatarContainer}>
-                  {partnerPhoto ? (
-                    <Image
-                      source={{ uri: partnerPhoto }}
-                      style={styles.partnerAvatarImage}
-                    />
+              <View style={styles.connectedCardContainer}>
+                <View style={styles.partnerCard}>
+                  <View style={styles.partnerAvatarContainer}>
+                    {partnerPhoto ? (
+                      <Image
+                        source={{ uri: partnerPhoto }}
+                        style={styles.partnerAvatarImage}
+                      />
+                    ) : (
+                      <FontAwesome5 name="heart" size={24} color="#67D4A8" />
+                    )}
+                  </View>
+                  <View style={styles.partnerInfo}>
+                    <Text style={styles.partnerLabel}>Conectado com</Text>
+                    <Text style={styles.partnerName} numberOfLines={1}>
+                      {partnerName}
+                    </Text>
+                  </View>
+                  <FontAwesome5
+                    name="check-circle"
+                    solid
+                    size={24}
+                    color="#67D4A8"
+                  />
+                </View>
+
+                <TouchableOpacity
+                  style={styles.disconnectBtn}
+                  activeOpacity={0.8}
+                  onPress={handleDisconnectPartner}
+                  disabled={isDisconnecting}
+                >
+                  {isDisconnecting ? (
+                    <ActivityIndicator size="small" color="#D96C6C" />
                   ) : (
-                    <FontAwesome5 name="heart" size={24} color="#67D4A8" />
+                    <>
+                      <FontAwesome5 name="unlink" size={14} color="#D96C6C" />
+                      <Text style={styles.disconnectBtnText}>
+                        Desconectar Parceiro
+                      </Text>
+                    </>
                   )}
-                </View>
-                <View style={styles.partnerInfo}>
-                  <Text style={styles.partnerLabel}>Conectado com</Text>
-                  <Text style={styles.partnerName} numberOfLines={1}>
-                    {partnerName}
-                  </Text>
-                </View>
-                <FontAwesome5
-                  name="check-circle"
-                  solid
-                  size={24}
-                  color="#67D4A8"
-                />
+                </TouchableOpacity>
               </View>
             ) : (
               <View
@@ -550,7 +692,10 @@ export default function ConexoesScreen() {
                 styles.bottomSheetButtonPrimary,
                 { backgroundColor: customAlert.color },
               ]}
-              onPress={() => setCustomAlert({ ...customAlert, visible: false })}
+              onPress={() => {
+                setCustomAlert({ ...customAlert, visible: false });
+                if (customAlert.onConfirm) customAlert.onConfirm();
+              }}
             >
               <Text style={styles.bottomSheetButtonPrimaryText}>Entendi</Text>
             </TouchableOpacity>
@@ -570,12 +715,28 @@ const styles = StyleSheet.create({
     backgroundColor: "#F0F4F8",
   },
   header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 24,
     paddingTop: 15,
     paddingBottom: 20,
   },
+  closeBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#FFF",
+    justifyContent: "center",
+    alignItems: "center",
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+  },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 20,
     fontFamily: "Montserrat_900Black",
     color: "#202D3A",
   },
@@ -611,6 +772,9 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
 
+  connectedCardContainer: {
+    gap: 12,
+  },
   partnerCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -647,6 +811,24 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: "Montserrat_900Black",
     color: "#202D3A",
+  },
+
+  disconnectBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 16,
+    backgroundColor: "#FDE8E8",
+    borderWidth: 1,
+    borderColor: "#F8B4B4",
+  },
+  disconnectBtnText: {
+    color: "#D96C6C",
+    fontSize: 13,
+    fontFamily: "Montserrat_700Bold",
   },
 
   codeContainer: {

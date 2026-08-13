@@ -15,8 +15,8 @@ import {
 import { useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -28,20 +28,41 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { auth, authControls, db } from "../config/firebase";
 
-// Adaptador de Alertas para funcionar em Web e Celular
-const showAlert = (title: string, message: string) => {
-  if (Platform.OS === "web") {
-    window.alert(`${title}\n\n${message}`);
-  } else {
-    Alert.alert(title, message);
-  }
-};
-
 export default function RegisterScreen({ navigation }: any) {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  // ESTADO DE ALERTAS PERSONALIZADOS (ESTILO BOTTOMSHEET)
+  const [customAlert, setCustomAlert] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    icon: "info-circle",
+    color: "#202D3A",
+    confirmText: "Entendi",
+    onConfirm: null as (() => void) | null,
+  });
+
+  const showCustomAlert = (
+    title: string,
+    message: string,
+    icon = "info-circle",
+    color = "#202D3A",
+    confirmText = "Entendi",
+    onConfirm: (() => void) | null = null,
+  ) => {
+    setCustomAlert({
+      visible: true,
+      title,
+      message,
+      icon,
+      color,
+      confirmText,
+      onConfirm,
+    });
+  };
 
   const handleRegister = async () => {
     const cleanEmail = email.trim().toLowerCase();
@@ -51,20 +72,32 @@ export default function RegisterScreen({ navigation }: any) {
       .replace(/[^a-z0-9_]/g, "");
 
     if (!cleanEmail || !password || !cleanUsername) {
-      showAlert("Atenção", "Preencha todos os campos para continuar.");
+      showCustomAlert(
+        "Atenção",
+        "Preencha todos os campos obrigatórios para continuar.",
+        "exclamation-triangle",
+        "#EAB64A",
+      );
       return;
     }
 
     if (cleanUsername.length < 3) {
-      showAlert(
-        "Nome de Usuário Curto",
+      showCustomAlert(
+        "Nome Curto",
         "O seu @username deve ter pelo menos 3 caracteres.",
+        "user",
+        "#EAB64A",
       );
       return;
     }
 
     if (password.length < 6) {
-      showAlert("Senha Curta", "A sua senha deve ter pelo menos 6 caracteres.");
+      showCustomAlert(
+        "Senha Curta",
+        "A sua senha deve ter pelo menos 6 caracteres.",
+        "lock",
+        "#EAB64A",
+      );
       return;
     }
 
@@ -80,9 +113,11 @@ export default function RegisterScreen({ navigation }: any) {
 
       if (!usernameSnap.empty) {
         setIsLoading(false);
-        showAlert(
+        showCustomAlert(
           "Nome Indisponível",
           "Este @username já está sendo usado. Por favor, escolha outro.",
+          "user-times",
+          "#EAB64A",
         );
         return;
       }
@@ -119,17 +154,18 @@ export default function RegisterScreen({ navigation }: any) {
       // 5. Envia o e-mail de verificação oficial do Firebase
       await sendEmailVerification(userCredential.user);
 
-      // 6. Libera a trava de segurança e desloga o usuário para fazê-lo confirmar o e-mail antes de entrar
+      // 6. Libera a trava de segurança e desloga o usuário para fazê-lo confirmar o e-mail
       if (authControls) authControls.isCreatingAccount = false;
       await signOut(auth);
 
-      showAlert(
+      showCustomAlert(
         "Conta Criada com Sucesso! 🎉",
-        "Enviamos um link de confirmação para o seu e-mail. Por favor, verifique sua caixa de entrada (e o spam) antes de entrar.",
+        "Enviamos um link de confirmação para o seu e-mail. Por favor, verifique sua caixa de entrada antes de entrar.",
+        "check-circle",
+        "#67D4A8",
+        "IR PARA LOGIN",
+        () => navigation.goBack(),
       );
-
-      // Volta para a tela de login
-      navigation.goBack();
     } catch (error: any) {
       if (authControls) authControls.isCreatingAccount = false;
       let errorMessage = "Ocorreu um erro ao tentar criar a conta.";
@@ -140,10 +176,15 @@ export default function RegisterScreen({ navigation }: any) {
         errorMessage =
           "A sua senha é muito fraca. Use pelo menos 6 caracteres.";
       } else if (error.code === "auth/invalid-email") {
-        errorMessage = "O formato do e-mail é inválido.";
+        errorMessage = "O formato do e-mail digitado é inválido.";
       }
 
-      showAlert("Erro no cadastro", errorMessage);
+      showCustomAlert(
+        "Erro no Cadastro",
+        errorMessage,
+        "times-circle",
+        "#D96C6C",
+      );
     } finally {
       setIsLoading(false);
     }
@@ -268,6 +309,46 @@ export default function RegisterScreen({ navigation }: any) {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* MODAL DE ALERTAS PERSONALIZADOS */}
+      <Modal visible={customAlert.visible} transparent animationType="slide">
+        <View style={styles.bottomSheetOverlay}>
+          <View style={styles.bottomSheetContainer}>
+            <View style={styles.bottomSheetHandle} />
+
+            <View
+              style={[
+                styles.alertIconContainer,
+                { backgroundColor: customAlert.color + "20" },
+              ]}
+            >
+              <FontAwesome5
+                name={customAlert.icon}
+                size={30}
+                color={customAlert.color}
+              />
+            </View>
+
+            <Text style={styles.bottomSheetTitle}>{customAlert.title}</Text>
+            <Text style={styles.bottomSheetText}>{customAlert.message}</Text>
+
+            <TouchableOpacity
+              style={[
+                styles.bottomSheetButtonPrimary,
+                { backgroundColor: customAlert.color },
+              ]}
+              onPress={() => {
+                setCustomAlert({ ...customAlert, visible: false });
+                if (customAlert.onConfirm) customAlert.onConfirm();
+              }}
+            >
+              <Text style={styles.bottomSheetButtonPrimaryText}>
+                {customAlert.confirmText}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -280,7 +361,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 30,
-    justify.Content: "center",
+    justifyContent: "center", // Corrigido erro de sintaxe 'justify.Content'
     paddingVertical: 40,
   },
   header: {
@@ -390,5 +471,68 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: "Montserrat_700Bold",
     textDecorationLine: "underline",
+  },
+
+  bottomSheetOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(32,45,58,0.6)",
+    justifyContent: "flex-end",
+  },
+  bottomSheetContainer: {
+    backgroundColor: "#FFF",
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    padding: 24,
+    paddingBottom: 40,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 10,
+    width: "100%",
+  },
+  bottomSheetHandle: {
+    width: 50,
+    height: 5,
+    backgroundColor: "#D1D9E0",
+    borderRadius: 3,
+    marginBottom: 20,
+  },
+  alertIconContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 15,
+  },
+  bottomSheetTitle: {
+    fontFamily: "Montserrat_900Black",
+    fontSize: 22,
+    color: "#202D3A",
+    marginBottom: 10,
+    textAlign: "center",
+  },
+  bottomSheetText: {
+    fontFamily: "Montserrat_400Regular",
+    fontSize: 15,
+    color: "#2C3E50",
+    textAlign: "center",
+    marginBottom: 20,
+    lineHeight: 22,
+  },
+  bottomSheetButtonPrimary: {
+    flexDirection: "row",
+    width: "100%",
+    paddingVertical: 16,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  bottomSheetButtonPrimaryText: {
+    fontFamily: "Montserrat_700Bold",
+    color: "#FFF",
+    fontSize: 16,
   },
 });

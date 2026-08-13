@@ -1,4 +1,5 @@
 import { FontAwesome5 } from "@expo/vector-icons";
+import { signOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -6,7 +7,7 @@ import {
   Alert,
   Animated,
   Dimensions,
-  SafeAreaView,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -14,15 +15,15 @@ import {
   View,
 } from "react-native";
 import Purchases, { PurchasesPackage } from "react-native-purchases";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth, db } from "../config/firebase";
 
 const { width } = Dimensions.get("window");
 
 export default function PaywallScreen({ navigation }: any) {
-  // Modalidade de plano: 'duo' (Casal - 2 Acessos) ou 'individual' (1 Acesso)
-  const [planCategory, setPlanCategory] = useState<"duo" | "individual">("duo");
+  const insets = useSafeAreaInsets();
 
-  // Período selecionado
+  const [planCategory, setPlanCategory] = useState<"duo" | "individual">("duo");
   const [selectedPlan, setSelectedPlan] = useState<
     "mensal" | "trimestral" | "anual"
   >("trimestral");
@@ -38,7 +39,6 @@ export default function PaywallScreen({ navigation }: any) {
   const slideAnim = useRef(new Animated.Value(50)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  // Busca dados do usuário para identificar se ele já possui um Match
   useEffect(() => {
     const fetchUserData = async () => {
       const currentUid = auth.currentUser?.uid;
@@ -50,7 +50,7 @@ export default function PaywallScreen({ navigation }: any) {
             if (data.partnerId) {
               setHasPartner(true);
               setPartnerId(data.partnerId);
-              setPlanCategory("duo"); // Se já tem parceiro, trava a modalidade no Duo
+              setPlanCategory("duo");
             }
           }
         } catch (error) {
@@ -64,17 +64,14 @@ export default function PaywallScreen({ navigation }: any) {
         setIsLoadingOfferings(true);
         const offerings = await Purchases.getOfferings();
         if (
-          offerings.current !== null &&
-          offerings.current.availablePackages.length !== 0
+          offerings?.current &&
+          offerings.current.availablePackages.length > 0
         ) {
           setAvailablePackages(offerings.current.availablePackages);
         }
       } catch (e: any) {
-        if (__DEV__) {
-          console.log(
-            "ℹ️ RevenueCat: Nenhuma oferta ativa no dashboard ainda. Exibindo planos de fallback.",
-          );
-        }
+        // Silencia erro em dev sem cadastro no Play Console e libera fallback local
+        setAvailablePackages([]);
       } finally {
         setIsLoadingOfferings(false);
       }
@@ -97,7 +94,6 @@ export default function PaywallScreen({ navigation }: any) {
     ]).start();
   }, []);
 
-  // Helper inteligente para mapear o pacote do RevenueCat baseado na sua nomenclatura
   const findPackage = (
     category: "duo" | "individual",
     period: "mensal" | "trimestral" | "anual",
@@ -143,7 +139,44 @@ export default function PaywallScreen({ navigation }: any) {
     });
   };
 
-  // Executa a assinatura (Com Modo de Simulação temporário ativado)
+  // 🚀 BOTAO 1: FECHAR E IR PARA A HOME
+  const handleClose = async () => {
+    const currentUid = auth.currentUser?.uid;
+
+    if (!currentUid) {
+      handleForceLogout();
+      return;
+    }
+
+    if (navigation && navigation.canGoBack()) {
+      navigation.goBack();
+    } else if (navigation) {
+      navigation.reset({
+        index: 0,
+        routes: [
+          {
+            name: "MainTabs",
+            params: { screen: "Home" },
+          },
+        ],
+      });
+    }
+  };
+
+  // 🚪 BOTAO 2: DESCONECTAR E IR PARA O LOGIN
+  const handleForceLogout = async () => {
+    try {
+      await signOut(auth);
+    } catch (e) {
+      console.log("Erro ao desconectar:", e);
+    } finally {
+      navigation.reset({
+        index: 0,
+        routes: [{ name: "Login" }],
+      });
+    }
+  };
+
   const handleSubscribe = async () => {
     if (isProcessing) return;
     setIsProcessing(true);
@@ -152,12 +185,50 @@ export default function PaywallScreen({ navigation }: any) {
       const currentUid = auth.currentUser?.uid;
 
       if (!currentUid) {
-        Alert.alert("Erro", "Você não está conectado no momento.");
+        Alert.alert(
+          "Sessão Expirada 🔐",
+          "Você precisa estar conectado para realizar uma assinatura. Faça login novamente.",
+          [
+            {
+              text: "Ir para Login",
+              onPress: handleForceLogout,
+            },
+          ],
+        );
         setIsProcessing(false);
         return;
       }
 
-      // 🧪 SIMULAÇÃO DE COMPRA (Bypass para testes enquanto a conta do Google Play Console é verificada)
+      let targetPackage =
+        findPackage(planCategory, selectedPlan) || availablePackages[0];
+
+      if (targetPackage) {
+        const { customerInfo } = await Purchases.purchasePackage(targetPackage);
+
+        if (
+          customerInfo.entitlements.active["premium"] !== undefined ||
+          Object.keys(customerInfo.entitlements.active).length > 0
+        ) {
+          Alert.alert(
+            "Sucesso! 🎉",
+            planCategory === "duo"
+              ? "Assinatura Casal Duo confirmada! A jornada da dupla foi liberada."
+              : "Assinatura Individual confirmada! Seu acesso foi liberado.",
+          );
+
+          navigation.reset({
+            index: 0,
+            routes: [
+              {
+                name: "MainTabs",
+                params: { screen: "Home" },
+              },
+            ],
+          });
+          return;
+        }
+      }
+
       Alert.alert(
         "Modo Desenvolvedor 🧪",
         `Simulando assinatura do Plano ${
@@ -180,51 +251,6 @@ export default function PaywallScreen({ navigation }: any) {
           },
         ],
       );
-      setIsProcessing(false);
-      return;
-
-      /* 
-      ====================================================================
-      🔒 FLUXO REAL DE COMPRA VIA REVENUECAT (ATIVAR AO PUBLICAR NA LOJA)
-      ====================================================================
-
-      let targetPackage =
-        findPackage(planCategory, selectedPlan) || availablePackages[0];
-
-      if (!targetPackage) {
-        Alert.alert(
-          "Aviso",
-          "Nenhum pacote de assinatura ativo encontrado no momento. Tente novamente mais tarde.",
-        );
-        setIsProcessing(false);
-        return;
-      }
-
-      const { customerInfo } = await Purchases.purchasePackage(targetPackage);
-
-      if (
-        customerInfo.entitlements.active["premium"] !== undefined ||
-        Object.keys(customerInfo.entitlements.active).length > 0
-      ) {
-        Alert.alert(
-          "Sucesso! 🎉",
-          planCategory === "duo"
-            ? "Assinatura Casal Duo confirmada! A jornada da dupla foi liberada."
-            : "Assinatura Individual confirmada! Seu acesso foi liberado.",
-        );
-
-        navigation.reset({
-          index: 0,
-          routes: [
-            {
-              name: "MainTabs",
-              params: { screen: "Home" },
-            },
-          ],
-        });
-      }
-      ====================================================================
-      */
     } catch (error: any) {
       if (!error.userCancelled) {
         Alert.alert(
@@ -238,7 +264,6 @@ export default function PaywallScreen({ navigation }: any) {
     }
   };
 
-  // 🔥 RESTAURAR COMPRAS (Exigência obrigatória das lojas)
   const handleRestorePurchases = async () => {
     if (isProcessing) return;
     setIsProcessing(true);
@@ -363,14 +388,27 @@ export default function PaywallScreen({ navigation }: any) {
     planCategory === "duo" ? featuresDuo : featuresIndividual;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
+      {/* 🚀 HEADER COM DUPLO BOTÃO (FECHAR NA ESQUERDA / SAIR NA DIREITA) */}
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.closeBtn}
-          onPress={() => navigation.goBack()}
+          onPress={handleClose}
           disabled={isProcessing}
+          activeOpacity={0.7}
+          hitSlop={{ top: 25, bottom: 25, left: 25, right: 25 }}
         >
-          <FontAwesome5 name="times" size={24} color="#202D3A" />
+          <FontAwesome5 name="times" size={20} color="#202D3A" />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.logoutBtn}
+          onPress={handleForceLogout}
+          disabled={isProcessing}
+          activeOpacity={0.7}
+          hitSlop={{ top: 25, bottom: 25, left: 25, right: 25 }}
+        >
+          <FontAwesome5 name="sign-out-alt" size={18} color="#E74C3C" />
         </TouchableOpacity>
       </View>
 
@@ -398,7 +436,6 @@ export default function PaywallScreen({ navigation }: any) {
             assinatura libera o aplicativo para os dois!
           </Text>
 
-          {/* CHAVE SELETORA: CASAL DUO VS INDIVIDUAL (Se não tiver parceiro fixado) */}
           {!hasPartner && (
             <View style={styles.categoryToggleContainer}>
               <TouchableOpacity
@@ -459,7 +496,6 @@ export default function PaywallScreen({ navigation }: any) {
             </View>
           )}
 
-          {/* LISTA DE CARDS DE PLANOS */}
           {isLoadingOfferings ? (
             <ActivityIndicator
               size="large"
@@ -518,7 +554,6 @@ export default function PaywallScreen({ navigation }: any) {
             </View>
           )}
 
-          {/* BOX DE GARANTIA E REGRAS */}
           <View style={styles.guaranteeBox}>
             <View style={styles.guaranteeHeader}>
               <FontAwesome5 name="shield-alt" size={16} color="#67D4A8" />
@@ -539,7 +574,6 @@ export default function PaywallScreen({ navigation }: any) {
             </Text>
           </View>
 
-          {/* O QUE ESTÁ INCLUSO */}
           <View style={styles.featuresContainer}>
             <Text style={styles.featuresSectionTitle}>
               O que está incluso no{" "}
@@ -558,7 +592,6 @@ export default function PaywallScreen({ navigation }: any) {
             ))}
           </View>
 
-          {/* BOTÃO RESTAURAR COMPRAS */}
           <TouchableOpacity
             style={styles.restoreBtn}
             onPress={handleRestorePurchases}
@@ -597,19 +630,53 @@ export default function PaywallScreen({ navigation }: any) {
           Pagamento 100% Seguro
         </Text>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F0F4F8" },
   header: {
-    paddingHorizontal: 24,
-    paddingTop: 10,
-    paddingBottom: 10,
-    alignItems: "flex-end",
+    width: "100%",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    marginTop: Platform.OS === "android" ? 45 : 20,
+    marginBottom: 10,
+    zIndex: 99999,
+    elevation: 20,
   },
-  closeBtn: { padding: 10 },
+  closeBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#FFF",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#D1D9E0",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    elevation: 8,
+  },
+  logoutBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#FFF",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#FADBD8",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    elevation: 8,
+  },
 
   scrollContent: {
     paddingHorizontal: 24,

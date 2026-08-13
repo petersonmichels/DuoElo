@@ -14,12 +14,10 @@ import {
   Animated,
   Dimensions,
   Easing,
-  Image,
   Modal,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -28,7 +26,7 @@ import { auth, db } from "../config/firebase";
 
 import { encryptData, generateVaultKey } from "../utils/security";
 
-const { width, height } = Dimensions.get("window");
+const { width } = Dimensions.get("window");
 
 const SUPPORTED_LANGUAGES = [
   { code: "pt-BR", flag: "🇧🇷" },
@@ -40,7 +38,7 @@ const SUPPORTED_LANGUAGES = [
   { code: "ja", flag: "🇯🇵" },
 ];
 
-export default function AnamnesisScreen({ navigation }: any) {
+export default function AnamnesisScreen({ navigation, route }: any) {
   const [screenState, setScreenState] = useState<
     "intro" | "questions" | "calculating" | "result" | "locked"
   >("intro");
@@ -51,7 +49,6 @@ export default function AnamnesisScreen({ navigation }: any) {
   const [isCheckingUser, setIsCheckingUser] = useState(true);
 
   const [currentUserData, setCurrentUserData] = useState<any>(null);
-
   const [selectedAnswers, setSelectedAnswers] = useState<any[]>([]);
 
   const [finalTemperature, setFinalTemperature] = useState(100);
@@ -62,26 +59,16 @@ export default function AnamnesisScreen({ navigation }: any) {
   const [isSkipping, setIsSkipping] = useState(false);
 
   const [isPremium, setIsPremium] = useState(false);
-  const [hasPartner, setHasPartner] = useState(false);
 
   const [loadingMsg, setLoadingMsg] = useState("Iniciando varredura...");
 
   const [userLang, setUserLang] = useState("pt-BR");
   const [isLangModalVisible, setIsLangModalVisible] = useState(false);
-
-  const [isInviteModalVisible, setIsInviteModalVisible] = useState(false);
-  const [inviteCodeInput, setInviteCodeInput] = useState("");
-  const [isMatching, setIsMatching] = useState(false);
-
-  const [pendingMatchPartner, setPendingMatchPartner] = useState<any>(null);
-  const [isMatchConfirmationVisible, setIsMatchConfirmationVisible] =
-    useState(false);
-  const [isMatchAnimationVisible, setIsMatchAnimationVisible] = useState(false);
-
   const [isAnimating, setIsAnimating] = useState(false);
 
-  const matchAnimTranslateX = useRef(new Animated.Value(0)).current;
-  const matchHeartScale = useRef(new Animated.Value(0)).current;
+  // Verifica se o parceiro já é conectado ou possui Premium ativo
+  const isGuestOrHasPartner =
+    route?.params?.isPartnerPremium || currentUserData?.partnerId;
 
   const [customAlert, setCustomAlert] = useState({
     visible: false,
@@ -91,6 +78,8 @@ export default function AnamnesisScreen({ navigation }: any) {
     color: "#202D3A",
     confirmText: "",
     onConfirm: null as any,
+    secondaryText: "",
+    onSecondary: null as any,
   });
 
   const showCustomAlert = (
@@ -100,6 +89,8 @@ export default function AnamnesisScreen({ navigation }: any) {
     color = "#202D3A",
     confirmText = "",
     onConfirm: any = null,
+    secondaryText = "",
+    onSecondary: any = null,
   ) => {
     setCustomAlert({
       visible: true,
@@ -109,6 +100,8 @@ export default function AnamnesisScreen({ navigation }: any) {
       color,
       confirmText,
       onConfirm,
+      secondaryText,
+      onSecondary,
     });
   };
 
@@ -137,6 +130,7 @@ export default function AnamnesisScreen({ navigation }: any) {
     ).start();
   }, [pulseAnim]);
 
+  // 🔍 VALIDAÇÃO DE USUÁRIO E HERANÇA DE ASSINATURA DO PARCEIRO
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       if (user) {
@@ -146,16 +140,37 @@ export default function AnamnesisScreen({ navigation }: any) {
           if (snap.exists()) {
             const data = snap.data();
             setCurrentUserData(data);
-            if (data.isPremium) setIsPremium(true);
+
+            let hasActivePremium = Boolean(data.isPremium);
+
+            // 👑 Se o usuário atual não pagou, mas tem parceiro, verifica se o parceiro é Premium
+            if (!hasActivePremium && data.partnerId) {
+              const partnerSnap = await getDoc(
+                doc(db, "users", data.partnerId),
+              );
+              if (partnerSnap.exists()) {
+                const partnerData = partnerSnap.data();
+                if (partnerData.isPremium) {
+                  hasActivePremium = true;
+                  // Sincroniza a flag de Premium localmente
+                  await setDoc(
+                    doc(db, "users", user.uid),
+                    { isPremium: true, isPartnerPremium: true },
+                    { merge: true },
+                  );
+                }
+              }
+            }
+
+            if (hasActivePremium) setIsPremium(true);
             if (data.hasCompletedAnamnesis) setScreenState("locked");
-            if (data.partnerId) setHasPartner(true);
             if (data.language) {
               currentLang = data.language;
               setUserLang(data.language);
             }
           }
         } catch (e) {
-          console.log("Erro ao checar status do usuário:", e);
+          console.log("Erro ao checar status do usuário/parceiro:", e);
         }
         setIsCheckingUser(false);
         loadQuestionsFromFirebase(currentLang);
@@ -254,6 +269,76 @@ export default function AnamnesisScreen({ navigation }: any) {
   };
 
   const handleStart = () => setScreenState("questions");
+
+  // 🚪 ROTA ALTERNATIVA: PULAR E DEFINIR AVALIAÇÃO COMO CONCLUÍDA (PERFIL PADRÃO)
+  const handleSkipAnamnesis = () => {
+    showCustomAlert(
+      "Seguir com Perfil Padrão? 💍",
+      "Sua avaliação será definida com nosso modelo padrão para liberar seu uso imediatamente.\n\nVocê poderá refazer o diagnóstico personalizado a qualquer momento pelo seu Perfil.",
+      "compass",
+      "#EAB64A",
+      "Responder Diagnóstico",
+      null,
+      "Seguir com Perfil Padrão",
+      async () => {
+        const userId = auth.currentUser?.uid;
+        if (userId) {
+          setIsSkipping(true);
+          try {
+            // 🚀 Marca como CONCLUÍDA (hasCompletedAnamnesis: true) para liberar todas as funções do app
+            await setDoc(
+              doc(db, "users", userId),
+              {
+                hasCompletedAnamnesis: true,
+                isSoloMode: false,
+                profileType: "standard_default",
+                anamnesisSkippedAt: new Date().toISOString(),
+              },
+              { merge: true },
+            );
+
+            // Redireciona para o Match se for o fluxo de convidado, ou para a Home
+            if (isGuestOrHasPartner) {
+              navigation.navigate("MatchScreen");
+            } else {
+              navigation.navigate("MainTabs", { screen: "Home" });
+            }
+          } catch (e) {
+            console.log("Erro ao salvar perfil padrão:", e);
+          } finally {
+            setIsSkipping(false);
+          }
+        }
+      },
+    );
+  };
+
+  // 🚪 FECHAR / VOLTAR PARA A HOME COM SEGURANÇA
+  const handleSafeClose = () => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation.navigate("MainTabs", { screen: "Home" });
+    }
+  };
+
+  const handleExitAnamnesis = () => {
+    showCustomAlert(
+      "Interromper Anamnese?",
+      "Este diagnóstico precisa de foco e concentração. Se você sair agora, suas respostas não serão salvas e você precisará reiniciar o questionário.",
+      "exclamation-triangle",
+      "#D96C6C",
+      "Continuar Diagnóstico",
+      null,
+      "Sair e Descartar",
+      () => {
+        setSelectedAnswers([]);
+        setCurrentIndex(0);
+        setScreenState("intro");
+        handleSafeClose();
+      },
+    );
+  };
 
   const handleBack = () => {
     if (isAnimating) return;
@@ -543,134 +628,12 @@ export default function AnamnesisScreen({ navigation }: any) {
     }
   };
 
-  const handleLinkPartnerCode = async () => {
-    const cleanCode = inviteCodeInput.trim().toUpperCase();
-
-    if (cleanCode.length < 5) {
-      showCustomAlert(
-        "Código Inválido",
-        "Digite um código válido com pelo menos 5 caracteres.",
-        "exclamation-circle",
-        "#EAB64A",
-      );
-      return;
-    }
-
-    const userId = auth.currentUser?.uid;
-    if (!userId) return;
-
-    setIsMatching(true);
-
-    try {
-      const q = query(
-        collection(db, "users"),
-        where("myInviteCode", "==", cleanCode),
-      );
-      const querySnapshot = await getDocs(q);
-
-      if (querySnapshot.empty) {
-        showCustomAlert(
-          "Match Não Encontrado",
-          "Não encontramos nenhuma conta com esse código. Verifique se o parceiro já acessou o app.",
-          "search-minus",
-          "#EAB64A",
-        );
-        setIsMatching(false);
-        return;
-      }
-
-      const partnerDoc = querySnapshot.docs[0];
-      const partnerDataDb = partnerDoc.data();
-      const partnerId = partnerDoc.id;
-
-      if (partnerId === userId) {
-        showCustomAlert(
-          "Ação Bloqueada",
-          "Você não pode usar o seu próprio código!",
-          "ban",
-          "#D96C6C",
-        );
-        setIsMatching(false);
-        return;
-      }
-
-      setPendingMatchPartner({ id: partnerId, data: partnerDataDb });
-      setIsInviteModalVisible(false);
-      setIsMatchConfirmationVisible(true);
-    } catch (error) {
-      showCustomAlert(
-        "Erro de Conexão",
-        "Ocorreu um problema ao tentar buscar a conta. Tente novamente.",
-        "times-circle",
-        "#D96C6C",
-      );
-    } finally {
-      setIsMatching(false);
-    }
-  };
-
-  const confirmMatchCode = async () => {
-    setIsMatchConfirmationVisible(false);
-    setIsMatchAnimationVisible(true);
-
-    Animated.sequence([
-      Animated.timing(matchAnimTranslateX, {
-        toValue: 1,
-        duration: 1200,
-        useNativeDriver: true,
-      }),
-      Animated.spring(matchHeartScale, {
-        toValue: 1,
-        friction: 4,
-        useNativeDriver: true,
-      }),
-    ]).start();
-
-    setTimeout(async () => {
-      try {
-        const userId = auth.currentUser?.uid;
-        if (!userId) return;
-
-        const cleanCode = inviteCodeInput.trim().toUpperCase();
-
-        await setDoc(
-          doc(db, "users", userId),
-          { linkedInviteCode: cleanCode },
-          { merge: true },
-        );
-
-        setHasPartner(true);
-        setInviteCodeInput("");
-
-        showCustomAlert(
-          "Conectando Almas! ❤️",
-          "Seu código foi enviado aos nossos servidores com segurança. Em poucos instantes a jornada de vocês estará oficialmente conectada!",
-          "heart",
-          "#67D4A8",
-        );
-      } catch (error) {
-        showCustomAlert(
-          "Erro de Comunicação",
-          "Não foi possível enviar o seu pedido de match ao servidor. Tente novamente.",
-          "times-circle",
-          "#D96C6C",
-        );
-      } finally {
-        setIsMatchAnimationVisible(false);
-        setPendingMatchPartner(null);
-        matchAnimTranslateX.setValue(0);
-        matchHeartScale.setValue(0);
-      }
-    }, 2800);
-  };
-
-  // 🔥 DIRECIONAMENTO ÚNICO: Salva a Anamnese e abre a PaywallScreen centralizada
   const handleGoToPaywall = async () => {
     if (isSaving) return;
     setIsSaving(true);
     await saveAssessmentToFirebase();
     setIsSaving(false);
-    navigation.navigate("Paywall");
+    navigation.navigate("PaywallScreen");
   };
 
   const handleFinishFree = async () => {
@@ -721,22 +684,39 @@ export default function AnamnesisScreen({ navigation }: any) {
       </Animated.View>
       <Text style={styles.introTitle}>Avaliação Concluída</Text>
       <Text style={styles.introText}>
-        Você já realizou a sua anamnese e seu plano de resgate está estruturado.
-        Foque nas missões da sua jornada!
+        Sua avaliação já foi registrada no aplicativo. Você pode refazer o
+        diagnóstico se quiser atualizar suas respostas!
       </Text>
       <TouchableOpacity
-        style={[styles.primaryBtn, { paddingHorizontal: 40 }]}
+        style={[styles.primaryBtn, { paddingHorizontal: 40, marginBottom: 12 }]}
         activeOpacity={0.8}
+        onPress={() => setScreenState("intro")}
+      >
+        <FontAwesome5 name="redo" size={16} color="#FFF" />
+        <Text style={styles.primaryBtnText}>Refazer Avaliação</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.skipBtn}
+        activeOpacity={0.7}
         onPress={() => navigation.navigate("MainTabs", { screen: "Home" })}
       >
-        <FontAwesome5 name="home" size={18} color="#FFF" />
-        <Text style={styles.primaryBtnText}>Ir para o Início</Text>
+        <Text style={styles.skipBtnText}>Voltar para o Início</Text>
       </TouchableOpacity>
     </View>
   );
 
   const renderIntro = () => (
     <View style={styles.centerContainer}>
+      {/* BOTÃO X PARA SAIR NAVEGANDO COM SEGURANÇA */}
+      <TouchableOpacity
+        style={styles.floatingCloseBtn}
+        onPress={handleSafeClose}
+        hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+      >
+        <FontAwesome5 name="times" size={22} color="#202D3A" />
+      </TouchableOpacity>
+
       <TouchableOpacity
         style={styles.floatingLangBtn}
         onPress={() => setIsLangModalVisible(true)}
@@ -749,40 +729,42 @@ export default function AnamnesisScreen({ navigation }: any) {
       >
         <FontAwesome5 name="heartbeat" size={70} color="#67D4A8" />
       </Animated.View>
-      <Text style={styles.introTitle}>
-        Descubra a Temperatura da sua Relação
-      </Text>
+
+      <Text style={styles.introTitle}>Diagnóstico Inicial da Relação 💍</Text>
       <Text style={styles.introText}>
-        Responda com sinceridade. Não existe certo ou errado, apenas o ponto de
-        partida para a melhor fase da vida a dois.
+        Este rápido passo é o{" "}
+        <Text style={{ fontFamily: "Montserrat_700Bold", color: "#EAB64A" }}>
+          coração do seu processo
+        </Text>
+        . Responder a este questionário determina a sequência exata de missões e
+        dinâmicas para o casal no seu momento atual.
       </Text>
 
-      <TouchableOpacity
-        style={[styles.primaryBtn, { marginBottom: 15 }]}
-        activeOpacity={0.8}
-        onPress={handleStart}
-        disabled={questionsBank.length === 0}
+      {/* BOTÃO PRINCIPAL COM PULSE ANIMATION */}
+      <Animated.View
+        style={{ width: "100%", transform: [{ scale: pulseAnim }] }}
       >
-        <Text style={styles.primaryBtnText}>Iniciar Avaliação</Text>
-        <FontAwesome5 name="arrow-right" size={18} color="#FFF" />
-      </TouchableOpacity>
-
-      {!hasPartner && (
         <TouchableOpacity
-          onPress={() => setIsInviteModalVisible(true)}
-          style={{ padding: 10 }}
+          style={styles.primaryBtn}
+          activeOpacity={0.8}
+          onPress={handleStart}
+          disabled={questionsBank.length === 0}
         >
-          <Text
-            style={{
-              color: "#202D3A",
-              fontFamily: "Montserrat_700Bold",
-              textDecorationLine: "underline",
-            }}
-          >
-            Fui convidado(a) e já tenho um código
-          </Text>
+          <Text style={styles.primaryBtnText}>Iniciar Diagnóstico (2 min)</Text>
+          <FontAwesome5 name="arrow-right" size={18} color="#FFF" />
         </TouchableOpacity>
-      )}
+      </Animated.View>
+
+      {/* SUBTEXTO EXATO SOLICITADO */}
+      <TouchableOpacity
+        style={styles.skipBtn}
+        activeOpacity={0.7}
+        onPress={handleSkipAnamnesis}
+      >
+        <Text style={styles.skipBtnText}>
+          Prefiro não responder minha avaliação
+        </Text>
+      </TouchableOpacity>
     </View>
   );
 
@@ -809,7 +791,7 @@ export default function AnamnesisScreen({ navigation }: any) {
             />
           </TouchableOpacity>
 
-          <View style={{ flex: 1, paddingHorizontal: 15 }}>
+          <View style={{ flex: 1, paddingHorizontal: 12 }}>
             <View style={styles.progressBarBg}>
               <Animated.View
                 style={[styles.progressBarFill, { width: `${progress}%` }]}
@@ -823,13 +805,25 @@ export default function AnamnesisScreen({ navigation }: any) {
           <TouchableOpacity
             onPress={handleForward}
             disabled={!canGoForward || isAnimating}
-            style={[styles.navBtn, !canGoForward && styles.navBtnDisabled]}
+            style={[
+              styles.navBtn,
+              !canGoForward && styles.navBtnDisabled,
+              { marginRight: 8 },
+            ]}
           >
             <FontAwesome5
               name="chevron-right"
               size={18}
               color={!canGoForward ? "#D1D9E0" : "#202D3A"}
             />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={handleSafeClose}
+            style={[styles.navBtn, { borderColor: "#D96C6C" }]}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <FontAwesome5 name="times" size={18} color="#D96C6C" />
           </TouchableOpacity>
         </View>
 
@@ -999,9 +993,7 @@ export default function AnamnesisScreen({ navigation }: any) {
             <Text style={{ fontFamily: "Montserrat_700Bold" }}>
               {finalRisk}% de risco de afastamento
             </Text>{" "}
-            no longo prazo se não for cuidado. O verdadeiro destruidor de
-            relações não são as brigas isoladas, mas sim a perda da admiração e
-            a desconexão emocional.
+            no longo prazo se não for cuidado.
           </Text>
         </View>
 
@@ -1014,7 +1006,7 @@ export default function AnamnesisScreen({ navigation }: any) {
             >
               Jornada de 90 Dias
             </Text>{" "}
-            ideal para blindar e resgatar o seu relacionamento.
+            ideal para blindar seu relacionamento.
           </Text>
         </View>
 
@@ -1026,11 +1018,6 @@ export default function AnamnesisScreen({ navigation }: any) {
                 ✓
               </Text>
             </Text>
-            <Text style={styles.impulseBuySubText}>
-              Sua conta já está vinculada ao plano Premium. Você já pode iniciar
-              a jornada.
-            </Text>
-
             <TouchableOpacity
               style={[styles.paywallBtn, { backgroundColor: "#67D4A8" }]}
               activeOpacity={0.9}
@@ -1048,21 +1035,10 @@ export default function AnamnesisScreen({ navigation }: any) {
             </TouchableOpacity>
           </View>
         ) : (
-          /* 🔥 UNIFICADO: Botão Direto para a Paywall Centralizada */
           <View style={styles.impulseBuyBox}>
-            <Text
-              style={[
-                styles.resultHeader,
-                { marginBottom: 10, color: "#202D3A" },
-              ]}
-            >
+            <Text style={styles.impulseBuyPriceText}>
               Libere sua Trilha de Resgate
             </Text>
-            <Text style={styles.impulseBuySubText}>
-              Escolha entre a Assinatura Casal Duo (1 plano para os dois) ou
-              Individual.
-            </Text>
-
             <TouchableOpacity
               style={[styles.paywallBtn, { backgroundColor: "#EAB64A" }]}
               activeOpacity={0.9}
@@ -1080,23 +1056,6 @@ export default function AnamnesisScreen({ navigation }: any) {
                 </>
               )}
             </TouchableOpacity>
-
-            {!hasPartner && (
-              <TouchableOpacity
-                onPress={() => setIsInviteModalVisible(true)}
-                style={{ marginTop: 20 }}
-              >
-                <Text
-                  style={{
-                    color: "#2C3E50",
-                    fontFamily: "Montserrat_700Bold",
-                    textDecorationLine: "underline",
-                  }}
-                >
-                  Fui convidado(a) e tenho um código
-                </Text>
-              </TouchableOpacity>
-            )}
           </View>
         )}
 
@@ -1119,9 +1078,6 @@ export default function AnamnesisScreen({ navigation }: any) {
     );
   };
 
-  const userPhotoForAnim =
-    currentUserData?.photoURL || currentUserData?.photoUrl;
-
   return (
     <SafeAreaView style={styles.container}>
       {screenState === "locked" && renderLocked()}
@@ -1130,31 +1086,15 @@ export default function AnamnesisScreen({ navigation }: any) {
       {screenState === "calculating" && renderCalculating()}
 
       {screenState === "result" && (
-        <>
-          <ScrollView
-            contentContainerStyle={{ flexGrow: 1 }}
-            showsVerticalScrollIndicator={false}
-          >
-            {renderResult()}
-          </ScrollView>
-
-          {!isPremium && (
-            <TouchableOpacity
-              style={styles.floatingCartBtn}
-              activeOpacity={0.8}
-              onPress={handleGoToPaywall}
-              disabled={isSaving}
-            >
-              {isSaving ? (
-                <ActivityIndicator size="small" color="#202D3A" />
-              ) : (
-                <FontAwesome5 name="shopping-cart" size={22} color="#202D3A" />
-              )}
-            </TouchableOpacity>
-          )}
-        </>
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1 }}
+          showsVerticalScrollIndicator={false}
+        >
+          {renderResult()}
+        </ScrollView>
       )}
 
+      {/* MODAL IDIOMAS */}
       <Modal visible={isLangModalVisible} transparent animationType="fade">
         <TouchableOpacity
           style={styles.modalOverlay}
@@ -1178,279 +1118,7 @@ export default function AnamnesisScreen({ navigation }: any) {
         </TouchableOpacity>
       </Modal>
 
-      <Modal visible={isInviteModalVisible} transparent animationType="fade">
-        <View style={styles.modalOverlayCenter}>
-          <View style={styles.codeModalCard}>
-            <Text style={styles.codeModalTitle}>Vincular Parceiro</Text>
-            <Text style={styles.codeModalSub}>
-              Insira o código que você recebeu do seu amor para se conectar e
-              liberar o acesso à jornada.
-            </Text>
-            <TextInput
-              style={styles.codeInputField}
-              placeholder="Ex: DUE-123X"
-              placeholderTextColor="#AFAFAF"
-              autoCapitalize="characters"
-              maxLength={8}
-              value={inviteCodeInput}
-              onChangeText={setInviteCodeInput}
-            />
-            <TouchableOpacity
-              style={styles.linkButton}
-              onPress={handleLinkPartnerCode}
-              disabled={isMatching}
-            >
-              {isMatching ? (
-                <ActivityIndicator size="small" color="#FFF" />
-              ) : (
-                <Text style={styles.linkButtonText}>Avançar</Text>
-              )}
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.cancelLinkButton}
-              onPress={() => setIsInviteModalVisible(false)}
-            >
-              <Text style={styles.cancelLinkButtonText}>Cancelar</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal
-        visible={isMatchConfirmationVisible}
-        transparent
-        animationType="fade"
-      >
-        <View style={styles.modalOverlayCenter}>
-          <View style={styles.codeModalCard}>
-            <Text style={styles.codeModalTitle}>É esta pessoa?</Text>
-            <Text style={styles.codeModalSub}>
-              Verifique se a conta abaixo pertence ao seu amor.
-            </Text>
-
-            <View style={{ alignItems: "center", marginBottom: 25 }}>
-              {pendingMatchPartner?.data?.photoURL ||
-              pendingMatchPartner?.data?.photoUrl ? (
-                <Image
-                  source={{
-                    uri:
-                      pendingMatchPartner?.data?.photoURL ||
-                      pendingMatchPartner?.data?.photoUrl,
-                  }}
-                  style={{
-                    width: 80,
-                    height: 80,
-                    borderRadius: 40,
-                    marginBottom: 15,
-                    borderWidth: 3,
-                    borderColor: "#EAB64A",
-                  }}
-                />
-              ) : (
-                <View
-                  style={{
-                    width: 80,
-                    height: 80,
-                    borderRadius: 40,
-                    backgroundColor: "#FFFFFF",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    marginBottom: 15,
-                    borderWidth: 1,
-                    borderColor: "#D1D9E0",
-                  }}
-                >
-                  <FontAwesome5 name="user-alt" size={30} color="#AFAFAF" />
-                </View>
-              )}
-              <Text
-                style={{
-                  fontFamily: "Montserrat_900Black",
-                  fontSize: 20,
-                  color: "#202D3A",
-                }}
-              >
-                {pendingMatchPartner?.data?.displayName ||
-                  pendingMatchPartner?.data?.email?.split("@")[0] ||
-                  "Usuário Misterioso"}
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              style={[styles.linkButton, { backgroundColor: "#67D4A8" }]}
-              onPress={confirmMatchCode}
-            >
-              <Text style={styles.linkButtonText}>Sim, Conectar!</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.cancelLinkButton}
-              onPress={() => {
-                setIsMatchConfirmationVisible(false);
-                setPendingMatchPartner(null);
-                setInviteCodeInput("");
-              }}
-            >
-              <Text style={styles.cancelLinkButtonText}>
-                Não, errei o código
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal visible={isMatchAnimationVisible} transparent animationType="fade">
-        <View
-          style={[
-            styles.modalOverlayCenter,
-            { backgroundColor: "rgba(32,45,58,0.95)" },
-          ]}
-        >
-          <Text
-            style={{
-              color: "#FFF",
-              fontSize: 24,
-              fontFamily: "Montserrat_900Black",
-              marginBottom: 50,
-              letterSpacing: 1,
-            }}
-          >
-            Conectando Almas...
-          </Text>
-
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "center",
-              width: "100%",
-            }}
-          >
-            <Animated.View
-              style={{
-                transform: [
-                  {
-                    translateX: matchAnimTranslateX.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0, 45],
-                    }),
-                  },
-                ],
-                zIndex: 5,
-              }}
-            >
-              {userPhotoForAnim ? (
-                <Image
-                  source={{ uri: userPhotoForAnim }}
-                  style={{
-                    width: 90,
-                    height: 90,
-                    borderRadius: 45,
-                    borderWidth: 4,
-                    borderColor: "#FFF",
-                  }}
-                />
-              ) : (
-                <View
-                  style={{
-                    width: 90,
-                    height: 90,
-                    borderRadius: 45,
-                    backgroundColor: "#FFF",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    borderWidth: 4,
-                    borderColor: "#FFF",
-                  }}
-                >
-                  <FontAwesome5 name="user-alt" size={35} color="#202D3A" />
-                </View>
-              )}
-            </Animated.View>
-
-            <Animated.View
-              style={{
-                transform: [{ scale: matchHeartScale }],
-                zIndex: 10,
-                marginHorizontal: -15,
-              }}
-            >
-              <View
-                style={{
-                  backgroundColor: "#FFF",
-                  padding: 15,
-                  borderRadius: 30,
-                  shadowColor: "#000",
-                  shadowOpacity: 0.2,
-                  shadowRadius: 10,
-                  elevation: 10,
-                }}
-              >
-                <FontAwesome5 name="heart" solid size={35} color="#EAB64A" />
-              </View>
-            </Animated.View>
-
-            <Animated.View
-              style={{
-                transform: [
-                  {
-                    translateX: matchAnimTranslateX.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0, -45],
-                    }),
-                  },
-                ],
-                zIndex: 5,
-              }}
-            >
-              {pendingMatchPartner?.data?.photoURL ||
-              pendingMatchPartner?.data?.photoUrl ? (
-                <Image
-                  source={{
-                    uri:
-                      pendingMatchPartner?.data?.photoURL ||
-                      pendingMatchPartner?.data?.photoUrl,
-                  }}
-                  style={{
-                    width: 90,
-                    height: 90,
-                    borderRadius: 45,
-                    borderWidth: 4,
-                    borderColor: "#FFF",
-                  }}
-                />
-              ) : (
-                <View
-                  style={{
-                    width: 90,
-                    height: 90,
-                    borderRadius: 45,
-                    backgroundColor: "#FFF",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    borderWidth: 4,
-                    borderColor: "#FFF",
-                  }}
-                >
-                  <FontAwesome5 name="user-alt" size={35} color="#202D3A" />
-                </View>
-              )}
-            </Animated.View>
-          </View>
-
-          <Text
-            style={{
-              color: "#FFF",
-              fontSize: 16,
-              fontFamily: "Montserrat_700Bold",
-              marginTop: 50,
-              opacity: 0.8,
-            }}
-          >
-            A mágica está acontecendo no servidor...
-          </Text>
-        </View>
-      </Modal>
-
+      {/* MODAL DE ALERTAS COM SUPORTE A BOTAO SECUNDARIO */}
       <Modal visible={customAlert.visible} transparent animationType="slide">
         <View style={styles.bottomSheetOverlay}>
           <View style={styles.bottomSheetContainer}>
@@ -1472,46 +1140,36 @@ export default function AnamnesisScreen({ navigation }: any) {
             <Text style={styles.bottomSheetTitle}>{customAlert.title}</Text>
             <Text style={styles.bottomSheetText}>{customAlert.message}</Text>
 
-            {customAlert.onConfirm ? (
-              <View style={{ width: "100%", gap: 10, marginTop: 10 }}>
-                <TouchableOpacity
-                  style={[
-                    styles.bottomSheetButtonPrimary,
-                    { backgroundColor: customAlert.color },
-                  ]}
-                  onPress={() => {
-                    setCustomAlert({ ...customAlert, visible: false });
-                    customAlert.onConfirm();
-                  }}
-                >
-                  <Text style={styles.bottomSheetButtonPrimaryText}>
-                    {customAlert.confirmText || "Continuar"}
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.bottomSheetButtonSecondary}
-                  onPress={() =>
-                    setCustomAlert({ ...customAlert, visible: false })
-                  }
-                >
-                  <Text style={styles.bottomSheetButtonSecondaryText}>
-                    Cancelar
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
+            <View style={{ width: "100%", gap: 10, marginTop: 10 }}>
               <TouchableOpacity
                 style={[
                   styles.bottomSheetButtonPrimary,
-                  { backgroundColor: customAlert.color, marginTop: 10 },
+                  { backgroundColor: customAlert.color },
                 ]}
-                onPress={() =>
-                  setCustomAlert({ ...customAlert, visible: false })
-                }
+                onPress={() => {
+                  setCustomAlert({ ...customAlert, visible: false });
+                  if (customAlert.onConfirm) customAlert.onConfirm();
+                }}
               >
-                <Text style={styles.bottomSheetButtonPrimaryText}>Entendi</Text>
+                <Text style={styles.bottomSheetButtonPrimaryText}>
+                  {customAlert.confirmText || "Entendi"}
+                </Text>
               </TouchableOpacity>
-            )}
+
+              {customAlert.secondaryText ? (
+                <TouchableOpacity
+                  style={styles.bottomSheetButtonSecondary}
+                  onPress={() => {
+                    setCustomAlert({ ...customAlert, visible: false });
+                    if (customAlert.onSecondary) customAlert.onSecondary();
+                  }}
+                >
+                  <Text style={styles.bottomSheetButtonSecondaryText}>
+                    {customAlert.secondaryText}
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
           </View>
         </View>
       </Modal>
@@ -1526,6 +1184,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     padding: 30,
+  },
+  floatingCloseBtn: {
+    position: "absolute",
+    top: 50,
+    left: 30,
+    padding: 10,
+    zIndex: 10,
   },
   floatingLangBtn: {
     position: "absolute",
@@ -1550,10 +1215,6 @@ const styles = StyleSheet.create({
     marginTop: 100,
     marginRight: 20,
     width: 220,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
     elevation: 5,
   },
   compactFlagBtn: {
@@ -1563,7 +1224,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     margin: 5,
     borderRadius: 10,
-    backgroundColor: "transparent",
   },
   compactFlagBtnActive: {
     backgroundColor: "#E8F4F1",
@@ -1580,26 +1240,22 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 30,
     elevation: 10,
-    shadowColor: "#202D3A",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.1,
-    shadowRadius: 15,
   },
   introTitle: {
-    fontSize: 28,
+    fontSize: 26,
     fontFamily: "Montserrat_900Black",
     color: "#202D3A",
     textAlign: "center",
     marginBottom: 15,
-    lineHeight: 34,
+    lineHeight: 32,
   },
   introText: {
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: "Montserrat_400Regular",
     color: "#2C3E50",
     textAlign: "center",
-    marginBottom: 40,
-    lineHeight: 24,
+    marginBottom: 30,
+    lineHeight: 22,
   },
   primaryBtn: {
     flexDirection: "row",
@@ -1608,17 +1264,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
     borderRadius: 30,
     alignItems: "center",
+    justifyContent: "center",
     gap: 10,
+    width: "100%",
     elevation: 5,
-    shadowColor: "#202D3A",
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
+    marginBottom: 16,
   },
   primaryBtnText: {
     color: "#FFF",
-    fontSize: 18,
+    fontSize: 16,
     fontFamily: "Montserrat_700Bold",
+  },
+  skipBtn: { paddingVertical: 10 },
+  skipBtnText: {
+    color: "#AFAFAF",
+    fontSize: 13,
+    fontFamily: "Montserrat_700Bold",
+    textDecorationLine: "underline",
   },
   questionContainer: { flex: 1, padding: 24, paddingTop: 30 },
   navHeader: {
@@ -1636,18 +1298,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1,
     borderColor: "#D1D9E0",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
     elevation: 2,
   },
-  navBtnDisabled: {
-    backgroundColor: "#F0F4F8",
-    borderColor: "#E5E5E5",
-    elevation: 0,
-    shadowOpacity: 0,
-  },
+  navBtnDisabled: { backgroundColor: "#F0F4F8", borderColor: "#E5E5E5" },
   progressBarBg: {
     height: 8,
     backgroundColor: "#D1D9E0",
@@ -1692,10 +1345,6 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "#FFF",
     elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
   },
   answerBtnSelected: { borderColor: "#67D4A8", backgroundColor: "#E8F4F1" },
   answerIconBg: {
@@ -1775,10 +1424,6 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "#D1D9E0",
     elevation: 5,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
   },
   thermometerLiquid: {
     width: "100%",
@@ -1801,10 +1446,6 @@ const styles = StyleSheet.create({
     borderWidth: 4,
     borderColor: "#FFF",
     elevation: 5,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
   },
   resultTitle: {
     fontSize: 26,
@@ -1828,10 +1469,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     width: "100%",
     elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 5,
   },
   riskHeader: {
     flexDirection: "row",
@@ -1876,10 +1513,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#D1D9E0",
     elevation: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
     marginBottom: 20,
   },
   impulseBuyPriceText: {
@@ -1893,15 +1526,6 @@ const styles = StyleSheet.create({
     fontFamily: "Montserrat_900Black",
     color: "#202D3A",
   },
-  impulseBuySubText: {
-    fontSize: 13,
-    color: "#60646C",
-    textAlign: "center",
-    marginBottom: 18,
-    lineHeight: 18,
-    paddingHorizontal: 10,
-    fontFamily: "Montserrat_400Regular",
-  },
   paywallBtn: {
     flexDirection: "row",
     width: "100%",
@@ -1911,10 +1535,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
     elevation: 5,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
   },
   paywallBtnText: {
     fontSize: 16,
@@ -1929,86 +1549,6 @@ const styles = StyleSheet.create({
     fontFamily: "Montserrat_700Bold",
     textDecorationLine: "underline",
   },
-  floatingCartBtn: {
-    position: "absolute",
-    bottom: 40,
-    right: 25,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: "#EAB64A",
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#EAB64A",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 8,
-    zIndex: 999,
-  },
-
-  modalOverlayCenter: {
-    flex: 1,
-    backgroundColor: "rgba(32,45,58,0.7)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  codeModalCard: {
-    width: "85%",
-    backgroundColor: "#FFF",
-    borderRadius: 20,
-    padding: 24,
-    alignItems: "center",
-  },
-  codeModalTitle: {
-    fontSize: 20,
-    fontFamily: "Montserrat_900Black",
-    color: "#202D3A",
-    marginBottom: 10,
-  },
-  codeModalSub: {
-    fontSize: 14,
-    color: "#60646C",
-    textAlign: "center",
-    marginBottom: 20,
-    fontFamily: "Montserrat_400Regular",
-  },
-  codeInputField: {
-    width: "100%",
-    backgroundColor: "#F0F4F8",
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 18,
-    fontFamily: "Montserrat_700Bold",
-    textAlign: "center",
-    letterSpacing: 2,
-    marginBottom: 20,
-    color: "#202D3A",
-  },
-  linkButton: {
-    backgroundColor: "#EAB64A",
-    width: "100%",
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: "center",
-    marginBottom: 10,
-  },
-  linkButtonText: {
-    color: "#202D3A",
-    fontSize: 16,
-    fontFamily: "Montserrat_700Bold",
-  },
-  cancelLinkButton: {
-    width: "100%",
-    paddingVertical: 12,
-    alignItems: "center",
-  },
-  cancelLinkButtonText: {
-    color: "#60646C",
-    fontSize: 14,
-    fontFamily: "Montserrat_700Bold",
-  },
-
   bottomSheetOverlay: {
     flex: 1,
     backgroundColor: "rgba(32,45,58,0.6)",
@@ -2021,10 +1561,6 @@ const styles = StyleSheet.create({
     padding: 24,
     paddingBottom: 40,
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
     elevation: 10,
     width: "100%",
   },

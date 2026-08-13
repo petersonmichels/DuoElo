@@ -16,9 +16,9 @@ import { auth, authControls } from "../config/firebase";
 
 // Suas Telas Oficiais
 import AnamneseScreen from "../screens/AnamneseScreen";
-import ConexoesScreen from "../screens/ConexoesScreen";
 import HomeScreen from "../screens/HomeScreen";
 import LoginScreen from "../screens/LoginScreen";
+import MatchScreen from "../screens/MatchScreen";
 import MissionRewardScreen from "../screens/MissionRewardScreen";
 import PaywallScreen from "../screens/PaywallScreen";
 import ProfileScreen from "../screens/ProfileScreen";
@@ -27,7 +27,7 @@ const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 // ==========================================
-// 🚀 TELAS PROVISÓRIAS (SPRINTS FUTURAS)
+// 🚀 TELAS PROVISÓRIAS
 // ==========================================
 const PlaceholderScreen = ({
   title,
@@ -66,8 +66,8 @@ function MainTabs() {
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: true,
-        tabBarActiveTintColor: "#202D3A", // Petróleo (Ativo)
-        tabBarInactiveTintColor: "#AFAFAF", // Cinza (Inativo)
+        tabBarActiveTintColor: "#202D3A",
+        tabBarInactiveTintColor: "#AFAFAF",
         tabBarStyle: {
           backgroundColor: "#FFF",
           borderTopWidth: 0,
@@ -98,7 +98,7 @@ function MainTabs() {
       />
       <Tab.Screen
         name="Match"
-        component={ConexoesScreen}
+        component={MatchScreen}
         options={{
           tabBarIcon: ({ color }) => (
             <FontAwesome5 name="user-friends" size={18} color={color} />
@@ -106,7 +106,6 @@ function MainTabs() {
         }}
       />
 
-      {/* 🔥 TELA DA TRILHA DENTRO DAS TABS */}
       <Tab.Screen
         name="Home"
         component={HomeScreen}
@@ -163,7 +162,13 @@ export default function AppNavigator() {
       if (authControls && authControls.isCreatingAccount) {
         return;
       }
-      setUser(currentUser);
+
+      if (currentUser && currentUser.uid) {
+        setUser(currentUser);
+      } else {
+        setUser(null);
+      }
+
       setLoading(false);
     });
 
@@ -173,28 +178,18 @@ export default function AppNavigator() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#202D3A" />
+        <ActivityIndicator size="large" color="#EAB64A" />
       </View>
     );
   }
 
   return (
-    <Stack.Navigator
-      screenOptions={{ headerShown: false }}
-      initialRouteName={user ? "MainTabs" : "Login"}
-    >
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
       {user ? (
         <Stack.Group>
-          {/* 🔥 ÚNICO CONTAINER DE ABAS NA RAIZ */}
           <Stack.Screen name="MainTabs" component={MainTabs} />
-
-          {/* Telas secundárias empilhadas acima das abas */}
-          <Stack.Screen name="Anamnesis" component={AnamneseScreen} />
           <Stack.Screen name="AnamneseScreen" component={AnamneseScreen} />
-
-          <Stack.Screen name="Paywall" component={PaywallScreen} />
           <Stack.Screen name="PaywallScreen" component={PaywallScreen} />
-
           <Stack.Screen name="MissionReward" component={MissionRewardScreen} />
         </Stack.Group>
       ) : (

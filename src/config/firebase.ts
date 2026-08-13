@@ -1,12 +1,15 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { initializeApp } from "firebase/app";
-import { initializeAuth } from "firebase/auth";
+import ReactNativeAsyncStorage from "@react-native-async-storage/async-storage";
+import { getApp, getApps, initializeApp } from "firebase/app";
+import {
+  Auth,
+  getAuth,
+  getReactNativePersistence,
+  initializeAuth,
+} from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
+import { getFunctions } from "firebase/functions";
 
-// Extraímos a função via 'require' para o TypeScript não encher o saco
-const firebaseAuth = require("firebase/auth");
-
-// Credenciais de produção/teste do DuoElo
+// Configuração do projeto Firebase DuoElo
 const firebaseConfig = {
   apiKey: "AIzaSyCpxkTVOLTtyqe_4FdUsrsFA7EiMv3K4Mk",
   authDomain: "duoelo-987fd.firebaseapp.com",
@@ -17,15 +20,25 @@ const firebaseConfig = {
   measurementId: "G-H9KY9VV72Z",
 };
 
-const app = initializeApp(firebaseConfig);
+// 1. Inicializa o aplicativo Firebase (se ainda não existir)
+export const app =
+  getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// Inicializamos a Autenticação COM persistência local usando a função importada de forma silenciosa
-export const auth = initializeAuth(app, {
-  persistence: firebaseAuth.getReactNativePersistence(AsyncStorage),
-});
+// 2. Tenta inicializar o Auth com AsyncStorage PRIMEIRO.
+// Se já tiver sido inicializado (no Fast Refresh), faz o fallback para getAuth.
+let authInstance: Auth;
 
-// Exportamos as instâncias para usar no resto do app
+try {
+  authInstance = initializeAuth(app, {
+    persistence: getReactNativePersistence(ReactNativeAsyncStorage),
+  });
+} catch (e) {
+  // Se der erro dizendo que o Auth já foi inicializado neste App, reaproveita a instância existente
+  authInstance = getAuth(app);
+}
+
+export const auth = authInstance;
 export const db = getFirestore(app);
+export const functions = getFunctions(app, "europe-west1");
 
-// Lá no final do seu arquivo config/firebase.js (junto com os exports)
 export const authControls = { isCreatingAccount: false };

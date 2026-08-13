@@ -1,79 +1,111 @@
-cat << "EOF" > src / index.ts;
 import * as admin from "firebase-admin";
-import { onDocumentUpdated } from "firebase-functions/v2/firestore";
-import { onRequest } from "firebase-functions/v2/https";
+import { HttpsError, onCall, onRequest } from "firebase-functions/v2/https";
 
 admin.initializeApp();
 const db = admin.firestore();
 
 // ============================================================================
-// 1. MATCHMAKER SEGURANÇA (O PADRE)
+// 1. MATCHMAKER ATÔMICO (CALLABLE FUNCTION)
 // ============================================================================
-export const processMatch = onDocumentUpdated(
-  { region: "europe-west1", document: "users/{userId}" },
-  async (event) => {
-    const userId = event.params.userId;
-    const newData = event.data?.after.data();
-    const oldData = event.data?.before.data();
+export const processMatch = onCall(
+  { region: "europe-west1" },
+  async (request) => {
+    // 🔒 1. Valida se a requisição veio de um usuário autenticado
+    if (!request.auth) {
+      throw new HttpsError(
+        "unauthenticated",
+        "Você precisa estar logado para conectar com um parceiro.",
+      );
+    }
 
-    if (!newData) return;
+    const { user1Id, user2Id } = request.data;
 
-    const newCode = newData.linkedInviteCode;
-    const oldCode = oldData?.linkedInviteCode;
+    if (!user1Id || !user2Id) {
+      throw new HttpsError(
+        "invalid-argument",
+        "IDs de usuários inválidos para realizar o match.",
+      );
+    }
 
-    if (newCode && newCode !== oldCode) {
-      try {
-        console.log(
-          `Iniciando Match... Usuário ${userId} usou o código ${newCode}`,
+    if (user1Id === user2Id) {
+      throw new HttpsError(
+        "invalid-argument",
+        "Você não pode conectar com a sua própria conta.",
+      );
+    }
+
+    try {
+      console.log(`Iniciando Match atômico entre ${user1Id} e ${user2Id}`);
+
+      const usersRef = db.collection("users");
+
+      const user1Doc = await usersRef.doc(user1Id).get();
+      const user2Doc = await usersRef.doc(user2Id).get();
+
+      if (!user1Doc.exists || !user2Doc.exists) {
+        throw new HttpsError(
+          "not-found",
+          "Uma ou ambas as contas não foram encontradas.",
         );
-
-        const usersRef = db.collection("users");
-        const partnerQuery = await usersRef
-          .where("myInviteCode", "==", newCode)
-          .limit(1)
-          .get();
-
-        if (partnerQuery.empty || partnerQuery.docs[0].id === userId) {
-          console.log(
-            "Match falhou: Código inválido ou pertencente ao próprio usuário.",
-          );
-          await usersRef
-            .doc(userId)
-            .update({ linkedInviteCode: admin.firestore.FieldValue.delete() });
-          return;
-        }
-
-        const partnerDoc = partnerQuery.docs[0];
-        const partnerId = partnerDoc.id;
-        const partnerData = partnerDoc.data();
-
-        const finalPremiumStatus =
-          newData.isPremium || partnerData.isPremium || false;
-
-        const batch = db.batch();
-
-        batch.update(usersRef.doc(userId), {
-          partnerId: partnerId,
-          isPremium: finalPremiumStatus,
-          linkedInviteCode: admin.firestore.FieldValue.delete(),
-        });
-
-        batch.update(usersRef.doc(partnerId), {
-          partnerId: userId,
-          isPremium: finalPremiumStatus,
-        });
-
-        await batch.commit();
-        console.log(`✅ MATCH DE SUCESSO! ${userId} e ${partnerId}`);
-      } catch (error) {
-        console.error("❌ Erro grave ao processar o match:", error);
       }
+
+      const user1Data = user1Doc.data();
+      const user2Data = user2Doc.data();
+
+      // Valida se algum dos dois já está conectado a outra pessoa
+      if (user1Data?.partnerId && user1Data.partnerId !== user2Id) {
+        throw new HttpsError(
+          "already-exists",
+          "Sua conta já está conectada a outro parceiro.",
+        );
+      }
+
+      if (user2Data?.partnerId && user2Data.partnerId !== user1Id) {
+        throw new HttpsError(
+          "already-exists",
+          "Este usuário já está conectado a outro parceiro no DuoElo.",
+        );
+      }
+
+      // Sincroniza a licença Premium (se qualquer um for Premium, o casal fica Premium)
+      const finalPremiumStatus =
+        Boolean(user1Data?.isPremium) || Boolean(user2Data?.isPremium);
+
+      const batch = db.batch();
+
+      batch.update(usersRef.doc(user1Id), {
+        partnerId: user2Id,
+        isPremium: finalPremiumStatus,
+        isSoloMode: false,
+      });
+
+      batch.update(usersRef.doc(user2Id), {
+        partnerId: user1Id,
+        isPremium: finalPremiumStatus,
+        isSoloMode: false,
+      });
+
+      await batch.commit();
+
+      console.log(`✅ MATCH CONCLUÍDO COM SUCESSO! ${user1Id} <-> ${user2Id}`);
+
+      return {
+        success: true,
+        message: "Casal conectado com sucesso!",
+        isPremium: finalPremiumStatus,
+      };
+    } catch (error: any) {
+      console.error("❌ Erro ao processar o match:", error);
+      if (error instanceof HttpsError) {
+        throw error;
+      }
+      throw new HttpsError("internal", "Erro interno ao processar o match.");
     }
   },
 );
 
 // ============================================================================
-// 2. REVENUECAT WEBHOOK (O CAIXA FINANCEIRO)
+// 2. REVENUECAT WEBHOOK (FINANCEIRO & SYNC DE CASAL)
 // ============================================================================
 export const revenueCatWebhook = onRequest(
   { region: "europe-west1" },
@@ -147,4 +179,3 @@ export const revenueCatWebhook = onRequest(
     }
   },
 );
-EOF;

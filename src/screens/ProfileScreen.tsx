@@ -1,4 +1,5 @@
 import { FontAwesome5 } from "@expo/vector-icons";
+import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import { useFocusEffect } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
 import { deleteUser, sendEmailVerification, signOut } from "firebase/auth";
@@ -21,6 +22,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import Purchases from "react-native-purchases";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { auth, db } from "../config/firebase";
 
@@ -44,7 +46,6 @@ export default function ProfileScreen({ navigation }: any) {
   const [bypassDailyLock, setBypassDailyLock] = useState(false);
   const isFirstLoad = useRef(true);
 
-  // Atualiza status do e-mail ao focar na tela
   useFocusEffect(
     useCallback(() => {
       const checkEmailVerification = async () => {
@@ -183,14 +184,17 @@ export default function ProfileScreen({ navigation }: any) {
   };
 
   const processImageResult = async (result: ImagePicker.ImagePickerResult) => {
-    if (!result.canceled && result.assets[0].base64) {
+    if (!result.canceled && result.assets && result.assets.length > 0) {
       const currentUid = auth.currentUser?.uid;
-      const base64Image = `data:image/jpeg;base64,${result.assets[0].base64}`;
+      const asset = result.assets[0];
+      const imageUri = asset.base64
+        ? `data:image/jpeg;base64,${asset.base64}`
+        : asset.uri;
 
-      if (base64Image.length > 900000) {
+      if (imageUri.length > 900000) {
         Alert.alert(
           "Foto muito grande",
-          "Por favor, escolha uma imagem com menos detalhes.",
+          "Por favor, escolha uma imagem com menor resolução.",
         );
         return;
       }
@@ -200,7 +204,7 @@ export default function ProfileScreen({ navigation }: any) {
         try {
           await setDoc(
             doc(db, "users", currentUid),
-            { photoURL: base64Image, photoUrl: base64Image },
+            { photoURL: imageUri, photoUrl: imageUri },
             { merge: true },
           );
         } catch (e) {
@@ -230,10 +234,10 @@ export default function ProfileScreen({ navigation }: any) {
               return;
             }
             const result = await ImagePicker.launchCameraAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              mediaTypes: "images",
               allowsEditing: true,
               aspect: [1, 1],
-              quality: 0.05,
+              quality: 0.1,
               base64: true,
             });
             processImageResult(result);
@@ -252,10 +256,10 @@ export default function ProfileScreen({ navigation }: any) {
               return;
             }
             const result = await ImagePicker.launchImageLibraryAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              mediaTypes: "images",
               allowsEditing: true,
               aspect: [1, 1],
-              quality: 0.05,
+              quality: 0.1,
               base64: true,
             });
             processImageResult(result);
@@ -282,6 +286,32 @@ export default function ProfileScreen({ navigation }: any) {
     }
   };
 
+  // 🌐 DESCONECTAR / LIMPAR SESSÃO DO GOOGLE
+  const handleSwitchGoogleAccount = () => {
+    Alert.alert(
+      "Trocar Conta Google",
+      "Deseja desconectar a conta do Google atual para poder escolher outro e-mail no próximo login?",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Sim, Desconectar Google",
+          onPress: async () => {
+            try {
+              await GoogleSignin.signOut();
+              await signOut(auth);
+              Alert.alert(
+                "Conta Desconectada 🌐",
+                "Sua sessão do Google foi encerrada. No próximo acesso você poderá escolher outra conta.",
+              );
+            } catch (e) {
+              await signOut(auth);
+            }
+          },
+        },
+      ],
+    );
+  };
+
   const handleLogout = () => {
     Alert.alert("Sair da Conta", "Tem certeza de que deseja sair?", [
       { text: "Cancelar", style: "cancel" },
@@ -290,6 +320,9 @@ export default function ProfileScreen({ navigation }: any) {
         style: "destructive",
         onPress: async () => {
           try {
+            try {
+              await GoogleSignin.signOut();
+            } catch (e) {}
             await signOut(auth);
           } catch (error) {
             console.error("Erro ao deslogar:", error);
@@ -321,6 +354,9 @@ export default function ProfileScreen({ navigation }: any) {
                   );
                 }
                 await deleteDoc(doc(db, "users", user.uid));
+                try {
+                  await GoogleSignin.signOut();
+                } catch (e) {}
                 await deleteUser(user);
               }
             } catch (error: any) {
@@ -342,6 +378,28 @@ export default function ProfileScreen({ navigation }: any) {
     if (Platform.OS === "ios")
       Linking.openURL("https://apps.apple.com/account/subscriptions");
     else Linking.openURL("https://play.google.com/store/account/subscriptions");
+  };
+
+  const handleRestorePurchases = async () => {
+    try {
+      const restoredInfo = await Purchases.restorePurchases();
+      if (Object.keys(restoredInfo.entitlements.active).length > 0) {
+        Alert.alert(
+          "Sucesso! 🎉",
+          "Suas assinaturas anteriores foram restauradas.",
+        );
+      } else {
+        Alert.alert(
+          "Nenhuma Assinatura Ativa",
+          "Não encontramos nenhuma assinatura ativa nesta conta de loja.",
+        );
+      }
+    } catch (e) {
+      Alert.alert(
+        "Erro ao Restaurar",
+        "Não foi possível restaurar suas compras. Tente novamente.",
+      );
+    }
   };
 
   const handleSupport = () => {
@@ -610,12 +668,7 @@ export default function ProfileScreen({ navigation }: any) {
 
             <TouchableOpacity
               style={styles.menuOption}
-              onPress={() =>
-                Alert.alert(
-                  "Restaurar",
-                  "Restaurando compras via RevenueCat...",
-                )
-              }
+              onPress={handleRestorePurchases}
             >
               <View style={styles.menuOptionLeft}>
                 <View
@@ -707,6 +760,37 @@ export default function ProfileScreen({ navigation }: any) {
                 value={bypassDailyLock}
               />
             </View>
+
+            {/* BOTÃO PARA TROCAR OU DESCONECTAR DA CONTA GOOGLE */}
+            <TouchableOpacity
+              style={styles.menuOption}
+              onPress={handleSwitchGoogleAccount}
+            >
+              <View style={styles.menuOptionLeft}>
+                <View
+                  style={[styles.menuIconBg, { backgroundColor: "#FDE8E8" }]}
+                >
+                  <FontAwesome5 name="google" size={16} color="#EA4335" />
+                </View>
+
+                <View>
+                  <Text style={styles.menuOptionText}>
+                    Trocar Conta do Google
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: 11,
+                      color: "#60646C",
+                      marginTop: 2,
+                      fontFamily: "Montserrat_400Regular",
+                    }}
+                  >
+                    Força a seleção de e-mail no próximo login
+                  </Text>
+                </View>
+              </View>
+              <FontAwesome5 name="chevron-right" size={14} color="#D1D9E0" />
+            </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.menuOption}

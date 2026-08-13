@@ -29,9 +29,22 @@
     },
     "plugins": [
       "expo-apple-authentication",
-      "@react-native-google-signin/google-signin",
       "expo-image",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./src/assets/icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#1A2F3B"
+        }
+      ],
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.123456789"
+        }
+      ]
     ],
     "extra": {
       "eas": {
