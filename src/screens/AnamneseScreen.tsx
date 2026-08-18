@@ -60,13 +60,15 @@ export default function AnamnesisScreen({ navigation, route }: any) {
 
   const [isPremium, setIsPremium] = useState(false);
 
-  const [loadingMsg, setLoadingMsg] = useState("Iniciando varredura...");
+  const [loadingMsg, setLoadingMsg] = useState(
+    "Iniciando Mapeamento DuoElo...",
+  );
 
   const [userLang, setUserLang] = useState("pt-BR");
   const [isLangModalVisible, setIsLangModalVisible] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
 
-  // Verifica se o parceiro já é conectado ou possui Premium ativo
+  // Verifica se o parceiro já está conectado ou possui Premium ativo
   const isGuestOrHasPartner =
     route?.params?.isPartnerPremium || currentUserData?.partnerId;
 
@@ -130,7 +132,7 @@ export default function AnamnesisScreen({ navigation, route }: any) {
     ).start();
   }, [pulseAnim]);
 
-  // 🔍 VALIDAÇÃO DE USUÁRIO E HERANÇA DE ASSINATURA DO PARCEIRO
+  // 🔍 VALIDAÇÃO DE USUÁRIO, TRAVA DE ANAMNESE E HERANÇA DE ASSINATURA DO PARCEIRO
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       if (user) {
@@ -143,7 +145,6 @@ export default function AnamnesisScreen({ navigation, route }: any) {
 
             let hasActivePremium = Boolean(data.isPremium);
 
-            // 👑 Se o usuário atual não pagou, mas tem parceiro, verifica se o parceiro é Premium
             if (!hasActivePremium && data.partnerId) {
               const partnerSnap = await getDoc(
                 doc(db, "users", data.partnerId),
@@ -152,7 +153,6 @@ export default function AnamnesisScreen({ navigation, route }: any) {
                 const partnerData = partnerSnap.data();
                 if (partnerData.isPremium) {
                   hasActivePremium = true;
-                  // Sincroniza a flag de Premium localmente
                   await setDoc(
                     doc(db, "users", user.uid),
                     { isPremium: true, isPartnerPremium: true },
@@ -163,7 +163,14 @@ export default function AnamnesisScreen({ navigation, route }: any) {
             }
 
             if (hasActivePremium) setIsPremium(true);
-            if (data.hasCompletedAnamnesis) setScreenState("locked");
+
+            // 🔒 TRAVA DE IMUTABILIDADE: A anamnese SÓ trava se o usuário já clicou em Play
+            if (data.hasPressedPlay && data.anamnesisLocked) {
+              setScreenState("locked");
+            } else {
+              setScreenState("intro");
+            }
+
             if (data.language) {
               currentLang = data.language;
               setUserLang(data.language);
@@ -204,7 +211,7 @@ export default function AnamnesisScreen({ navigation, route }: any) {
         const data = docSnap.data();
         loadedQuestions.push({
           id: data.question_id || docSnap.id,
-          title: data.pillar || `Pilar ${data.module_id || 1}`,
+          title: data.pillar || `Eixo de Conexão ${data.module_id || 1}`,
           text:
             data.translations?.[langToFetch] ||
             data.translations?.["pt-BR"] ||
@@ -235,7 +242,7 @@ export default function AnamnesisScreen({ navigation, route }: any) {
                 opt.label ||
                 "Opção",
               score: Number(opt.points ?? opt.score ?? fallbackScore),
-              tag: opt.tag || "geral",
+              tag: opt.tag || "sintonia_geral",
               icon: opt.icon || defaultIcon,
               color: opt.color || defaultColor,
             };
@@ -270,14 +277,13 @@ export default function AnamnesisScreen({ navigation, route }: any) {
 
   const handleStart = () => setScreenState("questions");
 
-  // 🚪 ROTA ALTERNATIVA: PULAR E DEFINIR AVALIAÇÃO COMO CONCLUÍDA (PERFIL PADRÃO)
   const handleSkipAnamnesis = () => {
     showCustomAlert(
       "Seguir com Perfil Padrão? 💍",
-      "Sua avaliação será definida com nosso modelo padrão para liberar seu uso imediatamente.\n\nVocê poderá refazer o diagnóstico personalizado a qualquer momento pelo seu Perfil.",
+      "Seu diagnóstico será definido com o modelo padrão para liberar seu uso imediatamente.\n\nVocê poderá personalizar a avaliação a qualquer momento pelo seu Perfil.",
       "compass",
       "#EAB64A",
-      "Responder Diagnóstico",
+      "Responder Avaliação",
       null,
       "Seguir com Perfil Padrão",
       async () => {
@@ -285,7 +291,6 @@ export default function AnamnesisScreen({ navigation, route }: any) {
         if (userId) {
           setIsSkipping(true);
           try {
-            // 🚀 Marca como CONCLUÍDA (hasCompletedAnamnesis: true) para liberar todas as funções do app
             await setDoc(
               doc(db, "users", userId),
               {
@@ -297,7 +302,6 @@ export default function AnamnesisScreen({ navigation, route }: any) {
               { merge: true },
             );
 
-            // Redireciona para o Match se for o fluxo de convidado, ou para a Home
             if (isGuestOrHasPartner) {
               navigation.navigate("MatchScreen");
             } else {
@@ -313,31 +317,12 @@ export default function AnamnesisScreen({ navigation, route }: any) {
     );
   };
 
-  // 🚪 FECHAR / VOLTAR PARA A HOME COM SEGURANÇA
   const handleSafeClose = () => {
     if (navigation.canGoBack()) {
       navigation.goBack();
     } else {
       navigation.navigate("MainTabs", { screen: "Home" });
     }
-  };
-
-  const handleExitAnamnesis = () => {
-    showCustomAlert(
-      "Interromper Anamnese?",
-      "Este diagnóstico precisa de foco e concentração. Se você sair agora, suas respostas não serão salvas e você precisará reiniciar o questionário.",
-      "exclamation-triangle",
-      "#D96C6C",
-      "Continuar Diagnóstico",
-      null,
-      "Sair e Descartar",
-      () => {
-        setSelectedAnswers([]);
-        setCurrentIndex(0);
-        setScreenState("intro");
-        handleSafeClose();
-      },
-    );
   };
 
   const handleBack = () => {
@@ -486,7 +471,7 @@ export default function AnamnesisScreen({ navigation, route }: any) {
       const q = questionsBank.find((qb) => qb.id === ans.questionId);
       if (!q) return;
 
-      const pillar = ans.pillar || "Geral";
+      const pillar = ans.pillar || "Sintonia e Comunicação";
       if (!pillarStats[pillar]) {
         pillarStats[pillar] = { sumHealth: 0, count: 0 };
       }
@@ -532,7 +517,7 @@ export default function AnamnesisScreen({ navigation, route }: any) {
     calculatedPillars.sort((a, b) => a.health - b.health);
     setPriorityPillars(calculatedPillars);
 
-    setLoadingMsg("Decodificando os pilares da sua relação...");
+    setLoadingMsg("Mapeando os Eixos de Conexão do casal...");
     Animated.timing(loadingProgress, {
       toValue: 100,
       duration: 4000,
@@ -541,15 +526,15 @@ export default function AnamnesisScreen({ navigation, route }: any) {
     }).start();
 
     setTimeout(
-      () => setLoadingMsg("Analisando padrões de comportamento..."),
+      () => setLoadingMsg("Cruzando dinâmicas de presença e escuta..."),
       1200,
     );
     setTimeout(
-      () => setLoadingMsg("Gerando o resultado do seu diagnóstico..."),
+      () => setLoadingMsg("Calculando o Índice de Sintonia DuoElo..."),
       2200,
     );
     setTimeout(
-      () => setLoadingMsg("Desenhando a sua jornada de resgate..."),
+      () => setLoadingMsg("Gerando o mapa de prioridades da jornada..."),
       3200,
     );
 
@@ -568,6 +553,7 @@ export default function AnamnesisScreen({ navigation, route }: any) {
     }).start();
   };
 
+  // 🔒 SALVAMENTO DA AVALIAÇÃO NO FIREBASE (CRIPTOGRAFIA DAS TAGS)
   const saveAssessmentToFirebase = async () => {
     const userId = auth.currentUser?.uid;
     if (!userId) return false;
@@ -578,7 +564,7 @@ export default function AnamnesisScreen({ navigation, route }: any) {
 
       safeAnswers.forEach((ans) => {
         const q = questionsBank.find((qb) => qb.id === ans.questionId);
-        if (q && ans.tag && ans.tag !== "geral") {
+        if (q && ans.tag && ans.tag !== "sintonia_geral") {
           const scores = q.options.map((o: any) => Number(o.score) || 0);
           const qMin = Math.min(...scores);
           const qMax = Math.max(...scores);
@@ -614,7 +600,9 @@ export default function AnamnesisScreen({ navigation, route }: any) {
         hasCompletedAnamnesis: true,
         anamnesisScore: finalTemperature,
         priorityModules:
-          priorityModulesNames.length > 0 ? priorityModulesNames : ["Geral"],
+          priorityModulesNames.length > 0
+            ? priorityModulesNames
+            : ["Sintonia e Comunicação"],
         diagnosticTagsEncrypted: encryptedTags,
         anamnesisScoresEncrypted: encryptedScores,
         anamnesisCompletedAt: new Date().toISOString(),
@@ -628,6 +616,75 @@ export default function AnamnesisScreen({ navigation, route }: any) {
     }
   };
 
+  // 🚀 EXECUTA O CONGELAMENTO IMUTÁVEL AO DAR PLAY
+  const executePlayAction = async () => {
+    setIsSaving(true);
+    try {
+      await saveAssessmentToFirebase();
+
+      const userId = auth.currentUser?.uid;
+      if (userId) {
+        await setDoc(
+          doc(db, "users", userId),
+          {
+            hasPressedPlay: true, // Trava o Play do usuário
+            anamnesisLocked: true, // Congela edições do passado
+            playPressedAt: new Date().toISOString(),
+          },
+          { merge: true },
+        );
+      }
+      navigation.navigate("MainTabs", { screen: "Home" });
+    } catch (error) {
+      console.error("Erro ao registrar Play:", error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // 🧭 VALIDAÇÃO POLIDA E EDUCADA ANTES DE DAR PLAY
+  const handlePressPlayWithValidation = async () => {
+    // 1. Caso o usuário NÃO tenha respondido à anamnese
+    if (
+      !currentUserData?.hasCompletedAnamnesis &&
+      selectedAnswers.length === 0
+    ) {
+      showCustomAlert(
+        "A Bússola do seu Relacionamento 💍",
+        "Para criarmos uma jornada realmente única e personalizada para vocês, é fundamental mapearmos a sintonia do seu casal primeiro.\n\nResponder à avaliação leva menos de 2 minutos e garante que as missões diárias atuem exatamente onde vocês mais precisam.\n\nDeseja responder agora para gerar sua trilha sob medida?",
+        "heartbeat",
+        "#202D3A",
+        "Responder Mapeamento Agora",
+        () => setScreenState("questions"),
+        "Iniciar com Perfil Padrão",
+        async () => {
+          await handleSaveAndSkip();
+        },
+      );
+      return;
+    }
+
+    // 2. Caso tenha feito a anamnese, mas NÃO possua parceiro (Modo Solo)
+    if (!currentUserData?.partnerId) {
+      showCustomAlert(
+        "A Jornada Fica Melhor a Dois! ❤️",
+        "O DuoElo foi desenhado para criar pontes de cumplicidade e transformar o cotidiano do casal em uma experiência compartilhada.\n\nConvidar o seu amor agora desbloqueia a dinâmica de missões cruzadas, onde cada gesto responde exatamente ao que o outro necessita.\n\nQue tal enviar um convite especial para o seu amor antes de darmos o Play?",
+        "user-friends",
+        "#EAB64A",
+        "Enviar Convite para Meu Amor",
+        () => navigation.navigate("InvitePartnerScreen"),
+        "Continuar no Modo Solo por Enquanto",
+        async () => {
+          await executePlayAction();
+        },
+      );
+      return;
+    }
+
+    // 3. Anamnese ok + Parceiro conectado -> Confirma e trava o Play
+    await executePlayAction();
+  };
+
   const handleGoToPaywall = async () => {
     if (isSaving) return;
     setIsSaving(true);
@@ -638,10 +695,7 @@ export default function AnamnesisScreen({ navigation, route }: any) {
 
   const handleFinishFree = async () => {
     if (isSaving) return;
-    setIsSaving(true);
-    await saveAssessmentToFirebase();
-    setIsSaving(false);
-    navigation.navigate("MainTabs", { screen: "Home" });
+    await handlePressPlayWithValidation();
   };
 
   const handleSaveAndSkip = async () => {
@@ -682,33 +736,25 @@ export default function AnamnesisScreen({ navigation, route }: any) {
       >
         <FontAwesome5 name="lock" size={50} color="#2C3E50" />
       </Animated.View>
-      <Text style={styles.introTitle}>Avaliação Concluída</Text>
+      <Text style={styles.introTitle}>Jornada Ativa & Congelada 🔐</Text>
       <Text style={styles.introText}>
-        Sua avaliação já foi registrada no aplicativo. Você pode refazer o
-        diagnóstico se quiser atualizar suas respostas!
+        Sua avaliação foi registrada e seu Play foi ativado. As respostas estão
+        congeladas para manter a integridade da sua Jornada de 90 Dias.
       </Text>
+
       <TouchableOpacity
         style={[styles.primaryBtn, { paddingHorizontal: 40, marginBottom: 12 }]}
         activeOpacity={0.8}
-        onPress={() => setScreenState("intro")}
-      >
-        <FontAwesome5 name="redo" size={16} color="#FFF" />
-        <Text style={styles.primaryBtnText}>Refazer Avaliação</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={styles.skipBtn}
-        activeOpacity={0.7}
         onPress={() => navigation.navigate("MainTabs", { screen: "Home" })}
       >
-        <Text style={styles.skipBtnText}>Voltar para o Início</Text>
+        <FontAwesome5 name="home" size={16} color="#FFF" />
+        <Text style={styles.primaryBtnText}>Voltar para a Home</Text>
       </TouchableOpacity>
     </View>
   );
 
   const renderIntro = () => (
     <View style={styles.centerContainer}>
-      {/* BOTÃO X PARA SAIR NAVEGANDO COM SEGURANÇA */}
       <TouchableOpacity
         style={styles.floatingCloseBtn}
         onPress={handleSafeClose}
@@ -730,17 +776,16 @@ export default function AnamnesisScreen({ navigation, route }: any) {
         <FontAwesome5 name="heartbeat" size={70} color="#67D4A8" />
       </Animated.View>
 
-      <Text style={styles.introTitle}>Diagnóstico Inicial da Relação 💍</Text>
+      <Text style={styles.introTitle}>Mapeamento de Sintonia DuoElo 💍</Text>
       <Text style={styles.introText}>
-        Este rápido passo é o{" "}
+        Esta etapa é a{" "}
         <Text style={{ fontFamily: "Montserrat_700Bold", color: "#EAB64A" }}>
-          coração do seu processo
+          bússola da sua jornada
         </Text>
-        . Responder a este questionário determina a sequência exata de missões e
-        dinâmicas para o casal no seu momento atual.
+        . O mapeamento identifica a intensidade ideal e a ordem de missões para
+        o momento atual do casal.
       </Text>
 
-      {/* BOTÃO PRINCIPAL COM PULSE ANIMATION */}
       <Animated.View
         style={{ width: "100%", transform: [{ scale: pulseAnim }] }}
       >
@@ -750,12 +795,11 @@ export default function AnamnesisScreen({ navigation, route }: any) {
           onPress={handleStart}
           disabled={questionsBank.length === 0}
         >
-          <Text style={styles.primaryBtnText}>Iniciar Diagnóstico (2 min)</Text>
+          <Text style={styles.primaryBtnText}>Iniciar Mapeamento (2 min)</Text>
           <FontAwesome5 name="arrow-right" size={18} color="#FFF" />
         </TouchableOpacity>
       </Animated.View>
 
-      {/* SUBTEXTO EXATO SOLICITADO */}
       <TouchableOpacity
         style={styles.skipBtn}
         activeOpacity={0.7}
@@ -917,7 +961,7 @@ export default function AnamnesisScreen({ navigation, route }: any) {
             <FontAwesome5 name="brain" size={40} color="#202D3A" />
           </View>
         </Animated.View>
-        <Text style={styles.calcTitle}>Avaliando Conexão</Text>
+        <Text style={styles.calcTitle}>Analisando Sintonia</Text>
 
         <View style={styles.loadingBarContainer}>
           <Animated.View style={[styles.loadingBarFill, { width: barWidth }]} />
@@ -934,19 +978,19 @@ export default function AnamnesisScreen({ navigation, route }: any) {
     let tempColor = "";
 
     if (finalTemperature < 40) {
-      resultTitle = "Distanciamento Emocional ❄️";
+      resultTitle = "Conexão em Pausa ❄️";
       resultDesc =
-        "A rotina esfriou a relação. Mas a base do amor ainda está aí, esperando para ser nutrida e reconectada através da jornada.";
+        "A rotina acabou distanciando vocês. O amor permanece, mas precisa de pequenos gestos diários sem pressão para reaproximar o casal.";
       tempColor = "#2C3E50";
     } else if (finalTemperature < 75) {
-      resultTitle = "Morno, com Grande Potencial 🌥️";
+      resultTitle = "Modo Automático ms 🌥️";
       resultDesc =
-        "Vocês têm uma base sólida, mas caíram no modo automático. A jornada de 90 dias vai reacender essa chama com tranquilidade.";
+        "Vocês possuem uma base forte, mas entraram no piloto automático. A jornada de 90 dias traz os estímulos certos para reacender o diálogo.";
       tempColor = "#EAB64A";
     } else {
-      resultTitle = "Conexão Segura e Forte 🌿";
+      resultTitle = "Conexão Ativa 🌿";
       resultDesc =
-        "Incrível! Vocês têm uma sintonia rara. A jornada será perfeita para blindar essa relação contra qualquer crise.";
+        "Sintonia admirável! Vocês mantêm a cumplicidade acesa. A jornada será o escudo perfeito para blindar a relação contra o desgaste.";
       tempColor = "#67D4A8";
     }
 
@@ -957,7 +1001,7 @@ export default function AnamnesisScreen({ navigation, route }: any) {
 
     return (
       <View style={styles.resultContainer}>
-        <Text style={styles.resultHeader}>Sua Temperatura:</Text>
+        <Text style={styles.resultHeader}>Índice de Sintonia DuoElo:</Text>
 
         <View style={styles.thermometerWrapper}>
           <View style={styles.thermometerGlass}>
@@ -985,22 +1029,23 @@ export default function AnamnesisScreen({ navigation, route }: any) {
           <View style={styles.riskHeader}>
             <FontAwesome5 name="chart-line" size={16} color={tempColor} />
             <Text style={[styles.riskTitle, { color: tempColor }]}>
-              Risco Estatístico: {finalRisk}%
+              Risco Estatístico de Afastamento: {finalRisk}%
             </Text>
           </View>
           <Text style={styles.riskText}>
-            Baseado em análises e padrões clínicos, seu cenário atual apresenta{" "}
+            Com base em análises de comportamento de casais, o cenário atual
+            indica{" "}
             <Text style={{ fontFamily: "Montserrat_700Bold" }}>
               {finalRisk}% de risco de afastamento
             </Text>{" "}
-            no longo prazo se não for cuidado.
+            no longo prazo caso o diálogo não receba atenção contínua.
           </Text>
         </View>
 
         <View style={styles.hopeBox}>
           <FontAwesome5 name="seedling" size={22} color="#202D3A" />
           <Text style={styles.hopeText}>
-            Com base no seu diagnóstico, estruturamos a{" "}
+            Com base no seu mapeamento, organizamos a{" "}
             <Text
               style={{ fontFamily: "Montserrat_700Bold", color: "#202D3A" }}
             >
@@ -1029,7 +1074,7 @@ export default function AnamnesisScreen({ navigation, route }: any) {
               ) : (
                 <>
                   <FontAwesome5 name="play" size={18} color="#FFF" />
-                  <Text style={styles.paywallBtnText}>Começar a Jornada</Text>
+                  <Text style={styles.paywallBtnText}>Dar Play na Jornada</Text>
                 </>
               )}
             </TouchableOpacity>

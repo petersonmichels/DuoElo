@@ -6,7 +6,7 @@ import {
   getDocs,
   query,
   setDoc,
-  where,
+  where
 } from "firebase/firestore";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -24,7 +24,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { auth, db } from "../config/firebase";
-import { decryptData, generateVaultKey } from "../utils/security";
+import { decryptData, encryptData, generateVaultKey } from "../utils/security";
 
 const { width } = Dimensions.get("window");
 
@@ -92,6 +92,7 @@ export default function MissionExecutionScreen({
       const userId = auth.currentUser?.uid;
       if (userId) {
         try {
+          // 🔒 Referência Válida (2 segmentos: coleção/documento)
           const snap = await getDoc(doc(db, "users", userId));
           if (isMounted && snap.exists()) {
             const data = snap.data();
@@ -133,6 +134,8 @@ export default function MissionExecutionScreen({
             mission.displayPhase ||
             mission.day ||
             mission.week;
+
+          // 🔒 Referência de Subcoleção Válida (3 segmentos para query)
           const q = query(
             collection(db, "users", uid, "journals"),
             where("phase", "==", phaseToFetch),
@@ -222,15 +225,11 @@ export default function MissionExecutionScreen({
       if (!isReviewMode) {
         const userId = auth.currentUser?.uid;
         if (userId) {
-          try {
-            await setDoc(
-              doc(db, "users", userId),
-              { currentTaskStep: nextStep },
-              { merge: true },
-            );
-          } catch (e) {
-            console.log("Erro ao salvar state da task", e);
-          }
+          setDoc(
+            doc(db, "users", userId),
+            { currentTaskStep: nextStep },
+            { merge: true },
+          ).catch((e) => console.log("Erro ao salvar state da task", e));
         }
       }
 
@@ -257,7 +256,29 @@ export default function MissionExecutionScreen({
   const handleFinish = async () => {
     if (isFinishing) return;
     setIsFinishing(true);
-    await onComplete(journalEntry);
+
+    try {
+      const uid = auth.currentUser?.uid;
+      let finalJournalToSave = journalEntry;
+
+      // 🔐 CRIPTOGRAFIA AUTOMÁTICA DO DIÁRIO ANTES DE COMPLETAR
+      if (uid && journalEntry.trim().length > 0) {
+        const userDoc = await getDoc(doc(db, "users", uid));
+        const pId = userDoc.data()?.partnerId;
+        const vaultKey = pId
+          ? generateVaultKey(uid, pId)
+          : generateVaultKey(uid, uid);
+
+        finalJournalToSave = encryptData(journalEntry, vaultKey);
+      }
+
+      await onComplete(finalJournalToSave);
+    } catch (e) {
+      console.error("Erro ao finalizar missão:", e);
+      await onComplete(journalEntry);
+    } finally {
+      setIsFinishing(false);
+    }
   };
 
   if (loading) {

@@ -1,9 +1,16 @@
 import { FontAwesome5 } from "@expo/vector-icons";
-import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import { useFocusEffect } from "@react-navigation/native";
+import Constants, { ExecutionEnvironment } from "expo-constants";
 import * as ImagePicker from "expo-image-picker";
 import { deleteUser, sendEmailVerification, signOut } from "firebase/auth";
-import { deleteDoc, doc, onSnapshot, setDoc } from "firebase/firestore";
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDocs,
+  onSnapshot,
+  setDoc,
+} from "firebase/firestore";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -25,6 +32,13 @@ import {
 import Purchases from "react-native-purchases";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { auth, db } from "../config/firebase";
+
+// 🚫 Detecta se está rodando dentro do Expo Go
+const isExpoGo =
+  Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+
+// 🔒 Desativa tentativa de require no Expo Go para não disparar exceção nativa do TurboModule
+let GoogleSignin: any = null;
 
 export default function ProfileScreen({ navigation }: any) {
   const [userData, setUserData] = useState<any>(null);
@@ -286,22 +300,24 @@ export default function ProfileScreen({ navigation }: any) {
     }
   };
 
-  // 🌐 DESCONECTAR / LIMPAR SESSÃO DO GOOGLE
+  // 🌐 DESCONECTAR DA CONTA GOOGLE
   const handleSwitchGoogleAccount = () => {
     Alert.alert(
       "Trocar Conta Google",
-      "Deseja desconectar a conta do Google atual para poder escolher outro e-mail no próximo login?",
+      "Deseja desconectar a conta atual do Google para escolher outro e-mail?",
       [
         { text: "Cancelar", style: "cancel" },
         {
           text: "Sim, Desconectar Google",
           onPress: async () => {
             try {
-              await GoogleSignin.signOut();
+              if (GoogleSignin && typeof GoogleSignin.signOut === "function") {
+                await GoogleSignin.signOut();
+              }
               await signOut(auth);
               Alert.alert(
                 "Conta Desconectada 🌐",
-                "Sua sessão do Google foi encerrada. No próximo acesso você poderá escolher outra conta.",
+                "Sua sessão foi encerrada. No próximo acesso você poderá escolher outra conta.",
               );
             } catch (e) {
               await signOut(auth);
@@ -312,6 +328,7 @@ export default function ProfileScreen({ navigation }: any) {
     );
   };
 
+  // 🚪 LOGOUT DA CONTA
   const handleLogout = () => {
     Alert.alert("Sair da Conta", "Tem certeza de que deseja sair?", [
       { text: "Cancelar", style: "cancel" },
@@ -320,9 +337,11 @@ export default function ProfileScreen({ navigation }: any) {
         style: "destructive",
         onPress: async () => {
           try {
-            try {
-              await GoogleSignin.signOut();
-            } catch (e) {}
+            if (GoogleSignin && typeof GoogleSignin.signOut === "function") {
+              try {
+                await GoogleSignin.signOut();
+              } catch (e) {}
+            }
             await signOut(auth);
           } catch (error) {
             console.error("Erro ao deslogar:", error);
@@ -332,10 +351,11 @@ export default function ProfileScreen({ navigation }: any) {
     ]);
   };
 
+  // 🗑️ EXCLUSÃO PERMANENTE DA CONTA
   const handleDeleteAccount = () => {
     Alert.alert(
       "Excluir Conta Permanentemente",
-      "⚠️ Atenção: Esta ação é irreversível. Deseja continuar?",
+      "⚠️ Atenção: Esta ação apagará todos os seus dados e diários de bordo permanentemente. Deseja continuar?",
       [
         { text: "Cancelar", style: "cancel" },
         {
@@ -346,17 +366,36 @@ export default function ProfileScreen({ navigation }: any) {
               setLoading(true);
               const user = auth.currentUser;
               if (user) {
+                // 1. Desconecta do parceiro e restaura estado
                 if (userData?.partnerId) {
                   await setDoc(
                     doc(db, "users", userData.partnerId),
-                    { partnerId: null },
+                    { partnerId: null, isSoloMode: false },
                     { merge: true },
                   );
                 }
+
+                // 2. Apaga subcoleção de diários do usuário
+                const journalsSnap = await getDocs(
+                  collection(db, "users", user.uid, "journals"),
+                );
+                const deletePromises = journalsSnap.docs.map((d) =>
+                  deleteDoc(d.ref),
+                );
+                await Promise.all(deletePromises);
+
+                // 3. Exclui documento principal e do auth
                 await deleteDoc(doc(db, "users", user.uid));
-                try {
-                  await GoogleSignin.signOut();
-                } catch (e) {}
+
+                if (
+                  GoogleSignin &&
+                  typeof GoogleSignin.signOut === "function"
+                ) {
+                  try {
+                    await GoogleSignin.signOut();
+                  } catch (e) {}
+                }
+
                 await deleteUser(user);
               }
             } catch (error: any) {
@@ -364,7 +403,12 @@ export default function ProfileScreen({ navigation }: any) {
               if (error.code === "auth/requires-recent-login") {
                 Alert.alert(
                   "Segurança",
-                  "Para excluir sua conta, faça login novamente para confirmar sua identidade.",
+                  "Para excluir sua conta por motivos de segurança, faça login novamente e repita a operação.",
+                );
+              } else {
+                Alert.alert(
+                  "Erro ao Excluir",
+                  "Não foi possível apagar a conta no momento. Tente novamente mais tarde.",
                 );
               }
             }
@@ -761,7 +805,6 @@ export default function ProfileScreen({ navigation }: any) {
               />
             </View>
 
-            {/* BOTÃO PARA TROCAR OU DESCONECTAR DA CONTA GOOGLE */}
             <TouchableOpacity
               style={styles.menuOption}
               onPress={handleSwitchGoogleAccount}

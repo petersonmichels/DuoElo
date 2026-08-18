@@ -3,7 +3,6 @@ import * as Clipboard from "expo-clipboard";
 import {
   collection,
   doc,
-  getDoc,
   getDocs,
   onSnapshot,
   query,
@@ -98,6 +97,7 @@ export default function MatchScreen({ navigation }: any) {
     return () => unsubscribe();
   }, [currentUid]);
 
+  // 🔍 HERANÇA AUTOMÁTICA DE ASSINATURA E LEITURA DO PARCEIRO
   useEffect(() => {
     if (userData && userData.partnerId) {
       const unsubscribePartner = onSnapshot(
@@ -176,14 +176,28 @@ export default function MatchScreen({ navigation }: any) {
             try {
               await setDoc(
                 doc(db, "users", currentUid),
-                { partnerId: null, matchStatus: "disconnected" },
+                {
+                  partnerId: null,
+                  matchStatus: "disconnected",
+                  isSoloMode: false,
+                  myTrail: null,
+                  isReadyToStart: false,
+                  hasPressedPlay: false,
+                },
                 { merge: true },
               );
 
               if (partnerUid) {
                 await setDoc(
                   doc(db, "users", partnerUid),
-                  { partnerId: null, matchStatus: "disconnected" },
+                  {
+                    partnerId: null,
+                    matchStatus: "disconnected",
+                    isSoloMode: false,
+                    myTrail: null,
+                    isReadyToStart: false,
+                    hasPressedPlay: false,
+                  },
                   { merge: true },
                 );
               }
@@ -327,61 +341,37 @@ export default function MatchScreen({ navigation }: any) {
 
       const userRef = doc(db, "users", currentUser.uid);
 
-      const unsubscribe = onSnapshot(userRef, async (snapshot) => {
-        const updatedData = snapshot.data();
-
-        if (updatedData && updatedData.partnerId) {
-          unsubscribe();
-
-          let isCouplePremium = Boolean(updatedData.isPremium);
-
-          if (!isCouplePremium && updatedData.partnerId) {
-            const partnerSnap = await getDoc(
-              doc(db, "users", updatedData.partnerId),
-            );
-            if (partnerSnap.exists() && partnerSnap.data()?.isPremium) {
-              isCouplePremium = true;
-              await setDoc(
-                userRef,
-                { isPremium: true, isPartnerPremium: true },
-                { merge: true },
-              );
-            }
-          }
-
-          setIsMatching(false);
-
-          showCustomAlert(
-            "Match Realizado! ❤️",
-            "Vocês foram conectados com sucesso!",
-            "heart",
-            "#67D4A8",
-            () => {
-              if (isCouplePremium && navigation) {
-                navigation.reset({
-                  index: 0,
-                  routes: [
-                    {
-                      name: "MainTabs",
-                      state: { routes: [{ name: "Home" }] },
-                    },
-                  ],
-                });
-              } else if (navigation) {
-                navigation.reset({
-                  index: 0,
-                  routes: [{ name: "PaywallScreen" }],
-                });
-              }
-            },
-          );
-        }
-      });
-
-      await setDoc(userRef, { linkedInviteCode: codeToLink }, { merge: true });
+      // 🔗 VINCULA O PARCEIRO, LIMPA TRILHA SOLO ANTERIOR E RESETA O STATUS DE PLAY
+      await setDoc(
+        userRef,
+        {
+          linkedInviteCode: codeToLink,
+          isSoloMode: false,
+          isReadyToStart: false,
+          hasPressedPlay: false,
+          myTrail: null,
+        },
+        { merge: true },
+      );
 
       setInviteCodeInput("");
       setPendingMatchPartner(null);
+      setIsMatching(false);
+
+      showCustomAlert(
+        "Match Realizado! ❤️",
+        "Vocês foram conectados com sucesso! Agora voltem para a Home e deem o Play juntos para liberar a trilha sincronizada.",
+        "heart",
+        "#67D4A8",
+        () => {
+          navigation.reset({
+            index: 0,
+            routes: [
+              { name: "MainTabs", state: { routes: [{ name: "Home" }] } },
+            ],
+          });
+        },
+      );
     } catch (error: any) {
       console.error("Erro ao solicitar o match no Firestore:", error);
       showCustomAlert(

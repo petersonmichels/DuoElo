@@ -34,7 +34,7 @@ export default function RegisterScreen({ navigation }: any) {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  // ESTADO DE ALERTAS PERSONALIZADOS (ESTILO BOTTOMSHEET)
+  // ESTADO DE ALERTAS PERSONALIZADOS
   const [customAlert, setCustomAlert] = useState({
     visible: false,
     title: "",
@@ -104,7 +104,7 @@ export default function RegisterScreen({ navigation }: any) {
     setIsLoading(true);
 
     try {
-      // 1. Verifica se o @username já está em uso no Firestore
+      // 1. Verifica se o @username já está em uso
       const usernameQuery = query(
         collection(db, "users"),
         where("username", "==", cleanUsername),
@@ -133,7 +133,7 @@ export default function RegisterScreen({ navigation }: any) {
       );
       const uid = userCredential.user.uid;
 
-      // 4. Cria o documento oficial no Firestore com todos os dados padrão do DuoElo
+      // 4. Cria o documento oficial no Firestore
       const myGeneratedCode = uid.substring(0, 6).toUpperCase();
       const userDataToSave: any = {
         email: cleanEmail,
@@ -151,11 +151,10 @@ export default function RegisterScreen({ navigation }: any) {
 
       await setDoc(doc(db, "users", uid), userDataToSave, { merge: true });
 
-      // 5. Envia o e-mail de verificação oficial do Firebase
+      // 5. Envia e-mail de verificação oficial do Firebase
       await sendEmailVerification(userCredential.user);
 
-      // 6. Libera a trava de segurança e desloga o usuário para fazê-lo confirmar o e-mail
-      if (authControls) authControls.isCreatingAccount = false;
+      // 6. Desloga para exigir verificação
       await signOut(auth);
 
       showCustomAlert(
@@ -167,7 +166,6 @@ export default function RegisterScreen({ navigation }: any) {
         () => navigation.goBack(),
       );
     } catch (error: any) {
-      if (authControls) authControls.isCreatingAccount = false;
       let errorMessage = "Ocorreu um erro ao tentar criar a conta.";
 
       if (error.code === "auth/email-already-in-use") {
@@ -186,6 +184,7 @@ export default function RegisterScreen({ navigation }: any) {
         "#D96C6C",
       );
     } finally {
+      if (authControls) authControls.isCreatingAccount = false;
       setIsLoading(false);
     }
   };
@@ -213,7 +212,6 @@ export default function RegisterScreen({ navigation }: any) {
           </View>
 
           <View style={styles.formContainer}>
-            {/* CAMPO DE USERNAME */}
             <View style={styles.inputGroup}>
               <FontAwesome5
                 name="at"
@@ -232,7 +230,6 @@ export default function RegisterScreen({ navigation }: any) {
               />
             </View>
 
-            {/* CAMPO DE E-MAIL */}
             <View style={styles.inputGroup}>
               <FontAwesome5
                 name="envelope"
@@ -252,7 +249,6 @@ export default function RegisterScreen({ navigation }: any) {
               />
             </View>
 
-            {/* CAMPO DE SENHA */}
             <View style={styles.inputGroup}>
               <FontAwesome5
                 name="lock"
@@ -310,7 +306,6 @@ export default function RegisterScreen({ navigation }: any) {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* MODAL DE ALERTAS PERSONALIZADOS */}
       <Modal visible={customAlert.visible} transparent animationType="slide">
         <View style={styles.bottomSheetOverlay}>
           <View style={styles.bottomSheetContainer}>
@@ -361,7 +356,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 30,
-    justifyContent: "center", // Corrigido erro de sintaxe 'justify.Content'
+    justifyContent: "center",
     paddingVertical: 40,
   },
   header: {
@@ -472,7 +467,6 @@ const styles = StyleSheet.create({
     fontFamily: "Montserrat_700Bold",
     textDecorationLine: "underline",
   },
-
   bottomSheetOverlay: {
     flex: 1,
     backgroundColor: "rgba(32,45,58,0.6)",

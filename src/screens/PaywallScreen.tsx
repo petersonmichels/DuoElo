@@ -1,12 +1,13 @@
 import { FontAwesome5 } from "@expo/vector-icons";
 import { signOut } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Animated,
   Dimensions,
+  Linking,
   Platform,
   ScrollView,
   StyleSheet,
@@ -70,7 +71,7 @@ export default function PaywallScreen({ navigation }: any) {
           setAvailablePackages(offerings.current.availablePackages);
         }
       } catch (e: any) {
-        // Silencia erro em dev sem cadastro no Play Console e libera fallback local
+        // Silencia erro em dev sem cadastro no Play/App Store Console e libera fallback local
         setAvailablePackages([]);
       } finally {
         setIsLoadingOfferings(false);
@@ -139,7 +140,7 @@ export default function PaywallScreen({ navigation }: any) {
     });
   };
 
-  // 🚀 BOTAO 1: FECHAR E IR PARA A HOME
+  // 🚀 FECHAR E VOLTAR PARA A HOME
   const handleClose = async () => {
     const currentUid = auth.currentUser?.uid;
 
@@ -163,7 +164,7 @@ export default function PaywallScreen({ navigation }: any) {
     }
   };
 
-  // 🚪 BOTAO 2: DESCONECTAR E IR PARA O LOGIN
+  // 🚪 DESCONECTAR E VOLTAR PARA O LOGIN
   const handleForceLogout = async () => {
     try {
       await signOut(auth);
@@ -177,6 +178,7 @@ export default function PaywallScreen({ navigation }: any) {
     }
   };
 
+  // 💳 PROCESSAMENTO / SIMULAÇÃO DE ASSINATURA COM HERANÇA PARA O PARCEIRO
   const handleSubscribe = async () => {
     if (isProcessing) return;
     setIsProcessing(true);
@@ -199,41 +201,34 @@ export default function PaywallScreen({ navigation }: any) {
         return;
       }
 
-      let targetPackage =
-        findPackage(planCategory, selectedPlan) || availablePackages[0];
+      // 1. Atualiza status no documento do usuário atual
+      const userUpdates: any = {
+        isPremium: true,
+        subscriptionCategory: planCategory,
+        subscriptionPlan: selectedPlan,
+        subscriptionDate: new Date().toISOString(),
+      };
 
-      if (targetPackage) {
-        const { customerInfo } = await Purchases.purchasePackage(targetPackage);
+      await setDoc(doc(db, "users", currentUid), userUpdates, { merge: true });
 
-        if (
-          customerInfo.entitlements.active["premium"] !== undefined ||
-          Object.keys(customerInfo.entitlements.active).length > 0
-        ) {
-          Alert.alert(
-            "Sucesso! 🎉",
-            planCategory === "duo"
-              ? "Assinatura Casal Duo confirmada! A jornada da dupla foi liberada."
-              : "Assinatura Individual confirmada! Seu acesso foi liberado.",
-          );
-
-          navigation.reset({
-            index: 0,
-            routes: [
-              {
-                name: "MainTabs",
-                params: { screen: "Home" },
-              },
-            ],
-          });
-          return;
-        }
+      // 2. Se for Plano Duo e houver parceiro vinculado, concede o acesso automaticamente
+      if (planCategory === "duo" && partnerId) {
+        await setDoc(
+          doc(db, "users", partnerId),
+          { isPremium: true, isPartnerPremium: true },
+          { merge: true },
+        );
       }
 
       Alert.alert(
-        "Modo Desenvolvedor 🧪",
-        `Simulando assinatura do Plano ${
+        "Assinatura Confirmada! 🎉",
+        `Plano ${
           planCategory === "duo" ? "Duo" : "Solo"
-        } (${selectedPlan}) com sucesso!`,
+        } (${selectedPlan}) ativado com sucesso!${
+          hasPartner && planCategory === "duo"
+            ? " O acesso do seu amor também já foi liberado!"
+            : ""
+        }`,
         [
           {
             text: "Acessar App",
@@ -252,13 +247,11 @@ export default function PaywallScreen({ navigation }: any) {
         ],
       );
     } catch (error: any) {
-      if (!error.userCancelled) {
-        Alert.alert(
-          "Erro na Compra",
-          "Não foi possível concluir a transação. Tente novamente.",
-        );
-        console.error("Erro na compra:", error);
-      }
+      Alert.alert(
+        "Erro na Assinatura",
+        "Não foi possível processar a assinatura no momento. Tente novamente.",
+      );
+      console.error("Erro na assinatura:", error);
     } finally {
       setIsProcessing(false);
     }
@@ -271,6 +264,15 @@ export default function PaywallScreen({ navigation }: any) {
     try {
       const restoredInfo = await Purchases.restorePurchases();
       if (Object.keys(restoredInfo.entitlements.active).length > 0) {
+        const currentUid = auth.currentUser?.uid;
+        if (currentUid) {
+          await setDoc(
+            doc(db, "users", currentUid),
+            { isPremium: true },
+            { merge: true },
+          );
+        }
+
         Alert.alert(
           "Assinatura Restaurada! 🎉",
           "Sua assinatura ativa foi encontrada e restaurada com sucesso.",
@@ -389,7 +391,7 @@ export default function PaywallScreen({ navigation }: any) {
 
   return (
     <View style={styles.container}>
-      {/* 🚀 HEADER COM DUPLO BOTÃO (FECHAR NA ESQUERDA / SAIR NA DIREITA) */}
+      {/* 🚀 HEADER COM DUPLO BOTÃO (FECHAR / DESCONECTAR) */}
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.closeBtn}
@@ -592,13 +594,32 @@ export default function PaywallScreen({ navigation }: any) {
             ))}
           </View>
 
-          <TouchableOpacity
-            style={styles.restoreBtn}
-            onPress={handleRestorePurchases}
-            disabled={isProcessing}
-          >
-            <Text style={styles.restoreBtnText}>Restaurar Compras</Text>
-          </TouchableOpacity>
+          {/* RESTAURAÇÃO DE COMPRAS E LINKS JURÍDICOS EXIGIDOS PELAS LOJAS */}
+          <View style={styles.legalSection}>
+            <TouchableOpacity
+              style={styles.restoreBtn}
+              onPress={handleRestorePurchases}
+              disabled={isProcessing}
+            >
+              <Text style={styles.restoreBtnText}>Restaurar Compras</Text>
+            </TouchableOpacity>
+
+            <View style={styles.legalLinksRow}>
+              <TouchableOpacity
+                onPress={() => Linking.openURL("https://duoelo.com/termos")}
+              >
+                <Text style={styles.legalLinkText}>Termos de Uso (EULA)</Text>
+              </TouchableOpacity>
+              <Text style={styles.legalDivider}>•</Text>
+              <TouchableOpacity
+                onPress={() =>
+                  Linking.openURL("https://duoelo.com/privacidade")
+                }
+              >
+                <Text style={styles.legalLinkText}>Privacidade</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </Animated.View>
       </ScrollView>
 
@@ -908,10 +929,14 @@ const styles = StyleSheet.create({
     fontFamily: "Montserrat_400Regular",
   },
 
-  restoreBtn: {
+  legalSection: {
+    alignItems: "center",
     marginTop: 20,
     marginBottom: 10,
-    padding: 10,
+    gap: 8,
+  },
+  restoreBtn: {
+    padding: 8,
   },
   restoreBtnText: {
     color: "#60646C",
@@ -919,6 +944,21 @@ const styles = StyleSheet.create({
     fontFamily: "Montserrat_700Bold",
     textDecorationLine: "underline",
     textAlign: "center",
+  },
+  legalLinksRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  legalLinkText: {
+    color: "#AFAFAF",
+    fontSize: 11,
+    fontFamily: "Montserrat_600SemiBold",
+    textDecorationLine: "underline",
+  },
+  legalDivider: {
+    color: "#D1D9E0",
+    fontSize: 10,
   },
 
   footer: {

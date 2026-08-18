@@ -108,6 +108,13 @@ export default function InvitePartnerScreen({ navigation }: any) {
       const currentUid = auth.currentUser?.uid;
       if (currentUid) {
         try {
+          // Desativa o modo solo e vincula como casal ativo
+          await setDoc(
+            doc(db, "users", currentUid),
+            { isSoloMode: false },
+            { merge: true },
+          );
+
           const userSnap = await getDoc(doc(db, "users", currentUid));
           const userData = userSnap.data();
 
@@ -398,8 +405,6 @@ const styles = StyleSheet.create({
     zIndex: 10,
     padding: 10,
   },
-
-  // HEADER & AVATARES
   headerSection: {
     alignItems: "center",
     marginTop: 10,
@@ -451,8 +456,6 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     paddingHorizontal: 15,
   },
-
-  // WORKFLOW CARD
   workflowCard: {
     backgroundColor: "#FFFFFF",
     borderRadius: 24,
@@ -530,8 +533,6 @@ const styles = StyleSheet.create({
   stepTextInactive: {
     color: "#60646C",
   },
-
-  // ACTIONS
   actionSection: {
     width: "100%",
     alignItems: "center",

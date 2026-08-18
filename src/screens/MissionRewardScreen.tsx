@@ -15,9 +15,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 const { width } = Dimensions.get("window");
 
 export default function MissionRewardScreen({ navigation, route }: any) {
-  const earnedPE = route?.params?.earnedPE || 50;
-  const currentDay90 = route?.params?.currentDay90 || 1;
-  const cupidProgress = route?.params?.cupidProgress || 1;
+  // Tratamento seguro de parâmetros numéricos
+  const earnedPE = Number(route?.params?.earnedPE) || 50;
+  const currentDay90 = Number(route?.params?.currentDay90) || 1;
+  const cupidProgress = Number(route?.params?.cupidProgress) || 1;
   const cupidTotal = 3;
 
   const isCupidAwake = cupidProgress >= cupidTotal;
@@ -31,6 +32,7 @@ export default function MissionRewardScreen({ navigation, route }: any) {
   const popAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    // Entradas suaves de tela
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -45,23 +47,24 @@ export default function MissionRewardScreen({ navigation, route }: any) {
       }),
     ]).start();
 
-    setTimeout(() => {
-      Animated.stagger(300, [
+    // Animação escalonada das barras de progresso (Gamificação)
+    const timeout = setTimeout(() => {
+      Animated.stagger(250, [
         Animated.timing(bar1Anim, {
           toValue: 100,
-          duration: 800,
+          duration: 700,
           easing: Easing.out(Easing.cubic),
           useNativeDriver: false,
         }),
         Animated.timing(bar2Anim, {
           toValue: 100,
-          duration: 800,
+          duration: 700,
           easing: Easing.out(Easing.cubic),
           useNativeDriver: false,
         }),
         Animated.timing(bar3Anim, {
           toValue: cupidPercentage,
-          duration: 800,
+          duration: 700,
           easing: Easing.out(Easing.cubic),
           useNativeDriver: false,
         }),
@@ -72,7 +75,9 @@ export default function MissionRewardScreen({ navigation, route }: any) {
           useNativeDriver: true,
         }),
       ]).start();
-    }, 500);
+    }, 400);
+
+    return () => clearTimeout(timeout);
   }, [cupidPercentage]);
 
   const bar1Width = bar1Anim.interpolate({
@@ -117,6 +122,7 @@ export default function MissionRewardScreen({ navigation, route }: any) {
           <Text style={styles.heroTitle}>+{earnedPE} Bonds!</Text>
 
           <View style={styles.card}>
+            {/* MISSÃO DIÁRIA */}
             <View style={styles.missionItem}>
               <Text style={styles.missionLabel}>Missão Diária Concluída</Text>
               <View style={styles.progressRow}>
@@ -144,6 +150,7 @@ export default function MissionRewardScreen({ navigation, route }: any) {
 
             <View style={styles.divider} />
 
+            {/* OFENSIVA / STREAK */}
             <View style={styles.missionItem}>
               <Text style={styles.missionLabel}>Ofensiva Mantida</Text>
               <View style={styles.progressRow}>
@@ -171,6 +178,7 @@ export default function MissionRewardScreen({ navigation, route }: any) {
 
             <View style={styles.divider} />
 
+            {/* CUPIDO / DESAFIO SEMANAL */}
             <View style={styles.missionItem}>
               <Text style={styles.missionLabel}>
                 {isCupidAwake
@@ -215,6 +223,7 @@ export default function MissionRewardScreen({ navigation, route }: any) {
             </View>
           </View>
 
+          {/* CARD DE JORNADA */}
           <View style={[styles.card, styles.badgeCard]}>
             <View style={{ flex: 1 }}>
               <Text style={styles.badgeTitle}>Jornada de 90 Dias</Text>
@@ -231,6 +240,7 @@ export default function MissionRewardScreen({ navigation, route }: any) {
         </Animated.View>
       </ScrollView>
 
+      {/* BOTÃO FIXO DE CONTINUAR */}
       <View style={styles.footer}>
         <TouchableOpacity
           style={styles.continueBtn}

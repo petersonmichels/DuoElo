@@ -1,99 +1,258 @@
-const { initializeApp, cert } = require("firebase-admin/app");
+/**
+ * DuoElo Unified Tasks & Challenges Seeding Script (Saneado & Multilíngue)
+ *
+ * 1. Zera as coleções 'tasks', 'weekly_challenges' e 'weeks' no Firestore.
+ * 2. Garante o salvamento dos 7 idiomas do app com gradação de custo emocional.
+ */
+
+const { initializeApp, cert, getApps } = require("firebase-admin/app");
 const { getFirestore } = require("firebase-admin/firestore");
 const fs = require("fs");
 const path = require("path");
 
-// Carrega a chave de segurança que está na mesma pasta
-const serviceAccount = require("./serviceAccountKey.json");
+const serviceAccountPath = path.resolve(__dirname, "./serviceAccountKey.json");
+const seederJsonPath = path.resolve(__dirname, "./seeder.json");
 
-// Inicializa o Firebase usando a sintaxe nova do Admin SDK (v12+)
-initializeApp({
-  credential: cert(serviceAccount),
-});
+const serviceAccount = require(serviceAccountPath);
+
+if (!getApps().length) {
+  initializeApp({
+    credential: cert(serviceAccount),
+  });
+}
 
 const db = getFirestore();
 
-async function uploadData() {
-  try {
-    console.log("Lendo o arquivo seeder.json...");
+// Mapeamento autoral dos 5 Eixos DuoElo para as categorias em cada idioma
+const CATEGORIAS_AUTORAIS = {
+  "pt-BR": [
+    "Sintonia e Comunicação",
+    "Chama e Intimidade",
+    "Resolução e Escuta",
+    "Cuidado e Presença",
+    "Projetos e Parceria",
+  ],
+  "pt-PT": [
+    "Sintonia e Comunicação",
+    "Chama e Intimidade",
+    "Resolução e Escuta",
+    "Cuidado e Presença",
+    "Projetos e Parceria",
+  ],
+  "pt-CV": [
+    "Sintonia e Comunicação",
+    "Chama e Intimidade",
+    "Resolução e Escuta",
+    "Cuidado e Presença",
+    "Projetos e Parceria",
+  ],
+  en: [
+    "Harmony & Communication",
+    "Spark & Intimacy",
+    "Resolution & Listening",
+    "Care & Presence",
+    "Projects & Partnership",
+  ],
+  es: [
+    "Sintonía y Comunicación",
+    "Chispa e Intimidad",
+    "Resolución y Escucha",
+    "Cuidado y Presencia",
+    "Proyectos y Asociación",
+  ],
+  fr: [
+    "Harmonie & Communication",
+    "Flamme & Intimité",
+    "Résolution & Écoute",
+    "Soin & Présence",
+    "Projets & Partenariat",
+  ],
+  de: [
+    "Harmonie & Kommunikation",
+    "Funke & Intimität",
+    "Lösung & Zuhören",
+    "Fürsorge & Präsenz",
+    "Projekte & Partnerschaft",
+  ],
+  ja: [
+    "調和とコミュニケーション",
+    "情熱と親密さ",
+    "解決と傾聴",
+    "思いやりと存在感",
+    "プロジェクトとパートナーシップ",
+  ],
+};
 
-    // Lê o arquivo JSON diretamente da mesma pasta
-    const jsonPath = path.resolve(__dirname, "seeder.json");
-    const rawData = fs.readFileSync(jsonPath, "utf8");
+// Lista oficial dos idiomas suportados pelo app
+const SUPPORTED_APP_LANGUAGES = [
+  "pt-BR",
+  "pt-PT",
+  "pt-CV",
+  "en",
+  "es",
+  "fr",
+  "de",
+  "ja",
+];
+
+async function clearCollection(collectionName) {
+  const colRef = db.collection(collectionName);
+  const snapshot = await colRef.get();
+  if (!snapshot.empty) {
+    const deleteBatch = db.batch();
+    snapshot.docs.forEach((doc) => deleteBatch.delete(doc.ref));
+    await deleteBatch.commit();
+    console.log(
+      `🗑️ Limpeza concluída: ${snapshot.size} documentos removidos de '${collectionName}'.`,
+    );
+  }
+}
+
+async function uploadUnifiedTasksAndChallenges() {
+  try {
+    console.log(
+      "🧹 [1/2] Zerando as coleções 'tasks', 'weekly_challenges' e 'weeks' no Firestore...",
+    );
+    await clearCollection("tasks");
+    await clearCollection("weekly_challenges");
+    await clearCollection("weeks");
+
+    console.log(
+      "\n🚀 [2/2] Lendo 'seeder.json' e enviando tarefas saneadas em todos os idiomas...",
+    );
+    const rawData = fs.readFileSync(seederJsonPath, "utf8");
     const seedData = JSON.parse(rawData);
 
-    console.log("Iniciando a inserção de dados no Firebase via Admin SDK...");
+    const baseContent =
+      seedData["pt-BR"] || seedData["en"] || Object.values(seedData)[0];
 
-    for (const [langCode, content] of Object.entries(seedData)) {
-      console.log(`\nProcessando o idioma: ${langCode}...`);
+    for (const langCode of SUPPORTED_APP_LANGUAGES) {
+      const content = seedData[langCode] || baseContent;
+      const categoriesForLang =
+        CATEGORIAS_AUTORAIS[langCode] || CATEGORIAS_AUTORAIS["pt-BR"];
 
-      // Inserindo questions (Anamnese)
-      if (content.questions) {
-        for (let i = 0; i < content.questions.length; i++) {
-          const question = content.questions[i];
-          const qRef = db
-            .collection("anamnesis")
-            .doc(`${langCode}_${question.id}`);
+      console.log(`\n🌍 Processando idioma: [${langCode.toUpperCase()}]...`);
 
-          const formattedQuestion = {
-            question_id: question.id || null,
-            module_id: i + 1,
-            language: langCode || null,
-            pillar: question.title || null,
-            translations: {
-              [langCode]: question.text || "",
-            },
-            options: question.options.map((opt) => ({
-              label: opt.label || "",
-              translations: { [langCode]: opt.label || "" },
-              points: opt.score ?? null,
-              tag: opt.tag || "geral",
-              icon: opt.icon || "smile",
-              color: opt.color || "#4BDE95",
-            })),
+      // 1. MISSÕES DIÁRIAS (Tasks - 90 Dias)
+      if (content.tasks && content.tasks.length > 0) {
+        const batch = db.batch();
+        for (let j = 0; j < content.tasks.length; j++) {
+          const task = content.tasks[j];
+          const dayNumber = task.day || j + 1;
+          const taskDocId = `${langCode}_day_${dayNumber}`;
+          const taskRef = db.collection("tasks").doc(taskDocId);
+
+          // Lógica de Custo Emocional Gradual (Fase 1: 1-14 | Fase 2: 15-45 | Fase 3: 46-90)
+          let emotionalCost = "baixo";
+          let phase = 1;
+          if (dayNumber > 14 && dayNumber <= 45) {
+            emotionalCost = "medio";
+            phase = 2;
+          } else if (dayNumber > 45) {
+            emotionalCost = "alto";
+            phase = 3;
+          }
+
+          const categoryAutoral =
+            categoriesForLang[(dayNumber - 1) % categoriesForLang.length];
+
+          const formattedTask = {
+            taskId: task.id || `task_${dayNumber}`,
+            day: dayNumber,
+            phase: phase,
+            emotionalCost: emotionalCost,
+            category: categoryAutoral,
+            title: task.title || `Missão Dia ${dayNumber}`,
+            description: task.description || "",
+            concept:
+              task.concept || "Fortalecimento contínuo da cumplicidade a dois.",
+            action: task.action || "",
+            scope: task.scope || "bilateral",
+            pointsPE: task.pointsPE || 50,
+            language: langCode,
+            updatedAt: new Date().toISOString(),
           };
 
-          await qRef.set(formattedQuestion, { merge: true });
+          batch.set(taskRef, formattedTask, { merge: true });
         }
+        await batch.commit();
         console.log(
-          `- ${content.questions.length} Questões da anamnese inseridas para ${langCode}.`,
+          `   ✅ ${content.tasks.length} Missões Diárias gravadas em [${langCode}].`,
         );
       }
 
-      // Inserindo tasks (Missões Diárias de 1 a 90)
-      if (content.tasks) {
-        for (let j = 0; j < content.tasks.length; j++) {
-          const task = content.tasks[j];
-          const taskRef = db
-            .collection("tasks")
-            .doc(`${langCode}_day_${j + 1}`);
+      // 2. DESAFIOS DE OURO (Weekly Challenges - 13 Semanas)
+      const weeklyChallenges =
+        content.weekly_challenges || content.weeklyChallenges;
+      if (weeklyChallenges && weeklyChallenges.length > 0) {
+        const batch = db.batch();
+        for (let k = 0; k < weeklyChallenges.length; k++) {
+          const challenge = weeklyChallenges[k];
+          const weekNum = challenge.week || challenge.weekNumber || k + 1;
+          const challengeDocId = `${langCode}_week_${weekNum}`;
+          const challengeRef = db
+            .collection("weekly_challenges")
+            .doc(challengeDocId);
 
-          const formattedTask = {
-            day: j + 1,
-            phase: j + 1,
-            pillar: task.pillar || null,
-            targetTag: task.targetTag || null,
-            level: task.level || null,
-            concept: task.concept || null,
-            action: task.action || null,
-            pointsPE: task.pointsPE || 50,
-            language: langCode || null,
+          const formattedChallenge = {
+            challengeId: challenge.id || `challenge_week_${weekNum}`,
+            week: weekNum,
+            title: challenge.title || `Desafio de Ouro - Semana ${weekNum}`,
+            description: challenge.description || "",
+            action: challenge.action || "",
+            pointsPE: challenge.pointsPE || 150,
+            language: langCode,
+            isGoldChallenge: true,
+            updatedAt: new Date().toISOString(),
           };
 
-          await taskRef.set(formattedTask, { merge: true });
+          batch.set(challengeRef, formattedChallenge, { merge: true });
         }
+        await batch.commit();
         console.log(
-          `- ${content.tasks.length} Missões diárias inseridas para ${langCode}.`,
+          `   ✅ ${weeklyChallenges.length} Desafios Semanais gravados em [${langCode}].`,
+        );
+      }
+
+      // 3. TEMAS DAS SEMANAS (Weeks)
+      if (content.weeks && content.weeks.length > 0) {
+        const batch = db.batch();
+        for (let w = 0; w < content.weeks.length; w++) {
+          const week = content.weeks[w];
+          const weekNum = week.week || week.weekNumber || w + 1;
+          const weekDocId = `${langCode}_week_${weekNum}`;
+          const weekRef = db.collection("weeks").doc(weekDocId);
+
+          batch.set(
+            weekRef,
+            {
+              weekNumber: weekNum,
+              theme: week.theme || `Tema da Semana ${weekNum}`,
+              description: week.description || "",
+              language: langCode,
+              updatedAt: new Date().toISOString(),
+            },
+            { merge: true },
+          );
+        }
+        await batch.commit();
+        console.log(
+          `   ✅ ${content.weeks.length} Temas Semanais gravados em [${langCode}].`,
         );
       }
     }
 
-    console.log("\n🎉 Inserção de todos os dados concluída com sucesso!");
-    process.exit(0); // Força o encerramento do script ao terminar
+    console.log(
+      "\n🎉 SANEAMENTO CONCLUÍDO! As coleções 'tasks', 'weekly_challenges' e 'weeks' foram reescritas com sucesso!",
+    );
   } catch (error) {
-    console.error("❌ Erro ao inserir os dados: ", error);
+    console.error("\n❌ Erro crítico ao popular as tarefas: ", error);
     process.exit(1);
   }
 }
 
-uploadData();
+if (require.main === module) {
+  uploadUnifiedTasksAndChallenges().then(() => process.exit(0));
+}
+
+module.exports = { uploadUnifiedTasksAndChallenges };

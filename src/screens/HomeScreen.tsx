@@ -1,7 +1,6 @@
 import { FontAwesome5 } from "@expo/vector-icons";
-import Constants from "expo-constants";
+import Constants, { ExecutionEnvironment } from "expo-constants";
 import * as Device from "expo-device";
-import * as Notifications from "expo-notifications";
 import { deleteUser } from "firebase/auth";
 import {
   collection,
@@ -33,22 +32,33 @@ import Svg, { Circle } from "react-native-svg";
 import { auth, db } from "../config/firebase";
 import MissionExecutionScreen from "./MissionExecutionScreen";
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+// 🚫 Detecta se está rodando no Expo Go
+const isExpoGo =
+  Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+
+// 🔒 Carregamento seguro para evitar crash do SDK 53 no Expo Go
+let Notifications: any = null;
+if (!isExpoGo) {
+  try {
+    Notifications = require("expo-notifications");
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: false,
+        shouldShowBanner: true,
+        shouldShowList: true,
+      }),
+    });
+  } catch (e) {}
+}
 
 async function sendPushNotificationDirectly(
   expoPushToken: string,
   title: string,
   body: string,
 ) {
-  if (!expoPushToken) return;
+  if (!expoPushToken || isExpoGo) return;
 
   const message = {
     to: expoPushToken,
@@ -67,9 +77,7 @@ async function sendPushNotificationDirectly(
       },
       body: JSON.stringify(message),
     });
-  } catch (error) {
-    console.error("Erro ao enviar notificação direta:", error);
-  }
+  } catch (error) {}
 }
 
 const SUPPORTED_LANGUAGES = [
@@ -206,34 +214,38 @@ const FloatingHearts = () => {
 };
 
 async function registerForPushNotificationsAsync() {
+  if (isExpoGo || !Notifications) return null;
+
   let token;
-  if (Platform.OS === "android") {
-    await Notifications.setNotificationChannelAsync("default", {
-      name: "default",
-      importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: "#FF231F7C",
-    });
-  }
-  if (Device.isDevice) {
-    const { status: existingStatus } =
-      await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
-    if (existingStatus !== "granted") {
-      const { status } = await Notifications.requestPermissionsAsync();
-      finalStatus = status;
+  try {
+    if (Platform.OS === "android") {
+      await Notifications.setNotificationChannelAsync("default", {
+        name: "default",
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: "#FF231F7C",
+      });
     }
-    if (finalStatus !== "granted") return;
-    try {
+    if (Device.isDevice) {
+      const { status: existingStatus } =
+        await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+      if (existingStatus !== "granted") {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+      if (finalStatus !== "granted") return null;
+
       const projectId =
         Constants?.expoConfig?.extra?.eas?.projectId ??
         Constants?.easConfig?.projectId;
+
       if (!projectId)
         token = (await Notifications.getExpoPushTokenAsync()).data;
       else
         token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
-    } catch (e) {}
-  }
+    }
+  } catch (e) {}
   return token;
 }
 
@@ -449,13 +461,14 @@ export default function HomeScreen({ navigation }: any) {
 
   const hasPartner = Boolean(userData?.partnerId);
   const isSoloMode = Boolean(userData?.isSoloMode);
-  const iAmReady = Boolean(userData?.isReadyToStart);
-  const partnerIsReady = Boolean(partnerData?.isReadyToStart);
+  const iAmReady = Boolean(
+    userData?.isReadyToStart || userData?.hasPressedPlay,
+  );
+  const partnerIsReady = Boolean(
+    partnerData?.isReadyToStart || partnerData?.hasPressedPlay,
+  );
 
   const isMatchOrSoloDone = hasPartner || isSoloMode;
-
-  const canActuallyPlay =
-    isSoloMode || (hasPartner && partnerCompletedAnamnesis);
 
   const isTrailUnlocked =
     hasCompletedAnamnesis &&
@@ -560,24 +573,25 @@ export default function HomeScreen({ navigation }: any) {
         .sort((a: any, b: any) => a.day - b.day);
       let myPersonalTrail: number[] = [];
 
-      let isShifted = false;
+      let isSecondaryPartner = false;
       if (!isSolo && partnerId) {
-        isShifted = uid > partnerId;
+        isSecondaryPartner = uid > partnerId;
       }
 
       for (let i = 0; i < allTasks.length; i += 5) {
         let chunk = allTasks.slice(i, i + 5).map((t) => t.day);
 
-        if (isShifted && chunk.length > 1) {
-          const firstTwo = chunk.splice(0, 2);
-          chunk.push(...firstTwo);
+        if (isSecondaryPartner && chunk.length > 1) {
+          const firstTask = chunk.shift();
+          if (firstTask !== undefined) {
+            chunk.push(firstTask);
+          }
         }
         myPersonalTrail.push(...chunk);
       }
 
       return myPersonalTrail;
     } catch (error) {
-      console.error("Erro ao gerar matriz de tarefas:", error);
       return Array.from({ length: 90 }, (_, i) => i + 1);
     }
   };
@@ -594,7 +608,12 @@ export default function HomeScreen({ navigation }: any) {
       try {
         await setDoc(
           doc(db, "users", currentUid),
-          { isReadyToStart: true, myTrail: personalTrail },
+          {
+            isReadyToStart: true,
+            hasPressedPlay: true,
+            anamnesisLocked: true,
+            myTrail: personalTrail,
+          },
           { merge: true },
         );
       } catch (e) {}
@@ -611,24 +630,51 @@ export default function HomeScreen({ navigation }: any) {
     }, 2000);
   };
 
+  // 🤝 LARGADA SINCRONIZADA
   const handleStartHandshake = async () => {
     if (!currentUid) return;
     setIsGeneratingJourney(true);
 
-    const personalTrail = await generateTrailMatrix(
-      currentUid,
-      partnerData?.id || null,
-      false,
-    );
+    const targetPartnerId = userData?.partnerId || partnerData?.id || null;
 
     try {
-      await setDoc(
-        doc(db, "users", currentUid),
-        { isReadyToStart: true, myTrail: personalTrail },
-        { merge: true },
-      );
-
       if (partnerIsReady && partnerCompletedAnamnesis) {
+        // 🔒 AMBOS DERAM O PLAY: GERA A TRILHA PARA OS DOIS E LIBERA
+        const myTrail = await generateTrailMatrix(
+          currentUid,
+          targetPartnerId,
+          false,
+        );
+
+        await setDoc(
+          doc(db, "users", currentUid),
+          {
+            isReadyToStart: true,
+            hasPressedPlay: true,
+            anamnesisLocked: true,
+            myTrail: myTrail,
+          },
+          { merge: true },
+        );
+
+        if (targetPartnerId) {
+          const partnerTrail = await generateTrailMatrix(
+            targetPartnerId,
+            currentUid,
+            false,
+          );
+          await setDoc(
+            doc(db, "users", targetPartnerId),
+            {
+              isReadyToStart: true,
+              hasPressedPlay: true,
+              anamnesisLocked: true,
+              myTrail: partnerTrail,
+            },
+            { merge: true },
+          );
+        }
+
         if (partnerData?.pushToken) {
           sendPushNotificationDirectly(
             partnerData.pushToken,
@@ -636,6 +682,7 @@ export default function HomeScreen({ navigation }: any) {
             "A trilha de vocês começou. Toque para ver a 1ª missão!",
           );
         }
+
         showCustomAlert(
           "Largada Autorizada! 🚀",
           "O algoritmo sincronizou as tarefas. A trilha oficial de 90 dias de vocês está liberada!",
@@ -643,6 +690,17 @@ export default function HomeScreen({ navigation }: any) {
           "#67D4A8",
         );
       } else {
+        // ⏳ APENAS O PRIMEIRO DEU O PLAY: MARCA PRONTO E AGUARDA
+        await setDoc(
+          doc(db, "users", currentUid),
+          {
+            isReadyToStart: true,
+            hasPressedPlay: true,
+            anamnesisLocked: true,
+          },
+          { merge: true },
+        );
+
         if (partnerData?.pushToken) {
           sendPushNotificationDirectly(
             partnerData.pushToken,
@@ -650,9 +708,10 @@ export default function HomeScreen({ navigation }: any) {
             "Seu amor já deu o Play para a Jornada. Falta você!",
           );
         }
+
         showCustomAlert(
           "Sinal Verde Dado! 🚦",
-          "Aguardando seu parceiro(a) apertar o Play para a largada oficial!",
+          `Aguardando seu parceiro(a) (${pName}) apertar o Play para a largada oficial!`,
           "hourglass-half",
           "#EAB64A",
         );
@@ -661,6 +720,122 @@ export default function HomeScreen({ navigation }: any) {
       showCustomAlert("Erro", "Tente novamente.", "times-circle", "#D96C6C");
     } finally {
       setIsGeneratingJourney(false);
+    }
+  };
+
+  const handlePolitePlayTrigger = () => {
+    if (!isPremium) {
+      showCustomAlert(
+        "Plano Necessário 🔒",
+        "Para liberar a trilha oficial de 90 dias de desafios, escolha um dos planos de assinatura.",
+        "lock",
+        "#EAB64A",
+        "Ver Planos",
+        () => navigation.navigate("PaywallScreen"),
+        "Agora Não",
+        () => {},
+      );
+      return;
+    }
+
+    if (!hasCompletedAnamnesis) {
+      showCustomAlert(
+        "A Bússola do seu Relacionamento 💍",
+        "Para criarmos uma jornada realmente única para vocês, responder ao mapeamento leva menos de 2 minutos e garante que as missões diárias atuem exatamente onde vocês precisam.\n\nDeseja responder agora ou seguir com o modelo padrão?",
+        "heartbeat",
+        "#202D3A",
+        "Responder Mapeamento",
+        () => navigation.navigate("AnamneseScreen"),
+        "Seguir com Perfil Padrão",
+        async () => {
+          if (!currentUid) return;
+
+          try {
+            // 1. Exibe a tela de processamento imediatamente
+            setIsGeneratingJourney(true);
+
+            // 2. Grava a avaliação padrão no Firestore
+            await setDoc(
+              doc(db, "users", currentUid),
+              { hasCompletedAnamnesis: true, profileType: "standard_default" },
+              { merge: true },
+            );
+
+            // 3. Se tiver parceiro e ambos concluíram, aciona a largada
+            if (hasPartner) {
+              if (!partnerCompletedAnamnesis) {
+                setIsGeneratingJourney(false);
+                showCustomAlert(
+                  "Aguardando o Amor ⏳",
+                  "O seu amor ainda está preenchendo a avaliação inicial.\n\nA largada oficial iniciará assim que os dois concluírem o diagnóstico!",
+                  "hourglass-half",
+                  "#EAB64A",
+                  "Entendi",
+                );
+                return;
+              }
+              await handleStartHandshake();
+            } else if (isSoloMode) {
+              // Se já estiver no modo solo, gera a trilha solo
+              await handleStartSolo();
+            } else {
+              // Se for primeiro acesso sem parceiro, ativa o modo solo automático e gera a jornada
+              await setDoc(
+                doc(db, "users", currentUid),
+                { isSoloMode: true },
+                { merge: true },
+              );
+              await handleStartSolo();
+            }
+          } catch (error) {
+            console.error("Erro ao processar perfil padrão:", error);
+            setIsGeneratingJourney(false);
+            showCustomAlert(
+              "Erro de Conexão",
+              "Não foi possível registrar o perfil no momento. Tente novamente.",
+              "times-circle",
+              "#D96C6C",
+            );
+          }
+        },
+      );
+      return;
+    }
+
+    if (hasPartner) {
+      if (!partnerCompletedAnamnesis) {
+        showCustomAlert(
+          "Aguardando o Amor ⏳",
+          "O seu amor ainda está preenchendo a avaliação inicial.\n\nA largada oficial iniciará assim que os dois concluírem o diagnóstico!",
+          "hourglass-half",
+          "#EAB64A",
+          "Entendi",
+        );
+        return;
+      }
+      handleStartHandshake();
+    } else if (isSoloMode) {
+      handleStartSolo();
+    } else {
+      showCustomAlert(
+        "A Jornada Fica Melhor a Dois! ❤️",
+        "O DuoElo foi desenhado para criar pontes de cumplicidade a dois.\n\nQue tal enviar um convite especial para o seu amor antes de darmos o Play?",
+        "user-friends",
+        "#EAB64A",
+        "Enviar Convite",
+        () => navigation.navigate("Match"),
+        "Continuar no Modo Solo",
+        async () => {
+          if (currentUid) {
+            await setDoc(
+              doc(db, "users", currentUid),
+              { isSoloMode: true },
+              { merge: true },
+            );
+            handleStartSolo();
+          }
+        },
+      );
     }
   };
 
@@ -724,15 +899,6 @@ export default function HomeScreen({ navigation }: any) {
         if (querySnapshot.empty) {
           q = query(
             collection(db, "tasks"),
-            where("language", "==", userLang),
-            where("day", "==", String(phaseToFetch)),
-          );
-          querySnapshot = await getDocs(q);
-        }
-
-        if (querySnapshot.empty) {
-          q = query(
-            collection(db, "tasks"),
             where("language", "==", "pt-BR"),
             where("day", "==", phaseToFetch),
           );
@@ -741,26 +907,49 @@ export default function HomeScreen({ navigation }: any) {
 
         if (!querySnapshot.empty) {
           const requiredScope = hasPartner ? "bilateral" : "unilateral";
-          let missionsList = querySnapshot.docs.map((d) => d.data());
+          let missionsList = querySnapshot.docs.map((d) => ({
+            id: d.id,
+            ...d.data(),
+          }));
 
           let pool = missionsList.filter(
-            (m) => m.scope === requiredScope || !m.scope,
+            (m: any) => m.scope === requiredScope || !m.scope,
           );
           if (pool.length === 0) pool = missionsList;
 
-          let roleOffset = 0;
+          let selectedIndex = 0;
+          let isSecondary = false;
+
           if (hasPartner && currentUid && userData?.partnerId) {
-            roleOffset = currentUid < userData.partnerId ? 0 : 1;
+            isSecondary = currentUid > userData.partnerId;
+            if (isSecondary && pool.length > 1) {
+              selectedIndex = 1;
+            }
           }
 
-          const targetIndex = roleOffset % pool.length;
-          let matchedMission = pool[targetIndex];
+          let rawMission: any = pool[selectedIndex] || pool[0];
 
-          if (!matchedMission) {
-            matchedMission = pool[0];
+          // 🔀 INVERSÃO DINÂMICA CASO O BANCO TENHA APENAS 1 TAREFA NO DIA
+          let matchedMission = { ...rawMission, displayPhase: stepIndex + 1 };
+
+          if (isSecondary && pool.length === 1 && hasPartner) {
+            matchedMission = {
+              ...rawMission,
+              displayPhase: stepIndex + 1,
+              title:
+                rawMission.partnerTitle ||
+                rawMission.title ||
+                "Sua Parte da Missão",
+              concept:
+                rawMission.partnerConcept ||
+                rawMission.action ||
+                rawMission.concept,
+              action:
+                rawMission.partnerAction ||
+                rawMission.concept ||
+                rawMission.action,
+            };
           }
-
-          matchedMission = { ...matchedMission, displayPhase: stepIndex + 1 };
 
           setActiveMission(matchedMission);
           setIsReviewMode(Boolean(isCompleted));
@@ -847,13 +1036,16 @@ export default function HomeScreen({ navigation }: any) {
         currentPhase: increment(1),
         totalPE: increment(activeMission.pointsPE || 50),
         lastTaskDate: new Date().toISOString(),
+        lastTaskId: activeMission.id || null,
         currentTaskStep: 0,
         streak: newStreak,
       };
 
+      // ✅ REFERÊNCIA CORRETA DO USUÁRIO NO FIRESTORE (2 SEGMENTOS)
       await setDoc(doc(db, "users", currentUid), updates, { merge: true });
 
       if (journalText.trim().length > 0) {
+        // ✅ REFERÊNCIA CORRETA DA SUBCOLEÇÃO JOURNALS NO FIRESTORE
         const journalRef = doc(collection(db, "users", currentUid, "journals"));
         await setDoc(journalRef, {
           phase:
@@ -1139,10 +1331,10 @@ export default function HomeScreen({ navigation }: any) {
                     "OK",
                     () => {},
                     "Gerenciar Match",
-                    () => navigation.navigate("MainTabs", { screen: "Match" }),
+                    () => navigation.navigate("Match"),
                   );
                 } else {
-                  navigation.navigate("MainTabs", { screen: "Match" });
+                  navigation.navigate("Match");
                 }
               }}
             >
@@ -1164,7 +1356,7 @@ export default function HomeScreen({ navigation }: any) {
 
           <View style={styles.trailConnector} />
 
-          {/* NÓ 3: DAR O PLAY */}
+          {/* NÓ 3: DAR O PLAY (POLIDO & COMPATÍVEL) */}
           <View style={styles.specialNodeContainer}>
             {isTrailUnlocked ? (
               <View style={{ alignItems: "center" }}>
@@ -1196,93 +1388,30 @@ export default function HomeScreen({ navigation }: any) {
               <Animated.View
                 style={{
                   alignItems: "center",
-                  transform:
-                    isMatchOrSoloDone && canActuallyPlay
-                      ? [{ scale: pulseAnim }]
-                      : [{ scale: 1 }],
+                  transform: [{ scale: pulseAnim }],
                 }}
               >
                 <TouchableOpacity
                   style={[
                     styles.startJourneyBtn,
-                    isMatchOrSoloDone
-                      ? canActuallyPlay
-                        ? {
-                            backgroundColor: "#67D4A8",
-                            borderColor: "#E8F4F1",
-                            shadowColor: "#67D4A8",
-                          }
-                        : {
-                            backgroundColor: "#EAB64A",
-                            borderColor: "#FFF9E6",
-                            shadowColor: "#EAB64A",
-                          }
-                      : {
-                          backgroundColor: "#F0F4F8",
-                          borderColor: "#D1D9E0",
-                          elevation: 0,
-                        },
+                    {
+                      backgroundColor: "#67D4A8",
+                      borderColor: "#E8F4F1",
+                      shadowColor: "#67D4A8",
+                    },
                   ]}
                   activeOpacity={0.8}
-                  disabled={!isMatchOrSoloDone}
-                  onPress={() => {
-                    // 🔒 MURALHA DE SEGURANÇA PREMIUM DO BOTÃO PLAY (Com Alerta de Segurança)
-                    if (!isPremium) {
-                      showCustomAlert(
-                        "Plano Necessário 🔒",
-                        "Para liberar a trilha oficial de 90 dias de desafios, escolha um dos planos de assinatura.",
-                        "lock",
-                        "#EAB64A",
-                        "Ver Planos",
-                        () => navigation.navigate("PaywallScreen"),
-                        "Agora Não",
-                        () => {},
-                      );
-                      return;
-                    }
-                    if (hasPartner) {
-                      if (!partnerCompletedAnamnesis) {
-                        showCustomAlert(
-                          "Aguardando o Amor ⏳",
-                          "O parceiro(a) ainda não concluiu a avaliação inicial.\n\nA largada só pode ser dada quando os dois finalizarem o diagnóstico!",
-                          "clipboard-list",
-                          "#EAB64A",
-                          "Entendi",
-                        );
-                        return;
-                      }
-                      handleStartHandshake();
-                    } else if (isSoloMode) {
-                      handleStartSolo();
-                    }
-                  }}
+                  onPress={handlePolitePlayTrigger}
                 >
                   <FontAwesome5
-                    name={
-                      canActuallyPlay || !isMatchOrSoloDone
-                        ? "play"
-                        : "hourglass-half"
-                    }
+                    name="play"
                     size={28}
-                    color={isMatchOrSoloDone ? "#FFF" : "#AFAFAF"}
-                    style={
-                      canActuallyPlay || !isMatchOrSoloDone
-                        ? { marginLeft: 4 }
-                        : {}
-                    }
+                    color="#FFF"
+                    style={{ marginLeft: 4 }}
                   />
                 </TouchableOpacity>
-                <Text
-                  style={[
-                    styles.mapLabelText,
-                    !isMatchOrSoloDone && { color: "#AFAFAF" },
-                    isMatchOrSoloDone &&
-                      !canActuallyPlay && { color: "#EAB64A" },
-                  ]}
-                >
-                  {isMatchOrSoloDone && !canActuallyPlay
-                    ? "Aguardando Avaliação"
-                    : "Dar o Play"}
+                <Text style={[styles.mapLabelText, { color: "#202D3A" }]}>
+                  Dar o Play
                 </Text>
               </Animated.View>
             )}
@@ -1347,6 +1476,7 @@ export default function HomeScreen({ navigation }: any) {
                 } else if (isActive) {
                   faceColor = "#EAB64A";
                   baseColor = "#F9ECCC";
+                  iconName = "check";
                   iconColor = "#FFF";
                 } else if (isWaitingForTomorrow) {
                   faceColor = "#F0F4F8";
@@ -1367,6 +1497,7 @@ export default function HomeScreen({ navigation }: any) {
                 } else if (isActive) {
                   faceColor = "#EAB64A";
                   baseColor = "#F9ECCC";
+                  iconName = "check";
                   iconColor = "#FFF";
                 } else if (isWaitingForTomorrow) {
                   faceColor = "#E8F4F1";
@@ -1508,19 +1639,28 @@ export default function HomeScreen({ navigation }: any) {
                       <View
                         style={[
                           styles.goldChallengeWrapper,
-                          { left: nodeSize + 30, top: (nodeSize - 60) / 2 },
+                          {
+                            left: nodeSize + 25,
+                            top: (nodeSize - 60) / 2,
+                            zIndex: 999,
+                            elevation: 10,
+                          },
                         ]}
                       >
                         {isGoldUnlocked ? (
                           <Animated.View
-                            style={{ transform: [{ scale: pulseAnim }] }}
+                            style={{
+                              transform: [{ scale: pulseAnim }],
+                              zIndex: 1000,
+                            }}
                           >
                             <TouchableOpacity
                               style={styles.goldBtnUnlocked}
-                              activeOpacity={0.8}
-                              onPress={() =>
-                                handleOpenGoldChallenge(weekNumber)
-                              }
+                              activeOpacity={0.7}
+                              onPress={(e) => {
+                                e.stopPropagation();
+                                handleOpenGoldChallenge(weekNumber);
+                              }}
                             >
                               <FontAwesome5
                                 name="infinity"
@@ -1534,7 +1674,8 @@ export default function HomeScreen({ navigation }: any) {
                           <TouchableOpacity
                             style={styles.goldBtnLocked}
                             activeOpacity={0.8}
-                            onPress={() => {
+                            onPress={(e) => {
+                              e.stopPropagation();
                               showCustomAlert(
                                 "Desafio de Ouro Bloqueado 🔒",
                                 `Complete pelo menos 3 missões esta semana para desbloquear.\n\nProgresso atual: ${tasksDoneThisWeek}/3`,
@@ -1819,7 +1960,13 @@ export default function HomeScreen({ navigation }: any) {
                     if (userData?.partnerId) {
                       await setDoc(
                         doc(db, "users", userData.partnerId),
-                        { partnerId: null },
+                        {
+                          partnerId: null,
+                          isSoloMode: false,
+                          myTrail: null,
+                          isReadyToStart: false,
+                          hasPressedPlay: false,
+                        },
                         { merge: true },
                       );
                     }
@@ -2148,7 +2295,8 @@ const styles = StyleSheet.create({
   goldChallengeWrapper: {
     position: "absolute",
     alignItems: "center",
-    zIndex: 50,
+    zIndex: 999,
+    elevation: 10,
   },
   goldBtnUnlocked: {
     width: 60,
@@ -2161,9 +2309,10 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.6,
     shadowRadius: 8,
-    elevation: 8,
+    elevation: 10,
     borderWidth: 2,
     borderColor: "#FFF",
+    zIndex: 1000,
   },
   goldBtnLocked: {
     width: 60,

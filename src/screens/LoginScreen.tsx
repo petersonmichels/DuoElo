@@ -1,13 +1,11 @@
 import { FontAwesome5 } from "@expo/vector-icons";
-import {
-  GoogleSignin,
-  statusCodes,
-} from "@react-native-google-signin/google-signin";
 import * as AppleAuthentication from "expo-apple-authentication";
+import Constants, { ExecutionEnvironment } from "expo-constants";
 import {
   createUserWithEmailAndPassword,
   GoogleAuthProvider,
   OAuthProvider,
+  sendPasswordResetEmail,
   signInWithCredential,
   signInWithEmailAndPassword,
   signOut,
@@ -43,6 +41,23 @@ import { auth, authControls, db } from "../config/firebase";
 
 const { width } = Dimensions.get("window");
 
+// 🚫 Detecta se está rodando dentro do Expo Go
+const isExpoGo =
+  Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+
+// 🔒 Importação dinâmica e protegida do Google Sign-In contra falhas no Expo Go
+let GoogleSignin: any = null;
+let statusCodes: any = {};
+if (!isExpoGo) {
+  try {
+    const googleModule = require("@react-native-google-signin/google-signin");
+    GoogleSignin = googleModule.GoogleSignin;
+    statusCodes = googleModule.statusCodes;
+  } catch (e) {
+    console.log("GoogleSignin indisponível neste ambiente.");
+  }
+}
+
 export default function LoginScreen({ navigation }: any) {
   const [isLogin, setIsLogin] = useState(true);
   const [username, setUsername] = useState("");
@@ -71,12 +86,18 @@ export default function LoginScreen({ navigation }: any) {
   const btnIcon = isLogin ? "sign-in-alt" : "arrow-right";
   const btnTextColor = isLogin ? "#FFF" : "#202D3A";
 
-  // 🛠️ INICIALIZAÇÃO DO GOOGLE SIGN-IN NATIVO
+  // 🛠️ INICIALIZAÇÃO SEGURO DO GOOGLE SIGN-IN NATIVO
   useEffect(() => {
-    GoogleSignin.configure({
-      webClientId:
-        "504286284116-akoj0ufb3q6rrfb2b3gpskbjaatgeqle.apps.googleusercontent.com",
-    });
+    if (!isExpoGo && GoogleSignin) {
+      try {
+        GoogleSignin.configure({
+          webClientId:
+            "504286284116-akoj0ufb3q6rrfb2b3gpskbjaatgeqle.apps.googleusercontent.com",
+        });
+      } catch (e) {
+        console.log("Erro ao configurar GoogleSignin:", e);
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -153,6 +174,46 @@ export default function LoginScreen({ navigation }: any) {
     });
   };
 
+  // 📧 RECUPERAÇÃO DE SENHA
+  const handleForgotPassword = async () => {
+    const cleanEmail = email.trim().toLowerCase();
+
+    if (!cleanEmail) {
+      showCustomAlert(
+        "Digite seu E-mail",
+        "Por favor, informe seu e-mail no campo de entrada acima para enviarmos o link de redefinição de senha.",
+        "envelope",
+        "#EAB64A",
+      );
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await sendPasswordResetEmail(auth, cleanEmail);
+      setIsLoading(false);
+      showCustomAlert(
+        "E-mail Enviado! 📩",
+        `Enviamos as instruções de redefinição de senha para "${cleanEmail}". Verifique sua caixa de entrada e pasta de spam.`,
+        "check-circle",
+        "#67D4A8",
+      );
+    } catch (error: any) {
+      setIsLoading(false);
+      let errorMsg = "Não foi possível enviar o e-mail de redefinição.";
+      if (
+        error?.code === "auth/user-not-found" ||
+        error?.code === "auth/invalid-credential"
+      ) {
+        errorMsg = "Não encontramos nenhuma conta cadastrada com este e-mail.";
+      } else if (error?.code === "auth/invalid-email") {
+        errorMsg = "O formato de e-mail informado é inválido.";
+      }
+
+      showCustomAlert("Falha ao Enviar", errorMsg, "times-circle", "#D96C6C");
+    }
+  };
+
   // 🔒 REDIRECIONAMENTO INTELIGENTE PÓS-AUTENTICAÇÃO
   const routeUserAfterLogin = async (uid: string) => {
     try {
@@ -200,7 +261,6 @@ export default function LoginScreen({ navigation }: any) {
         });
       }
     } catch (e) {
-      console.error("Erro ao validar roteamento pós-login:", e);
       navigation.reset({
         index: 0,
         routes: [{ name: "MainTabs", params: { screen: "Home" } }],
@@ -333,9 +393,10 @@ export default function LoginScreen({ navigation }: any) {
     } catch (error: any) {
       if (authControls) authControls.isCreatingAccount = false;
       setIsLoading(false);
-      console.error("ERRO DE AUTH:", error.code || error.message);
 
-      if (error.code === "auth/email-already-in-use") {
+      const errorCode = error?.code || "";
+
+      if (errorCode === "auth/email-already-in-use") {
         showCustomAlert(
           "E-mail Cadastrado 👋",
           "Este e-mail já possui conta no DuoElo. Alterne para a aba de Login para entrar.",
@@ -345,9 +406,9 @@ export default function LoginScreen({ navigation }: any) {
           () => setIsLogin(true),
         );
       } else if (
-        error.code === "auth/invalid-credential" ||
-        error.code === "auth/user-not-found" ||
-        error.code === "auth/wrong-password"
+        errorCode === "auth/invalid-credential" ||
+        errorCode === "auth/user-not-found" ||
+        errorCode === "auth/wrong-password"
       ) {
         if (isLogin) {
           showCustomAlert(
@@ -368,14 +429,14 @@ export default function LoginScreen({ navigation }: any) {
             "#D96C6C",
           );
         }
-      } else if (error.code === "auth/too-many-requests") {
+      } else if (errorCode === "auth/too-many-requests") {
         showCustomAlert(
           "Bloqueio Temporário",
           "Muitas tentativas sem sucesso. Aguarde alguns instantes antes de tentar novamente.",
           "hourglass-half",
           "#EAB64A",
         );
-      } else if (error.code === "auth/invalid-email") {
+      } else if (errorCode === "auth/invalid-email") {
         showCustomAlert(
           "E-mail Inválido",
           "Por favor, digite um endereço de e-mail em formato válido.",
@@ -393,8 +454,18 @@ export default function LoginScreen({ navigation }: any) {
     }
   };
 
-  // 🚀 GOOGLE SIGN-IN NATIVO SEGURO (FORÇANDO TELA DE SELEÇÃO DE CONTA)
+  // 🚀 GOOGLE SIGN-IN NATIVO SEGURO (PROTEGIDO CONTRA EXPO GO)
   const handleGoogleSignIn = async () => {
+    if (isExpoGo || !GoogleSignin) {
+      showCustomAlert(
+        "Modo de Desenvolvimento 🛠️",
+        "O login nativo com Google requer código nativo compilado e não funciona direto no app Expo Go. Utilize o login por E-mail/Senha durante os testes.",
+        "info-circle",
+        "#EAB64A",
+      );
+      return;
+    }
+
     if (isLoading) return;
 
     setIsLoading(true);
@@ -403,12 +474,9 @@ export default function LoginScreen({ navigation }: any) {
         showPlayServicesUpdateDialog: true,
       });
 
-      // 🌐 LIMPA A SESSÃO ANTERIOR PARA SEMPRE ABRIR A TELA DE ESCOLHA DE CONTA
       try {
         await GoogleSignin.signOut();
-      } catch (e) {
-        // Ignora caso já esteja deslogado
-      }
+      } catch (e) {}
 
       const signInResult = await GoogleSignin.signIn();
       const idToken = signInResult.data?.idToken;
@@ -459,19 +527,13 @@ export default function LoginScreen({ navigation }: any) {
       setIsLoading(false);
 
       if (
-        error.code === statusCodes.SIGN_IN_IN_PROGRESS ||
-        error.code === statusCodes.IN_PROGRESS
+        error?.code === statusCodes?.SIGN_IN_IN_PROGRESS ||
+        error?.code === statusCodes?.IN_PROGRESS ||
+        error?.code === statusCodes?.SIGN_IN_CANCELLED
       ) {
-        console.log("Google Sign-In já em andamento.");
         return;
       }
 
-      if (error.code === statusCodes.SIGN_IN_CANCELLED) {
-        console.log("Login com Google cancelado pelo usuário.");
-        return;
-      }
-
-      console.error("Erro no Google Sign-In:", error);
       showCustomAlert(
         "Login Cancelado",
         "Não foi possível concluir o login com o Google.",
@@ -558,11 +620,9 @@ export default function LoginScreen({ navigation }: any) {
       await routeUserAfterLogin(user.uid);
     } catch (error: any) {
       setIsLoading(false);
-      if (error.code === "ERR_REQUEST_CANCELED") {
-        console.log("Login com a Apple cancelado pelo usuário.");
+      if (error?.code === "ERR_REQUEST_CANCELED") {
         return;
       }
-      console.error("Erro no Apple Sign-In:", error);
       showCustomAlert(
         "Erro de Login",
         "Não foi possível concluir o login com a Apple.",
@@ -684,14 +744,7 @@ export default function LoginScreen({ navigation }: any) {
             {isLogin && (
               <TouchableOpacity
                 style={styles.forgotPasswordBtn}
-                onPress={() =>
-                  showCustomAlert(
-                    "Recuperação de Senha",
-                    "Digite seu e-mail no campo acima e entre em contato com o suporte para redefinir sua senha.",
-                    "envelope",
-                    "#202D3A",
-                  )
-                }
+                onPress={handleForgotPassword}
               >
                 <Text style={styles.forgotPasswordText}>
                   Esqueci minha senha
@@ -779,7 +832,6 @@ export default function LoginScreen({ navigation }: any) {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* MODAL DE ALERTAS COM SUPORTE A BOTAO SECUNDARIO */}
       <Modal visible={customAlert.visible} transparent animationType="fade">
         <View style={styles.bottomSheetOverlay}>
           <View style={styles.bottomSheetContainer}>
@@ -910,7 +962,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: "Montserrat_700Bold",
   },
-
   floatingBtnWrapper: { width: "100%", marginTop: 5, marginBottom: 10 },
   floatingBtn: {
     flexDirection: "row",
@@ -970,7 +1021,6 @@ const styles = StyleSheet.create({
     fontFamily: "Montserrat_700Bold",
     textDecorationLine: "underline",
   },
-
   bottomSheetOverlay: {
     flex: 1,
     backgroundColor: "rgba(32,45,58,0.7)",
