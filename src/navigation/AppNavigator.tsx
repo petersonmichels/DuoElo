@@ -2,6 +2,7 @@ import { FontAwesome5 } from "@expo/vector-icons";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { onAuthStateChanged, User } from "firebase/auth";
+import { doc, onSnapshot } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -12,7 +13,7 @@ import {
 } from "react-native";
 
 // 🔥 Controle de segurança do Firebase
-import { auth, authControls } from "../config/firebase";
+import { auth, authControls, db } from "../config/firebase";
 
 // Suas Telas Oficiais
 import AnamneseScreen from "../screens/AnamneseScreen";
@@ -22,6 +23,7 @@ import MatchScreen from "../screens/MatchScreen";
 import MissionRewardScreen from "../screens/MissionRewardScreen";
 import PaywallScreen from "../screens/PaywallScreen";
 import ProfileScreen from "../screens/ProfileScreen";
+import ShopScreen from "../screens/ShopScreen";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -54,7 +56,45 @@ const TarefasScreen = () => (
   <PlaceholderScreen title="Feed de Tarefas" icon="clipboard-list" />
 );
 
-const LojaScreen = () => <PlaceholderScreen title="Loja DuoElo" icon="store" />;
+// Wrapper para injetar userData e partnerData na ShopScreen
+function ShopScreenWrapper(props: any) {
+  const [userData, setUserData] = useState<any>(null);
+  const [partnerData, setPartnerData] = useState<any>(null);
+  const currentUid = auth.currentUser?.uid;
+
+  useEffect(() => {
+    if (!currentUid) return;
+    const unsubscribeUser = onSnapshot(
+      doc(db, "users", currentUid),
+      (docSnap) => {
+        if (docSnap.exists()) {
+          setUserData(docSnap.data());
+        }
+      },
+    );
+    return () => unsubscribeUser();
+  }, [currentUid]);
+
+  useEffect(() => {
+    if (!userData?.partnerId) {
+      setPartnerData(null);
+      return;
+    }
+    const unsubscribePartner = onSnapshot(
+      doc(db, "users", userData.partnerId),
+      (docSnap) => {
+        if (docSnap.exists()) {
+          setPartnerData(docSnap.data());
+        }
+      },
+    );
+    return () => unsubscribePartner();
+  }, [userData?.partnerId]);
+
+  return (
+    <ShopScreen {...props} userData={userData} partnerData={partnerData} />
+  );
+}
 
 // ==========================================
 // 🚀 O MENU INFERIOR (BOTTOM TABS)
@@ -130,13 +170,14 @@ function MainTabs() {
 
       <Tab.Screen
         name="Loja"
-        component={LojaScreen}
+        component={ShopScreenWrapper}
         options={{
           tabBarIcon: ({ color }) => (
             <FontAwesome5 name="shopping-bag" size={20} color={color} />
           ),
         }}
       />
+
       <Tab.Screen
         name="Perfil"
         component={ProfileScreen}

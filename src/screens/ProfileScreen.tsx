@@ -475,7 +475,7 @@ export default function ProfileScreen({ navigation }: any) {
     url.toLowerCase() !== "null";
 
   const getFirstName = (nameStr?: string) =>
-    nameStr ? nameStr.split(" ")[0] : null;
+    nameStr ? nameStr.trim().split(" ")[0] : null;
 
   const myPhoto = isValidPhoto(userData?.photoURL)
     ? userData.photoURL
@@ -484,11 +484,16 @@ export default function ProfileScreen({ navigation }: any) {
       : null;
 
   const isPremium = userData?.isPremium || false;
+
+  // Lógica robusta de resolução do nome
   const displayUsername = userData?.username
     ? `@${userData.username}`
-    : getFirstName(userData?.displayName) ||
-      getFirstName(userData?.billingFirstName) ||
-      "Usuário";
+    : firstName.trim()
+      ? firstName.trim()
+      : getFirstName(userData?.billingFirstName) ||
+        getFirstName(userData?.displayName) ||
+        getFirstName(auth.currentUser?.displayName) ||
+        "Usuário";
 
   return (
     <SafeAreaView style={styles.container}>

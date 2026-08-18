@@ -639,7 +639,6 @@ export default function HomeScreen({ navigation }: any) {
 
     try {
       if (partnerIsReady && partnerCompletedAnamnesis) {
-        // 🔒 AMBOS DERAM O PLAY: GERA A TRILHA PARA OS DOIS E LIBERA
         const myTrail = await generateTrailMatrix(
           currentUid,
           targetPartnerId,
@@ -690,7 +689,6 @@ export default function HomeScreen({ navigation }: any) {
           "#67D4A8",
         );
       } else {
-        // ⏳ APENAS O PRIMEIRO DEU O PLAY: MARCA PRONTO E AGUARDA
         await setDoc(
           doc(db, "users", currentUid),
           {
@@ -751,17 +749,14 @@ export default function HomeScreen({ navigation }: any) {
           if (!currentUid) return;
 
           try {
-            // 1. Exibe a tela de processamento imediatamente
             setIsGeneratingJourney(true);
 
-            // 2. Grava a avaliação padrão no Firestore
             await setDoc(
               doc(db, "users", currentUid),
               { hasCompletedAnamnesis: true, profileType: "standard_default" },
               { merge: true },
             );
 
-            // 3. Se tiver parceiro e ambos concluíram, aciona a largada
             if (hasPartner) {
               if (!partnerCompletedAnamnesis) {
                 setIsGeneratingJourney(false);
@@ -776,10 +771,8 @@ export default function HomeScreen({ navigation }: any) {
               }
               await handleStartHandshake();
             } else if (isSoloMode) {
-              // Se já estiver no modo solo, gera a trilha solo
               await handleStartSolo();
             } else {
-              // Se for primeiro acesso sem parceiro, ativa o modo solo automático e gera a jornada
               await setDoc(
                 doc(db, "users", currentUid),
                 { isSoloMode: true },
@@ -929,7 +922,6 @@ export default function HomeScreen({ navigation }: any) {
 
           let rawMission: any = pool[selectedIndex] || pool[0];
 
-          // 🔀 INVERSÃO DINÂMICA CASO O BANCO TENHA APENAS 1 TAREFA NO DIA
           let matchedMission = { ...rawMission, displayPhase: stepIndex + 1 };
 
           if (isSecondary && pool.length === 1 && hasPartner) {
@@ -972,10 +964,14 @@ export default function HomeScreen({ navigation }: any) {
     fetchMissionData();
   };
 
+  // 🎯 CONCLUIR MISSÃO DA JORNADA OU DESAFIO ISOLADO
   const handleCompleteMission = async (journalText: string = "") => {
     if (!currentUid || !activeMission) return;
 
     try {
+      // =======================================================
+      // ⚡ 1. DESAFIO BÔNUS DE OURO (100% ISOLADO DA JORNADA)
+      // =======================================================
       if (activeMission.isGoldChallenge) {
         await setDoc(
           doc(db, "users", currentUid),
@@ -995,14 +991,17 @@ export default function HomeScreen({ navigation }: any) {
         setActiveMission(null);
 
         showCustomAlert(
-          "Desafio de Ouro Concluído! 🏆",
-          "O elo de vocês ficou ainda mais forte neste fim de semana. +150 Bonds gerados!",
-          "infinity",
+          "Desafio Concluído! 🏆",
+          `Você e seu amor concluíram o desafio com sucesso! +${activeMission.pointsPE || 150} Bonds adicionados à sua conta.`,
+          "trophy",
           "#EAB64A",
         );
         return;
       }
 
+      // =======================================================
+      // 🗺️ 2. MISSÃO DIÁRIA DA JORNADA DOS 90 DIAS
+      // =======================================================
       const todayDate = new Date();
       const lastDate = userData?.lastTaskDate
         ? new Date(userData.lastTaskDate)
@@ -1041,11 +1040,9 @@ export default function HomeScreen({ navigation }: any) {
         streak: newStreak,
       };
 
-      // ✅ REFERÊNCIA CORRETA DO USUÁRIO NO FIRESTORE (2 SEGMENTOS)
       await setDoc(doc(db, "users", currentUid), updates, { merge: true });
 
       if (journalText.trim().length > 0) {
-        // ✅ REFERÊNCIA CORRETA DA SUBCOLEÇÃO JOURNALS NO FIRESTORE
         const journalRef = doc(collection(db, "users", currentUid, "journals"));
         await setDoc(journalRef, {
           phase:
@@ -1077,6 +1074,7 @@ export default function HomeScreen({ navigation }: any) {
         earnedPE: earnedPE,
         currentDay90: completedDay,
         cupidProgress: weekCycleProgress,
+        isChallenge: false,
       });
     } catch (error) {
       console.error(error);
@@ -1356,7 +1354,7 @@ export default function HomeScreen({ navigation }: any) {
 
           <View style={styles.trailConnector} />
 
-          {/* NÓ 3: DAR O PLAY (POLIDO & COMPATÍVEL) */}
+          {/* NÓ 3: DAR O PLAY */}
           <View style={styles.specialNodeContainer}>
             {isTrailUnlocked ? (
               <View style={{ alignItems: "center" }}>
@@ -1535,115 +1533,128 @@ export default function HomeScreen({ navigation }: any) {
                     </View>
                   )}
 
+                  {/* 🚀 CONTAINER DO NÓ + DESAFIO TOTALMENTE INDEPENDENTES */}
                   <View
-                    style={[
-                      styles.nodeWrapper,
-                      {
-                        width: nodeSize,
-                        height: nodeSize,
-                        transform: [{ translateX }],
-                      },
-                    ]}
-                    onLayout={(e) => {
-                      nodePositions[index] = e.nativeEvent.layout.y;
-
-                      if (
-                        index === currentStep &&
-                        isTrailUnlocked &&
-                        !isInitialPositionSet
-                      ) {
-                        setTimeout(() => scrollToActiveNode(false), 50);
-                      }
+                    style={{
+                      width: "100%",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      position: "relative",
                     }}
                   >
-                    {isNextUp && (
-                      <Animated.View
-                        style={{
-                          position: "absolute",
-                          width: ringSize,
-                          height: ringSize,
-                          top: -ringOffset - 2.5,
-                          left: -ringOffset,
-                          transform: [{ scale: ringPulseAnim }],
-                          zIndex: 0,
-                          pointerEvents: "none",
-                        }}
-                      >
-                        <SegmentedRing
-                          progress={currentTaskStep}
-                          size={ringSize}
-                        />
-                      </Animated.View>
-                    )}
-
                     <View
                       style={[
-                        styles.nodeBase,
+                        styles.nodeWrapper,
                         {
-                          backgroundColor: baseColor,
                           width: nodeSize,
                           height: nodeSize,
-                          borderRadius: nodeSize / 2,
-                          zIndex: 1,
+                          transform: [{ translateX }],
                         },
                       ]}
-                    >
-                      <Pressable
-                        onPress={() =>
-                          handleOpenMission(
-                            index,
-                            isLocked,
-                            isWaitingForTomorrow,
-                            isCompleted,
-                          )
+                      onLayout={(e) => {
+                        nodePositions[index] = e.nativeEvent.layout.y;
+
+                        if (
+                          index === currentStep &&
+                          isTrailUnlocked &&
+                          !isInitialPositionSet
+                        ) {
+                          setTimeout(() => scrollToActiveNode(false), 50);
                         }
-                        style={({ pressed }) => [
-                          styles.nodeFace,
+                      }}
+                    >
+                      {isNextUp && (
+                        <Animated.View
+                          style={{
+                            position: "absolute",
+                            width: ringSize,
+                            height: ringSize,
+                            top: -ringOffset - 2.5,
+                            left: -ringOffset,
+                            transform: [{ scale: ringPulseAnim }],
+                            zIndex: 0,
+                            pointerEvents: "none",
+                          }}
+                        >
+                          <SegmentedRing
+                            progress={currentTaskStep}
+                            size={ringSize}
+                          />
+                        </Animated.View>
+                      )}
+
+                      <View
+                        style={[
+                          styles.nodeBase,
                           {
-                            backgroundColor: faceColor,
+                            backgroundColor: baseColor,
                             width: nodeSize,
                             height: nodeSize,
                             borderRadius: nodeSize / 2,
-                            transform: [{ translateY: pressed ? 0 : -5 }],
+                            zIndex: 1,
                           },
                         ]}
                       >
-                        {isFetchingMission && isActive ? (
-                          <ActivityIndicator size="small" color="#FFF" />
-                        ) : (
-                          <FontAwesome5
-                            name={iconName}
-                            size={iconSize}
-                            color={iconColor}
-                          />
-                        )}
-                      </Pressable>
+                        <Pressable
+                          onPress={() =>
+                            handleOpenMission(
+                              index,
+                              isLocked,
+                              isWaitingForTomorrow,
+                              isCompleted,
+                            )
+                          }
+                          style={({ pressed }) => [
+                            styles.nodeFace,
+                            {
+                              backgroundColor: faceColor,
+                              width: nodeSize,
+                              height: nodeSize,
+                              borderRadius: nodeSize / 2,
+                              transform: [{ translateY: pressed ? 0 : -5 }],
+                            },
+                          ]}
+                        >
+                          {isFetchingMission && isActive ? (
+                            <ActivityIndicator size="small" color="#FFF" />
+                          ) : (
+                            <FontAwesome5
+                              name={iconName}
+                              size={iconSize}
+                              color={iconColor}
+                            />
+                          )}
+                        </Pressable>
+                      </View>
+
+                      {isActive && currentTaskStep === 0 && (
+                        <View
+                          style={[
+                            styles.floatingHeartsContainer,
+                            {
+                              left: (nodeSize - 60) / 2,
+                              top: -20,
+                              pointerEvents: "none",
+                            } as any,
+                          ]}
+                        >
+                          <FloatingHearts />
+                        </View>
+                      )}
                     </View>
 
-                    {isActive && currentTaskStep === 0 && (
-                      <View
-                        style={[
-                          styles.floatingHeartsContainer,
-                          {
-                            left: (nodeSize - 60) / 2,
-                            top: -20,
-                            pointerEvents: "none",
-                          } as any,
-                        ]}
-                      >
-                        <FloatingHearts />
-                      </View>
-                    )}
-
+                    {/* ⚡ BOTÃO DO DESAFIO TOTALMENTE FORA DO NODEWRAPPER */}
                     {isDay5 && (
                       <View
                         style={[
                           styles.goldChallengeWrapper,
                           {
-                            left: nodeSize + 25,
-                            top: (nodeSize - 60) / 2,
-                            zIndex: 999,
-                            elevation: 10,
+                            transform: [
+                              { translateX: translateX + nodeSize / 2 + 55 },
+                            ],
+                            top: 0,
+                            zIndex: 99999,
+                            elevation: 20,
                           },
                         ]}
                       >
@@ -1651,12 +1662,16 @@ export default function HomeScreen({ navigation }: any) {
                           <Animated.View
                             style={{
                               transform: [{ scale: pulseAnim }],
-                              zIndex: 1000,
                             }}
                           >
-                            <TouchableOpacity
+                            <Pressable
                               style={styles.goldBtnUnlocked}
-                              activeOpacity={0.7}
+                              hitSlop={{
+                                top: 12,
+                                bottom: 12,
+                                left: 12,
+                                right: 12,
+                              }}
                               onPress={(e) => {
                                 e.stopPropagation();
                                 handleOpenGoldChallenge(weekNumber);
@@ -1668,12 +1683,17 @@ export default function HomeScreen({ navigation }: any) {
                                 size={24}
                                 color="#202D3A"
                               />
-                            </TouchableOpacity>
+                            </Pressable>
                           </Animated.View>
                         ) : (
-                          <TouchableOpacity
+                          <Pressable
                             style={styles.goldBtnLocked}
-                            activeOpacity={0.8}
+                            hitSlop={{
+                              top: 12,
+                              bottom: 12,
+                              left: 12,
+                              right: 12,
+                            }}
                             onPress={(e) => {
                               e.stopPropagation();
                               showCustomAlert(
@@ -1689,7 +1709,7 @@ export default function HomeScreen({ navigation }: any) {
                               size={20}
                               color="rgba(234, 182, 74, 0.7)"
                             />
-                          </TouchableOpacity>
+                          </Pressable>
                         )}
                         <Text style={styles.challengeLabel}>Desafio</Text>
                         <View style={styles.challengeStarsRow}>
@@ -1757,7 +1777,8 @@ export default function HomeScreen({ navigation }: any) {
         </View>
       </ScrollView>
 
-      {isTrailUnlocked && showFab && (
+      {/* 🛑 FAB oculto se o modal de missão estiver aberto */}
+      {isTrailUnlocked && showFab && !isModalVisible && (
         <TouchableOpacity
           style={styles.floatingTargetBtn}
           onPress={() => scrollToActiveNode(true)}
@@ -2295,8 +2316,8 @@ const styles = StyleSheet.create({
   goldChallengeWrapper: {
     position: "absolute",
     alignItems: "center",
-    zIndex: 999,
-    elevation: 10,
+    zIndex: 99999,
+    elevation: 20,
   },
   goldBtnUnlocked: {
     width: 60,
@@ -2312,7 +2333,7 @@ const styles = StyleSheet.create({
     elevation: 10,
     borderWidth: 2,
     borderColor: "#FFF",
-    zIndex: 1000,
+    zIndex: 10000,
   },
   goldBtnLocked: {
     width: 60,
