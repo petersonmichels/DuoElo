@@ -7,7 +7,7 @@ import {
   onSnapshot,
   query,
   setDoc,
-  where,
+  where
 } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import {
@@ -28,6 +28,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { auth, db } from "../config/firebase";
+import { t } from "../i18n/translations";
 
 export default function MatchScreen({ navigation }: any) {
   const [currentUid, setCurrentUid] = useState<string | null>(null);
@@ -38,6 +39,9 @@ export default function MatchScreen({ navigation }: any) {
   const [inviteCodeInput, setInviteCodeInput] = useState("");
   const [isMatching, setIsMatching] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
+
+  // Idioma do usuário
+  const userLang = userData?.language || "pt-BR";
 
   // ESTADOS PARA O MODAL DE CONFIRMAÇÃO DO MATCH
   const [pendingMatchPartner, setPendingMatchPartner] = useState<any>(null);
@@ -128,8 +132,8 @@ export default function MatchScreen({ navigation }: any) {
     if (codeToCopy) {
       await Clipboard.setStringAsync(codeToCopy);
       showCustomAlert(
-        "Código Copiado! 📋",
-        "Código copiado para a área de transferência. Envie para o seu amor!",
+        t("code_copied_title", userLang),
+        t("code_copied_msg", userLang),
         "copy",
         "#67D4A8",
       );
@@ -138,7 +142,7 @@ export default function MatchScreen({ navigation }: any) {
 
   const handleSendInvite = async () => {
     const myCode = userData?.myInviteCode || "DUE-123";
-    const message = `Amor, estou investindo na nossa relação. Vamos fazer juntos a jornada de 90 dias do DuoElo? Baixe o app e use o meu código pra gente dar o match: *${myCode}* 👇\n\nhttps://duoelo.com/app`;
+    const message = t("invite_whatsapp_message", userLang, { code: myCode });
     const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
 
     try {
@@ -151,8 +155,8 @@ export default function MatchScreen({ navigation }: any) {
       }
     } catch (error) {
       showCustomAlert(
-        "Erro ao Abrir WhatsApp",
-        "Não conseguimos abrir o WhatsApp. Por favor, copie o código e envie manualmente.",
+        t("whatsapp_error_title", userLang),
+        t("whatsapp_error_msg", userLang),
         "exclamation-triangle",
         "#EAB64A",
       );
@@ -161,12 +165,12 @@ export default function MatchScreen({ navigation }: any) {
 
   const handleDisconnectPartner = () => {
     Alert.alert(
-      "Desconectar Parceiro",
-      "Tem certeza de que deseja desfazer o vínculo? Sua trilha pessoal, histórico e pontos permanecerão salvos intactos.",
+      t("disconnect_confirm_title", userLang),
+      t("disconnect_confirm_msg", userLang),
       [
-        { text: "Cancelar", style: "cancel" },
+        { text: t("modal_cancel", userLang), style: "cancel" },
         {
-          text: "Sim, Desconectar",
+          text: t("btn_yes_disconnect", userLang),
           style: "destructive",
           onPress: async () => {
             const partnerUid = userData?.partnerId;
@@ -203,15 +207,15 @@ export default function MatchScreen({ navigation }: any) {
               }
 
               showCustomAlert(
-                "Desconectado",
-                "O vínculo foi desfeito. Sua trilha individual de progresso permanece salva intacta!",
+                t("disconnected_title", userLang),
+                t("disconnected_msg", userLang),
                 "unlink",
                 "#EAB64A",
               );
             } catch (e) {
               showCustomAlert(
-                "Erro",
-                "Não foi possível desfazer a conexão no momento.",
+                t("error_title", userLang),
+                t("disconnect_error_msg", userLang),
                 "times-circle",
                 "#D96C6C",
               );
@@ -229,8 +233,8 @@ export default function MatchScreen({ navigation }: any) {
 
     if (rawClean.length < 3) {
       showCustomAlert(
-        "Atenção",
-        "Digite um código ou @username válido.",
+        t("attention_title", userLang),
+        t("invalid_code_or_username_msg", userLang),
         "exclamation-triangle",
         "#EAB64A",
       );
@@ -259,8 +263,8 @@ export default function MatchScreen({ navigation }: any) {
 
       if (querySnapshot.empty) {
         showCustomAlert(
-          "Match Não Encontrado",
-          "Não encontramos ninguém com esse código ou @username. Verifique se digitou corretamente.",
+          t("match_not_found_title", userLang),
+          t("match_not_found_msg", userLang),
           "search-minus",
           "#EAB64A",
         );
@@ -274,8 +278,8 @@ export default function MatchScreen({ navigation }: any) {
 
       if (partnerId === currentUid) {
         showCustomAlert(
-          "Ação Bloqueada",
-          "Você não pode utilizar o seu próprio código ou usuário!",
+          t("action_blocked_title", userLang),
+          t("own_code_error_msg", userLang),
           "ban",
           "#D96C6C",
         );
@@ -285,8 +289,8 @@ export default function MatchScreen({ navigation }: any) {
 
       if (partnerDataDb?.partnerId && partnerDataDb.partnerId !== currentUid) {
         showCustomAlert(
-          "Usuário Ocupado",
-          "Este perfil já está conectado a outro parceiro no DuoElo.",
+          t("user_busy_title", userLang),
+          t("user_busy_msg", userLang),
           "user-lock",
           "#EAB64A",
         );
@@ -299,8 +303,8 @@ export default function MatchScreen({ navigation }: any) {
     } catch (error) {
       console.error("Erro ao buscar parceiro:", error);
       showCustomAlert(
-        "Erro de Conexão",
-        "Ocorreu um problema ao tentar buscar a conta. Tente novamente.",
+        t("connection_error_title", userLang),
+        t("search_account_error_msg", userLang),
         "times-circle",
         "#D96C6C",
       );
@@ -315,8 +319,8 @@ export default function MatchScreen({ navigation }: any) {
     const currentUser = auth.currentUser;
     if (!currentUser || !pendingMatchPartner) {
       showCustomAlert(
-        "Sessão Expirada 🔒",
-        "Sua sessão expirou. Faça login novamente.",
+        t("session_expired_title", userLang),
+        t("session_expired_msg", userLang),
         "user-lock",
         "#D96C6C",
       );
@@ -330,8 +334,8 @@ export default function MatchScreen({ navigation }: any) {
 
       if (!codeToLink) {
         showCustomAlert(
-          "Código Indisponível",
-          "Não conseguimos obter o código deste perfil. Tente novamente.",
+          t("code_unavailable_title", userLang),
+          t("code_unavailable_msg", userLang),
           "exclamation-triangle",
           "#EAB64A",
         );
@@ -341,7 +345,6 @@ export default function MatchScreen({ navigation }: any) {
 
       const userRef = doc(db, "users", currentUser.uid);
 
-      // 🔗 VINCULA O PARCEIRO, LIMPA TRILHA SOLO ANTERIOR E RESETA O STATUS DE PLAY
       await setDoc(
         userRef,
         {
@@ -359,8 +362,8 @@ export default function MatchScreen({ navigation }: any) {
       setIsMatching(false);
 
       showCustomAlert(
-        "Match Realizado! ❤️",
-        "Vocês foram conectados com sucesso! Agora voltem para a Home e deem o Play juntos para liberar a trilha sincronizada.",
+        t("match_success_title", userLang),
+        t("match_success_msg", userLang),
         "heart",
         "#67D4A8",
         () => {
@@ -375,8 +378,8 @@ export default function MatchScreen({ navigation }: any) {
     } catch (error: any) {
       console.error("Erro ao solicitar o match no Firestore:", error);
       showCustomAlert(
-        "Erro no Match",
-        "Não foi possível processar a conexão no momento.",
+        t("match_error_title", userLang),
+        t("match_error_msg", userLang),
         "times-circle",
         "#D96C6C",
       );
@@ -409,7 +412,9 @@ export default function MatchScreen({ navigation }: any) {
       ? `${partnerData.billingFirstName} ${partnerData.billingLastName}`
       : partnerData?.displayName ||
         partnerData?.email?.split("@")[0] ||
-        (partnerData?.username ? `@${partnerData.username}` : "Parceiro(a)");
+        (partnerData?.username
+          ? `@${partnerData.username}`
+          : t("partner_default_name", userLang));
 
   const pendingPhoto = isValidPhoto(pendingMatchPartner?.data?.photoURL)
     ? pendingMatchPartner.data.photoURL
@@ -425,7 +430,7 @@ export default function MatchScreen({ navigation }: any) {
         pendingMatchPartner?.data?.email?.split("@")[0] ||
         (pendingMatchPartner?.data?.username
           ? `@${pendingMatchPartner.data.username}`
-          : "Usuário Misterioso");
+          : t("mysterious_user", userLang));
 
   const hasPartner = !!userData?.partnerId;
 
@@ -446,7 +451,9 @@ export default function MatchScreen({ navigation }: any) {
           >
             <FontAwesome5 name="times" size={20} color="#202D3A" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Seu Match</Text>
+          <Text style={styles.headerTitle}>
+            {t("match_header_title", userLang)}
+          </Text>
           <View style={{ width: 40 }} />
         </View>
 
@@ -471,7 +478,9 @@ export default function MatchScreen({ navigation }: any) {
                     )}
                   </View>
                   <View style={styles.partnerInfo}>
-                    <Text style={styles.partnerLabel}>Conectado com</Text>
+                    <Text style={styles.partnerLabel}>
+                      {t("connected_with_label", userLang)}
+                    </Text>
                     <Text style={styles.partnerName} numberOfLines={1}>
                       {partnerName}
                     </Text>
@@ -496,7 +505,7 @@ export default function MatchScreen({ navigation }: any) {
                     <>
                       <FontAwesome5 name="unlink" size={14} color="#D96C6C" />
                       <Text style={styles.disconnectBtnText}>
-                        Desconectar Parceiro
+                        {t("btn_disconnect_partner", userLang)}
                       </Text>
                     </>
                   )}
@@ -518,9 +527,11 @@ export default function MatchScreen({ navigation }: any) {
                   <FontAwesome5 name="user-plus" size={20} color="#D1D9E0" />
                 </View>
                 <View style={styles.partnerInfo}>
-                  <Text style={styles.partnerLabel}>Nenhuma conexão</Text>
+                  <Text style={styles.partnerLabel}>
+                    {t("no_connection_label", userLang)}
+                  </Text>
                   <Text style={[styles.partnerName, { color: "#60646C" }]}>
-                    Aguardando Match
+                    {t("waiting_match_label", userLang)}
                   </Text>
                 </View>
               </View>
@@ -531,12 +542,11 @@ export default function MatchScreen({ navigation }: any) {
           {!hasPartner && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>
-                1. Convide seu Parceiro(a)
+                {t("invite_section_1_title", userLang)}
               </Text>
               <View style={styles.card}>
                 <Text style={styles.cardDesc}>
-                  Envie o seu código exclusivo. O seu parceiro precisará dele
-                  para que vocês iniciem a jornada sincronizados.
+                  {t("invite_section_1_desc", userLang)}
                 </Text>
 
                 <TouchableOpacity
@@ -555,7 +565,7 @@ export default function MatchScreen({ navigation }: any) {
                 >
                   <FontAwesome5 name="whatsapp" size={20} color="#FFF" />
                   <Text style={styles.whatsappButtonText}>
-                    Convidar pelo WhatsApp
+                    {t("btn_invite_whatsapp", userLang)}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -565,7 +575,9 @@ export default function MatchScreen({ navigation }: any) {
           {/* 3. RECEBER CONVITE / BUSCA POR USERNAME */}
           {!hasPartner && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>2. Já tem um código ou @?</Text>
+              <Text style={styles.sectionTitle}>
+                {t("invite_section_2_title", userLang)}
+              </Text>
               <View
                 style={[
                   styles.card,
@@ -573,14 +585,13 @@ export default function MatchScreen({ navigation }: any) {
                 ]}
               >
                 <Text style={styles.cardDesc}>
-                  Cole o código ou o @username do seu parceiro(a) abaixo para
-                  dar o Match.
+                  {t("invite_section_2_desc", userLang)}
                 </Text>
 
                 <View style={styles.inputRow}>
                   <TextInput
                     style={styles.input}
-                    placeholder="Código ou @username"
+                    placeholder={t("placeholder_code_or_username", userLang)}
                     placeholderTextColor="#AFAFAF"
                     autoCapitalize="none"
                     value={inviteCodeInput}
@@ -597,7 +608,9 @@ export default function MatchScreen({ navigation }: any) {
                     {isMatching ? (
                       <ActivityIndicator size="small" color="#FFF" />
                     ) : (
-                      <Text style={styles.btnActionText}>Conectar</Text>
+                      <Text style={styles.btnActionText}>
+                        {t("btn_connect", userLang)}
+                      </Text>
                     )}
                   </TouchableOpacity>
                 </View>
@@ -615,9 +628,11 @@ export default function MatchScreen({ navigation }: any) {
       >
         <View style={styles.modalOverlayCenter}>
           <View style={styles.codeModalCard}>
-            <Text style={styles.codeModalTitle}>É esta pessoa?</Text>
+            <Text style={styles.codeModalTitle}>
+              {t("is_this_person_title", userLang)}
+            </Text>
             <Text style={styles.codeModalSub}>
-              Verifique se a conta abaixo pertence ao seu amor.
+              {t("is_this_person_sub", userLang)}
             </Text>
 
             <View style={{ alignItems: "center", marginBottom: 25 }}>
@@ -638,7 +653,9 @@ export default function MatchScreen({ navigation }: any) {
               style={[styles.linkButton, { backgroundColor: "#67D4A8" }]}
               onPress={confirmMatchCode}
             >
-              <Text style={styles.linkButtonText}>Sim, Conectar!</Text>
+              <Text style={styles.linkButtonText}>
+                {t("btn_yes_connect", userLang)}
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.cancelLinkButton}
@@ -648,7 +665,7 @@ export default function MatchScreen({ navigation }: any) {
               }}
             >
               <Text style={styles.cancelLinkButtonText}>
-                Não, errei o código
+                {t("btn_no_wrong_code", userLang)}
               </Text>
             </TouchableOpacity>
           </View>
@@ -687,7 +704,9 @@ export default function MatchScreen({ navigation }: any) {
                 if (customAlert.onConfirm) customAlert.onConfirm();
               }}
             >
-              <Text style={styles.bottomSheetButtonPrimaryText}>Entendi</Text>
+              <Text style={styles.bottomSheetButtonPrimaryText}>
+                {t("btn_understand", userLang)}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>

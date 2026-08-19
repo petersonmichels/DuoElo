@@ -21,6 +21,9 @@ import {
   getGiftTitle,
 } from "../database/seed/gifts";
 
+// 🌐 Importação do motor de traduções para CRM
+import { t } from "../i18n/translations";
+
 export default function ShopScreen({ userData, partnerData }: any) {
   const currentUid = auth.currentUser?.uid;
   const partnerUid = userData?.partnerId;
@@ -163,8 +166,8 @@ export default function ShopScreen({ userData, partnerData }: any) {
     if (partnerPurchases[activeWeekSlot]) {
       setActiveWeekSlot(null);
       showAlert(
-        "Presente Bloqueado 🔒",
-        "Seu amor já comprou ou entregou este presente! Você não pode alterá-lo.",
+        t("gift_locked_title", userLang),
+        t("gift_locked_msg", userLang),
         "lock",
         "#EAB64A",
       );
@@ -184,8 +187,8 @@ export default function ShopScreen({ userData, partnerData }: any) {
       setActiveWeekSlot(null);
     } catch (e) {
       showAlert(
-        "Erro",
-        "Não foi possível salvar o presente.",
+        t("error_title", userLang),
+        t("error_save", userLang),
         "times-circle",
         "#D96C6C",
       );
@@ -200,8 +203,8 @@ export default function ShopScreen({ userData, partnerData }: any) {
 
     if (currentBonds < cost) {
       showAlert(
-        "Bonds Insuficientes 🔒",
-        `Você precisa de ${cost} Bonds para comprar este carinho. Complete missões diárias na Home!`,
+        t("insufficient_bonds_title", userLang),
+        t("insufficient_bonds_msg", userLang),
         "lock",
         "#EAB64A",
       );
@@ -231,15 +234,15 @@ export default function ShopScreen({ userData, partnerData }: any) {
 
       const translatedTitle = getGiftTitle(giftId, userLang);
       showAlert(
-        "Presente Comprado! 🎁",
-        `Você comprou "${translatedTitle}". Quando entregar na vida real, clique em 'Marcar como Entregue'!`,
+        t("gift_bought_title", userLang),
+        t("gift_bought_msg", userLang, { gift: translatedTitle }),
         "gift",
         "#D96C6C",
       );
     } catch (e) {
       showAlert(
-        "Erro ao Resgatar",
-        "Não foi possível registrar o presente no momento.",
+        t("error_title", userLang),
+        t("error_register", userLang),
         "times-circle",
         "#D96C6C",
       );
@@ -262,15 +265,15 @@ export default function ShopScreen({ userData, partnerData }: any) {
       );
 
       showAlert(
-        "Entregue com Sucesso! 💖",
-        "Aguardando seu amor confirmar o recebimento do carinho no app!",
+        t("delivered_success_title", userLang),
+        t("delivered_success_msg", userLang),
         "check-circle",
         "#EAB64A",
       );
     } catch (e) {
       showAlert(
-        "Erro",
-        "Não foi possível atualizar.",
+        t("error_title", userLang),
+        t("error_save", userLang),
         "times-circle",
         "#D96C6C",
       );
@@ -290,15 +293,15 @@ export default function ShopScreen({ userData, partnerData }: any) {
       );
 
       showAlert(
-        "Gesto Concluído! ❤️",
-        "Vocês fortaleceram ainda mais o elo de conexão hoje!",
+        t("confirmed_success_title", userLang),
+        t("confirmed_success_msg", userLang),
         "heart",
         "#67D4A8",
       );
     } catch (e) {
       showAlert(
-        "Erro",
-        "Não foi possível confirmar.",
+        t("error_title", userLang),
+        t("error_save", userLang),
         "times-circle",
         "#D96C6C",
       );
@@ -316,7 +319,9 @@ export default function ShopScreen({ userData, partnerData }: any) {
       >
         {/* SALDO DE BONDS */}
         <View style={styles.balanceHeader}>
-          <Text style={styles.balanceLabel}>SEUS BONDS DISPONÍVEIS</Text>
+          <Text style={styles.balanceLabel}>
+            {t("available_bonds", userLang)}
+          </Text>
           <View style={styles.balanceRow}>
             <FontAwesome5 name="infinity" solid size={26} color="#EAB64A" />
             <Text style={styles.balanceValue}>{currentBonds}</Text>
@@ -325,23 +330,25 @@ export default function ShopScreen({ userData, partnerData }: any) {
 
         {/* PARTE 1: PRESENTES QUE SEU AMOR QUER GANHAR */}
         <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>🎁 Desejos de {partnerName}</Text>
+          <Text style={styles.sectionTitle}>
+            {t("partner_desires_title", userLang, { name: partnerName })}
+          </Text>
           <Text style={styles.sectionSub}>
-            Compre os presentes que {partnerName} gostaria de receber!
+            {t("partner_desires_sub", userLang, { name: partnerName })}
           </Text>
 
           {!partnerUid ? (
             <View style={styles.emptyCard}>
               <FontAwesome5 name="user-plus" size={24} color="#AFAFAF" />
               <Text style={styles.emptyCardText}>
-                Faça o Match para ver os desejos do seu amor.
+                {t("no_match_text", userLang)}
               </Text>
             </View>
           ) : Object.keys(partnerDesires).length === 0 ? (
             <View style={styles.emptyCard}>
               <FontAwesome5 name="hourglass-half" size={24} color="#EAB64A" />
               <Text style={styles.emptyCardText}>
-                {partnerName} ainda não selecionou os presentes.
+                {t("partner_no_gifts", userLang, { name: partnerName })}
               </Text>
             </View>
           ) : (
@@ -370,7 +377,9 @@ export default function ShopScreen({ userData, partnerData }: any) {
                     ]}
                   >
                     <View style={styles.cardHeader}>
-                      <Text style={styles.weekTag}>SEMANA {weekNum}</Text>
+                      <Text style={styles.weekTag}>
+                        {t("week_tag", userLang, { week: weekNum })}
+                      </Text>
                       <View
                         style={{
                           flexDirection: "row",
@@ -402,7 +411,7 @@ export default function ShopScreen({ userData, partnerData }: any) {
                           style={{ marginRight: 6 }}
                         />
                         <Text style={styles.btnBuyText}>
-                          COMPRAR (150 BONDS)
+                          {t("btn_buy", userLang)}
                         </Text>
                       </TouchableOpacity>
                     )}
@@ -420,7 +429,7 @@ export default function ShopScreen({ userData, partnerData }: any) {
                           style={{ marginRight: 6 }}
                         />
                         <Text style={styles.btnDeliverText}>
-                          Marcar como Entregue na Vida Real
+                          {t("btn_mark_delivered", userLang)}
                         </Text>
                       </TouchableOpacity>
                     )}
@@ -429,7 +438,9 @@ export default function ShopScreen({ userData, partnerData }: any) {
                     {status === "delivered" && !isConfirmedByPartner && (
                       <View style={styles.statusBadgeWaiting}>
                         <Text style={styles.statusBadgeWaitingText}>
-                          ⏳ Entregue! Aguardando {partnerName} confirmar
+                          {t("waiting_partner_confirm", userLang, {
+                            name: partnerName,
+                          })}
                         </Text>
                       </View>
                     )}
@@ -438,7 +449,9 @@ export default function ShopScreen({ userData, partnerData }: any) {
                     {isConfirmedByPartner && (
                       <View style={styles.statusBadgeConfirmed}>
                         <Text style={styles.statusBadgeConfirmedText}>
-                          ✓ Entregue & Confirmado por {partnerName} ❤️
+                          {t("delivered_confirmed_partner", userLang, {
+                            name: partnerName,
+                          })}
                         </Text>
                       </View>
                     )}
@@ -452,11 +465,9 @@ export default function ShopScreen({ userData, partnerData }: any) {
         {/* PARTE 2: SEUS SLOTS DE 13 SEMANAS */}
         <View style={styles.sectionContainer}>
           <Text style={styles.sectionTitle}>
-            ✨ Sua Lista de Presentes (13 Semanas)
+            {t("my_gifts_title", userLang)}
           </Text>
-          <Text style={styles.sectionSub}>
-            Escolha o que você gostaria de ganhar em cada semana liberada:
-          </Text>
+          <Text style={styles.sectionSub}>{t("my_gifts_sub", userLang)}</Text>
 
           <View style={styles.listGap}>
             {Array.from({ length: 13 }).map((_, index) => {
@@ -490,7 +501,9 @@ export default function ShopScreen({ userData, partnerData }: any) {
                   ]}
                 >
                   <View style={styles.slotHeader}>
-                    <Text style={styles.slotWeekTitle}>SEMANA {weekNum}</Text>
+                    <Text style={styles.slotWeekTitle}>
+                      {t("week_tag", userLang, { week: weekNum })}
+                    </Text>
                     {!isUnlocked ? (
                       <View style={styles.lockBadge}>
                         <FontAwesome5
@@ -499,7 +512,9 @@ export default function ShopScreen({ userData, partnerData }: any) {
                           color="#AFAFAF"
                           style={{ marginRight: 4 }}
                         />
-                        <Text style={styles.lockBadgeText}>Bloqueado</Text>
+                        <Text style={styles.lockBadgeText}>
+                          {t("status_locked", userLang)}
+                        </Text>
                       </View>
                     ) : isBoughtByPartner && !isDeliveredByPartner ? (
                       <View style={styles.lockBadge}>
@@ -512,7 +527,7 @@ export default function ShopScreen({ userData, partnerData }: any) {
                         <Text
                           style={[styles.lockBadgeText, { color: "#D96C6C" }]}
                         >
-                          Comprado pelo seu amor
+                          {t("status_bought_by_partner", userLang)}
                         </Text>
                       </View>
                     ) : null}
@@ -548,12 +563,12 @@ export default function ShopScreen({ userData, partnerData }: any) {
                         style={{ marginRight: 6 }}
                       />
                       <Text style={styles.btnAddGiftText}>
-                        Escolher Presente Desta Semana
+                        {t("choose_weekly_gift", userLang)}
                       </Text>
                     </TouchableOpacity>
                   ) : (
                     <Text style={styles.lockedSub}>
-                      Libera ao alcançar a Semana {weekNum} na Home
+                      {t("unlocks_at_week", userLang, { week: weekNum })}
                     </Text>
                   )}
 
@@ -571,7 +586,7 @@ export default function ShopScreen({ userData, partnerData }: any) {
                         style={{ marginRight: 6 }}
                       />
                       <Text style={styles.btnDeliverText}>
-                        Confirmar que Recebi na Vida Real ❤️
+                        {t("btn_confirm_received", userLang)}
                       </Text>
                     </TouchableOpacity>
                   )}
@@ -579,7 +594,7 @@ export default function ShopScreen({ userData, partnerData }: any) {
                   {isConfirmedByMe && (
                     <View style={styles.statusBadgeConfirmed}>
                       <Text style={styles.statusBadgeConfirmedText}>
-                        ✓ Recebido & Confirmado com Amor
+                        {t("received_confirmed_with_love", userLang)}
                       </Text>
                     </View>
                   )}
@@ -599,10 +614,12 @@ export default function ShopScreen({ userData, partnerData }: any) {
         <View style={styles.modalOverlay}>
           <View style={styles.modalCardLarge}>
             <Text style={styles.modalTitle}>
-              Presente da Semana {activeWeekSlot}
+              {t("modal_select_title", userLang, {
+                week: activeWeekSlot || 1,
+              })}
             </Text>
             <Text style={styles.modalSub}>
-              O que você gostaria de ganhar de {partnerName}?
+              {t("modal_select_sub", userLang, { name: partnerName })}
             </Text>
 
             {isSaving ? (
@@ -644,7 +661,9 @@ export default function ShopScreen({ userData, partnerData }: any) {
               style={styles.btnCancel}
               onPress={() => setActiveWeekSlot(null)}
             >
-              <Text style={styles.btnCancelText}>Cancelar</Text>
+              <Text style={styles.btnCancelText}>
+                {t("modal_cancel", userLang)}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -675,7 +694,9 @@ export default function ShopScreen({ userData, partnerData }: any) {
               ]}
               onPress={() => setCustomAlert({ ...customAlert, visible: false })}
             >
-              <Text style={styles.btnPrimaryAlertText}>Entendi</Text>
+              <Text style={styles.btnPrimaryAlertText}>
+                {t("btn_understand", userLang)}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>

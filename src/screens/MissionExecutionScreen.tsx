@@ -6,7 +6,7 @@ import {
   getDocs,
   query,
   setDoc,
-  where
+  where,
 } from "firebase/firestore";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -24,6 +24,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { auth, db } from "../config/firebase";
+import { t } from "../i18n/translations";
 import { decryptData, encryptData, generateVaultKey } from "../utils/security";
 
 const { width } = Dimensions.get("window");
@@ -48,7 +49,7 @@ export default function MissionExecutionScreen({
   const slideAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  const extractText = (field: any, fieldName: string, fallback: string) => {
+  const extractText = (field: any, fieldName: string, fallbackKey: string) => {
     if (mission?.translations?.[userLanguage]?.[fieldName]) {
       return mission.translations[userLanguage][fieldName];
     }
@@ -58,25 +59,25 @@ export default function MissionExecutionScreen({
         field["pt-BR"] ||
         field["pt"] ||
         field["en"] ||
-        fallback
+        t(fallbackKey, userLanguage)
       );
     }
     if (typeof field === "string") {
       return field;
     }
-    return fallback;
+    return t(fallbackKey, userLanguage);
   };
 
   const conceptText = extractText(
     mission?.concept || mission?.description,
     "concept",
-    "Com o tempo, a rotina faz com que casais parem de se olhar de verdade. Conversamos sobre contas, sobre os filhos, mas não nos conectamos mais. O silêncio e a falta de contato visual são os primeiros sinais de distanciamento.",
+    "fallback_mission_concept",
   );
 
   const actionText = extractText(
     mission?.action || mission?.description,
     "action",
-    "Hoje, sente-se de frente para o seu parceiro(a), segurem as mãos e olhem-se nos olhos por 2 minutos ininterruptos, sem falar nada.",
+    "fallback_mission_action",
   );
 
   useEffect(() => {
@@ -92,7 +93,6 @@ export default function MissionExecutionScreen({
       const userId = auth.currentUser?.uid;
       if (userId) {
         try {
-          // 🔒 Referência Válida (2 segmentos: coleção/documento)
           const snap = await getDoc(doc(db, "users", userId));
           if (isMounted && snap.exists()) {
             const data = snap.data();
@@ -135,7 +135,6 @@ export default function MissionExecutionScreen({
             mission.day ||
             mission.week;
 
-          // 🔒 Referência de Subcoleção Válida (3 segmentos para query)
           const q = query(
             collection(db, "users", uid, "journals"),
             where("phase", "==", phaseToFetch),
@@ -155,7 +154,7 @@ export default function MissionExecutionScreen({
 
                 const decryptedText = decryptData(data.textEncrypted, vaultKey);
                 setFetchedJournal(
-                  decryptedText || "⚠️ Falha ao descriptografar.",
+                  decryptedText || t("decryption_failed_warn", userLanguage),
                 );
               } else {
                 setFetchedJournal(data.text || "");
@@ -182,7 +181,7 @@ export default function MissionExecutionScreen({
     return () => {
       isMounted = false;
     };
-  }, [isReviewMode, mission]);
+  }, [isReviewMode, mission, userLanguage]);
 
   useEffect(() => {
     Animated.loop(
@@ -261,7 +260,6 @@ export default function MissionExecutionScreen({
       const uid = auth.currentUser?.uid;
       let finalJournalToSave = journalEntry;
 
-      // 🔐 CRIPTOGRAFIA AUTOMÁTICA DO DIÁRIO ANTES DE COMPLETAR
       if (uid && journalEntry.trim().length > 0) {
         const userDoc = await getDoc(doc(db, "users", uid));
         const pId = userDoc.data()?.partnerId;
@@ -301,7 +299,9 @@ export default function MissionExecutionScreen({
       <SafeAreaView style={styles.container}>
         <View style={styles.headerReview}>
           <Text style={styles.headerTitle}>
-            {isGold ? "Desafio de Ouro" : "Missão do Dia"}
+            {isGold
+              ? t("gold_challenge_review_title", userLanguage)
+              : t("daily_mission_review_title", userLanguage)}
           </Text>
           <TouchableOpacity
             onPress={onClose}
@@ -348,8 +348,10 @@ export default function MissionExecutionScreen({
               >
                 {mission.title ||
                   (isGold
-                    ? "Desafio de Ouro"
-                    : `Dia ${mission.day || mission.phase}`)}
+                    ? t("gold_challenge_title_default", userLanguage)
+                    : t("mission_day_title_default", userLanguage, {
+                        day: mission.day || mission.phase,
+                      }))}
               </Text>
               <Text
                 style={{
@@ -359,8 +361,8 @@ export default function MissionExecutionScreen({
                 }}
               >
                 {isGold
-                  ? "🏆 Desafio Concluído (+150 Bonds)"
-                  : "Missão Cumprida"}
+                  ? t("gold_challenge_completed_badge", userLanguage)
+                  : t("mission_accomplished_badge", userLanguage)}
               </Text>
             </View>
           </View>
@@ -373,7 +375,7 @@ export default function MissionExecutionScreen({
                   solid
                   color={isGold ? "#EAB64A" : "#202D3A"}
                 />{" "}
-                O Conceito
+                {t("concept_section_title", userLanguage)}
               </Text>
               <Text style={styles.cardText}>{conceptText}</Text>
             </View>
@@ -382,17 +384,19 @@ export default function MissionExecutionScreen({
           {actionText && (
             <View style={styles.card}>
               <Text style={styles.cardTitle}>
-                <FontAwesome5 name="bullseye" solid color="#EAB64A" /> Ação
-                Prática
+                <FontAwesome5 name="bullseye" solid color="#EAB64A" />{" "}
+                {t("action_section_title", userLanguage)}
               </Text>
               <Text style={styles.cardText}>{actionText}</Text>
             </View>
           )}
 
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>📖 Seu Diário (Opcional)</Text>
+            <Text style={styles.cardTitle}>
+              {t("journal_section_title", userLanguage)}
+            </Text>
             <Text style={styles.cardSubtitle}>
-              Sua reflexão e sentimentos salvos para revisitar depois.
+              {t("journal_section_sub", userLanguage)}
             </Text>
 
             {loadingJournal ? (
@@ -423,7 +427,7 @@ export default function MissionExecutionScreen({
                 >
                   {fetchedJournal
                     ? fetchedJournal
-                    : "Nenhuma reflexão foi escrita neste dia."}
+                    : t("no_reflection_recorded_msg", userLanguage)}
                 </Text>
               </View>
             )}
@@ -543,11 +547,15 @@ export default function MissionExecutionScreen({
                 <Text
                   style={[styles.stepBadgeText, isGold && { color: "#EAB64A" }]}
                 >
-                  {isGold ? "DESAFIO DE OURO" : "PASSO 1 DE 3"}
+                  {isGold
+                    ? t("step_badge_gold", userLanguage)
+                    : t("step_badge_1", userLanguage)}
                 </Text>
               </View>
               <Text style={styles.titleText}>
-                {isGold ? mission.title : "O Conceito"}
+                {isGold
+                  ? mission.title
+                  : t("concept_section_title", userLanguage)}
               </Text>
 
               <View
@@ -585,7 +593,7 @@ export default function MissionExecutionScreen({
                     isGold && { color: "#202D3A" },
                   ]}
                 >
-                  Avançar para Ação
+                  {t("btn_advance_to_action", userLanguage)}
                 </Text>
                 <FontAwesome5
                   name="arrow-right"
@@ -607,10 +615,12 @@ export default function MissionExecutionScreen({
                 <Text
                   style={[styles.stepBadgeText, isGold && { color: "#EAB64A" }]}
                 >
-                  PASSO 2 DE 3
+                  {t("step_badge_2", userLanguage)}
                 </Text>
               </View>
-              <Text style={styles.titleText}>A Ação</Text>
+              <Text style={styles.titleText}>
+                {t("action_section_title", userLanguage)}
+              </Text>
 
               <View
                 style={[
@@ -649,7 +659,7 @@ export default function MissionExecutionScreen({
                 onPress={() => goToStep(3)}
               >
                 <Text style={[styles.primaryBtnText, { color: "#202D3A" }]}>
-                  Avançar para Finalização
+                  {t("btn_advance_to_conclusion", userLanguage)}
                 </Text>
                 <FontAwesome5 name="arrow-right" size={16} color="#202D3A" />
               </TouchableOpacity>
@@ -660,7 +670,7 @@ export default function MissionExecutionScreen({
               >
                 <FontAwesome5 name="clock" size={16} color="#60646C" />
                 <Text style={styles.secondaryBtnText}>
-                  Sair e fazer mais tarde
+                  {t("btn_do_later", userLanguage)}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -677,21 +687,23 @@ export default function MissionExecutionScreen({
                 <Text
                   style={[styles.stepBadgeText, isGold && { color: "#EAB64A" }]}
                 >
-                  PASSO 3 DE 3
+                  {t("step_badge_3", userLanguage)}
                 </Text>
               </View>
-              <Text style={styles.titleText}>Conclusão</Text>
+              <Text style={styles.titleText}>
+                {t("conclusion_title", userLanguage)}
+              </Text>
 
               <Text style={styles.subText}>
                 {isGold
-                  ? "Incrível! Vocês completaram o Desafio de Ouro da semana. Registrem abaixo o momento para gerar +150 Bonds!"
-                  : "O elo de vocês foi fortalecido. Que tal registrar no diário de bordo como foi a experiência antes de concluir?"}
+                  ? t("conclusion_sub_gold", userLanguage)
+                  : t("conclusion_sub_default", userLanguage)}
               </Text>
 
               <View style={styles.journalContainer}>
                 <TextInput
                   style={styles.journalInput}
-                  placeholder="Como você se sentiu hoje? (Opcional)"
+                  placeholder={t("placeholder_journal_entry", userLanguage)}
                   placeholderTextColor="#AFAFAF"
                   multiline
                   textAlignVertical="top"
@@ -763,7 +775,9 @@ export default function MissionExecutionScreen({
               </View>
 
               <Text style={styles.bigCheckLabel}>
-                {isFinishing ? "FINALIZANDO..." : "MARCAR COMO CUMPRIDA"}
+                {isFinishing
+                  ? t("btn_completing_label", userLanguage)
+                  : t("btn_mark_accomplished_label", userLanguage)}
               </Text>
             </View>
           )}

@@ -14,6 +14,7 @@ import {
 
 // 🔥 Controle de segurança do Firebase
 import { auth, authControls, db } from "../config/firebase";
+import { t } from "../i18n/translations";
 
 // Suas Telas Oficiais
 import AnamneseScreen from "../screens/AnamneseScreen";
@@ -100,6 +101,23 @@ function ShopScreenWrapper(props: any) {
 // 🚀 O MENU INFERIOR (BOTTOM TABS)
 // ==========================================
 function MainTabs() {
+  const [userLang, setUserLang] = useState("pt-BR");
+  const currentUid = auth.currentUser?.uid;
+
+  // 🌐 Escuta o idioma do usuário em tempo real
+  useEffect(() => {
+    if (!currentUid) return;
+    const unsubscribe = onSnapshot(doc(db, "users", currentUid), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.language) {
+          setUserLang(data.language);
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, [currentUid]);
+
   return (
     <Tab.Navigator
       initialRouteName="Home"
@@ -131,15 +149,18 @@ function MainTabs() {
         name="Tarefas"
         component={TarefasScreen}
         options={{
+          tabBarLabel: t("tab_tasks", userLang),
           tabBarIcon: ({ color }) => (
             <FontAwesome5 name="tasks" size={20} color={color} />
           ),
         }}
       />
+
       <Tab.Screen
         name="Match"
         component={MatchScreen}
         options={{
+          tabBarLabel: t("tab_match", userLang),
           tabBarIcon: ({ color }) => (
             <FontAwesome5 name="user-friends" size={18} color={color} />
           ),
@@ -172,6 +193,7 @@ function MainTabs() {
         name="Loja"
         component={ShopScreenWrapper}
         options={{
+          tabBarLabel: t("tab_shop", userLang),
           tabBarIcon: ({ color }) => (
             <FontAwesome5 name="shopping-bag" size={20} color={color} />
           ),
@@ -182,6 +204,7 @@ function MainTabs() {
         name="Perfil"
         component={ProfileScreen}
         options={{
+          tabBarLabel: t("tab_profile", userLang),
           tabBarIcon: ({ color }) => (
             <FontAwesome5 name="user-alt" size={20} color={color} />
           ),

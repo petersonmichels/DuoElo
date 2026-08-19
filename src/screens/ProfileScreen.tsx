@@ -20,6 +20,7 @@ import {
   Image,
   KeyboardAvoidingView,
   Linking,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -33,12 +34,22 @@ import Purchases from "react-native-purchases";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { auth, db } from "../config/firebase";
 
-// 🚫 Detecta se está rodando dentro do Expo Go
+import { t } from "../i18n/translations";
+
 const isExpoGo =
   Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
-// 🔒 Desativa tentativa de require no Expo Go para não disparar exceção nativa do TurboModule
 let GoogleSignin: any = null;
+
+const SUPPORTED_LANGUAGES = [
+  { code: "pt-BR", flag: "🇧🇷", label: "Português (Brasil)" },
+  { code: "pt-PT", flag: "🇵🇹", label: "Português (Portugal)" },
+  { code: "en", flag: "🇺🇸", label: "English" },
+  { code: "es", flag: "🇪🇸", label: "Español" },
+  { code: "fr", flag: "🇫🇷", label: "Français" },
+  { code: "de", flag: "🇩🇪", label: "Deutsch" },
+  { code: "ja", flag: "🇯🇵", label: "日本語" },
+];
 
 export default function ProfileScreen({ navigation }: any) {
   const [userData, setUserData] = useState<any>(null);
@@ -59,6 +70,10 @@ export default function ProfileScreen({ navigation }: any) {
 
   const [bypassDailyLock, setBypassDailyLock] = useState(false);
   const isFirstLoad = useRef(true);
+
+  // 🌐 Estado e Modal de Idioma
+  const [userLang, setUserLang] = useState("pt-BR");
+  const [isLangModalVisible, setIsLangModalVisible] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -96,6 +111,7 @@ export default function ProfileScreen({ navigation }: any) {
         const data = docSnap.data();
         setUserData(data);
         setBypassDailyLock(data.bypassDailyLock || false);
+        if (data.language) setUserLang(data.language);
 
         if (isFirstLoad.current) {
           setFirstName(data.billingFirstName || "");
@@ -153,19 +169,19 @@ export default function ProfileScreen({ navigation }: any) {
     try {
       await sendEmailVerification(auth.currentUser);
       Alert.alert(
-        "E-mail Enviado! ✉️",
-        "Um link de confirmação foi enviado para a sua caixa de entrada. Clique no link para verificar a sua conta.",
+        t("verify_email_sent_title", userLang),
+        t("verify_email_sent_msg", userLang),
       );
     } catch (error: any) {
       if (error.code === "auth/too-many-requests") {
         Alert.alert(
-          "Aguarde",
-          "Já enviamos um e-mail recentemente. Verifique sua caixa de spam ou aguarde alguns minutos.",
+          t("wait_title", userLang),
+          t("verify_email_too_many_msg", userLang),
         );
       } else {
         Alert.alert(
-          "Erro",
-          "Não foi possível enviar o e-mail de verificação no momento.",
+          t("error_title", userLang),
+          t("verify_email_error_msg", userLang),
         );
       }
     } finally {
@@ -207,8 +223,8 @@ export default function ProfileScreen({ navigation }: any) {
 
       if (imageUri.length > 900000) {
         Alert.alert(
-          "Foto muito grande",
-          "Por favor, escolha uma imagem com menor resolução.",
+          t("photo_too_large_title", userLang),
+          t("photo_too_large_msg", userLang),
         );
         return;
       }
@@ -222,7 +238,10 @@ export default function ProfileScreen({ navigation }: any) {
             { merge: true },
           );
         } catch (e) {
-          Alert.alert("Erro", "Não foi possível atualizar a foto.");
+          Alert.alert(
+            t("error_title", userLang),
+            t("update_photo_error_msg", userLang),
+          );
         } finally {
           setLoading(false);
         }
@@ -232,18 +251,18 @@ export default function ProfileScreen({ navigation }: any) {
 
   const handlePickImage = () => {
     Alert.alert(
-      "Foto de Perfil",
-      "De onde você quer pegar a imagem?",
+      t("profile_photo_prompt_title", userLang),
+      t("profile_photo_prompt_msg", userLang),
       [
         {
-          text: "Tirar Foto (Câmera)",
+          text: t("btn_take_photo", userLang),
           onPress: async () => {
             const permissionResult =
               await ImagePicker.requestCameraPermissionsAsync();
             if (permissionResult.granted === false) {
               Alert.alert(
-                "Permissão",
-                "Você precisa permitir o acesso à câmera para tirar fotos.",
+                t("permission_title", userLang),
+                t("camera_permission_msg", userLang),
               );
               return;
             }
@@ -258,14 +277,14 @@ export default function ProfileScreen({ navigation }: any) {
           },
         },
         {
-          text: "Escolher da Galeria",
+          text: t("btn_choose_gallery", userLang),
           onPress: async () => {
             const permissionResult =
               await ImagePicker.requestMediaLibraryPermissionsAsync();
             if (permissionResult.granted === false) {
               Alert.alert(
-                "Permissão",
-                "Você precisa permitir o acesso à galeria para alterar a foto.",
+                t("permission_title", userLang),
+                t("gallery_permission_msg", userLang),
               );
               return;
             }
@@ -279,7 +298,7 @@ export default function ProfileScreen({ navigation }: any) {
             processImageResult(result);
           },
         },
-        { text: "Cancelar", style: "cancel" },
+        { text: t("modal_cancel", userLang), style: "cancel" },
       ],
       { cancelable: true },
     );
@@ -300,15 +319,14 @@ export default function ProfileScreen({ navigation }: any) {
     }
   };
 
-  // 🌐 DESCONECTAR DA CONTA GOOGLE
   const handleSwitchGoogleAccount = () => {
     Alert.alert(
-      "Trocar Conta Google",
-      "Deseja desconectar a conta atual do Google para escolher outro e-mail?",
+      t("switch_google_account_title", userLang),
+      t("switch_google_account_msg", userLang),
       [
-        { text: "Cancelar", style: "cancel" },
+        { text: t("modal_cancel", userLang), style: "cancel" },
         {
-          text: "Sim, Desconectar Google",
+          text: t("btn_disconnect_google", userLang),
           onPress: async () => {
             try {
               if (GoogleSignin && typeof GoogleSignin.signOut === "function") {
@@ -316,8 +334,8 @@ export default function ProfileScreen({ navigation }: any) {
               }
               await signOut(auth);
               Alert.alert(
-                "Conta Desconectada 🌐",
-                "Sua sessão foi encerrada. No próximo acesso você poderá escolher outra conta.",
+                t("account_disconnected_title", userLang),
+                t("account_disconnected_msg", userLang),
               );
             } catch (e) {
               await signOut(auth);
@@ -328,12 +346,11 @@ export default function ProfileScreen({ navigation }: any) {
     );
   };
 
-  // 🚪 LOGOUT DA CONTA
   const handleLogout = () => {
-    Alert.alert("Sair da Conta", "Tem certeza de que deseja sair?", [
-      { text: "Cancelar", style: "cancel" },
+    Alert.alert(t("logout_title", userLang), t("logout_msg", userLang), [
+      { text: t("modal_cancel", userLang), style: "cancel" },
       {
-        text: "Sair",
+        text: t("btn_logout", userLang),
         style: "destructive",
         onPress: async () => {
           try {
@@ -351,22 +368,20 @@ export default function ProfileScreen({ navigation }: any) {
     ]);
   };
 
-  // 🗑️ EXCLUSÃO PERMANENTE DA CONTA
   const handleDeleteAccount = () => {
     Alert.alert(
-      "Excluir Conta Permanentemente",
-      "⚠️ Atenção: Esta ação apagará todos os seus dados e diários de bordo permanentemente. Deseja continuar?",
+      t("delete_account_title", userLang),
+      t("delete_account_warning_msg", userLang),
       [
-        { text: "Cancelar", style: "cancel" },
+        { text: t("modal_cancel", userLang), style: "cancel" },
         {
-          text: "Sim, Excluir",
+          text: t("btn_yes_delete", userLang),
           style: "destructive",
           onPress: async () => {
             try {
               setLoading(true);
               const user = auth.currentUser;
               if (user) {
-                // 1. Desconecta do parceiro e restaura estado
                 if (userData?.partnerId) {
                   await setDoc(
                     doc(db, "users", userData.partnerId),
@@ -375,7 +390,6 @@ export default function ProfileScreen({ navigation }: any) {
                   );
                 }
 
-                // 2. Apaga subcoleção de diários do usuário
                 const journalsSnap = await getDocs(
                   collection(db, "users", user.uid, "journals"),
                 );
@@ -384,7 +398,6 @@ export default function ProfileScreen({ navigation }: any) {
                 );
                 await Promise.all(deletePromises);
 
-                // 3. Exclui documento principal e do auth
                 await deleteDoc(doc(db, "users", user.uid));
 
                 if (
@@ -402,13 +415,13 @@ export default function ProfileScreen({ navigation }: any) {
               setLoading(false);
               if (error.code === "auth/requires-recent-login") {
                 Alert.alert(
-                  "Segurança",
-                  "Para excluir sua conta por motivos de segurança, faça login novamente e repita a operação.",
+                  t("security_title", userLang),
+                  t("reauth_required_delete_msg", userLang),
                 );
               } else {
                 Alert.alert(
-                  "Erro ao Excluir",
-                  "Não foi possível apagar a conta no momento. Tente novamente mais tarde.",
+                  t("delete_error_title", userLang),
+                  t("delete_error_msg", userLang),
                 );
               }
             }
@@ -429,19 +442,19 @@ export default function ProfileScreen({ navigation }: any) {
       const restoredInfo = await Purchases.restorePurchases();
       if (Object.keys(restoredInfo.entitlements.active).length > 0) {
         Alert.alert(
-          "Sucesso! 🎉",
-          "Suas assinaturas anteriores foram restauradas.",
+          t("sub_restored_title", userLang),
+          t("sub_restored_msg", userLang),
         );
       } else {
         Alert.alert(
-          "Nenhuma Assinatura Ativa",
-          "Não encontramos nenhuma assinatura ativa nesta conta de loja.",
+          t("no_active_sub_title", userLang),
+          t("no_active_sub_msg", userLang),
         );
       }
     } catch (e) {
       Alert.alert(
-        "Erro ao Restaurar",
-        "Não foi possível restaurar suas compras. Tente novamente.",
+        t("error_title", userLang),
+        t("restore_purchases_error_msg", userLang),
       );
     }
   };
@@ -456,7 +469,10 @@ export default function ProfileScreen({ navigation }: any) {
 
   const openUrl = (url: string) => {
     Linking.openURL(url).catch(() =>
-      Alert.alert("Erro", "Não foi possível abrir a página."),
+      Alert.alert(
+        t("error_title", userLang),
+        t("cannot_open_page_msg", userLang),
+      ),
     );
   };
 
@@ -485,7 +501,6 @@ export default function ProfileScreen({ navigation }: any) {
 
   const isPremium = userData?.isPremium || false;
 
-  // Lógica robusta de resolução do nome
   const displayUsername = userData?.username
     ? `@${userData.username}`
     : firstName.trim()
@@ -493,7 +508,10 @@ export default function ProfileScreen({ navigation }: any) {
       : getFirstName(userData?.billingFirstName) ||
         getFirstName(userData?.displayName) ||
         getFirstName(auth.currentUser?.displayName) ||
-        "Usuário";
+        t("user_default_name", userLang);
+
+  const currentFlag =
+    SUPPORTED_LANGUAGES.find((l) => l.code === userLang)?.flag || "🇧🇷";
 
   return (
     <SafeAreaView style={styles.container}>
@@ -508,7 +526,9 @@ export default function ProfileScreen({ navigation }: any) {
           >
             <FontAwesome5 name="chevron-left" size={20} color="#202D3A" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Meu Perfil</Text>
+          <Text style={styles.headerTitle}>
+            {t("my_profile_title", userLang)}
+          </Text>
           <View style={{ width: 40 }} />
 
           <Animated.View style={[styles.autoSaveToast, { opacity: saveAnim }]}>
@@ -518,7 +538,9 @@ export default function ProfileScreen({ navigation }: any) {
               color="#FFF"
             />
             <Text style={styles.autoSaveText}>
-              {saveStatus === "saving" ? "Salvando..." : "Salvo ✓"}
+              {saveStatus === "saving"
+                ? t("saving_label", userLang)
+                : t("saved_label", userLang)}
             </Text>
           </Animated.View>
         </View>
@@ -583,7 +605,7 @@ export default function ProfileScreen({ navigation }: any) {
                   <ActivityIndicator size="small" color="#EAB64A" />
                 ) : (
                   <Text style={styles.verifyEmailText}>
-                    Enviar link de verificação
+                    {t("send_verify_email_btn", userLang)}
                   </Text>
                 )}
               </TouchableOpacity>
@@ -592,7 +614,9 @@ export default function ProfileScreen({ navigation }: any) {
             {isPremium ? (
               <View style={[styles.premiumBadge, { marginTop: 15 }]}>
                 <FontAwesome5 name="crown" size={12} color="#202D3A" />
-                <Text style={styles.premiumText}>DuoElo Premium</Text>
+                <Text style={styles.premiumText}>
+                  {t("premium_status_label", userLang)}
+                </Text>
               </View>
             ) : (
               <View
@@ -602,19 +626,23 @@ export default function ProfileScreen({ navigation }: any) {
                 ]}
               >
                 <Text style={[styles.premiumText, { color: "#60646C" }]}>
-                  Plano Gratuito
+                  {t("free_status_label", userLang)}
                 </Text>
               </View>
             )}
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Estatísticas da Jornada</Text>
+            <Text style={styles.sectionTitle}>
+              {t("journey_stats_title", userLang)}
+            </Text>
             <View style={styles.statsContainer}>
               <View style={styles.statBox}>
                 <FontAwesome5 name="fire" size={24} color="#EAB64A" />
                 <Text style={styles.statValue}>{userData?.streak || 0}</Text>
-                <Text style={styles.statLabel}>Dias Seguidos</Text>
+                <Text style={styles.statLabel}>
+                  {t("consecutive_days_label", userLang)}
+                </Text>
               </View>
               <View style={styles.statBox}>
                 <FontAwesome5 name="infinity" size={24} color="#EAB64A" />
@@ -626,15 +654,17 @@ export default function ProfileScreen({ navigation }: any) {
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
-              Dados Pessoais (Salvo Automaticamente)
+              {t("personal_data_autosave_title", userLang)}
             </Text>
             <View style={styles.formCard}>
               <View style={styles.rowFields}>
                 <View style={[styles.inputGroup, styles.halfInput]}>
-                  <Text style={styles.inputLabel}>Nome</Text>
+                  <Text style={styles.inputLabel}>
+                    {t("first_name_label", userLang)}
+                  </Text>
                   <TextInput
                     style={styles.input}
-                    placeholder="Ex: João"
+                    placeholder={t("first_name_placeholder", userLang)}
                     placeholderTextColor="#AFAFAF"
                     value={firstName}
                     onChangeText={setFirstName}
@@ -642,10 +672,12 @@ export default function ProfileScreen({ navigation }: any) {
                   />
                 </View>
                 <View style={[styles.inputGroup, styles.halfInput]}>
-                  <Text style={styles.inputLabel}>Sobrenome</Text>
+                  <Text style={styles.inputLabel}>
+                    {t("last_name_label", userLang)}
+                  </Text>
                   <TextInput
                     style={styles.input}
-                    placeholder="Ex: Silva"
+                    placeholder={t("last_name_placeholder", userLang)}
                     placeholderTextColor="#AFAFAF"
                     value={lastName}
                     onChangeText={setLastName}
@@ -655,10 +687,12 @@ export default function ProfileScreen({ navigation }: any) {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Endereço Completo</Text>
+                <Text style={styles.inputLabel}>
+                  {t("full_address_label", userLang)}
+                </Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="Rua, Número, Bairro..."
+                  placeholder={t("full_address_placeholder", userLang)}
                   placeholderTextColor="#AFAFAF"
                   value={address}
                   onChangeText={setAddress}
@@ -668,7 +702,9 @@ export default function ProfileScreen({ navigation }: any) {
 
               <View style={styles.rowFields}>
                 <View style={[styles.inputGroup, styles.halfInput]}>
-                  <Text style={styles.inputLabel}>CEP / Zip Code</Text>
+                  <Text style={styles.inputLabel}>
+                    {t("zip_code_label", userLang)}
+                  </Text>
                   <TextInput
                     style={styles.input}
                     placeholder="00000-000"
@@ -681,7 +717,9 @@ export default function ProfileScreen({ navigation }: any) {
                   />
                 </View>
                 <View style={[styles.inputGroup, styles.halfInput]}>
-                  <Text style={styles.inputLabel}>Telefone</Text>
+                  <Text style={styles.inputLabel}>
+                    {t("phone_label", userLang)}
+                  </Text>
                   <TextInput
                     style={styles.input}
                     placeholder="+55 (11) 99999-9999"
@@ -698,7 +736,9 @@ export default function ProfileScreen({ navigation }: any) {
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Assinatura & Jurídico</Text>
+            <Text style={styles.sectionTitle}>
+              {t("sub_legal_title", userLang)}
+            </Text>
 
             <TouchableOpacity
               style={styles.menuOption}
@@ -710,7 +750,9 @@ export default function ProfileScreen({ navigation }: any) {
                 >
                   <FontAwesome5 name="credit-card" size={16} color="#EAB64A" />
                 </View>
-                <Text style={styles.menuOptionText}>Gerenciar Assinatura</Text>
+                <Text style={styles.menuOptionText}>
+                  {t("menu_manage_sub", userLang)}
+                </Text>
               </View>
               <FontAwesome5 name="chevron-right" size={14} color="#D1D9E0" />
             </TouchableOpacity>
@@ -725,7 +767,9 @@ export default function ProfileScreen({ navigation }: any) {
                 >
                   <FontAwesome5 name="sync-alt" size={16} color="#67D4A8" />
                 </View>
-                <Text style={styles.menuOptionText}>Restaurar Compras</Text>
+                <Text style={styles.menuOptionText}>
+                  {t("btn_restore_purchases", userLang)}
+                </Text>
               </View>
               <FontAwesome5 name="chevron-right" size={14} color="#D1D9E0" />
             </TouchableOpacity>
@@ -744,7 +788,9 @@ export default function ProfileScreen({ navigation }: any) {
                     color="#202D3A"
                   />
                 </View>
-                <Text style={styles.menuOptionText}>Termos de Uso</Text>
+                <Text style={styles.menuOptionText}>
+                  {t("terms_of_use_eula", userLang)}
+                </Text>
               </View>
               <FontAwesome5
                 name="external-link-alt"
@@ -764,7 +810,7 @@ export default function ProfileScreen({ navigation }: any) {
                   <FontAwesome5 name="user-shield" size={16} color="#202D3A" />
                 </View>
                 <Text style={styles.menuOptionText}>
-                  Política de Privacidade
+                  {t("privacy_policy_link", userLang)}
                 </Text>
               </View>
               <FontAwesome5
@@ -776,7 +822,40 @@ export default function ProfileScreen({ navigation }: any) {
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Configurações da Conta</Text>
+            <Text style={styles.sectionTitle}>
+              {t("account_settings_title", userLang)}
+            </Text>
+
+            {/* 🌐 SELETOR DE IDIOMA */}
+            <TouchableOpacity
+              style={styles.menuOption}
+              onPress={() => setIsLangModalVisible(true)}
+            >
+              <View style={styles.menuOptionLeft}>
+                <View
+                  style={[styles.menuIconBg, { backgroundColor: "#F0F4F8" }]}
+                >
+                  <Text style={{ fontSize: 18 }}>{currentFlag}</Text>
+                </View>
+                <View>
+                  <Text style={styles.menuOptionText}>Idioma do App</Text>
+                  <Text
+                    style={{
+                      fontSize: 11,
+                      color: "#60646C",
+                      marginTop: 2,
+                      fontFamily: "Montserrat_400Regular",
+                    }}
+                  >
+                    {
+                      SUPPORTED_LANGUAGES.find((l) => l.code === userLang)
+                        ?.label
+                    }
+                  </Text>
+                </View>
+              </View>
+              <FontAwesome5 name="chevron-right" size={14} color="#D1D9E0" />
+            </TouchableOpacity>
 
             <View style={[styles.menuOption, { paddingVertical: 12 }]}>
               <View style={styles.menuOptionLeft}>
@@ -787,7 +866,7 @@ export default function ProfileScreen({ navigation }: any) {
                 </View>
                 <View>
                   <Text style={styles.menuOptionText}>
-                    Ignorar Trava Diária
+                    {t("bypass_lock_label", userLang)}
                   </Text>
                   <Text
                     style={{
@@ -797,7 +876,7 @@ export default function ProfileScreen({ navigation }: any) {
                       fontFamily: "Montserrat_400Regular",
                     }}
                   >
-                    Permite fazer várias tarefas no mesmo dia
+                    {t("bypass_lock_desc", userLang)}
                   </Text>
                 </View>
               </View>
@@ -823,7 +902,7 @@ export default function ProfileScreen({ navigation }: any) {
 
                 <View>
                   <Text style={styles.menuOptionText}>
-                    Trocar Conta do Google
+                    {t("switch_google_account_menu", userLang)}
                   </Text>
                   <Text
                     style={{
@@ -833,7 +912,7 @@ export default function ProfileScreen({ navigation }: any) {
                       fontFamily: "Montserrat_400Regular",
                     }}
                   >
-                    Força a seleção de e-mail no próximo login
+                    {t("switch_google_account_desc", userLang)}
                   </Text>
                 </View>
               </View>
@@ -850,7 +929,9 @@ export default function ProfileScreen({ navigation }: any) {
                 >
                   <FontAwesome5 name="bell" size={16} color="#202D3A" />
                 </View>
-                <Text style={styles.menuOptionText}>Ajustar Notificações</Text>
+                <Text style={styles.menuOptionText}>
+                  {t("adjust_notifications_menu", userLang)}
+                </Text>
               </View>
               <FontAwesome5 name="chevron-right" size={14} color="#D1D9E0" />
             </TouchableOpacity>
@@ -862,7 +943,9 @@ export default function ProfileScreen({ navigation }: any) {
                 >
                   <FontAwesome5 name="headset" size={16} color="#202D3A" />
                 </View>
-                <Text style={styles.menuOptionText}>Fale com o Suporte</Text>
+                <Text style={styles.menuOptionText}>
+                  {t("contact_support_menu", userLang)}
+                </Text>
               </View>
               <FontAwesome5 name="envelope" size={14} color="#D1D9E0" />
             </TouchableOpacity>
@@ -877,7 +960,9 @@ export default function ProfileScreen({ navigation }: any) {
                 >
                   <FontAwesome5 name="sign-out-alt" size={16} color="#60646C" />
                 </View>
-                <Text style={styles.menuOptionText}>Sair da Conta</Text>
+                <Text style={styles.menuOptionText}>
+                  {t("logout_menu_option", userLang)}
+                </Text>
               </View>
               <FontAwesome5 name="chevron-right" size={14} color="#D1D9E0" />
             </TouchableOpacity>
@@ -888,13 +973,66 @@ export default function ProfileScreen({ navigation }: any) {
             onPress={handleDeleteAccount}
           >
             <Text style={styles.deleteAccountText}>
-              Excluir minha conta permanentemente
+              {t("delete_account_permanently_btn", userLang)}
             </Text>
           </TouchableOpacity>
 
           <Text style={styles.versionText}>DuoElo v1.0.0</Text>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* MODAL SELETOR DE IDIOMAS */}
+      <Modal visible={isLangModalVisible} transparent animationType="slide">
+        <TouchableOpacity
+          style={styles.bottomSheetOverlay}
+          activeOpacity={1}
+          onPress={() => setIsLangModalVisible(false)}
+        >
+          <View style={styles.bottomSheetContainer}>
+            <View style={styles.bottomSheetHandle} />
+            <Text style={styles.bottomSheetTitle}>Escolha seu Idioma</Text>
+
+            <ScrollView style={{ width: "100%", maxHeight: 300 }}>
+              {SUPPORTED_LANGUAGES.map((lang) => (
+                <TouchableOpacity
+                  key={lang.code}
+                  style={[
+                    styles.langOptionItem,
+                    userLang === lang.code && styles.langOptionItemActive,
+                  ]}
+                  onPress={async () => {
+                    setUserLang(lang.code);
+                    setIsLangModalVisible(false);
+                    const uid = auth.currentUser?.uid;
+                    if (uid) {
+                      await setDoc(
+                        doc(db, "users", uid),
+                        { language: lang.code },
+                        { merge: true },
+                      );
+                    }
+                  }}
+                >
+                  <Text style={{ fontSize: 24, marginRight: 12 }}>
+                    {lang.flag}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.langOptionText,
+                      userLang === lang.code && styles.langOptionTextActive,
+                    ]}
+                  >
+                    {lang.label}
+                  </Text>
+                  {userLang === lang.code && (
+                    <FontAwesome5 name="check" size={16} color="#67D4A8" />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -985,7 +1123,6 @@ const styles = StyleSheet.create({
     color: "#202D3A",
     marginBottom: 4,
   },
-
   emailContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -999,7 +1136,6 @@ const styles = StyleSheet.create({
   },
   verifiedBadge: { justifyContent: "center", alignItems: "center" },
   unverifiedBadge: { justifyContent: "center", alignItems: "center" },
-
   verifyEmailBtn: {
     marginTop: 5,
     paddingVertical: 4,
@@ -1012,7 +1148,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: "Montserrat_700Bold",
   },
-
   premiumBadge: {
     flexDirection: "row",
     alignItems: "center",
@@ -1028,7 +1163,6 @@ const styles = StyleSheet.create({
     fontFamily: "Montserrat_900Black",
     textTransform: "uppercase",
   },
-
   section: { marginBottom: 30 },
   sectionTitle: {
     fontSize: 14,
@@ -1038,7 +1172,6 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     marginBottom: 15,
   },
-
   statsContainer: { flexDirection: "row", gap: 15 },
   statBox: {
     flex: 1,
@@ -1067,7 +1200,6 @@ const styles = StyleSheet.create({
     fontFamily: "Montserrat_700Bold",
     textTransform: "uppercase",
   },
-
   formCard: {
     backgroundColor: "#FFF",
     padding: 20,
@@ -1099,7 +1231,6 @@ const styles = StyleSheet.create({
     color: "#202D3A",
     fontFamily: "Montserrat_600SemiBold",
   },
-
   menuOption: {
     flexDirection: "row",
     alignItems: "center",
@@ -1124,7 +1255,6 @@ const styles = StyleSheet.create({
     fontFamily: "Montserrat_700Bold",
     color: "#202D3A",
   },
-
   deleteAccountLink: {
     alignItems: "center",
     marginTop: 10,
@@ -1143,5 +1273,62 @@ const styles = StyleSheet.create({
     fontFamily: "Montserrat_700Bold",
     marginTop: 10,
     marginBottom: 20,
+  },
+  bottomSheetOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(32,45,58,0.6)",
+    justifyContent: "flex-end",
+  },
+  bottomSheetContainer: {
+    backgroundColor: "#FFF",
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    padding: 24,
+    paddingBottom: 40,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 10,
+    width: "100%",
+  },
+  bottomSheetHandle: {
+    width: 50,
+    height: 5,
+    backgroundColor: "#D1D9E0",
+    borderRadius: 3,
+    marginBottom: 20,
+  },
+  bottomSheetTitle: {
+    fontFamily: "Montserrat_900Black",
+    fontSize: 20,
+    color: "#202D3A",
+    marginBottom: 20,
+    textAlign: "center",
+  },
+  langOptionItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginBottom: 8,
+    backgroundColor: "#F0F4F8",
+  },
+  langOptionItemActive: {
+    backgroundColor: "#E8F4F1",
+    borderWidth: 1,
+    borderColor: "#67D4A8",
+  },
+  langOptionText: {
+    flex: 1,
+    fontFamily: "Montserrat_600SemiBold",
+    fontSize: 15,
+    color: "#202D3A",
+  },
+  langOptionTextActive: {
+    fontFamily: "Montserrat_700Bold",
+    color: "#202D3A",
   },
 });

@@ -1,5 +1,5 @@
 import { FontAwesome5 } from "@expo/vector-icons";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
@@ -12,6 +12,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { t } from "../i18n/translations";
+
 const { width } = Dimensions.get("window");
 
 export default function MissionRewardScreen({ navigation, route }: any) {
@@ -20,6 +22,9 @@ export default function MissionRewardScreen({ navigation, route }: any) {
   const currentDay90 = Number(route?.params?.currentDay90) || 1;
   const cupidProgress = Number(route?.params?.cupidProgress) || 1;
   const cupidTotal = 3;
+
+  // Idioma do usuário (padrão pt-BR)
+  const [userLang, setUserLang] = useState("pt-BR");
 
   const isCupidAwake = cupidProgress >= cupidTotal;
   const cupidPercentage = Math.min((cupidProgress / cupidTotal) * 100, 100);
@@ -124,7 +129,9 @@ export default function MissionRewardScreen({ navigation, route }: any) {
           <View style={styles.card}>
             {/* MISSÃO DIÁRIA */}
             <View style={styles.missionItem}>
-              <Text style={styles.missionLabel}>Missão Diária Concluída</Text>
+              <Text style={styles.missionLabel}>
+                {t("daily_mission_completed_label", userLang)}
+              </Text>
               <View style={styles.progressRow}>
                 <View style={styles.progressBarBg}>
                   <Animated.View
@@ -152,7 +159,9 @@ export default function MissionRewardScreen({ navigation, route }: any) {
 
             {/* OFENSIVA / STREAK */}
             <View style={styles.missionItem}>
-              <Text style={styles.missionLabel}>Ofensiva Mantida</Text>
+              <Text style={styles.missionLabel}>
+                {t("streak_maintained_label", userLang)}
+              </Text>
               <View style={styles.progressRow}>
                 <View style={styles.progressBarBg}>
                   <Animated.View
@@ -182,13 +191,13 @@ export default function MissionRewardScreen({ navigation, route }: any) {
             <View style={styles.missionItem}>
               <Text style={styles.missionLabel}>
                 {isCupidAwake
-                  ? "Cupido Desperto! 🎉"
-                  : "Desperte o Cupido da Semana"}
+                  ? t("cupid_awake_title", userLang)
+                  : t("cupid_asleep_title", userLang)}
                 {"\n"}
                 <Text style={styles.missionSubLabel}>
                   {isCupidAwake
-                    ? "Desafio prático liberado no mapa."
-                    : "(Complete 3 missões na semana)"}
+                    ? t("cupid_awake_sub", userLang)
+                    : t("cupid_asleep_sub", userLang)}
                 </Text>
               </Text>
               <View style={styles.progressRow}>
@@ -226,9 +235,14 @@ export default function MissionRewardScreen({ navigation, route }: any) {
           {/* CARD DE JORNADA */}
           <View style={[styles.card, styles.badgeCard]}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.badgeTitle}>Jornada de 90 Dias</Text>
+              <Text style={styles.badgeTitle}>
+                {t("journey_90_days_title", userLang)}
+              </Text>
               <Text style={styles.badgeProgressText}>
-                Dia {currentDay90} / 90
+                {t("day_counter_text", userLang, {
+                  day: currentDay90,
+                  total: 90,
+                })}
               </Text>
             </View>
             <Animated.View
@@ -247,7 +261,9 @@ export default function MissionRewardScreen({ navigation, route }: any) {
           activeOpacity={0.8}
           onPress={handleContinue}
         >
-          <Text style={styles.continueBtnText}>CONTINUAR</Text>
+          <Text style={styles.continueBtnText}>
+            {t("btn_continue_label", userLang)}
+          </Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

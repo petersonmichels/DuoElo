@@ -14,6 +14,8 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { auth, db } from "../config/firebase";
 
+import { t } from "../i18n/translations";
+
 export default function InvitePartnerScreen({ navigation }: any) {
   // 0 = Inicial (Convidar) | 1 = Aguardando Parceiro | 2 = Conectados
   const [connectionStep, setConnectionStep] = useState(0);
@@ -23,6 +25,9 @@ export default function InvitePartnerScreen({ navigation }: any) {
 
   // Animação de pulsação para o estado "Aguardando"
   const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  // Idioma do Usuário
+  const [userLang, setUserLang] = useState("pt-BR");
 
   // Busca o UID do Firebase e monitora o status do Match em tempo real
   useEffect(() => {
@@ -47,6 +52,9 @@ export default function InvitePartnerScreen({ navigation }: any) {
     const unsubscribe = onSnapshot(doc(db, "users", currentUid), (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
+        if (data.language) {
+          setUserLang(data.language);
+        }
         if (data.partnerId) {
           setConnectionStep(2);
         }
@@ -80,7 +88,9 @@ export default function InvitePartnerScreen({ navigation }: any) {
   // AÇÃO PRINCIPAL COM O WHATSAPP E NAVEGAÇÃO INTELIGENTE
   const handleMainAction = async () => {
     if (connectionStep === 0) {
-      const message = `Amor, estou investindo na nossa relação porque você é muito importante pra mim. Vamos fazer juntos essa jornada de 90 dias do DuoElo? É só baixar o app e colocar o meu código pra gente dar o match: *${myInviteCode}* 👇\n\nhttps://duoelo.com/app`;
+      const message = t("invite_whatsapp_message", userLang, {
+        code: myInviteCode,
+      });
       const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
 
       try {
@@ -90,8 +100,8 @@ export default function InvitePartnerScreen({ navigation }: any) {
           setConnectionStep(1);
         } else {
           Alert.alert(
-            "WhatsApp não encontrado",
-            "Parece que você não tem o WhatsApp instalado. Copie o código e envie manualmente!",
+            t("whatsapp_not_found_title", userLang),
+            t("whatsapp_not_found_msg", userLang),
           );
           setConnectionStep(1);
         }
@@ -100,8 +110,8 @@ export default function InvitePartnerScreen({ navigation }: any) {
       }
     } else if (connectionStep === 1) {
       Alert.alert(
-        "Aguardando...",
-        "Assim que seu parceiro(a) inserir o código no app dele, vocês serão conectados automaticamente!",
+        t("waiting_partner_alert_title", userLang),
+        t("waiting_partner_alert_msg", userLang),
       );
     } else if (connectionStep === 2) {
       // 🔒 ROTEAMENTO INTELIGENTE PÓS-MATCH
@@ -150,18 +160,18 @@ export default function InvitePartnerScreen({ navigation }: any) {
     switch (connectionStep) {
       case 0:
         return {
-          title: "Convide seu Par!",
-          sub: "A jornada do DuoElo foi desenhada para ser vivida a dois. Conecte-se com seu parceiro(a) agora.",
+          title: t("invite_header_title_0", userLang),
+          sub: t("invite_header_sub_0", userLang),
         };
       case 1:
         return {
-          title: "Vocês estão quase lá!",
-          sub: "Falta pouco para a jornada começar. Peça para seu parceiro(a) inserir o código no app.",
+          title: t("invite_header_title_1", userLang),
+          sub: t("invite_header_sub_1", userLang),
         };
       case 2:
         return {
-          title: "Vocês estão conectados!",
-          sub: "Os elos foram unidos. Preparem-se para fortalecer a relação a partir de hoje.",
+          title: t("invite_header_title_2", userLang),
+          sub: t("invite_header_sub_2", userLang),
         };
       default:
         return { title: "", sub: "" };
@@ -253,8 +263,8 @@ export default function InvitePartnerScreen({ navigation }: any) {
                 ]}
               >
                 {connectionStep >= 1
-                  ? "1. Convite enviado!"
-                  : "1. Enviar convite do DuoElo"}
+                  ? t("workflow_step_1_done", userLang)
+                  : t("workflow_step_1_active", userLang)}
               </Text>
             </View>
           </View>
@@ -299,8 +309,8 @@ export default function InvitePartnerScreen({ navigation }: any) {
                 ]}
               >
                 {connectionStep >= 2
-                  ? "2. Parceiro instalou o app!"
-                  : "2. Aguardando instalação do parceiro..."}
+                  ? t("workflow_step_2_done", userLang)
+                  : t("workflow_step_2_waiting", userLang)}
               </Text>
             </View>
           </View>
@@ -330,7 +340,7 @@ export default function InvitePartnerScreen({ navigation }: any) {
                     : styles.stepTextInactive,
                 ]}
               >
-                3. Contas unidas
+                {t("workflow_step_3_title", userLang)}
               </Text>
             </View>
           </View>
@@ -340,7 +350,7 @@ export default function InvitePartnerScreen({ navigation }: any) {
         <View style={styles.actionSection}>
           {connectionStep === 0 && (
             <View style={styles.codeContainer}>
-              <Text style={styles.codeLabel}>Código gerador</Text>
+              <Text style={styles.codeLabel}>{t("code_generator_label", userLang)}</Text>
               <Text style={styles.codeValue}>{myInviteCode}</Text>
             </View>
           )}
@@ -359,10 +369,10 @@ export default function InvitePartnerScreen({ navigation }: any) {
             )}
             <Text style={styles.mainButtonText}>
               {connectionStep === 0
-                ? "Convidar pelo WhatsApp"
+                ? t("btn_invite_whatsapp", userLang)
                 : connectionStep === 1
-                  ? "Atualizar Status"
-                  : "Começar a Trilha Juntos"}
+                  ? t("btn_update_status", userLang)
+                  : t("btn_start_trail_together", userLang)}
             </Text>
           </TouchableOpacity>
 
@@ -372,12 +382,16 @@ export default function InvitePartnerScreen({ navigation }: any) {
               activeOpacity={0.6}
               onPress={() => navigation.navigate("MatchScreen")}
             >
-              <Text style={styles.secondaryButtonText}>Já tenho um código</Text>
+              <Text style={styles.secondaryButtonText}>
+                {t("btn_already_have_code", userLang)}
+              </Text>
             </TouchableOpacity>
           )}
 
           {connectionStep === 2 && (
-            <Text style={styles.welcomeText}>Bem-vindos ao DuoElo!</Text>
+            <Text style={styles.welcomeText}>
+              {t("welcome_duoelo_msg", userLang)}
+            </Text>
           )}
         </View>
       </View>
@@ -596,7 +610,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 2,
     borderColor: "#D1D9E0",
-    justifyContent: "center",
+    justify.content: "center",
     alignItems: "center",
   },
   secondaryButtonText: {

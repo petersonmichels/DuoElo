@@ -28,11 +28,16 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { auth, authControls, db } from "../config/firebase";
 
+import { t } from "../i18n/translations";
+
 export default function RegisterScreen({ navigation }: any) {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  // Idioma do usuário (padrão pt-BR)
+  const userLang = "pt-BR";
 
   // ESTADO DE ALERTAS PERSONALIZADOS
   const [customAlert, setCustomAlert] = useState({
@@ -41,7 +46,7 @@ export default function RegisterScreen({ navigation }: any) {
     message: "",
     icon: "info-circle",
     color: "#202D3A",
-    confirmText: "Entendi",
+    confirmText: t("btn_understand", userLang),
     onConfirm: null as (() => void) | null,
   });
 
@@ -50,7 +55,7 @@ export default function RegisterScreen({ navigation }: any) {
     message: string,
     icon = "info-circle",
     color = "#202D3A",
-    confirmText = "Entendi",
+    confirmText = t("btn_understand", userLang),
     onConfirm: (() => void) | null = null,
   ) => {
     setCustomAlert({
@@ -73,8 +78,8 @@ export default function RegisterScreen({ navigation }: any) {
 
     if (!cleanEmail || !password || !cleanUsername) {
       showCustomAlert(
-        "Atenção",
-        "Preencha todos os campos obrigatórios para continuar.",
+        t("attention_title", userLang),
+        t("fill_required_fields_msg", userLang),
         "exclamation-triangle",
         "#EAB64A",
       );
@@ -83,8 +88,8 @@ export default function RegisterScreen({ navigation }: any) {
 
     if (cleanUsername.length < 3) {
       showCustomAlert(
-        "Nome Curto",
-        "O seu @username deve ter pelo menos 3 caracteres.",
+        t("short_username_title", userLang),
+        t("short_username_msg", userLang),
         "user",
         "#EAB64A",
       );
@@ -93,8 +98,8 @@ export default function RegisterScreen({ navigation }: any) {
 
     if (password.length < 6) {
       showCustomAlert(
-        "Senha Curta",
-        "A sua senha deve ter pelo menos 6 caracteres.",
+        t("short_password_title", userLang),
+        t("short_password_msg", userLang),
         "lock",
         "#EAB64A",
       );
@@ -114,8 +119,8 @@ export default function RegisterScreen({ navigation }: any) {
       if (!usernameSnap.empty) {
         setIsLoading(false);
         showCustomAlert(
-          "Nome Indisponível",
-          "Este @username já está sendo usado. Por favor, escolha outro.",
+          t("username_unavailable_title", userLang),
+          t("username_unavailable_msg", userLang),
           "user-times",
           "#EAB64A",
         );
@@ -158,27 +163,26 @@ export default function RegisterScreen({ navigation }: any) {
       await signOut(auth);
 
       showCustomAlert(
-        "Conta Criada com Sucesso! 🎉",
-        "Enviamos um link de confirmação para o seu e-mail. Por favor, verifique sua caixa de entrada antes de entrar.",
+        t("account_created_success_title", userLang),
+        t("account_created_verify_email_msg", userLang),
         "check-circle",
         "#67D4A8",
-        "IR PARA LOGIN",
+        t("btn_go_to_login", userLang),
         () => navigation.goBack(),
       );
     } catch (error: any) {
-      let errorMessage = "Ocorreu um erro ao tentar criar a conta.";
+      let errorMessage = t("register_error_default_msg", userLang);
 
       if (error.code === "auth/email-already-in-use") {
-        errorMessage = "Este e-mail já está cadastrado no DuoElo.";
+        errorMessage = t("email_already_in_use_msg", userLang);
       } else if (error.code === "auth/weak-password") {
-        errorMessage =
-          "A sua senha é muito fraca. Use pelo menos 6 caracteres.";
+        errorMessage = t("short_password_msg", userLang);
       } else if (error.code === "auth/invalid-email") {
-        errorMessage = "O formato do e-mail digitado é inválido.";
+        errorMessage = t("invalid_email_msg", userLang);
       }
 
       showCustomAlert(
-        "Erro no Cadastro",
+        t("signup_error_title", userLang),
         errorMessage,
         "times-circle",
         "#D96C6C",
@@ -204,10 +208,11 @@ export default function RegisterScreen({ navigation }: any) {
             <View style={styles.iconWrapper}>
               <FontAwesome5 name="seedling" size={36} color="#EAB64A" />
             </View>
-            <Text style={styles.title}>Criar Conta</Text>
+            <Text style={styles.title}>
+              {t("create_account_title", userLang)}
+            </Text>
             <Text style={styles.subtitle}>
-              Inicie a restauração do seu relacionamento plantando a primeira
-              semente hoje.
+              {t("create_account_sub", userLang)}
             </Text>
           </View>
 
@@ -221,7 +226,7 @@ export default function RegisterScreen({ navigation }: any) {
               />
               <TextInput
                 style={styles.input}
-                placeholder="Nome de usuário (ex: joao_silva)"
+                placeholder={t("placeholder_username", userLang)}
                 placeholderTextColor="#AFAFAF"
                 value={username}
                 onChangeText={setUsername}
@@ -239,7 +244,7 @@ export default function RegisterScreen({ navigation }: any) {
               />
               <TextInput
                 style={styles.input}
-                placeholder="Seu e-mail"
+                placeholder={t("placeholder_email", userLang)}
                 placeholderTextColor="#AFAFAF"
                 value={email}
                 onChangeText={setEmail}
@@ -258,7 +263,7 @@ export default function RegisterScreen({ navigation }: any) {
               />
               <TextInput
                 style={styles.input}
-                placeholder="Crie uma senha (mín. 6 letras)"
+                placeholder={t("placeholder_password_register", userLang)}
                 placeholderTextColor="#AFAFAF"
                 value={password}
                 onChangeText={setPassword}
@@ -281,7 +286,9 @@ export default function RegisterScreen({ navigation }: any) {
                   <ActivityIndicator color="#202D3A" />
                 ) : (
                   <>
-                    <Text style={styles.buttonText}>Cadastrar Conta</Text>
+                    <Text style={styles.buttonText}>
+                      {t("btn_register_submit", userLang)}
+                    </Text>
                     <FontAwesome5
                       name="arrow-right"
                       size={16}
@@ -293,13 +300,17 @@ export default function RegisterScreen({ navigation }: any) {
             </View>
 
             <View style={styles.toggleContainer}>
-              <Text style={styles.toggleText}>Já faz parte do DuoElo?</Text>
+              <Text style={styles.toggleText}>
+                {t("already_part_of_duoelo_msg", userLang)}
+              </Text>
               <TouchableOpacity
                 onPress={() => navigation.goBack()}
                 disabled={isLoading}
                 hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
               >
-                <Text style={styles.toggleLink}>Faça Login</Text>
+                <Text style={styles.toggleLink}>
+                  {t("do_login_link", userLang)}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>

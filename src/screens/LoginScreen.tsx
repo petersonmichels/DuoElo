@@ -39,7 +39,20 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { auth, authControls, db } from "../config/firebase";
 
+import { t } from "../i18n/translations";
+
 const { width } = Dimensions.get("window");
+
+// Lista de idiomas suportados no login
+const SUPPORTED_LANGUAGES = [
+  { code: "pt-BR", flag: "🇧🇷" },
+  { code: "pt-PT", flag: "🇵🇹" },
+  { code: "en", flag: "🇺🇸" },
+  { code: "es", flag: "🇪🇸" },
+  { code: "fr", flag: "🇫🇷" },
+  { code: "de", flag: "🇩🇪" },
+  { code: "ja", flag: "🇯🇵" },
+];
 
 // 🚫 Detecta se está rodando dentro do Expo Go
 const isExpoGo =
@@ -65,13 +78,17 @@ export default function LoginScreen({ navigation }: any) {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  // 🌐 Estado e Modal de Idioma
+  const [userLang, setUserLang] = useState("pt-BR");
+  const [isLangModalVisible, setIsLangModalVisible] = useState(false);
+
   const [customAlert, setCustomAlert] = useState({
     visible: false,
     title: "",
     message: "",
     icon: "info-circle",
     color: "#202D3A",
-    confirmText: "Entendi",
+    confirmText: t("btn_understand", userLang),
     onConfirm: null as (() => void) | null,
     secondaryText: "",
     onSecondary: null as (() => void) | null,
@@ -86,7 +103,7 @@ export default function LoginScreen({ navigation }: any) {
   const btnIcon = isLogin ? "sign-in-alt" : "arrow-right";
   const btnTextColor = isLogin ? "#FFF" : "#202D3A";
 
-  // 🛠️ INICIALIZAÇÃO SEGURO DO GOOGLE SIGN-IN NATIVO
+  // 🛠️ INICIALIZAÇÃO SEGURA DO GOOGLE SIGN-IN NATIVO
   useEffect(() => {
     if (!isExpoGo && GoogleSignin) {
       try {
@@ -156,7 +173,7 @@ export default function LoginScreen({ navigation }: any) {
     message: string,
     icon = "info-circle",
     color = "#202D3A",
-    confirmText = "Entendi",
+    confirmText = t("btn_understand", userLang),
     onConfirm: (() => void) | null = null,
     secondaryText = "",
     onSecondary: (() => void) | null = null,
@@ -180,8 +197,8 @@ export default function LoginScreen({ navigation }: any) {
 
     if (!cleanEmail) {
       showCustomAlert(
-        "Digite seu E-mail",
-        "Por favor, informe seu e-mail no campo de entrada acima para enviarmos o link de redefinição de senha.",
+        t("forgot_pwd_empty_title", userLang),
+        t("forgot_pwd_empty_msg", userLang),
         "envelope",
         "#EAB64A",
       );
@@ -193,24 +210,29 @@ export default function LoginScreen({ navigation }: any) {
       await sendPasswordResetEmail(auth, cleanEmail);
       setIsLoading(false);
       showCustomAlert(
-        "E-mail Enviado! 📩",
-        `Enviamos as instruções de redefinição de senha para "${cleanEmail}". Verifique sua caixa de entrada e pasta de spam.`,
+        t("forgot_pwd_success_title", userLang),
+        t("forgot_pwd_success_msg", userLang, { email: cleanEmail }),
         "check-circle",
         "#67D4A8",
       );
     } catch (error: any) {
       setIsLoading(false);
-      let errorMsg = "Não foi possível enviar o e-mail de redefinição.";
+      let errorMsg = t("forgot_pwd_error_default", userLang);
       if (
         error?.code === "auth/user-not-found" ||
         error?.code === "auth/invalid-credential"
       ) {
-        errorMsg = "Não encontramos nenhuma conta cadastrada com este e-mail.";
+        errorMsg = t("forgot_pwd_error_not_found", userLang);
       } else if (error?.code === "auth/invalid-email") {
-        errorMsg = "O formato de e-mail informado é inválido.";
+        errorMsg = t("forgot_pwd_error_invalid_email", userLang);
       }
 
-      showCustomAlert("Falha ao Enviar", errorMsg, "times-circle", "#D96C6C");
+      showCustomAlert(
+        t("forgot_pwd_error_title", userLang),
+        errorMsg,
+        "times-circle",
+        "#D96C6C",
+      );
     }
   };
 
@@ -273,11 +295,11 @@ export default function LoginScreen({ navigation }: any) {
       await signOut(auth);
       setIsLoading(false);
       showCustomAlert(
-        "Conta Criada! 🎉",
-        "Sucesso! Agora faça o login com sua nova conta para acessar a jornada.",
+        t("account_created_title", userLang),
+        t("account_created_msg", userLang),
         "check-circle",
         "#67D4A8",
-        "ENTRAR",
+        t("btn_login_now", userLang),
         () => setIsLogin(true),
       );
     } else {
@@ -295,35 +317,46 @@ export default function LoginScreen({ navigation }: any) {
     if (isLoading) return;
 
     const cleanEmail = email.trim().toLowerCase();
-    const cleanUsername = username
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9_]/g, "");
+    const rawUsername = username.trim().toLowerCase();
 
-    if (!cleanEmail || !password || (!isLogin && !cleanUsername)) {
+    if (!cleanEmail || !password || (!isLogin && !rawUsername)) {
       showCustomAlert(
-        "Atenção",
-        "Preencha todos os campos obrigatórios para continuar.",
+        t("attention_title", userLang),
+        t("fill_required_fields_msg", userLang),
         "exclamation-triangle",
         "#EAB64A",
       );
       return;
     }
 
-    if (!isLogin && cleanUsername.length < 3) {
-      showCustomAlert(
-        "Nome Curto",
-        "Seu nome de usuário deve ter pelo menos 3 caracteres.",
-        "user",
-        "#EAB64A",
-      );
-      return;
+    if (!isLogin) {
+      // ⚠️ Validação estrita de formato do username (apenas a-z, 0-9 e _)
+      const validUsernameRegex = /^[a-z0-9_]+$/;
+      if (!validUsernameRegex.test(rawUsername)) {
+        showCustomAlert(
+          t("attention_title", userLang),
+          t("invalid_username_format_msg", userLang),
+          "user-times",
+          "#EAB64A",
+        );
+        return;
+      }
+
+      if (rawUsername.length < 3) {
+        showCustomAlert(
+          t("short_username_title", userLang),
+          t("short_username_msg", userLang),
+          "user",
+          "#EAB64A",
+        );
+        return;
+      }
     }
 
     if (password.length < 6) {
       showCustomAlert(
-        "Senha Curta",
-        "Sua senha deve ter pelo menos 6 caracteres.",
+        t("short_password_title", userLang),
+        t("short_password_msg", userLang),
         "lock",
         "#EAB64A",
       );
@@ -343,18 +376,24 @@ export default function LoginScreen({ navigation }: any) {
           password,
         );
         uid = userCred.user.uid;
+        // Salva idioma selecionado no usuário autenticado
+        await setDoc(
+          doc(db, "users", uid),
+          { language: userLang },
+          { merge: true },
+        );
       } else {
         const usernameQuery = query(
           collection(db, "users"),
-          where("username", "==", cleanUsername),
+          where("username", "==", rawUsername),
         );
         const usernameSnap = await getDocs(usernameQuery);
 
         if (!usernameSnap.empty) {
           setIsLoading(false);
           showCustomAlert(
-            "Nome Indisponível",
-            "Este @username já está sendo usado. Por favor, escolha outro.",
+            t("username_unavailable_title", userLang),
+            t("username_unavailable_msg", userLang),
             "user-times",
             "#EAB64A",
           );
@@ -373,7 +412,8 @@ export default function LoginScreen({ navigation }: any) {
         const myGeneratedCode = uid.substring(0, 6).toUpperCase();
         const userDataToSave: any = {
           email: cleanEmail,
-          username: cleanUsername,
+          username: rawUsername,
+          language: userLang,
           myInviteCode: myGeneratedCode,
           createdAt: new Date().toISOString(),
           isPremium: false,
@@ -398,11 +438,11 @@ export default function LoginScreen({ navigation }: any) {
 
       if (errorCode === "auth/email-already-in-use") {
         showCustomAlert(
-          "E-mail Cadastrado 👋",
-          "Este e-mail já possui conta no DuoElo. Alterne para a aba de Login para entrar.",
+          t("email_in_use_title", userLang),
+          t("email_in_use_msg", userLang),
           "info-circle",
           "#202D3A",
-          "IR PARA LOGIN",
+          t("btn_go_to_login", userLang),
           () => setIsLogin(true),
         );
       } else if (
@@ -412,41 +452,41 @@ export default function LoginScreen({ navigation }: any) {
       ) {
         if (isLogin) {
           showCustomAlert(
-            "Conta não encontrada! 🧐",
-            `Não encontramos uma conta para "${cleanEmail}" ou a senha está incorreta.\n\nDeseja criar uma nova conta agora?`,
+            t("account_not_found_title", userLang),
+            t("account_not_found_msg", userLang, { email: cleanEmail }),
             "user-plus",
             "#EAB64A",
-            "CRIAR CONTA",
+            t("btn_create_account", userLang),
             () => setIsLogin(false),
-            "Tentar Novamente",
+            t("btn_try_again", userLang),
             () => {},
           );
         } else {
           showCustomAlert(
-            "Erro de Cadastro",
-            "Verifique as informações digitadas e tente novamente.",
+            t("signup_error_title", userLang),
+            t("signup_error_msg", userLang),
             "times-circle",
             "#D96C6C",
           );
         }
       } else if (errorCode === "auth/too-many-requests") {
         showCustomAlert(
-          "Bloqueio Temporário",
-          "Muitas tentativas sem sucesso. Aguarde alguns instantes antes de tentar novamente.",
+          t("temp_block_title", userLang),
+          t("temp_block_msg", userLang),
           "hourglass-half",
           "#EAB64A",
         );
       } else if (errorCode === "auth/invalid-email") {
         showCustomAlert(
-          "E-mail Inválido",
-          "Por favor, digite um endereço de e-mail em formato válido.",
+          t("invalid_email_title", userLang),
+          t("invalid_email_msg", userLang),
           "exclamation-circle",
           "#EAB64A",
         );
       } else {
         showCustomAlert(
-          "Ops!",
-          "Ocorreu um erro de autenticação. Verifique sua conexão.",
+          t("ops_title", userLang),
+          t("auth_error_default_msg", userLang),
           "times-circle",
           "#D96C6C",
         );
@@ -454,12 +494,12 @@ export default function LoginScreen({ navigation }: any) {
     }
   };
 
-  // 🚀 GOOGLE SIGN-IN NATIVO SEGURO (PROTEGIDO CONTRA EXPO GO)
+  // 🚀 GOOGLE SIGN-IN NATIVO SEGURO
   const handleGoogleSignIn = async () => {
     if (isExpoGo || !GoogleSignin) {
       showCustomAlert(
-        "Modo de Desenvolvimento 🛠️",
-        "O login nativo com Google requer código nativo compilado e não funciona direto no app Expo Go. Utilize o login por E-mail/Senha durante os testes.",
+        t("dev_mode_title", userLang),
+        t("dev_mode_msg", userLang),
         "info-circle",
         "#EAB64A",
       );
@@ -509,6 +549,7 @@ export default function LoginScreen({ navigation }: any) {
           username: cleanUsername,
           displayName: user.displayName || "Usuário",
           photoURL: user.photoURL || null,
+          language: userLang,
           myInviteCode: myGeneratedCode,
           createdAt: new Date().toISOString(),
           isPremium: false,
@@ -519,6 +560,8 @@ export default function LoginScreen({ navigation }: any) {
           currentTaskStep: 0,
           partnerId: null,
         });
+      } else {
+        await setDoc(userRef, { language: userLang }, { merge: true });
       }
 
       setIsLoading(false);
@@ -535,20 +578,20 @@ export default function LoginScreen({ navigation }: any) {
       }
 
       showCustomAlert(
-        "Login Cancelado",
-        "Não foi possível concluir o login com o Google.",
+        t("login_canceled_title", userLang),
+        t("login_canceled_msg", userLang),
         "times-circle",
         "#D96C6C",
       );
     }
   };
 
-  // 🍎 APPLE SIGN-IN NATIVO (iOS)
+  // 🍎 APPLE SIGN-IN NATIVO
   const handleAppleSignIn = async () => {
     if (Platform.OS !== "ios") {
       showCustomAlert(
-        "Apenas no iOS",
-        "O login com a Apple está disponível apenas em dispositivos iOS (iPhone e iPad). Utilize o Google Sign-In no Android.",
+        t("ios_only_title", userLang),
+        t("ios_only_msg", userLang),
         "apple",
         "#202D3A",
       );
@@ -604,6 +647,7 @@ export default function LoginScreen({ navigation }: any) {
           username: cleanUsername,
           displayName,
           photoURL: user.photoURL || null,
+          language: userLang,
           myInviteCode: myGeneratedCode,
           createdAt: new Date().toISOString(),
           isPremium: false,
@@ -614,6 +658,8 @@ export default function LoginScreen({ navigation }: any) {
           currentTaskStep: 0,
           partnerId: null,
         });
+      } else {
+        await setDoc(userRef, { language: userLang }, { merge: true });
       }
 
       setIsLoading(false);
@@ -624,8 +670,8 @@ export default function LoginScreen({ navigation }: any) {
         return;
       }
       showCustomAlert(
-        "Erro de Login",
-        "Não foi possível concluir o login com a Apple.",
+        t("apple_login_error_title", userLang),
+        t("apple_login_error_msg", userLang),
         "times-circle",
         "#D96C6C",
       );
@@ -640,8 +686,19 @@ export default function LoginScreen({ navigation }: any) {
     }
   };
 
+  const currentFlag =
+    SUPPORTED_LANGUAGES.find((l) => l.code === userLang)?.flag || "🇧🇷";
+
   return (
     <SafeAreaView style={styles.container}>
+      {/* 🌐 SELETOR DE IDIOMA NO CANTO SUPERIOR DIREITO */}
+      <TouchableOpacity
+        style={styles.langSelectorBtn}
+        onPress={() => setIsLangModalVisible(true)}
+      >
+        <Text style={styles.langSelectorFlag}>{currentFlag}</Text>
+      </TouchableOpacity>
+
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}
@@ -672,12 +729,14 @@ export default function LoginScreen({ navigation }: any) {
               </View>
             </Animated.View>
             <Text style={styles.title}>
-              {isLogin ? "Bem-vindo de volta" : "Comece sua jornada"}
+              {isLogin
+                ? t("login_welcome_back_title", userLang)
+                : t("login_start_journey_title", userLang)}
             </Text>
             <Text style={styles.subtitle}>
               {isLogin
-                ? "Continue fortalecendo o seu elo hoje."
-                : "Crie sua conta e dê o primeiro passo para resgatar a sua conexão."}
+                ? t("login_welcome_back_sub", userLang)
+                : t("login_start_journey_sub", userLang)}
             </Text>
           </Animated.View>
 
@@ -697,7 +756,7 @@ export default function LoginScreen({ navigation }: any) {
                 />
                 <TextInput
                   style={styles.input}
-                  placeholder="Nome de usuário (ex: joao_silva)"
+                  placeholder={t("placeholder_username", userLang)}
                   placeholderTextColor="#AFAFAF"
                   autoCapitalize="none"
                   value={username}
@@ -715,7 +774,7 @@ export default function LoginScreen({ navigation }: any) {
               />
               <TextInput
                 style={styles.input}
-                placeholder="Seu e-mail"
+                placeholder={t("placeholder_email", userLang)}
                 placeholderTextColor="#AFAFAF"
                 keyboardType="email-address"
                 autoCapitalize="none"
@@ -733,7 +792,7 @@ export default function LoginScreen({ navigation }: any) {
               />
               <TextInput
                 style={styles.input}
-                placeholder="Sua senha (mín 6 letras)"
+                placeholder={t("placeholder_password", userLang)}
                 placeholderTextColor="#AFAFAF"
                 secureTextEntry
                 value={password}
@@ -747,7 +806,7 @@ export default function LoginScreen({ navigation }: any) {
                 onPress={handleForgotPassword}
               >
                 <Text style={styles.forgotPasswordText}>
-                  Esqueci minha senha
+                  {t("forgot_password_link", userLang)}
                 </Text>
               </TouchableOpacity>
             )}
@@ -775,7 +834,9 @@ export default function LoginScreen({ navigation }: any) {
                     <Text
                       style={[styles.floatingBtnText, { color: btnTextColor }]}
                     >
-                      {isLogin ? "Entrar na Conta" : "Criar Minha Conta"}
+                      {isLogin
+                        ? t("btn_login_submit", userLang)
+                        : t("btn_signup_submit", userLang)}
                     </Text>
                     <FontAwesome5
                       name={btnIcon}
@@ -789,7 +850,9 @@ export default function LoginScreen({ navigation }: any) {
 
             <View style={styles.dividerContainer}>
               <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>ou entre com</Text>
+              <Text style={styles.dividerText}>
+                {t("divider_social_login", userLang)}
+              </Text>
               <View style={styles.dividerLine} />
             </View>
 
@@ -816,15 +879,17 @@ export default function LoginScreen({ navigation }: any) {
             <View style={styles.toggleContainer}>
               <Text style={styles.toggleText}>
                 {isLogin
-                  ? "Ainda não tem uma conta?"
-                  : "Já faz parte do DuoElo?"}
+                  ? t("toggle_no_account_msg", userLang)
+                  : t("toggle_has_account_msg", userLang)}
               </Text>
               <TouchableOpacity
                 onPress={() => setIsLogin(!isLogin)}
                 hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
               >
                 <Text style={styles.toggleLink}>
-                  {isLogin ? "Criar conta" : "Entrar"}
+                  {isLogin
+                    ? t("toggle_create_account_link", userLang)
+                    : t("toggle_login_link", userLang)}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -832,6 +897,34 @@ export default function LoginScreen({ navigation }: any) {
         </ScrollView>
       </KeyboardAvoidingView>
 
+      {/* MODAL DE IDIOMAS */}
+      <Modal visible={isLangModalVisible} transparent animationType="fade">
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setIsLangModalVisible(false)}
+        >
+          <View style={styles.compactLangModal}>
+            {SUPPORTED_LANGUAGES.map((lang) => (
+              <TouchableOpacity
+                key={lang.code}
+                style={[
+                  styles.compactFlagBtn,
+                  userLang === lang.code && styles.compactFlagBtnActive,
+                ]}
+                onPress={() => {
+                  setUserLang(lang.code);
+                  setIsLangModalVisible(false);
+                }}
+              >
+                <Text style={styles.compactFlagText}>{lang.flag}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* MODAL DE ALERTAS CUSTOMIZADOS */}
       <Modal visible={customAlert.visible} transparent animationType="fade">
         <View style={styles.bottomSheetOverlay}>
           <View style={styles.bottomSheetContainer}>
@@ -865,7 +958,7 @@ export default function LoginScreen({ navigation }: any) {
                 }}
               >
                 <Text style={styles.bottomSheetButtonPrimaryText}>
-                  {customAlert.confirmText || "Entendi"}
+                  {customAlert.confirmText || t("btn_understand", userLang)}
                 </Text>
               </TouchableOpacity>
 
@@ -892,12 +985,30 @@ export default function LoginScreen({ navigation }: any) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F0F4F8" },
+  langSelectorBtn: {
+    position: "absolute",
+    top: Platform.OS === "ios" ? 50 : 20,
+    right: 24,
+    zIndex: 100,
+    backgroundColor: "#FFF",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#D1D9E0",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  langSelectorFlag: { fontSize: 22 },
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 30,
     justifyContent: "center",
     paddingBottom: 40,
-    paddingTop: 40,
+    paddingTop: 60,
   },
   header: { alignItems: "center", marginBottom: 35 },
   logoWrapper: { alignItems: "center", marginBottom: 25 },
@@ -1021,6 +1132,43 @@ const styles = StyleSheet.create({
     fontFamily: "Montserrat_700Bold",
     textDecorationLine: "underline",
   },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(32, 45, 58, 0.3)",
+    justifyContent: "flex-start",
+    alignItems: "flex-end",
+  },
+  compactLangModal: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    backgroundColor: "#FFF",
+    borderRadius: 16,
+    padding: 12,
+    marginTop: Platform.OS === "ios" ? 95 : 65,
+    marginRight: 20,
+    width: 220,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  compactFlagBtn: {
+    width: 45,
+    height: 45,
+    justifyContent: "center",
+    alignItems: "center",
+    margin: 5,
+    borderRadius: 10,
+    backgroundColor: "transparent",
+  },
+  compactFlagBtnActive: {
+    backgroundColor: "#F0F4F8",
+    borderWidth: 2,
+    borderColor: "#202D3A",
+  },
+  compactFlagText: { fontSize: 28 },
   bottomSheetOverlay: {
     flex: 1,
     backgroundColor: "rgba(32,45,58,0.7)",
