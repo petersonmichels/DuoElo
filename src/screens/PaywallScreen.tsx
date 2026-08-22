@@ -1,449 +1,291 @@
 import { FontAwesome5 } from "@expo/vector-icons";
-import { useFocusEffect } from "@react-navigation/native";
-import Constants, { ExecutionEnvironment } from "expo-constants";
-import * as ImagePicker from "expo-image-picker";
-import { deleteUser, sendEmailVerification, signOut } from "firebase/auth";
-import {
-  collection,
-  deleteDoc,
-  doc,
-  getDocs,
-  onSnapshot,
-  setDoc,
-} from "firebase/firestore";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { signOut } from "firebase/auth";
+import { doc, getDoc, setDoc } from "firebase/firestore";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Animated,
-  AppState,
-  Image,
-  KeyboardAvoidingView,
+  Dimensions,
   Linking,
-  Modal,
   Platform,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
-import Purchases from "react-native-purchases";
-import { SafeAreaView } from "react-native-safe-area-context";
+import Purchases, { PurchasesPackage } from "react-native-purchases";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth, db } from "../config/firebase";
 
 import { t } from "../i18n/translations";
 
-const isExpoGo =
-  Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+const { width } = Dimensions.get("window");
 
-let GoogleSignin: any = null;
+export default function PaywallScreen({ navigation }: any) {
+  const insets = useSafeAreaInsets();
 
-const SUPPORTED_LANGUAGES = [
-  { code: "pt-BR", flag: "🇧🇷", label: "Português (Brasil)" },
-  { code: "pt-PT", flag: "🇵🇹", label: "Português (Portugal)" },
-  { code: "en", flag: "🇺🇸", label: "English" },
-  { code: "es", flag: "🇪🇸", label: "Español" },
-  { code: "fr", flag: "🇫🇷", label: "Français" },
-  { code: "de", flag: "🇩🇪", label: "Deutsch" },
-  { code: "ja", flag: "🇯🇵", label: "日本語" },
-];
+  const [planCategory, setPlanCategory] = useState<"duo" | "individual">("duo");
+  const [selectedPlan, setSelectedPlan] = useState<
+    "mensal" | "trimestral" | "anual"
+  >("trimestral");
 
-export default function ProfileScreen({ navigation }: any) {
-  const [userData, setUserData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isLoadingOfferings, setIsLoadingOfferings] = useState(true);
+  const [availablePackages, setAvailablePackages] = useState<
+    PurchasesPackage[]
+  >([]);
+  const [hasPartner, setHasPartner] = useState(false);
+  const [partnerId, setPartnerId] = useState<string | null>(null);
 
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [address, setAddress] = useState("");
-  const [zipCode, setZipCode] = useState("");
-  const [phone, setPhone] = useState("");
-
-  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">(
-    "idle",
-  );
-  const [isSendingEmail, setIsSendingEmail] = useState(false);
-  const [isEmailVerified, setIsEmailVerified] = useState(false);
-  const saveAnim = useRef(new Animated.Value(0)).current;
-
-  const [bypassDailyLock, setBypassDailyLock] = useState(false);
-  const isFirstLoad = useRef(true);
-
-  // 🌐 Estado e Modal de Idioma
+  // 🌐 Estado dinâmico do Idioma
   const [userLang, setUserLang] = useState("pt-BR");
-  const [isLangModalVisible, setIsLangModalVisible] = useState(false);
 
-  useFocusEffect(
-    useCallback(() => {
-      const checkEmailVerification = async () => {
-        if (auth.currentUser) {
-          try {
-            await auth.currentUser.reload();
-            setIsEmailVerified(auth.currentUser.emailVerified || false);
-          } catch (e) {
-            console.log("Erro ao recarregar status do usuário", e);
-          }
-        }
-      };
-      checkEmailVerification();
-    }, []),
-  );
+  const slideAnim = useRef(new Animated.Value(50)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const currentUid = auth.currentUser?.uid;
-    if (!currentUid) return;
-
-    const appStateSubscription = AppState.addEventListener(
-      "change",
-      async (nextAppState) => {
-        if (nextAppState === "active" && auth.currentUser) {
-          await auth.currentUser.reload();
-          setIsEmailVerified(auth.currentUser.emailVerified || false);
-        }
-      },
-    );
-
-    const userRef = doc(db, "users", currentUid);
-    const unsubscribeUser = onSnapshot(userRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setUserData(data);
-        setBypassDailyLock(data.bypassDailyLock || false);
-        if (data.language) setUserLang(data.language);
-
-        if (isFirstLoad.current) {
-          setFirstName(data.billingFirstName || "");
-          setLastName(data.billingLastName || "");
-          setAddress(data.billingAddress || "");
-          setZipCode(data.billingZipCode || "");
-          setPhone(data.billingPhone || "");
-          isFirstLoad.current = false;
+    const fetchUserData = async () => {
+      const currentUid = auth.currentUser?.uid;
+      if (currentUid) {
+        try {
+          const userSnap = await getDoc(doc(db, "users", currentUid));
+          if (userSnap.exists()) {
+            const data = userSnap.data();
+            if (data.language) {
+              setUserLang(data.language);
+            }
+            if (data.partnerId) {
+              setHasPartner(true);
+              setPartnerId(data.partnerId);
+              setPlanCategory("duo");
+            }
+          }
+        } catch (error) {
+          console.error("Erro ao carregar dados do usuário no Paywall:", error);
         }
       }
-      setLoading(false);
-    });
-
-    return () => {
-      unsubscribeUser();
-      appStateSubscription.remove();
     };
+
+    const fetchOfferings = async () => {
+      try {
+        setIsLoadingOfferings(true);
+        const offerings = await Purchases.getOfferings();
+        if (
+          offerings?.current &&
+          offerings.current.availablePackages.length > 0
+        ) {
+          setAvailablePackages(offerings.current.availablePackages);
+        }
+      } catch (e: any) {
+        setAvailablePackages([]);
+      } finally {
+        setIsLoadingOfferings(false);
+      }
+    };
+
+    fetchUserData();
+    fetchOfferings();
+
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+    ]).start();
   }, []);
 
-  const triggerSaveAnimation = (toValue: number, callback?: () => void) => {
-    Animated.timing(saveAnim, {
-      toValue,
-      duration: 300,
-      useNativeDriver: true,
-    }).start(callback);
-  };
+  const findPackage = (
+    category: "duo" | "individual",
+    period: "mensal" | "trimestral" | "anual",
+  ) => {
+    return availablePackages.find((pkg) => {
+      const prodId = pkg.product.identifier.toLowerCase();
+      const pkgId = pkg.identifier.toLowerCase();
 
-  const handleAutoSave = async (field: string, value: string) => {
-    const currentUid = auth.currentUser?.uid;
-    if (!currentUid || userData?.[field] === value) return;
-
-    setSaveStatus("saving");
-    triggerSaveAnimation(1);
-
-    try {
-      await setDoc(
-        doc(db, "users", currentUid),
-        { [field]: value },
-        { merge: true },
-      );
-      setSaveStatus("saved");
-      setTimeout(
-        () => triggerSaveAnimation(0, () => setSaveStatus("idle")),
-        2000,
-      );
-    } catch (e) {
-      setSaveStatus("idle");
-      triggerSaveAnimation(0);
-    }
-  };
-
-  const handleVerifyEmail = async () => {
-    if (!auth.currentUser) return;
-    setIsSendingEmail(true);
-    try {
-      await sendEmailVerification(auth.currentUser);
-      Alert.alert(
-        t("verify_email_sent_title", userLang),
-        t("verify_email_sent_msg", userLang),
-      );
-    } catch (error: any) {
-      if (error.code === "auth/too-many-requests") {
-        Alert.alert(
-          t("wait_title", userLang),
-          t("verify_email_too_many_msg", userLang),
-        );
+      if (category === "individual") {
+        if (period === "mensal")
+          return (
+            prodId.includes("duoelo_mensal") || pkgId.includes("solo_monthly")
+          );
+        if (period === "trimestral")
+          return (
+            prodId.includes("duoelo_trimestral") ||
+            pkgId.includes("solo_three_month") ||
+            pkgId.includes("solo_quarterly")
+          );
+        if (period === "anual")
+          return (
+            (prodId.includes("duoelo_anual") &&
+              !prodId.includes("duo_anual")) ||
+            pkgId.includes("solo_annual")
+          );
       } else {
-        Alert.alert(
-          t("error_title", userLang),
-          t("verify_email_error_msg", userLang),
-        );
+        if (period === "mensal")
+          return (
+            prodId.includes("duoelo_duo_mensal") || pkgId.includes("monthly")
+          );
+        if (period === "trimestral")
+          return (
+            prodId.includes("duoelo_duo_trimestral") ||
+            pkgId.includes("three_month") ||
+            pkgId.includes("quarterly")
+          );
+        if (period === "anual")
+          return (
+            prodId.includes("duoelo_duo_anual") || pkgId.includes("annual")
+          );
       }
+      return false;
+    });
+  };
+
+  const handleClose = async () => {
+    const currentUid = auth.currentUser?.uid;
+
+    if (!currentUid) {
+      handleForceLogout();
+      return;
+    }
+
+    if (navigation && navigation.canGoBack()) {
+      navigation.goBack();
+    } else if (navigation) {
+      navigation.reset({
+        index: 0,
+        routes: [
+          {
+            name: "MainTabs",
+            params: { screen: "Home" },
+          },
+        ],
+      });
+    }
+  };
+
+  const handleForceLogout = async () => {
+    try {
+      await signOut(auth);
+    } catch (e) {
+      console.log("Erro ao desconectar:", e);
     } finally {
-      setIsSendingEmail(false);
+      navigation.reset({
+        index: 0,
+        routes: [{ name: "Login" }],
+      });
     }
   };
 
-  const handlePhoneChange = (text: string) => {
-    let cleaned = text.replace(/\D/g, "");
-    let formatted = cleaned;
-    if (cleaned.length > 0) {
-      if (cleaned.length <= 2) formatted = `+${cleaned}`;
-      else if (cleaned.length <= 4)
-        formatted = `+${cleaned.slice(0, 2)} (${cleaned.slice(2)}`;
-      else if (cleaned.length <= 9)
-        formatted = `+${cleaned.slice(0, 2)} (${cleaned.slice(2, 4)}) ${cleaned.slice(4)}`;
-      else
-        formatted = `+${cleaned.slice(0, 2)} (${cleaned.slice(2, 4)}) ${cleaned.slice(4, 9)}-${cleaned.slice(9, 13)}`;
-    }
-    setPhone(formatted);
-  };
+  const handleSubscribe = async () => {
+    if (isProcessing) return;
+    setIsProcessing(true);
 
-  const handleZipChange = (text: string) => {
-    let cleaned = text.replace(/\D/g, "");
-    let formatted = cleaned;
-    if (cleaned.length > 5) {
-      formatted = `${cleaned.slice(0, 5)}-${cleaned.slice(5, 8)}`;
-    }
-    setZipCode(formatted);
-  };
-
-  const processImageResult = async (result: ImagePicker.ImagePickerResult) => {
-    if (!result.canceled && result.assets && result.assets.length > 0) {
+    try {
       const currentUid = auth.currentUser?.uid;
-      const asset = result.assets[0];
-      const imageUri = asset.base64
-        ? `data:image/jpeg;base64,${asset.base64}`
-        : asset.uri;
 
-      if (imageUri.length > 900000) {
+      if (!currentUid) {
         Alert.alert(
-          t("photo_too_large_title", userLang),
-          t("photo_too_large_msg", userLang),
+          t("session_expired_title", userLang),
+          t("session_expired_sub_msg", userLang),
+          [
+            {
+              text: t("btn_go_to_login", userLang),
+              onPress: handleForceLogout,
+            },
+          ],
         );
+        setIsProcessing(false);
         return;
       }
 
-      if (currentUid) {
-        setLoading(true);
-        try {
-          await setDoc(
-            doc(db, "users", currentUid),
-            { photoURL: imageUri, photoUrl: imageUri },
-            { merge: true },
-          );
-        } catch (e) {
-          Alert.alert(
-            t("error_title", userLang),
-            t("update_photo_error_msg", userLang),
-          );
-        } finally {
-          setLoading(false);
-        }
+      const userUpdates: any = {
+        isPremium: true,
+        subscriptionCategory: planCategory,
+        subscriptionPlan: selectedPlan,
+        subscriptionDate: new Date().toISOString(),
+      };
+
+      await setDoc(doc(db, "users", currentUid), userUpdates, { merge: true });
+
+      if (planCategory === "duo" && partnerId) {
+        await setDoc(
+          doc(db, "users", partnerId),
+          { isPremium: true, isPartnerPremium: true },
+          { merge: true },
+        );
       }
-    }
-  };
 
-  const handlePickImage = () => {
-    Alert.alert(
-      t("profile_photo_prompt_title", userLang),
-      t("profile_photo_prompt_msg", userLang),
-      [
-        {
-          text: t("btn_take_photo", userLang),
-          onPress: async () => {
-            const permissionResult =
-              await ImagePicker.requestCameraPermissionsAsync();
-            if (permissionResult.granted === false) {
-              Alert.alert(
-                t("permission_title", userLang),
-                t("camera_permission_msg", userLang),
-              );
-              return;
-            }
-            const result = await ImagePicker.launchCameraAsync({
-              mediaTypes: "images",
-              allowsEditing: true,
-              aspect: [1, 1],
-              quality: 0.1,
-              base64: true,
-            });
-            processImageResult(result);
+      Alert.alert(
+        t("sub_confirmed_title", userLang),
+        t("sub_confirmed_msg", userLang, {
+          category: planCategory === "duo" ? "Duo" : "Solo",
+          plan: selectedPlan,
+          partnerBonus:
+            hasPartner && planCategory === "duo"
+              ? t("sub_confirmed_partner_bonus", userLang)
+              : "",
+        }),
+        [
+          {
+            text: t("btn_access_app", userLang),
+            onPress: () => {
+              navigation.reset({
+                index: 0,
+                routes: [
+                  {
+                    name: "MainTabs",
+                    params: { screen: "Home" },
+                  },
+                ],
+              });
+            },
           },
-        },
-        {
-          text: t("btn_choose_gallery", userLang),
-          onPress: async () => {
-            const permissionResult =
-              await ImagePicker.requestMediaLibraryPermissionsAsync();
-            if (permissionResult.granted === false) {
-              Alert.alert(
-                t("permission_title", userLang),
-                t("gallery_permission_msg", userLang),
-              );
-              return;
-            }
-            const result = await ImagePicker.launchImageLibraryAsync({
-              mediaTypes: "images",
-              allowsEditing: true,
-              aspect: [1, 1],
-              quality: 0.1,
-              base64: true,
-            });
-            processImageResult(result);
-          },
-        },
-        { text: t("modal_cancel", userLang), style: "cancel" },
-      ],
-      { cancelable: true },
-    );
-  };
-
-  const toggleBypassLock = async (value: boolean) => {
-    const currentUid = auth.currentUser?.uid;
-    if (!currentUid) return;
-    setBypassDailyLock(value);
-    try {
-      await setDoc(
-        doc(db, "users", currentUid),
-        { bypassDailyLock: value },
-        { merge: true },
+        ],
       );
-    } catch (e) {
-      setBypassDailyLock(!value);
+    } catch (error: any) {
+      Alert.alert(t("sub_error_title", userLang), t("sub_error_msg", userLang));
+      console.error("Erro na assinatura:", error);
+    } finally {
+      setIsProcessing(false);
     }
-  };
-
-  const handleSwitchGoogleAccount = () => {
-    Alert.alert(
-      t("switch_google_account_title", userLang),
-      t("switch_google_account_msg", userLang),
-      [
-        { text: t("modal_cancel", userLang), style: "cancel" },
-        {
-          text: t("btn_disconnect_google", userLang),
-          onPress: async () => {
-            try {
-              if (GoogleSignin && typeof GoogleSignin.signOut === "function") {
-                await GoogleSignin.signOut();
-              }
-              await signOut(auth);
-              Alert.alert(
-                t("account_disconnected_title", userLang),
-                t("account_disconnected_msg", userLang),
-              );
-            } catch (e) {
-              await signOut(auth);
-            }
-          },
-        },
-      ],
-    );
-  };
-
-  const handleLogout = () => {
-    Alert.alert(t("logout_title", userLang), t("logout_msg", userLang), [
-      { text: t("modal_cancel", userLang), style: "cancel" },
-      {
-        text: t("btn_logout", userLang),
-        style: "destructive",
-        onPress: async () => {
-          try {
-            if (GoogleSignin && typeof GoogleSignin.signOut === "function") {
-              try {
-                await GoogleSignin.signOut();
-              } catch (e) {}
-            }
-            await signOut(auth);
-          } catch (error) {
-            console.error("Erro ao deslogar:", error);
-          }
-        },
-      },
-    ]);
-  };
-
-  const handleDeleteAccount = () => {
-    Alert.alert(
-      t("delete_account_title", userLang),
-      t("delete_account_warning_msg", userLang),
-      [
-        { text: t("modal_cancel", userLang), style: "cancel" },
-        {
-          text: t("btn_yes_delete", userLang),
-          style: "destructive",
-          onPress: async () => {
-            try {
-              setLoading(true);
-              const user = auth.currentUser;
-              if (user) {
-                if (userData?.partnerId) {
-                  await setDoc(
-                    doc(db, "users", userData.partnerId),
-                    { partnerId: null, isSoloMode: false },
-                    { merge: true },
-                  );
-                }
-
-                const journalsSnap = await getDocs(
-                  collection(db, "users", user.uid, "journals"),
-                );
-                const deletePromises = journalsSnap.docs.map((d) =>
-                  deleteDoc(d.ref),
-                );
-                await Promise.all(deletePromises);
-
-                await deleteDoc(doc(db, "users", user.uid));
-
-                if (
-                  GoogleSignin &&
-                  typeof GoogleSignin.signOut === "function"
-                ) {
-                  try {
-                    await GoogleSignin.signOut();
-                  } catch (e) {}
-                }
-
-                await deleteUser(user);
-              }
-            } catch (error: any) {
-              setLoading(false);
-              if (error.code === "auth/requires-recent-login") {
-                Alert.alert(
-                  t("security_title", userLang),
-                  t("reauth_required_delete_msg", userLang),
-                );
-              } else {
-                Alert.alert(
-                  t("delete_error_title", userLang),
-                  t("delete_error_msg", userLang),
-                );
-              }
-            }
-          },
-        },
-      ],
-    );
-  };
-
-  const handleManageSubscription = () => {
-    if (Platform.OS === "ios")
-      Linking.openURL("https://apps.apple.com/account/subscriptions");
-    else Linking.openURL("https://play.google.com/store/account/subscriptions");
   };
 
   const handleRestorePurchases = async () => {
+    if (isProcessing) return;
+    setIsProcessing(true);
+
     try {
       const restoredInfo = await Purchases.restorePurchases();
       if (Object.keys(restoredInfo.entitlements.active).length > 0) {
+        const currentUid = auth.currentUser?.uid;
+        if (currentUid) {
+          await setDoc(
+            doc(db, "users", currentUid),
+            { isPremium: true },
+            { merge: true },
+          );
+        }
+
         Alert.alert(
           t("sub_restored_title", userLang),
           t("sub_restored_msg", userLang),
+          [
+            {
+              text: t("btn_go_to_start", userLang),
+              onPress: () =>
+                navigation.reset({
+                  index: 0,
+                  routes: [{ name: "MainTabs", params: { screen: "Home" } }],
+                }),
+            },
+          ],
         );
       } else {
         Alert.alert(
@@ -451,20 +293,15 @@ export default function ProfileScreen({ navigation }: any) {
           t("no_active_sub_msg", userLang),
         );
       }
-    } catch (e) {
+    } catch (error) {
       Alert.alert(
         t("error_title", userLang),
         t("restore_purchases_error_msg", userLang),
       );
+      console.error("Erro ao restaurar compras:", error);
+    } finally {
+      setIsProcessing(false);
     }
-  };
-
-  const handleSupport = () => {
-    Linking.openURL("mailto:suporte@duoelo.com?subject=Suporte%20DuoElo%20App");
-  };
-
-  const handleOpenSettings = () => {
-    Linking.openSettings();
   };
 
   const openUrl = (url: string) => {
@@ -476,859 +313,697 @@ export default function ProfileScreen({ navigation }: any) {
     );
   };
 
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#202D3A" />
-      </SafeAreaView>
-    );
-  }
+  const featuresDuo = [
+    {
+      icon: "users",
+      title: t("feat_duo_1_title", userLang),
+      desc: t("feat_duo_1_desc", userLang),
+    },
+    {
+      icon: "map-marked-alt",
+      title: t("feat_duo_2_title", userLang),
+      desc: t("feat_duo_2_desc", userLang),
+    },
+    {
+      icon: "heart",
+      title: t("feat_duo_3_title", userLang),
+      desc: t("feat_duo_3_desc", userLang),
+    },
+  ];
 
-  const isValidPhoto = (url: any) =>
-    url &&
-    typeof url === "string" &&
-    url.length > 5 &&
-    url.toLowerCase() !== "null";
+  const featuresIndividual = [
+    {
+      icon: "user",
+      title: t("feat_solo_1_title", userLang),
+      desc: t("feat_solo_1_desc", userLang),
+    },
+    {
+      icon: "map-marked-alt",
+      title: t("feat_solo_2_title", userLang),
+      desc: t("feat_solo_2_desc", userLang),
+    },
+  ];
 
-  const getFirstName = (nameStr?: string) =>
-    nameStr ? nameStr.trim().split(" ")[0] : null;
+  const duoPlans = [
+    {
+      id: "mensal",
+      name: t("plan_duo_monthly_name", userLang),
+      desc: t("plan_duo_monthly_desc", userLang),
+      price: "19,90",
+      period: t("period_per_month", userLang),
+    },
+    {
+      id: "trimestral",
+      name: t("plan_duo_quarterly_name", userLang),
+      desc: t("plan_duo_quarterly_desc", userLang),
+      price: "49,90",
+      period: t("period_per_quarter", userLang),
+      highlight: t("highlight_recommended_couple", userLang),
+    },
+    {
+      id: "anual",
+      name: t("plan_duo_annual_name", userLang),
+      desc: t("plan_duo_annual_desc", userLang),
+      price: "179,90",
+      period: t("period_per_year", userLang),
+    },
+  ];
 
-  const myPhoto = isValidPhoto(userData?.photoURL)
-    ? userData.photoURL
-    : isValidPhoto(userData?.photoUrl)
-      ? userData.photoUrl
-      : null;
+  const individualPlans = [
+    {
+      id: "mensal",
+      name: t("plan_solo_monthly_name", userLang),
+      desc: t("plan_solo_monthly_desc", userLang),
+      price: "14,90",
+      period: t("period_per_month", userLang),
+    },
+    {
+      id: "trimestral",
+      name: t("plan_solo_quarterly_name", userLang),
+      desc: t("plan_solo_quarterly_desc", userLang),
+      price: "39,90",
+      period: t("period_per_quarter", userLang),
+      highlight: t("highlight_best_value_solo", userLang),
+    },
+    {
+      id: "anual",
+      name: t("plan_solo_annual_name", userLang),
+      desc: t("plan_solo_annual_desc", userLang),
+      price: "129,90",
+      period: t("period_per_year", userLang),
+    },
+  ];
 
-  const isPremium = userData?.isPremium || false;
-
-  const displayUsername = userData?.username
-    ? `@${userData.username}`
-    : firstName.trim()
-      ? firstName.trim()
-      : getFirstName(userData?.billingFirstName) ||
-        getFirstName(userData?.displayName) ||
-        getFirstName(auth.currentUser?.displayName) ||
-        t("user_default_name", userLang);
-
-  const currentFlag =
-    SUPPORTED_LANGUAGES.find((l) => l.code === userLang)?.flag || "🇧🇷";
+  const activePlans = planCategory === "duo" ? duoPlans : individualPlans;
+  const activeFeatures =
+    planCategory === "duo" ? featuresDuo : featuresIndividual;
 
   return (
-    <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={{ flex: 1 }}
-      >
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backBtn}
-            onPress={() => navigation.navigate("MainTabs", { screen: "Home" })}
-          >
-            <FontAwesome5 name="chevron-left" size={20} color="#202D3A" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>
-            {t("my_profile_title", userLang)}
-          </Text>
-          <View style={{ width: 40 }} />
-
-          <Animated.View style={[styles.autoSaveToast, { opacity: saveAnim }]}>
-            <FontAwesome5
-              name={saveStatus === "saving" ? "sync" : "check"}
-              size={12}
-              color="#FFF"
-            />
-            <Text style={styles.autoSaveText}>
-              {saveStatus === "saving"
-                ? t("saving_label", userLang)
-                : t("saved_label", userLang)}
-            </Text>
-          </Animated.View>
-        </View>
-
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.closeBtn}
+          onPress={handleClose}
+          disabled={isProcessing}
+          activeOpacity={0.7}
+          hitSlop={{ top: 25, bottom: 25, left: 25, right: 25 }}
         >
-          <View style={styles.avatarSection}>
-            <TouchableOpacity
-              style={styles.avatarContainer}
-              activeOpacity={0.8}
-              onPress={handlePickImage}
-            >
-              {myPhoto ? (
-                <Image
-                  key={myPhoto.substring(0, 100)}
-                  source={{ uri: myPhoto }}
-                  style={styles.avatarImage}
-                />
-              ) : (
-                <FontAwesome5 name="user-alt" size={40} color="#EAB64A" />
-              )}
-              <View style={styles.editPhotoBadge}>
-                <FontAwesome5 name="camera" size={12} color="#FFF" />
-              </View>
-            </TouchableOpacity>
+          <FontAwesome5 name="times" size={20} color="#202D3A" />
+        </TouchableOpacity>
 
-            <Text style={styles.userName}>{displayUsername}</Text>
+        <TouchableOpacity
+          style={styles.logoutBtn}
+          onPress={handleForceLogout}
+          disabled={isProcessing}
+          activeOpacity={0.7}
+          hitSlop={{ top: 25, bottom: 25, left: 25, right: 25 }}
+        >
+          <FontAwesome5 name="sign-out-alt" size={18} color="#E74C3C" />
+        </TouchableOpacity>
+      </View>
 
-            <View style={styles.emailContainer}>
-              <Text style={styles.userEmail}>{auth.currentUser?.email}</Text>
-              {isEmailVerified ? (
-                <View style={styles.verifiedBadge}>
-                  <FontAwesome5
-                    name="check-circle"
-                    solid
-                    size={14}
-                    color="#67D4A8"
-                  />
-                </View>
-              ) : (
-                <View style={styles.unverifiedBadge}>
-                  <FontAwesome5
-                    name="exclamation-circle"
-                    solid
-                    size={14}
-                    color="#EAB64A"
-                  />
-                </View>
-              )}
-            </View>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <Animated.View
+          style={{
+            opacity: fadeAnim,
+            transform: [{ translateY: slideAnim }],
+            alignItems: "center",
+            width: "100%",
+          }}
+        >
+          <View style={styles.iconWrapper}>
+            <FontAwesome5 name="heartbeat" size={40} color="#67D4A8" />
+          </View>
 
-            {!isEmailVerified && (
+          <Text style={styles.heroTitle}>
+            {t("paywall_hero_title", userLang)}
+          </Text>
+          <Text style={styles.heroSub}>{t("paywall_hero_sub", userLang)}</Text>
+
+          {!hasPartner && (
+            <View style={styles.categoryToggleContainer}>
               <TouchableOpacity
-                style={styles.verifyEmailBtn}
-                onPress={handleVerifyEmail}
-                disabled={isSendingEmail}
-              >
-                {isSendingEmail ? (
-                  <ActivityIndicator size="small" color="#EAB64A" />
-                ) : (
-                  <Text style={styles.verifyEmailText}>
-                    {t("send_verify_email_btn", userLang)}
-                  </Text>
-                )}
-              </TouchableOpacity>
-            )}
-
-            {isPremium ? (
-              <View style={[styles.premiumBadge, { marginTop: 15 }]}>
-                <FontAwesome5 name="crown" size={12} color="#202D3A" />
-                <Text style={styles.premiumText}>
-                  {t("premium_status_label", userLang)}
-                </Text>
-              </View>
-            ) : (
-              <View
                 style={[
-                  styles.premiumBadge,
-                  { backgroundColor: "#D1D9E0", marginTop: 15 },
+                  styles.categoryToggleBtn,
+                  planCategory === "duo" && styles.categoryToggleBtnActive,
                 ]}
+                onPress={() => setPlanCategory("duo")}
               >
-                <Text style={[styles.premiumText, { color: "#60646C" }]}>
-                  {t("free_status_label", userLang)}
-                </Text>
-              </View>
-            )}
-          </View>
-
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              {t("journey_stats_title", userLang)}
-            </Text>
-            <View style={styles.statsContainer}>
-              <View style={styles.statBox}>
-                <FontAwesome5 name="fire" size={24} color="#EAB64A" />
-                <Text style={styles.statValue}>{userData?.streak || 0}</Text>
-                <Text style={styles.statLabel}>
-                  {t("consecutive_days_label", userLang)}
-                </Text>
-              </View>
-              <View style={styles.statBox}>
-                <FontAwesome5 name="infinity" size={24} color="#EAB64A" />
-                <Text style={styles.statValue}>{userData?.totalPE || 0}</Text>
-                <Text style={styles.statLabel}>Bonds</Text>
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              {t("personal_data_autosave_title", userLang)}
-            </Text>
-            <View style={styles.formCard}>
-              <View style={styles.rowFields}>
-                <View style={[styles.inputGroup, styles.halfInput]}>
-                  <Text style={styles.inputLabel}>
-                    {t("first_name_label", userLang)}
-                  </Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder={t("first_name_placeholder", userLang)}
-                    placeholderTextColor="#AFAFAF"
-                    value={firstName}
-                    onChangeText={setFirstName}
-                    onBlur={() => handleAutoSave("billingFirstName", firstName)}
-                  />
-                </View>
-                <View style={[styles.inputGroup, styles.halfInput]}>
-                  <Text style={styles.inputLabel}>
-                    {t("last_name_label", userLang)}
-                  </Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder={t("last_name_placeholder", userLang)}
-                    placeholderTextColor="#AFAFAF"
-                    value={lastName}
-                    onChangeText={setLastName}
-                    onBlur={() => handleAutoSave("billingLastName", lastName)}
-                  />
-                </View>
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>
-                  {t("full_address_label", userLang)}
-                </Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder={t("full_address_placeholder", userLang)}
-                  placeholderTextColor="#AFAFAF"
-                  value={address}
-                  onChangeText={setAddress}
-                  onBlur={() => handleAutoSave("billingAddress", address)}
+                <FontAwesome5
+                  name="user-friends"
+                  size={14}
+                  color={planCategory === "duo" ? "#202D3A" : "#60646C"}
                 />
-              </View>
+                <Text
+                  style={[
+                    styles.categoryToggleText,
+                    planCategory === "duo" && styles.categoryToggleTextActive,
+                  ]}
+                >
+                  {t("toggle_couple_duo", userLang)}
+                </Text>
+              </TouchableOpacity>
 
-              <View style={styles.rowFields}>
-                <View style={[styles.inputGroup, styles.halfInput]}>
-                  <Text style={styles.inputLabel}>
-                    {t("zip_code_label", userLang)}
-                  </Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="00000-000"
-                    placeholderTextColor="#AFAFAF"
-                    keyboardType="number-pad"
-                    value={zipCode}
-                    onChangeText={handleZipChange}
-                    onBlur={() => handleAutoSave("billingZipCode", zipCode)}
-                    maxLength={9}
-                  />
-                </View>
-                <View style={[styles.inputGroup, styles.halfInput]}>
-                  <Text style={styles.inputLabel}>
-                    {t("phone_label", userLang)}
-                  </Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="+55 (11) 99999-9999"
-                    placeholderTextColor="#AFAFAF"
-                    keyboardType="phone-pad"
-                    value={phone}
-                    onChangeText={handlePhoneChange}
-                    onBlur={() => handleAutoSave("billingPhone", phone)}
-                    maxLength={19}
-                  />
-                </View>
-              </View>
+              <TouchableOpacity
+                style={[
+                  styles.categoryToggleBtn,
+                  planCategory === "individual" &&
+                    styles.categoryToggleBtnActive,
+                ]}
+                onPress={() => setPlanCategory("individual")}
+              >
+                <FontAwesome5
+                  name="user"
+                  size={14}
+                  color={planCategory === "individual" ? "#202D3A" : "#60646C"}
+                />
+                <Text
+                  style={[
+                    styles.categoryToggleText,
+                    planCategory === "individual" &&
+                      styles.categoryToggleTextActive,
+                  ]}
+                >
+                  {t("toggle_individual_solo", userLang)}
+                </Text>
+              </TouchableOpacity>
             </View>
+          )}
+
+          {hasPartner && (
+            <View style={styles.partnerNoticeBox}>
+              <FontAwesome5 name="heart" solid size={16} color="#67D4A8" />
+              <Text style={styles.partnerNoticeText}>
+                {t("partner_connected_notice", userLang)}
+              </Text>
+            </View>
+          )}
+
+          {isLoadingOfferings ? (
+            <ActivityIndicator
+              size="large"
+              color="#EAB64A"
+              style={{ marginVertical: 20 }}
+            />
+          ) : (
+            <View style={styles.plansWrapper}>
+              {activePlans.map((plan) => {
+                const isSelected = selectedPlan === plan.id;
+
+                let displayPrice = plan.price;
+                let displayDesc = plan.desc;
+
+                const matchedPkg = findPackage(
+                  planCategory,
+                  plan.id as "mensal" | "trimestral" | "anual",
+                );
+
+                if (matchedPkg && matchedPkg.product.priceString) {
+                  displayPrice = matchedPkg.product.priceString
+                    .replace("R$", "")
+                    .trim();
+                  displayDesc = matchedPkg.product.description || plan.desc;
+                }
+
+                return (
+                  <TouchableOpacity
+                    key={plan.id}
+                    style={[
+                      styles.planCard,
+                      isSelected && styles.planCardSelected,
+                    ]}
+                    activeOpacity={0.9}
+                    onPress={() => setSelectedPlan(plan.id as any)}
+                    disabled={isProcessing}
+                  >
+                    {plan.highlight && (
+                      <View style={styles.badgeContainer}>
+                        <Text style={styles.badgeText}>{plan.highlight}</Text>
+                      </View>
+                    )}
+
+                    <View style={styles.planInfo}>
+                      <Text style={styles.planName}>{plan.name}</Text>
+                      <Text style={styles.planDesc}>{displayDesc}</Text>
+                    </View>
+
+                    <View style={styles.planPriceBox}>
+                      <Text style={styles.planPrice}>R$ {displayPrice}</Text>
+                      <Text style={styles.planPeriod}>{plan.period}</Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+
+          <View style={styles.guaranteeBox}>
+            <View style={styles.guaranteeHeader}>
+              <FontAwesome5 name="shield-alt" size={16} color="#67D4A8" />
+              <Text style={styles.guaranteeTitle}>
+                {t("time_protected_title", userLang)}
+              </Text>
+            </View>
+            <Text style={styles.priceSub}>
+              {t("journey_starts_text_part1", userLang)}{" "}
+              <Text
+                style={{ fontFamily: "Montserrat_700Bold", color: "#202D3A" }}
+              >
+                {t("journey_starts_text_highlight", userLang)}
+              </Text>{" "}
+              {planCategory === "duo"
+                ? t("duo_sub_coverage_desc", userLang)
+                : t("solo_upgrade_desc", userLang)}
+            </Text>
           </View>
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              {t("sub_legal_title", userLang)}
+          <View style={styles.featuresContainer}>
+            <Text style={styles.featuresSectionTitle}>
+              {t("what_is_included_title", userLang, {
+                category: planCategory === "duo" ? "Plano Duo" : "Plano Solo",
+              })}
             </Text>
-
-            <TouchableOpacity
-              style={styles.menuOption}
-              onPress={handleManageSubscription}
-            >
-              <View style={styles.menuOptionLeft}>
-                <View
-                  style={[styles.menuIconBg, { backgroundColor: "#F0F4F8" }]}
-                >
-                  <FontAwesome5 name="credit-card" size={16} color="#EAB64A" />
+            {activeFeatures.map((feat, index) => (
+              <View key={index} style={styles.featureItem}>
+                <View style={styles.featureIconBg}>
+                  <FontAwesome5 name={feat.icon} size={20} color="#202D3A" />
                 </View>
-                <Text style={styles.menuOptionText}>
-                  {t("menu_manage_sub", userLang)}
-                </Text>
+                <View style={styles.featureTextContainer}>
+                  <Text style={styles.featureTitle}>{feat.title}</Text>
+                  <Text style={styles.featureDesc}>{feat.desc}</Text>
+                </View>
               </View>
-              <FontAwesome5 name="chevron-right" size={14} color="#D1D9E0" />
-            </TouchableOpacity>
+            ))}
+          </View>
 
+          <View style={styles.legalSection}>
             <TouchableOpacity
-              style={styles.menuOption}
+              style={styles.restoreBtn}
               onPress={handleRestorePurchases}
+              disabled={isProcessing}
             >
-              <View style={styles.menuOptionLeft}>
-                <View
-                  style={[styles.menuIconBg, { backgroundColor: "#E8F4F1" }]}
-                >
-                  <FontAwesome5 name="sync-alt" size={16} color="#67D4A8" />
-                </View>
-                <Text style={styles.menuOptionText}>
-                  {t("btn_restore_purchases", userLang)}
-                </Text>
-              </View>
-              <FontAwesome5 name="chevron-right" size={14} color="#D1D9E0" />
+              <Text style={styles.restoreBtnText}>
+                {t("btn_restore_purchases", userLang)}
+              </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.menuOption}
-              onPress={() => openUrl("https://duoelo.com/termos")}
-            >
-              <View style={styles.menuOptionLeft}>
-                <View
-                  style={[styles.menuIconBg, { backgroundColor: "#F0F4F8" }]}
-                >
-                  <FontAwesome5
-                    name="file-contract"
-                    size={16}
-                    color="#202D3A"
-                  />
-                </View>
-                <Text style={styles.menuOptionText}>
+            <View style={styles.legalLinksRow}>
+              <TouchableOpacity
+                onPress={() =>
+                  openUrl(`https://duoelo.lu/termos?lang=${userLang}`)
+                }
+              >
+                <Text style={styles.legalLinkText}>
                   {t("terms_of_use_eula", userLang)}
                 </Text>
-              </View>
-              <FontAwesome5
-                name="external-link-alt"
-                size={12}
-                color="#D1D9E0"
-              />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.menuOption}
-              onPress={() => openUrl("https://duoelo.com/privacidade")}
-            >
-              <View style={styles.menuOptionLeft}>
-                <View
-                  style={[styles.menuIconBg, { backgroundColor: "#F0F4F8" }]}
-                >
-                  <FontAwesome5 name="user-shield" size={16} color="#202D3A" />
-                </View>
-                <Text style={styles.menuOptionText}>
+              </TouchableOpacity>
+              <Text style={styles.legalDivider}>•</Text>
+              <TouchableOpacity
+                onPress={() =>
+                  openUrl(`https://duoelo.lu/privacidade?lang=${userLang}`)
+                }
+              >
+                <Text style={styles.legalLinkText}>
                   {t("privacy_policy_link", userLang)}
                 </Text>
-              </View>
-              <FontAwesome5
-                name="external-link-alt"
-                size={12}
-                color="#D1D9E0"
-              />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              {t("account_settings_title", userLang)}
-            </Text>
-
-            {/* 🌐 SELETOR DE IDIOMA */}
-            <TouchableOpacity
-              style={styles.menuOption}
-              onPress={() => setIsLangModalVisible(true)}
-            >
-              <View style={styles.menuOptionLeft}>
-                <View
-                  style={[styles.menuIconBg, { backgroundColor: "#F0F4F8" }]}
-                >
-                  <Text style={{ fontSize: 18 }}>{currentFlag}</Text>
-                </View>
-                <View>
-                  <Text style={styles.menuOptionText}>Idioma do App</Text>
-                  <Text
-                    style={{
-                      fontSize: 11,
-                      color: "#60646C",
-                      marginTop: 2,
-                      fontFamily: "Montserrat_400Regular",
-                    }}
-                  >
-                    {
-                      SUPPORTED_LANGUAGES.find((l) => l.code === userLang)
-                        ?.label
-                    }
-                  </Text>
-                </View>
-              </View>
-              <FontAwesome5 name="chevron-right" size={14} color="#D1D9E0" />
-            </TouchableOpacity>
-
-            <View style={[styles.menuOption, { paddingVertical: 12 }]}>
-              <View style={styles.menuOptionLeft}>
-                <View
-                  style={[styles.menuIconBg, { backgroundColor: "#F0F4F8" }]}
-                >
-                  <FontAwesome5 name="unlock-alt" size={16} color="#EAB64A" />
-                </View>
-                <View>
-                  <Text style={styles.menuOptionText}>
-                    {t("bypass_lock_label", userLang)}
-                  </Text>
-                  <Text
-                    style={{
-                      fontSize: 11,
-                      color: "#60646C",
-                      marginTop: 2,
-                      fontFamily: "Montserrat_400Regular",
-                    }}
-                  >
-                    {t("bypass_lock_desc", userLang)}
-                  </Text>
-                </View>
-              </View>
-              <Switch
-                trackColor={{ false: "#D1D9E0", true: "#67D4A8" }}
-                thumbColor={"#FFF"}
-                ios_backgroundColor="#D1D9E0"
-                onValueChange={toggleBypassLock}
-                value={bypassDailyLock}
-              />
+              </TouchableOpacity>
             </View>
-
-            <TouchableOpacity
-              style={styles.menuOption}
-              onPress={handleSwitchGoogleAccount}
-            >
-              <View style={styles.menuOptionLeft}>
-                <View
-                  style={[styles.menuIconBg, { backgroundColor: "#FDE8E8" }]}
-                >
-                  <FontAwesome5 name="google" size={16} color="#EA4335" />
-                </View>
-
-                <View>
-                  <Text style={styles.menuOptionText}>
-                    {t("switch_google_account_menu", userLang)}
-                  </Text>
-                  <Text
-                    style={{
-                      fontSize: 11,
-                      color: "#60646C",
-                      marginTop: 2,
-                      fontFamily: "Montserrat_400Regular",
-                    }}
-                  >
-                    {t("switch_google_account_desc", userLang)}
-                  </Text>
-                </View>
-              </View>
-              <FontAwesome5 name="chevron-right" size={14} color="#D1D9E0" />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.menuOption}
-              onPress={handleOpenSettings}
-            >
-              <View style={styles.menuOptionLeft}>
-                <View
-                  style={[styles.menuIconBg, { backgroundColor: "#F0F4F8" }]}
-                >
-                  <FontAwesome5 name="bell" size={16} color="#202D3A" />
-                </View>
-                <Text style={styles.menuOptionText}>
-                  {t("adjust_notifications_menu", userLang)}
-                </Text>
-              </View>
-              <FontAwesome5 name="chevron-right" size={14} color="#D1D9E0" />
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.menuOption} onPress={handleSupport}>
-              <View style={styles.menuOptionLeft}>
-                <View
-                  style={[styles.menuIconBg, { backgroundColor: "#F0F4F8" }]}
-                >
-                  <FontAwesome5 name="headset" size={16} color="#202D3A" />
-                </View>
-                <Text style={styles.menuOptionText}>
-                  {t("contact_support_menu", userLang)}
-                </Text>
-              </View>
-              <FontAwesome5 name="envelope" size={14} color="#D1D9E0" />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.menuOption, { borderBottomWidth: 0 }]}
-              onPress={handleLogout}
-            >
-              <View style={styles.menuOptionLeft}>
-                <View
-                  style={[styles.menuIconBg, { backgroundColor: "#F0F4F8" }]}
-                >
-                  <FontAwesome5 name="sign-out-alt" size={16} color="#60646C" />
-                </View>
-                <Text style={styles.menuOptionText}>
-                  {t("logout_menu_option", userLang)}
-                </Text>
-              </View>
-              <FontAwesome5 name="chevron-right" size={14} color="#D1D9E0" />
-            </TouchableOpacity>
           </View>
+        </Animated.View>
+      </ScrollView>
 
-          <TouchableOpacity
-            style={styles.deleteAccountLink}
-            onPress={handleDeleteAccount}
-          >
-            <Text style={styles.deleteAccountText}>
-              {t("delete_account_permanently_btn", userLang)}
-            </Text>
-          </TouchableOpacity>
-
-          <Text style={styles.versionText}>DuoElo v1.0.0</Text>
-        </ScrollView>
-      </KeyboardAvoidingView>
-
-      {/* MODAL SELETOR DE IDIOMAS */}
-      <Modal visible={isLangModalVisible} transparent animationType="slide">
+      <View style={styles.footer}>
         <TouchableOpacity
-          style={styles.bottomSheetOverlay}
-          activeOpacity={1}
-          onPress={() => setIsLangModalVisible(false)}
+          style={[styles.ctaButton, isProcessing && { opacity: 0.8 }]}
+          activeOpacity={0.9}
+          onPress={handleSubscribe}
+          disabled={isProcessing}
         >
-          <View style={styles.bottomSheetContainer}>
-            <View style={styles.bottomSheetHandle} />
-            <Text style={styles.bottomSheetTitle}>Escolha seu Idioma</Text>
-
-            <ScrollView style={{ width: "100%", maxHeight: 300 }}>
-              {SUPPORTED_LANGUAGES.map((lang) => (
-                <TouchableOpacity
-                  key={lang.code}
-                  style={[
-                    styles.langOptionItem,
-                    userLang === lang.code && styles.langOptionItemActive,
-                  ]}
-                  onPress={async () => {
-                    setUserLang(lang.code);
-                    setIsLangModalVisible(false);
-                    const uid = auth.currentUser?.uid;
-                    if (uid) {
-                      await setDoc(
-                        doc(db, "users", uid),
-                        { language: lang.code },
-                        { merge: true },
-                      );
-                    }
-                  }}
-                >
-                  <Text style={{ fontSize: 24, marginRight: 12 }}>
-                    {lang.flag}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.langOptionText,
-                      userLang === lang.code && styles.langOptionTextActive,
-                    ]}
-                  >
-                    {lang.label}
-                  </Text>
-                  {userLang === lang.code && (
-                    <FontAwesome5 name="check" size={16} color="#67D4A8" />
-                  )}
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
+          {isProcessing ? (
+            <ActivityIndicator size="small" color="#202D3A" />
+          ) : (
+            <>
+              <FontAwesome5 name="star" solid size={18} color="#202D3A" />
+              <Text style={styles.ctaButtonText}>
+                {t("btn_subscribe_plan_cta", userLang, {
+                  category: planCategory === "duo" ? "Duo" : "Solo",
+                  period:
+                    selectedPlan === "mensal"
+                      ? t("period_monthly_word", userLang)
+                      : selectedPlan === "trimestral"
+                        ? t("period_quarterly_word", userLang)
+                        : t("period_annual_word", userLang),
+                })}
+              </Text>
+            </>
+          )}
         </TouchableOpacity>
-      </Modal>
-    </SafeAreaView>
+        <Text style={styles.guaranteeText}>
+          <FontAwesome5 name="lock" size={10} color="#60646C" />{" "}
+          {t("secure_payment_env", userLang)}
+        </Text>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F0F4F8" },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#F0F4F8",
-  },
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 24,
-    paddingTop: 15,
-    paddingBottom: 20,
-    position: "relative",
-  },
-  autoSaveToast: {
-    position: "absolute",
-    top: 15,
-    right: 24,
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#202D3A",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 15,
-    gap: 6,
-  },
-  autoSaveText: {
-    color: "#FFF",
-    fontSize: 12,
-    fontFamily: "Montserrat_700Bold",
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#FFF",
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontFamily: "Montserrat_900Black",
-    color: "#202D3A",
-  },
-  scrollContent: { paddingHorizontal: 24, paddingBottom: 40 },
-  avatarSection: { alignItems: "center", marginTop: 10, marginBottom: 30 },
-  avatarContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: "#FFF",
-    borderWidth: 4,
-    borderColor: "#EAB64A",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 15,
-    shadowColor: "#EAB64A",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    elevation: 8,
-    overflow: "hidden",
-  },
-  editPhotoBadge: {
-    position: "absolute",
-    bottom: 0,
     width: "100%",
-    backgroundColor: "rgba(32,45,58,0.7)",
-    paddingVertical: 4,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    marginTop: Platform.OS === "android" ? 45 : 20,
+    marginBottom: 10,
+    zIndex: 99999,
+    elevation: 20,
+  },
+  closeBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#FFF",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#D1D9E0",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    elevation: 8,
+  },
+  logoutBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#FFF",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#FADBD8",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    elevation: 8,
+  },
+  scrollContent: {
+    paddingHorizontal: 24,
+    paddingBottom: 120,
     alignItems: "center",
   },
-  avatarImage: { width: "100%", height: "100%" },
-  userName: {
-    fontSize: 24,
+  iconWrapper: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "#E8F4F1",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 20,
+    borderWidth: 2,
+    borderColor: "#FFF",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  heroTitle: {
+    fontSize: 28,
     fontFamily: "Montserrat_900Black",
     color: "#202D3A",
-    marginBottom: 4,
+    textAlign: "center",
+    lineHeight: 34,
+    marginBottom: 10,
   },
-  emailContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginBottom: 5,
-  },
-  userEmail: {
+  heroSub: {
     fontSize: 14,
     color: "#60646C",
+    textAlign: "center",
+    lineHeight: 20,
+    marginBottom: 20,
+    paddingHorizontal: 5,
     fontFamily: "Montserrat_400Regular",
   },
-  verifiedBadge: { justifyContent: "center", alignItems: "center" },
-  unverifiedBadge: { justifyContent: "center", alignItems: "center" },
-  verifyEmailBtn: {
-    marginTop: 5,
-    paddingVertical: 4,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    backgroundColor: "rgba(234, 182, 74, 0.15)",
+  categoryToggleContainer: {
+    flexDirection: "row",
+    backgroundColor: "#E2E8F0",
+    borderRadius: 14,
+    padding: 4,
+    width: "100%",
+    marginBottom: 20,
   },
-  verifyEmailText: {
-    color: "#EAB64A",
-    fontSize: 12,
-    fontFamily: "Montserrat_700Bold",
-  },
-  premiumBadge: {
+  categoryToggleBtn: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#EAB64A",
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 20,
-    gap: 6,
+    justifyContent: "center",
+    paddingVertical: 12,
+    borderRadius: 10,
+    gap: 8,
   },
-  premiumText: {
-    color: "#202D3A",
-    fontSize: 12,
-    fontFamily: "Montserrat_900Black",
-    textTransform: "uppercase",
-  },
-  section: { marginBottom: 30 },
-  sectionTitle: {
-    fontSize: 14,
-    fontFamily: "Montserrat_900Black",
-    color: "#202D3A",
-    textTransform: "uppercase",
-    letterSpacing: 1,
-    marginBottom: 15,
-  },
-  statsContainer: { flexDirection: "row", gap: 15 },
-  statBox: {
-    flex: 1,
+  categoryToggleBtnActive: {
     backgroundColor: "#FFF",
-    padding: 20,
-    borderRadius: 20,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#D1D9E0",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.08,
     shadowRadius: 4,
     elevation: 2,
   },
-  statValue: {
-    fontSize: 22,
-    fontFamily: "Montserrat_900Black",
-    color: "#202D3A",
-    marginTop: 10,
-    marginBottom: 2,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: "#60646C",
+  categoryToggleText: {
     fontFamily: "Montserrat_700Bold",
-    textTransform: "uppercase",
+    fontSize: 13,
+    color: "#60646C",
   },
-  formCard: {
-    backgroundColor: "#FFF",
-    padding: 20,
-    borderRadius: 20,
+  categoryToggleTextActive: {
+    color: "#202D3A",
+  },
+  partnerNoticeBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#E8F4F1",
+    padding: 14,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#D1D9E0",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    borderColor: "#67D4A8",
+    gap: 10,
+    marginBottom: 20,
+    width: "100%",
   },
-  rowFields: { flexDirection: "row", gap: 12 },
-  halfInput: { flex: 1 },
-  inputGroup: { marginBottom: 15 },
-  inputLabel: {
+  partnerNoticeText: {
+    flex: 1,
     fontSize: 13,
     fontFamily: "Montserrat_700Bold",
-    color: "#60646C",
-    marginBottom: 6,
-  },
-  input: {
-    backgroundColor: "#F0F4F8",
-    borderWidth: 1,
-    borderColor: "#D1D9E0",
-    borderRadius: 12,
-    padding: 14,
-    fontSize: 15,
     color: "#202D3A",
-    fontFamily: "Montserrat_600SemiBold",
+    lineHeight: 18,
   },
-  menuOption: {
+  plansWrapper: {
+    width: "100%",
+    marginBottom: 20,
+    gap: 12,
+  },
+  planCard: {
+    width: "100%",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     backgroundColor: "#FFF",
-    padding: 16,
-    borderRadius: 16,
-    marginBottom: 10,
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: "#D1D9E0",
+    borderRadius: 16,
+    padding: 20,
+    position: "relative",
   },
-  menuOptionLeft: { flexDirection: "row", alignItems: "center", gap: 15 },
-  menuIconBg: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    justifyContent: "center",
-    alignItems: "center",
+  planCardSelected: {
+    borderColor: "#EAB64A",
+    backgroundColor: "#FFFDF5",
+    shadowColor: "#EAB64A",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  menuOptionText: {
+  badgeContainer: {
+    position: "absolute",
+    top: -10,
+    left: 20,
+    backgroundColor: "#EAB64A",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  badgeText: {
+    color: "#202D3A",
+    fontSize: 10,
+    fontFamily: "Montserrat_900Black",
+    letterSpacing: 1,
+  },
+  planInfo: { flex: 1 },
+  planName: {
     fontSize: 16,
     fontFamily: "Montserrat_700Bold",
     color: "#202D3A",
+    marginBottom: 4,
   },
-  deleteAccountLink: {
-    alignItems: "center",
-    marginTop: 10,
-    marginBottom: 10,
-    padding: 10,
-  },
-  deleteAccountText: {
-    color: "#AFAFAF",
+  planDesc: {
     fontSize: 13,
-    fontFamily: "Montserrat_700Bold",
-    textDecorationLine: "underline",
+    color: "#60646C",
+    fontFamily: "Montserrat_400Regular",
   },
-  versionText: {
-    textAlign: "center",
-    color: "#D1D9E0",
-    fontFamily: "Montserrat_700Bold",
-    marginTop: 10,
-    marginBottom: 20,
-  },
-  bottomSheetOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(32,45,58,0.6)",
-    justifyContent: "flex-end",
-  },
-  bottomSheetContainer: {
-    backgroundColor: "#FFF",
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    padding: 24,
-    paddingBottom: 40,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 10,
-    width: "100%",
-  },
-  bottomSheetHandle: {
-    width: 50,
-    height: 5,
-    backgroundColor: "#D1D9E0",
-    borderRadius: 3,
-    marginBottom: 20,
-  },
-  bottomSheetTitle: {
-    fontFamily: "Montserrat_900Black",
+  planPriceBox: { alignItems: "flex-end" },
+  planPrice: {
     fontSize: 20,
+    fontFamily: "Montserrat_900Black",
     color: "#202D3A",
-    marginBottom: 20,
-    textAlign: "center",
   },
-  langOptionItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    marginBottom: 8,
-    backgroundColor: "#F0F4F8",
+  planPeriod: {
+    fontSize: 12,
+    color: "#60646C",
+    fontFamily: "Montserrat_700Bold",
   },
-  langOptionItemActive: {
+  guaranteeBox: {
     backgroundColor: "#E8F4F1",
+    padding: 18,
+    borderRadius: 16,
+    width: "100%",
     borderWidth: 1,
     borderColor: "#67D4A8",
   },
-  langOptionText: {
-    flex: 1,
-    fontFamily: "Montserrat_600SemiBold",
-    fontSize: 15,
-    color: "#202D3A",
+  guaranteeHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+    gap: 8,
   },
-  langOptionTextActive: {
+  guaranteeTitle: {
+    fontSize: 14,
     fontFamily: "Montserrat_700Bold",
     color: "#202D3A",
+    textTransform: "uppercase",
+  },
+  priceSub: {
+    fontSize: 13,
+    color: "#2C3E50",
+    textAlign: "center",
+    lineHeight: 20,
+    fontFamily: "Montserrat_400Regular",
+  },
+  featuresContainer: {
+    width: "100%",
+    backgroundColor: "#FFF",
+    borderRadius: 24,
+    padding: 20,
+    marginTop: 25,
+    borderWidth: 1,
+    borderColor: "#D1D9E0",
+  },
+  featuresSectionTitle: {
+    fontSize: 15,
+    fontFamily: "Montserrat_700Bold",
+    color: "#60646C",
+    textAlign: "center",
+    textTransform: "uppercase",
+    marginBottom: 20,
+    letterSpacing: 0.5,
+  },
+  featureItem: { flexDirection: "row", alignItems: "center", marginBottom: 18 },
+  featureIconBg: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: "#F0F4F8",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 15,
+  },
+  featureTextContainer: { flex: 1 },
+  featureTitle: {
+    fontSize: 15,
+    fontFamily: "Montserrat_700Bold",
+    color: "#202D3A",
+    marginBottom: 2,
+  },
+  featureDesc: {
+    fontSize: 12,
+    color: "#60646C",
+    lineHeight: 16,
+    fontFamily: "Montserrat_400Regular",
+  },
+  legalSection: {
+    alignItems: "center",
+    marginTop: 20,
+    marginBottom: 10,
+    gap: 8,
+  },
+  restoreBtn: {
+    padding: 8,
+  },
+  restoreBtnText: {
+    color: "#60646C",
+    fontSize: 13,
+    fontFamily: "Montserrat_700Bold",
+    textDecorationLine: "underline",
+    textAlign: "center",
+  },
+  legalLinksRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  legalLinkText: {
+    color: "#AFAFAF",
+    fontSize: 11,
+    fontFamily: "Montserrat_600SemiBold",
+    textDecorationLine: "underline",
+  },
+  legalDivider: {
+    color: "#D1D9E0",
+    fontSize: 10,
+  },
+  footer: {
+    position: "absolute",
+    bottom: 0,
+    width: "100%",
+    paddingHorizontal: 24,
+    paddingTop: 15,
+    paddingBottom: 30,
+    backgroundColor: "#F0F4F8",
+    borderTopWidth: 1,
+    borderTopColor: "#D1D9E0",
+  },
+  ctaButton: {
+    flexDirection: "row",
+    backgroundColor: "#EAB64A",
+    paddingVertical: 18,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 12,
+    shadowColor: "#EAB64A",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+    marginBottom: 12,
+  },
+  ctaButtonText: {
+    color: "#202D3A",
+    fontSize: 16,
+    fontFamily: "Montserrat_900Black",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  guaranteeText: {
+    textAlign: "center",
+    color: "#60646C",
+    fontSize: 12,
+    fontFamily: "Montserrat_600SemiBold",
   },
 });

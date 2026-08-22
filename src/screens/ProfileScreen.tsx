@@ -69,6 +69,7 @@ export default function ProfileScreen({ navigation }: any) {
   const saveAnim = useRef(new Animated.Value(0)).current;
 
   const [bypassDailyLock, setBypassDailyLock] = useState(false);
+  const [enableHaptics, setEnableHaptics] = useState(true);
   const isFirstLoad = useRef(true);
 
   // 🌐 Estado e Modal de Idioma
@@ -111,6 +112,7 @@ export default function ProfileScreen({ navigation }: any) {
         const data = docSnap.data();
         setUserData(data);
         setBypassDailyLock(data.bypassDailyLock || false);
+        setEnableHaptics(data.enableHaptics !== false);
         if (data.language) setUserLang(data.language);
 
         if (isFirstLoad.current) {
@@ -319,6 +321,21 @@ export default function ProfileScreen({ navigation }: any) {
     }
   };
 
+  const toggleEnableHaptics = async (value: boolean) => {
+    const currentUid = auth.currentUser?.uid;
+    if (!currentUid) return;
+    setEnableHaptics(value);
+    try {
+      await setDoc(
+        doc(db, "users", currentUid),
+        { enableHaptics: value },
+        { merge: true },
+      );
+    } catch (e) {
+      setEnableHaptics(!value);
+    }
+  };
+
   const handleSwitchGoogleAccount = () => {
     Alert.alert(
       t("switch_google_account_title", userLang),
@@ -460,7 +477,7 @@ export default function ProfileScreen({ navigation }: any) {
   };
 
   const handleSupport = () => {
-    Linking.openURL("mailto:suporte@duoelo.com?subject=Suporte%20DuoElo%20App");
+    Linking.openURL("mailto:suporte@duoelo.lu?subject=Suporte%20DuoElo%20App");
   };
 
   const handleOpenSettings = () => {
@@ -493,11 +510,13 @@ export default function ProfileScreen({ navigation }: any) {
   const getFirstName = (nameStr?: string) =>
     nameStr ? nameStr.trim().split(" ")[0] : null;
 
-  const myPhoto = isValidPhoto(userData?.photoURL)
-    ? userData.photoURL
-    : isValidPhoto(userData?.photoUrl)
-      ? userData.photoUrl
-      : null;
+  const rawPhoto = userData?.photoURL || userData?.photoUrl;
+  const myPhoto: string | null = isValidPhoto(rawPhoto)
+    ? String(rawPhoto)
+    : null;
+  const avatarKey: string = myPhoto
+    ? myPhoto.substring(0, 50)
+    : "default-avatar";
 
   const isPremium = userData?.isPremium || false;
 
@@ -558,7 +577,7 @@ export default function ProfileScreen({ navigation }: any) {
             >
               {myPhoto ? (
                 <Image
-                  key={myPhoto.substring(0, 100)}
+                  key={avatarKey}
                   source={{ uri: myPhoto }}
                   style={styles.avatarImage}
                 />
@@ -776,7 +795,9 @@ export default function ProfileScreen({ navigation }: any) {
 
             <TouchableOpacity
               style={styles.menuOption}
-              onPress={() => openUrl("https://duoelo.com/termos")}
+              onPress={() =>
+                openUrl(`https://duoelo.lu/termos?lang=${userLang}`)
+              }
             >
               <View style={styles.menuOptionLeft}>
                 <View
@@ -801,7 +822,9 @@ export default function ProfileScreen({ navigation }: any) {
 
             <TouchableOpacity
               style={styles.menuOption}
-              onPress={() => openUrl("https://duoelo.com/privacidade")}
+              onPress={() =>
+                openUrl(`https://duoelo.lu/privacidade?lang=${userLang}`)
+              }
             >
               <View style={styles.menuOptionLeft}>
                 <View
@@ -856,6 +879,39 @@ export default function ProfileScreen({ navigation }: any) {
               </View>
               <FontAwesome5 name="chevron-right" size={14} color="#D1D9E0" />
             </TouchableOpacity>
+
+            {/* 📳 ALTERNADOR DE HAPTICS / RESPOSTA TÁTIL */}
+            <View style={[styles.menuOption, { paddingVertical: 12 }]}>
+              <View style={styles.menuOptionLeft}>
+                <View
+                  style={[styles.menuIconBg, { backgroundColor: "#F0F4F8" }]}
+                >
+                  <FontAwesome5 name="mobile-alt" size={16} color="#67D4A8" />
+                </View>
+                <View>
+                  <Text style={styles.menuOptionText}>
+                    Efeitos Táteis (Haptics)
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: 11,
+                      color: "#60646C",
+                      marginTop: 2,
+                      fontFamily: "Montserrat_400Regular",
+                    }}
+                  >
+                    Vibrações ao concluir tarefas e interagir
+                  </Text>
+                </View>
+              </View>
+              <Switch
+                trackColor={{ false: "#D1D9E0", true: "#67D4A8" }}
+                thumbColor={"#FFF"}
+                ios_backgroundColor="#D1D9E0"
+                onValueChange={toggleEnableHaptics}
+                value={enableHaptics}
+              />
+            </View>
 
             <View style={[styles.menuOption, { paddingVertical: 12 }]}>
               <View style={styles.menuOptionLeft}>

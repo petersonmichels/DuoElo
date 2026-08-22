@@ -24,12 +24,47 @@ import {
 // 🌐 Importação do motor de traduções para CRM
 import { t } from "../i18n/translations";
 
+// 📳 Carregamento seguro do Haptics
+let Haptics: any = null;
+try {
+  Haptics = require("expo-haptics");
+} catch (e) {
+  console.log("Haptics indisponível neste ambiente.");
+}
+
 export default function ShopScreen({ userData, partnerData }: any) {
   const currentUid = auth.currentUser?.uid;
   const partnerUid = userData?.partnerId;
   const userLang = userData?.language || "pt-BR";
 
   const giftsList = GIFTS_DATABASE || [];
+
+  // Função interna para disparar haptics consultando a configuração do usuário
+  const triggerHaptic = (
+    type:
+      | "light"
+      | "medium"
+      | "heavy"
+      | "success"
+      | "warning"
+      | "error" = "light",
+  ) => {
+    if (!Haptics || userData?.enableHaptics === false) return;
+    try {
+      if (type === "light")
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      else if (type === "medium")
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      else if (type === "heavy")
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+      else if (type === "success")
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      else if (type === "warning")
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      else if (type === "error")
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } catch (e) {}
+  };
 
   // Estados dos Desejos e Status
   const [myDesires, setMyDesires] = useState<{ [week: number]: string }>({});
@@ -74,7 +109,9 @@ export default function ShopScreen({ userData, partnerData }: any) {
     message: string,
     icon = "info-circle",
     color = "#202D3A",
+    hapticType: "warning" | "success" | "error" = "warning",
   ) => {
+    triggerHaptic(hapticType);
     setCustomAlert({ visible: true, title, message, icon, color });
   };
 
@@ -170,6 +207,7 @@ export default function ShopScreen({ userData, partnerData }: any) {
         t("gift_locked_msg", userLang),
         "lock",
         "#EAB64A",
+        "warning",
       );
       return;
     }
@@ -185,12 +223,14 @@ export default function ShopScreen({ userData, partnerData }: any) {
       );
       setMyDesires(updated);
       setActiveWeekSlot(null);
+      triggerHaptic("success");
     } catch (e) {
       showAlert(
         t("error_title", userLang),
         t("error_save", userLang),
         "times-circle",
         "#D96C6C",
+        "error",
       );
     } finally {
       setIsSaving(false);
@@ -207,6 +247,7 @@ export default function ShopScreen({ userData, partnerData }: any) {
         t("insufficient_bonds_msg", userLang),
         "lock",
         "#EAB64A",
+        "warning",
       );
       return;
     }
@@ -238,6 +279,7 @@ export default function ShopScreen({ userData, partnerData }: any) {
         t("gift_bought_msg", userLang, { gift: translatedTitle }),
         "gift",
         "#D96C6C",
+        "success",
       );
     } catch (e) {
       showAlert(
@@ -245,6 +287,7 @@ export default function ShopScreen({ userData, partnerData }: any) {
         t("error_register", userLang),
         "times-circle",
         "#D96C6C",
+        "error",
       );
     }
   };
@@ -269,6 +312,7 @@ export default function ShopScreen({ userData, partnerData }: any) {
         t("delivered_success_msg", userLang),
         "check-circle",
         "#EAB64A",
+        "success",
       );
     } catch (e) {
       showAlert(
@@ -276,6 +320,7 @@ export default function ShopScreen({ userData, partnerData }: any) {
         t("error_save", userLang),
         "times-circle",
         "#D96C6C",
+        "error",
       );
     }
   };
@@ -297,6 +342,7 @@ export default function ShopScreen({ userData, partnerData }: any) {
         t("confirmed_success_msg", userLang),
         "heart",
         "#67D4A8",
+        "success",
       );
     } catch (e) {
       showAlert(
@@ -304,6 +350,7 @@ export default function ShopScreen({ userData, partnerData }: any) {
         t("error_save", userLang),
         "times-circle",
         "#D96C6C",
+        "error",
       );
     }
   };
@@ -401,7 +448,10 @@ export default function ShopScreen({ userData, partnerData }: any) {
                     {!status && (
                       <TouchableOpacity
                         style={styles.btnBuy}
-                        onPress={() => handleBuyGift(weekNum, giftId)}
+                        onPress={() => {
+                          triggerHaptic("medium");
+                          handleBuyGift(weekNum, giftId);
+                        }}
                       >
                         <FontAwesome5
                           name="infinity"
@@ -420,7 +470,10 @@ export default function ShopScreen({ userData, partnerData }: any) {
                     {status === "bought" && (
                       <TouchableOpacity
                         style={styles.btnDeliverOrange}
-                        onPress={() => handleMarkDelivered(weekNum)}
+                        onPress={() => {
+                          triggerHaptic("light");
+                          handleMarkDelivered(weekNum);
+                        }}
                       >
                         <FontAwesome5
                           name="hand-holding-heart"
@@ -545,7 +598,10 @@ export default function ShopScreen({ userData, partnerData }: any) {
 
                       {isUnlocked && !isBoughtByPartner && (
                         <TouchableOpacity
-                          onPress={() => setActiveWeekSlot(weekNum)}
+                          onPress={() => {
+                            triggerHaptic("light");
+                            setActiveWeekSlot(weekNum);
+                          }}
                         >
                           <FontAwesome5 name="edit" size={14} color="#202D3A" />
                         </TouchableOpacity>
@@ -554,7 +610,10 @@ export default function ShopScreen({ userData, partnerData }: any) {
                   ) : isUnlocked ? (
                     <TouchableOpacity
                       style={styles.btnAddGift}
-                      onPress={() => setActiveWeekSlot(weekNum)}
+                      onPress={() => {
+                        triggerHaptic("light");
+                        setActiveWeekSlot(weekNum);
+                      }}
                     >
                       <FontAwesome5
                         name="plus-circle"
@@ -576,7 +635,10 @@ export default function ShopScreen({ userData, partnerData }: any) {
                   {isDeliveredByPartner && !isConfirmedByMe && (
                     <TouchableOpacity
                       style={[styles.btnConfirmGreen, { marginTop: 10 }]}
-                      onPress={() => handleConfirmReceived(weekNum)}
+                      onPress={() => {
+                        triggerHaptic("light");
+                        handleConfirmReceived(weekNum);
+                      }}
                     >
                       <FontAwesome5
                         name="heart"
@@ -642,7 +704,10 @@ export default function ShopScreen({ userData, partnerData }: any) {
                     <TouchableOpacity
                       key={item.id}
                       style={styles.giftOption}
-                      onPress={() => handleSelectGift(item.id)}
+                      onPress={() => {
+                        triggerHaptic("light");
+                        handleSelectGift(item.id);
+                      }}
                     >
                       <FontAwesome5
                         name={item.icon || "gift"}
@@ -659,7 +724,10 @@ export default function ShopScreen({ userData, partnerData }: any) {
 
             <TouchableOpacity
               style={styles.btnCancel}
-              onPress={() => setActiveWeekSlot(null)}
+              onPress={() => {
+                triggerHaptic("light");
+                setActiveWeekSlot(null);
+              }}
             >
               <Text style={styles.btnCancelText}>
                 {t("modal_cancel", userLang)}
@@ -692,7 +760,10 @@ export default function ShopScreen({ userData, partnerData }: any) {
                 styles.btnPrimaryAlert,
                 { backgroundColor: customAlert.color },
               ]}
-              onPress={() => setCustomAlert({ ...customAlert, visible: false })}
+              onPress={() => {
+                triggerHaptic("light");
+                setCustomAlert({ ...customAlert, visible: false });
+              }}
             >
               <Text style={styles.btnPrimaryAlertText}>
                 {t("btn_understand", userLang)}

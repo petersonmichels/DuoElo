@@ -31,13 +31,22 @@ import Svg, { Circle } from "react-native-svg";
 
 import { auth, db } from "../config/firebase";
 import { t } from "../i18n/translations";
+import { scheduleDailyReminder } from "../services/notificationService";
 import MissionExecutionScreen from "./MissionExecutionScreen";
+
+// 📳 Carregamento seguro do Haptics
+let Haptics: any = null;
+try {
+  Haptics = require("expo-haptics");
+} catch (e) {
+  console.log("Haptics indisponível neste ambiente.");
+}
 
 // 🚫 Detecta se está rodando no Expo Go
 const isExpoGo =
   Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
-// 🔒 Carregamento seguro para evitar crash do SDK 53 no Expo Go
+// 🔒 Carregamento seguro de Notificações Push
 let Notifications: any = null;
 if (!isExpoGo) {
   try {
@@ -279,6 +288,32 @@ export default function HomeScreen({ navigation }: any) {
   const unreadNudges = userData?.cutucadas || 0;
   const [isGeneratingJourney, setIsGeneratingJourney] = useState(false);
 
+  const triggerHaptic = (
+    type:
+      | "light"
+      | "medium"
+      | "heavy"
+      | "success"
+      | "warning"
+      | "error" = "light",
+  ) => {
+    if (!Haptics || userData?.enableHaptics === false) return;
+    try {
+      if (type === "light")
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      else if (type === "medium")
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      else if (type === "heavy")
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+      else if (type === "success")
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      else if (type === "warning")
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      else if (type === "error")
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } catch (e) {}
+  };
+
   const [customAlert, setCustomAlert] = useState({
     visible: false,
     title: "",
@@ -301,6 +336,7 @@ export default function HomeScreen({ navigation }: any) {
     secondaryText = "",
     onSecondary: any = null,
   ) => {
+    triggerHaptic("warning");
     setCustomAlert({
       visible: true,
       title,
@@ -350,7 +386,11 @@ export default function HomeScreen({ navigation }: any) {
           if (docSnap.exists()) {
             const data = docSnap.data();
             setUserData(data);
-            if (data.language) setUserLang(data.language);
+            if (data.language) {
+              setUserLang(data.language);
+              // 🔔 Agendamento do Lembrete Diário
+              scheduleDailyReminder(data.language, 20, 0);
+            }
           }
           setLoading(false);
         },
@@ -597,9 +637,19 @@ export default function HomeScreen({ navigation }: any) {
     }
   };
 
-  const handleHardReset = () => setIsHardResetModalVisible(true);
-  const handleSendNudge = async () => {};
-  const handleCloseNudges = async () => setIsNotificationsVisible(false);
+  const handleHardReset = () => {
+    triggerHaptic("warning");
+    setIsHardResetModalVisible(true);
+  };
+
+  const handleSendNudge = async () => {
+    triggerHaptic("light");
+  };
+
+  const handleCloseNudges = async () => {
+    triggerHaptic("light");
+    setIsNotificationsVisible(false);
+  };
 
   const handleStartSolo = async () => {
     setIsGeneratingJourney(true);
@@ -622,6 +672,7 @@ export default function HomeScreen({ navigation }: any) {
 
     setTimeout(async () => {
       setIsGeneratingJourney(false);
+      triggerHaptic("success");
       showCustomAlert(
         t("solo_journey_generated_title", userLang),
         t("solo_journey_generated_msg", userLang),
@@ -631,7 +682,6 @@ export default function HomeScreen({ navigation }: any) {
     }, 2000);
   };
 
-  // 🤝 LARGADA SINCRONIZADA
   const handleStartHandshake = async () => {
     if (!currentUid) return;
     setIsGeneratingJourney(true);
@@ -683,6 +733,7 @@ export default function HomeScreen({ navigation }: any) {
           );
         }
 
+        triggerHaptic("success");
         showCustomAlert(
           t("start_authorized_title", userLang),
           t("start_authorized_msg", userLang),
@@ -708,6 +759,7 @@ export default function HomeScreen({ navigation }: any) {
           );
         }
 
+        triggerHaptic("medium");
         showCustomAlert(
           t("green_light_given_title", userLang),
           t("green_light_given_msg", userLang, { name: pName }),
@@ -728,6 +780,8 @@ export default function HomeScreen({ navigation }: any) {
   };
 
   const handlePolitePlayTrigger = () => {
+    triggerHaptic("medium");
+
     if (!isPremium) {
       showCustomAlert(
         t("plan_required_title", userLang),
@@ -844,6 +898,8 @@ export default function HomeScreen({ navigation }: any) {
     isWaiting: boolean,
     isCompleted: boolean,
   ) => {
+    triggerHaptic("light");
+
     if (!hasCompletedAnamnesis) {
       showCustomAlert(
         t("assessment_pending_title", userLang),
@@ -992,6 +1048,7 @@ export default function HomeScreen({ navigation }: any) {
         setIsModalVisible(false);
         setActiveMission(null);
 
+        triggerHaptic("success");
         showCustomAlert(
           t("gold_challenge_completed_title", userLang),
           t("gold_challenge_completed_msg", userLang, {
@@ -1071,6 +1128,7 @@ export default function HomeScreen({ navigation }: any) {
         );
       }
 
+      triggerHaptic("success");
       navigation.navigate("MissionReward", {
         earnedPE: earnedPE,
         currentDay90: completedDay,
@@ -1083,6 +1141,7 @@ export default function HomeScreen({ navigation }: any) {
   };
 
   const handleOpenGoldChallenge = async (weekNumber: number) => {
+    triggerHaptic("light");
     setIsFetchingMission(true);
     try {
       let q = query(
@@ -1170,7 +1229,10 @@ export default function HomeScreen({ navigation }: any) {
       <View style={styles.topBar}>
         <TouchableOpacity
           style={styles.topBarItem}
-          onPress={() => setIsLangModalVisible(true)}
+          onPress={() => {
+            triggerHaptic("light");
+            setIsLangModalVisible(true);
+          }}
         >
           <Text style={styles.flagEmoji}>{currentFlag}</Text>
         </TouchableOpacity>
@@ -1191,7 +1253,10 @@ export default function HomeScreen({ navigation }: any) {
 
         <TouchableOpacity
           style={styles.topBarItem}
-          onPress={() => setIsNotificationsVisible(true)}
+          onPress={() => {
+            triggerHaptic("light");
+            setIsNotificationsVisible(true);
+          }}
         >
           <View style={{ position: "relative" }}>
             <FontAwesome5 name="bell" solid size={22} color="#202D3A" />
@@ -1218,7 +1283,10 @@ export default function HomeScreen({ navigation }: any) {
         <TouchableOpacity
           style={styles.fixedHeaderBanner}
           activeOpacity={0.9}
-          onPress={() => scrollToActiveNode(true)}
+          onPress={() => {
+            triggerHaptic("light");
+            scrollToActiveNode(true);
+          }}
         >
           <View style={styles.bannerLeftContent}>
             <Text style={styles.bannerSectionTitle}>
@@ -1276,6 +1344,7 @@ export default function HomeScreen({ navigation }: any) {
               ]}
               activeOpacity={0.8}
               onPress={() => {
+                triggerHaptic("light");
                 if (hasCompletedAnamnesis) {
                   showCustomAlert(
                     t("redo_assessment_title", userLang),
@@ -1329,6 +1398,7 @@ export default function HomeScreen({ navigation }: any) {
               ]}
               activeOpacity={0.8}
               onPress={() => {
+                triggerHaptic("light");
                 if (isMatchOrSoloDone) {
                   showCustomAlert(
                     t("match_completed_title", userLang),
@@ -1760,6 +1830,7 @@ export default function HomeScreen({ navigation }: any) {
                 ]}
                 activeOpacity={0.8}
                 onPress={() => {
+                  triggerHaptic("light");
                   if (isTrailUnlocked && isJourneyFinished) {
                     showCustomAlert(
                       t("congrats_completion_title", userLang),
@@ -1797,7 +1868,10 @@ export default function HomeScreen({ navigation }: any) {
       {isTrailUnlocked && showFab && !isModalVisible && (
         <TouchableOpacity
           style={styles.floatingTargetBtn}
-          onPress={() => scrollToActiveNode(true)}
+          onPress={() => {
+            triggerHaptic("light");
+            scrollToActiveNode(true);
+          }}
           activeOpacity={0.8}
         >
           <FontAwesome5 name="location-arrow" size={20} color="#FFF" />
@@ -1837,6 +1911,7 @@ export default function HomeScreen({ navigation }: any) {
                   userLang === lang.code && styles.compactFlagBtnActive,
                 ]}
                 onPress={async () => {
+                  triggerHaptic("light");
                   setUserLang(lang.code);
                   setIsLangModalVisible(false);
                   if (currentUid)
@@ -1987,6 +2062,7 @@ export default function HomeScreen({ navigation }: any) {
               ]}
               activeOpacity={0.8}
               onPress={async () => {
+                triggerHaptic("warning");
                 setIsHardResetModalVisible(false);
                 if (currentUid) {
                   try {
@@ -2050,7 +2126,10 @@ export default function HomeScreen({ navigation }: any) {
 
             <TouchableOpacity
               style={styles.bottomSheetButtonSecondary}
-              onPress={() => setIsHardResetModalVisible(false)}
+              onPress={() => {
+                triggerHaptic("light");
+                setIsHardResetModalVisible(false);
+              }}
             >
               <Text style={styles.bottomSheetButtonSecondaryText}>
                 {t("modal_cancel", userLang)}
@@ -2089,6 +2168,7 @@ export default function HomeScreen({ navigation }: any) {
                   { backgroundColor: customAlert.color },
                 ]}
                 onPress={() => {
+                  triggerHaptic("light");
                   setCustomAlert({ ...customAlert, visible: false });
                   if (customAlert.onConfirm) customAlert.onConfirm();
                 }}
@@ -2102,6 +2182,7 @@ export default function HomeScreen({ navigation }: any) {
                 <TouchableOpacity
                   style={styles.bottomSheetButtonSecondary}
                   onPress={() => {
+                    triggerHaptic("light");
                     setCustomAlert({ ...customAlert, visible: false });
                     if (customAlert.onSecondary) customAlert.onSecondary();
                   }}

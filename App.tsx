@@ -10,14 +10,14 @@ import "react-native-get-random-values";
 import Purchases from "react-native-purchases";
 import AppNavigator from "./src/navigation/AppNavigator";
 
-// 🙈 SILENCIA TODOS OS WARNINGS INFORMATIVOS DE SDKs NO METRO
+// 🙈 SILENCIA WARNINGS INFORMATIVOS NO METRO
 LogBox.ignoreLogs([
   "You are initializing Firebase Auth for React Native without providing AsyncStorage",
   "@firebase/auth",
   "Purchases instance already set",
 ]);
 
-// Para ocultar notificações flutuantes no Emulador:
+// Ocultar notificações flutuantes do LogBox no Emulador:
 LogBox.ignoreAllLogs(true);
 
 // 🔥 IMPORTAÇÃO DA TIPOGRAFIA OFICIAL DA MARCA

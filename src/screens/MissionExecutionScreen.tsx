@@ -29,6 +29,14 @@ import { decryptData, encryptData, generateVaultKey } from "../utils/security";
 
 const { width } = Dimensions.get("window");
 
+// 📳 Carregamento seguro do Haptics
+let Haptics: any = null;
+try {
+  Haptics = require("expo-haptics");
+} catch (e) {
+  console.log("Haptics indisponível neste ambiente.");
+}
+
 export default function MissionExecutionScreen({
   mission,
   userLanguage = "pt-BR",
@@ -40,6 +48,7 @@ export default function MissionExecutionScreen({
   const [loading, setLoading] = useState(true);
   const [isFinishing, setIsFinishing] = useState(false);
   const [journalEntry, setJournalEntry] = useState("");
+  const [userEnableHaptics, setUserEnableHaptics] = useState(true);
 
   const [loadingJournal, setLoadingJournal] = useState(false);
   const [fetchedJournal, setFetchedJournal] = useState<string | null>(null);
@@ -48,6 +57,33 @@ export default function MissionExecutionScreen({
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const slideAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  // Função interna para disparar haptics consultando a preferência do usuário
+  const triggerHaptic = (
+    type:
+      | "light"
+      | "medium"
+      | "heavy"
+      | "success"
+      | "warning"
+      | "error" = "light",
+  ) => {
+    if (!Haptics || !userEnableHaptics) return;
+    try {
+      if (type === "light")
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      else if (type === "medium")
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      else if (type === "heavy")
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+      else if (type === "success")
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      else if (type === "warning")
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      else if (type === "error")
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } catch (e) {}
+  };
 
   const extractText = (field: any, fieldName: string, fallbackKey: string) => {
     if (mission?.translations?.[userLanguage]?.[fieldName]) {
@@ -96,6 +132,7 @@ export default function MissionExecutionScreen({
           const snap = await getDoc(doc(db, "users", userId));
           if (isMounted && snap.exists()) {
             const data = snap.data();
+            setUserEnableHaptics(data.enableHaptics !== false);
             if (data.currentTaskStep === 2) {
               setCurrentStep(2);
               progressAnim.setValue(50);
@@ -205,6 +242,8 @@ export default function MissionExecutionScreen({
   const goToStep = async (nextStep: number) => {
     if (currentStep === nextStep) return;
 
+    triggerHaptic("light");
+
     Animated.timing(fadeAnim, {
       toValue: 0,
       duration: 200,
@@ -249,16 +288,18 @@ export default function MissionExecutionScreen({
   };
 
   const handlePause = () => {
+    triggerHaptic("light");
     onClose();
   };
 
   const handleFinish = async () => {
     if (isFinishing) return;
+    triggerHaptic("success");
     setIsFinishing(true);
 
     try {
       const uid = auth.currentUser?.uid;
-      let finalJournalToSave = journalEntry;
+      let finalJournalToSave: string = journalEntry;
 
       if (uid && journalEntry.trim().length > 0) {
         const userDoc = await getDoc(doc(db, "users", uid));
@@ -267,7 +308,10 @@ export default function MissionExecutionScreen({
           ? generateVaultKey(uid, pId)
           : generateVaultKey(uid, uid);
 
-        finalJournalToSave = encryptData(journalEntry, vaultKey);
+        const encrypted = encryptData(journalEntry, vaultKey);
+        if (encrypted) {
+          finalJournalToSave = encrypted;
+        }
       }
 
       await onComplete(finalJournalToSave);
@@ -304,7 +348,10 @@ export default function MissionExecutionScreen({
               : t("daily_mission_review_title", userLanguage)}
           </Text>
           <TouchableOpacity
-            onPress={onClose}
+            onPress={() => {
+              triggerHaptic("light");
+              onClose();
+            }}
             style={styles.closeBtnReview}
             hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
           >
@@ -447,7 +494,10 @@ export default function MissionExecutionScreen({
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.closeBtn}
-          onPress={onClose}
+          onPress={() => {
+            triggerHaptic("light");
+            onClose();
+          }}
           hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
         >
           <FontAwesome5 name="times" size={20} color="#202D3A" />
