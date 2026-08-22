@@ -47,7 +47,9 @@
         {
           "iosUrlScheme": "com.googleusercontent.apps.123456789"
         }
-      ]
+      ],
+      "expo-secure-store",
+      "@sentry/react-native"
     ],
     "extra": {
       "eas": {
