@@ -1,18 +1,27 @@
 {
   "compilerOptions": {
-    "module": "NodeNext",
-    "esModuleInterop": true,
-    "moduleResolution": "nodenext",
-    "noImplicitReturns": true,
-    "noUnusedLocals": true,
+    "module": "node16",
+    "moduleResolution": "node16",
+    "target": "es2021",
+    "lib": ["es2021"],
     "outDir": "lib",
     "rootDir": "src",
-    "sourceMap": true,
     "strict": true,
-    "target": "es2017"
+    "noImplicitAny": true,
+    "noImplicitReturns": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "sourceMap": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true
   },
   "compileOnSave": true,
   "include": [
-    "src"
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "lib"
   ]
 }

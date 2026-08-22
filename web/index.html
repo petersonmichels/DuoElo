@@ -6,19 +6,18 @@
     <title>DuoElo - Legal & Compliance | BARNX S.A R.L.-S</title>
     <style>
       :root {
-        --primary: #202d3a;
-        --accent: #eab64a;
-        --mint: #67d4a8;
-        --bg: #f0f4f8;
-        --card: #ffffff;
-        --text: #2c3e50;
-        --text-muted: #60646c;
+        --primary: #0F0F12;
+        --card-bg: #1A1A22;
+        --accent: #EAB64A;
+        --mint: #67D4A8;
+        --bg: #09090C;
+        --text: #E1E7ED;
+        --text-muted: #94A3B8;
+        --border: #2D2D3B;
       }
 
       body {
-        font-family:
-          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
-          Arial, sans-serif;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         background-color: var(--bg);
         color: var(--text);
         margin: 0;
@@ -29,13 +28,13 @@
       header {
         background-color: var(--primary);
         color: white;
-        padding: 20px 0;
+        padding: 24px 0;
         text-align: center;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        border-bottom: 1px solid var(--border);
       }
 
       .logo {
-        font-size: 26px;
+        font-size: 28px;
         font-weight: 900;
         letter-spacing: 1px;
       }
@@ -45,7 +44,7 @@
       }
 
       .container {
-        max-width: 800px;
+        max-width: 850px;
         margin: 30px auto;
         padding: 0 20px;
       }
@@ -59,22 +58,22 @@
       }
 
       .lang-btn {
-        background: var(--card);
-        border: 1px solid #d1d9e0;
+        background: var(--card-bg);
+        border: 1px solid var(--border);
         padding: 8px 14px;
         border-radius: 20px;
         cursor: pointer;
         font-size: 13px;
         font-weight: 600;
         transition: all 0.2s;
-        text-decoration: none;
-        color: var(--primary);
+        color: var(--text-muted);
       }
 
       .lang-btn.active {
         background: var(--mint);
-        color: white;
+        color: #000;
         border-color: var(--mint);
+        font-weight: 700;
       }
 
       .nav-tabs {
@@ -87,29 +86,30 @@
       .tab-btn {
         padding: 12px 24px;
         border-radius: 12px;
-        border: none;
-        background: #e2e8f0;
+        border: 1px solid var(--border);
+        background: var(--card-bg);
         font-weight: 700;
         color: var(--text-muted);
         cursor: pointer;
       }
 
       .tab-btn.active {
-        background: var(--primary);
-        color: white;
+        background: var(--accent);
+        color: #000;
+        border-color: var(--accent);
       }
 
       .card {
-        background: var(--card);
-        padding: 35px;
+        background: var(--card-bg);
+        padding: 40px;
         border-radius: 20px;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
-        border: 1px solid #d1d9e0;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        border: 1px solid var(--border);
       }
 
       h1 {
         font-size: 24px;
-        color: var(--primary);
+        color: var(--accent);
         margin-top: 0;
         margin-bottom: 20px;
         font-weight: 900;
@@ -117,14 +117,13 @@
 
       h2 {
         font-size: 18px;
-        color: var(--primary);
-        margin-top: 25px;
+        color: var(--mint);
+        margin-top: 30px;
         font-weight: 700;
       }
 
-      p,
-      li {
-        font-size: 15px;
+      p, li {
+        font-size: 14px;
         color: var(--text);
       }
 
@@ -133,9 +132,9 @@
         padding: 30px 20px;
         font-size: 12px;
         color: var(--text-muted);
-        border-top: 1px solid #d1d9e0;
-        margin-top: 40px;
-        background-color: #fafbfd;
+        border-top: 1px solid var(--border);
+        margin-top: 50px;
+        background-color: var(--primary);
       }
 
       footer p {
@@ -151,61 +150,32 @@
     </header>
 
     <div class="container">
-      <!-- SELETOR DE IDIOMAS -->
       <div class="lang-picker">
-        <button class="lang-btn" onclick="setLanguage('pt-BR')">
-          🇧🇷 Português (BR)
-        </button>
-        <button class="lang-btn" onclick="setLanguage('pt-PT')">
-          🇵🇹 Português (PT)
-        </button>
+        <button class="lang-btn" onclick="setLanguage('pt-BR')">🇧🇷 Português (BR)</button>
+        <button class="lang-btn" onclick="setLanguage('pt-PT')">🇵🇹 Português (PT)</button>
         <button class="lang-btn" onclick="setLanguage('en')">🇺🇸 English</button>
         <button class="lang-btn" onclick="setLanguage('es')">🇪🇸 Español</button>
-        <button class="lang-btn" onclick="setLanguage('fr')">
-          🇫🇷 Français
-        </button>
+        <button class="lang-btn" onclick="setLanguage('fr')">🇫🇷 Français</button>
         <button class="lang-btn" onclick="setLanguage('de')">🇩🇪 Deutsch</button>
         <button class="lang-btn" onclick="setLanguage('ja')">🇯🇵 日本語</button>
       </div>
 
-      <!-- TABS TERMOS / PRIVACIDADE -->
       <div class="nav-tabs">
-        <button
-          class="tab-btn active"
-          id="btn-termos"
-          onclick="switchTab('termos')"
-        >
+        <button class="tab-btn active" id="btn-termos" onclick="switchTab('termos')">
           Termos de Uso (EULA)
         </button>
-        <button
-          class="tab-btn"
-          id="btn-privacidade"
-          onclick="switchTab('privacidade')"
-        >
+        <button class="tab-btn" id="btn-privacidade" onclick="switchTab('privacidade')">
           Política de Privacidade
         </button>
       </div>
 
-      <!-- CONTEÚDO DINÂMICO -->
-      <div class="card" id="content-box">
-        <!-- Renderizado via JS -->
-      </div>
+      <div class="card" id="content-box"></div>
     </div>
 
-    <!-- RODAPÉ CORPORATIVO LUXEMBURGO -->
     <footer>
-      <p>
-        <strong>BARNX S.A R.L.-S</strong> | RCS Luxembourg: B308846 |
-        Autorisation d'établissement N° 10196485/0
-      </p>
-      <p>
-        Siège social: 5, Wämperweeg, L-9980 Wilwerdange, Grand-Duché de
-        Luxembourg
-      </p>
-      <p>
-        &copy; 2026 DuoElo / BARNX S.A R.L.-S. Todos os direitos reservados. |
-        Contato: suporte@duoelo.lu
-      </p>
+      <p><strong>BARNX S.A R.L.-S</strong> | RCS Luxembourg: B308846 | Autorisation d'établissement N° 10196485/0</p>
+      <p>Siège social: 5, Wämperweeg, L-9980 Wilwerdange, Grand-Duché de Luxembourg</p>
+      <p>&copy; 2026 DuoElo / BARNX S.A R.L.-S. Todos os direitos reservados. | DPO / Suporte: privacy@duoelo.lu</p>
     </footer>
 
     <script>
@@ -214,176 +184,172 @@
           tabTermos: "Termos de Uso (EULA)",
           tabPrivacidade: "Política de Privacidade",
           termos: `
-                    <h1>Termos de Uso e Licença de Uso (EULA)</h1>
-                    <p>Ao utilizar o aplicativo <strong>DuoElo</strong>, você concorda com os presentes Termos de Uso operados pela BARNX S.A R.L.-S.</p>
-                    <h2>1. Assinaturas e Renovação Automática</h2>
-                    <p>O DuoElo oferece planos de assinatura (Mensal, Trimestral e Anual). O pagamento é cobrado em sua conta Apple App Store ou Google Play Store na confirmação da compra. As assinaturas são renovadas automaticamente a menos que sejam canceladas com pelo menos 24 horas de antecedência do término do período atual.</p>
-                    <h2>2. Cancelamento e Restauração</h2>
-                    <p>Você pode gerenciar ou cancelar suas assinaturas a qualquer momento acessando as configurações de sua conta na loja de aplicativos. A restauração de compras pode ser feita no perfil do usuário no app.</p>
-                    <h2>3. Uso Aceitável</h2>
-                    <p>É proibido utilizar o aplicativo para postagem de conteúdos ofensivos, ilegais ou que violem os direitos de terceiros. A conta poderá ser suspensa sem aviso prévio em caso de violação.</p>
-                    <h2>4. Lei Aplicável</h2>
-                    <p>Estes termos são regidos pelas leis do Grão-Ducado de Luxemburgo.</p>
-                `,
+            <h1>Termos de Uso e Licença de Uso (EULA)</h1>
+            <p>Ao utilizar o aplicativo <strong>DuoElo</strong>, você concorda com estes Termos de Uso vinculantes mantidos pela <strong>BARNX S.A R.L.-S</strong> (Luxemburgo).</p>
+            <h2>1. Assinaturas e Renovação Automática</h2>
+            <p>O DuoElo opera sob modelo de assinatura (Mensal, Trimestral e Anual). O pagamento é processado na App Store ou Google Play Store. A assinatura renova automaticamente a menos que cancelada com 24h de antecedência.</p>
+            <h2>2. Cancelamento e Restauração</h2>
+            <p>Gerencie sua assinatura nas configurações do dispositivo. Restaurado via "Restaurar Compras" no perfil.</p>
+            <h2>3. Limitação de Responsabilidade e Teto Indenizatório</h2>
+            <p>O DuoElo é uma ferramenta de fortalecimento interpessoal. A BARNX S.A R.L.-S isenta-se de conflitos conjugais ou divórcios. A responsabilidade financeira total da empresa limita-se ao valor pago pelo usuário nos últimos 12 meses.</p>
+            <h2>4. Foro Aplicável</h2>
+            <p>Regido pelas leis do Grão-Ducado de Luxemburgo.</p>
+          `,
           privacidade: `
-                    <h1>Política de Privacidade</h1>
-                    <p>Sua privacidade é fundamental para nós no <strong>DuoElo</strong> (BARNX S.A R.L.-S).</p>
-                    <h2>1. Coleta de Dados</h2>
-                    <p>Coletamos informações como e-mail, nome, foto de perfil, estatísticas de uso e registros das missões para viabilizar a experiência do casal.</p>
-                    <h2>2. Criptografia E2E (End-to-End)</h2>
-                    <p>Suas reflexões pessoais do Diário de Bordo são criptografadas localmente com chaves geradas entre você e seu parceiro. Ninguém mais tem acesso ao conteúdo dos diários.</p>
-                    <h2>3. Exclusão de Conta</h2>
-                    <p>Você pode solicitar a exclusão permanente de todos os seus dados a qualquer momento diretamente na tela de Perfil do aplicativo.</p>
-                    <h2>4. Contato</h2>
-                    <p>Dúvidas sobre privacidade podem ser enviadas para: <strong>suporte@duoelo.lu</strong></p>
-                `,
+            <h1>Política de Privacidade (GDPR / LGPD)</h1>
+            <p>Operado por <strong>BARNX S.A R.L.-S</strong> com suporte a encriptação Zero-Knowledge.</p>
+            <h2>1. Criptografia E2EE</h2>
+            <p>Diários são cifrados localmente com AES-256. A BARNX S.A R.L.-S não possui chaves para decodificar seus textos.</p>
+            <h2>2. Direito ao Esquecimento (Art. 17 GDPR / LGPD)</h2>
+            <p>A exclusão de conta remove todos os PII permanentemente. O parceiro é migrado ao modo Solo sem reter seus dados.</p>
+            <h2>3. Contato DPO</h2>
+            <p>Dúvidas e requisições formais: <strong>privacy@duoelo.lu</strong></p>
+          `
         },
         "pt-PT": {
-          tabTermos: "Termos de Utilização",
+          tabTermos: "Termos de Utilização (EULA)",
           tabPrivacidade: "Política de Privacidade",
           termos: `
-                    <h1>Termos de Utilização (EULA)</h1>
-                    <p>Ao utilizar a aplicação <strong>DuoElo</strong>, aceita os presentes Termos operados pela BARNX S.A R.L.-S.</p>
-                    <h2>1. Subscrições e Renovação Automática</h2>
-                    <p>O DuoElo oferece planos de subscrição. O pagamento é debitado na sua conta App Store ou Google Play. As subscrições renovam-se automaticamente salvo cancelamento efetuado 24 horas antes do fim do período ativo.</p>
-                    <h2>2. Cancelamento</h2>
-                    <p>Pode gerir ou cancelar as suas subscrições nas definições da loja de aplicações do seu dispositivo.</p>
-                    <h2>3. Lei Aplicável</h2>
-                    <p>Estes termos são regidos pelas leis do Grão-Ducado do Luxemburgo.</p>
-                `,
+            <h1>Termos de Utilização (EULA)</h1>
+            <p>Ao utilizar o aplicativo <strong>DuoElo</strong>, aceita os presentes Termos da <strong>BARNX S.A R.L.-S</strong> (Luxemburgo).</p>
+            <h2>1. Subscrições e Renovação</h2>
+            <p>As subscrições renovam-se automaticamente. O pagamento é gerido pela App Store ou Google Play Store.</p>
+            <h2>2. Limitação de Responsabilidade</h2>
+            <p>A responsabilidade máxima da BARNX S.A R.L.-S limita-se ao montante pago na subscrição nos últimos 12 meses.</p>
+            <h2>3. Foro Competente</h2>
+            <p>Sujeito à jurisdição dos tribunais da Cidade do Luxemburgo.</p>
+          `,
           privacidade: `
-                    <h1>Política de Privacidade</h1>
-                    <p>A sua privacidade é uma prioridade para o <strong>DuoElo</strong> (BARNX S.A R.L.-S).</p>
-                    <h2>1. Recolha de Dados</h2>
-                    <p>Recolhemos dados essenciais como e-mail, nome, fotografia e progresso nas missões para assegurar o funcionamento da aplicação.</p>
-                    <h2>2. Encriptação</h2>
-                    <p>As entradas do diário são encriptadas de ponta a ponta entre o casal.</p>
-                    <h2>3. Contacto</h2>
-                    <p>Suporte: <strong>suporte@duoelo.lu</strong></p>
-                `,
+            <h1>Política de Privacidade (GDPR / RGPD)</h1>
+            <p>Garantia de privacidade e proteção de dados pela <strong>BARNX S.A R.L.-S</strong>.</p>
+            <h2>1. Encriptação de Ponta a Ponta</h2>
+            <p>Diários protegidos por AES-256 no dispositivo.</p>
+            <h2>2. Eliminação de Conta</h2>
+            <p>Remoção definitiva de PII com transição do parceiro para o modo Solo.</p>
+            <h2>3. Contacto do DPO</h2>
+            <p>Envie mensagem para: <strong>privacy@duoelo.lu</strong></p>
+          `
         },
         en: {
           tabTermos: "Terms of Use (EULA)",
           tabPrivacidade: "Privacy Policy",
           termos: `
-                    <h1>Terms of Use (EULA)</h1>
-                    <p>By using the <strong>DuoElo</strong> app, operated by BARNX S.A R.L.-S, you agree to these Terms of Use.</p>
-                    <h2>1. Subscriptions & Auto-Renewal</h2>
-                    <p>DuoElo offers subscription plans (Monthly, Quarterly, Annual). Payment will be charged to your Apple ID or Google Play account at confirmation of purchase. Subscriptions automatically renew unless canceled at least 24 hours before the end of the current period.</p>
-                    <h2>2. Cancellation & Restoration</h2>
-                    <p>You can manage and cancel your subscriptions in your App Store account settings. Purchases can be restored directly within the app profile screen.</p>
-                    <h2>3. Applicable Law</h2>
-                    <p>These terms are governed by the laws of the Grand Duchy of Luxembourg.</p>
-                `,
+            <h1>Terms of Use (EULA)</h1>
+            <p>By using <strong>DuoElo</strong>, you agree to these binding terms provided by <strong>BARNX S.A R.L.-S</strong> (Luxembourg).</p>
+            <h2>1. Subscriptions & Auto-Renewal</h2>
+            <p>Payments process through Apple App Store or Google Play Store. Subscriptions auto-renew unless turned off 24h prior to renewal.</p>
+            <h2>2. Limitation of Liability & Indemnity Cap</h2>
+            <p>DuoElo is an interpersonal bonding app. BARNX S.A R.L.-S is not liable for marital disputes or divorces. Total financial liability is capped at the amount paid by the user in the last 12 months.</p>
+            <h2>3. Jurisdiction</h2>
+            <p>Governed strictly by the laws of the Grand Duchy of Luxembourg.</p>
+          `,
           privacidade: `
-                    <h1>Privacy Policy</h1>
-                    <p>Your privacy is paramount at <strong>DuoElo</strong> (BARNX S.A R.L.-S).</p>
-                    <h2>1. Data Collection</h2>
-                    <p>We collect essential data including email, profile photo, usage stats, and completed challenges to provide the couple experience.</p>
-                    <h2>2. End-to-End Encryption</h2>
-                    <p>Your personal journal entries are encrypted locally. Only you and your linked partner hold the decryption keys.</p>
-                    <h2>3. Data Deletion</h2>
-                    <p>You can permanently delete your account and data anytime directly inside the app Profile section.</p>
-                    <h2>4. Contact</h2>
-                    <p>Contact: <strong>suporte@duoelo.lu</strong></p>
-                `,
+            <h1>Privacy Policy (GDPR / APPI)</h1>
+            <p>Maintained by <strong>BARNX S.A R.L.-S</strong> with Zero-Knowledge E2EE architecture.</p>
+            <h2>1. End-to-End Encryption</h2>
+            <p>Journal entries are locally encrypted using AES-256. BARNX S.A R.L.-S has no master keys to view your data.</p>
+            <h2>2. Account Deletion (Art. 17 GDPR)</h2>
+            <p>Deleting your account permanently purges all PII. The remaining partner seamlessly enters Solo mode.</p>
+            <h2>3. Contact DPO</h2>
+            <p>Official DPO requests: <strong>privacy@duoelo.lu</strong></p>
+          `
         },
         es: {
-          tabTermos: "Términos de Uso",
+          tabTermos: "Términos de Uso (EULA)",
           tabPrivacidade: "Política de Privacidad",
           termos: `
-                    <h1>Términos de Uso (EULA)</h1>
-                    <p>Al utilizar la aplicación <strong>DuoElo</strong>, operada por BARNX S.A R.L.-S, aceptas estos Términos de Uso.</p>
-                    <h2>1. Suscripciones y Renovación Automática</h2>
-                    <p>DuoElo ofrece planes de suscripción. El pago se cargará a tu cuenta de App Store o Google Play al confirmar la compra. Se renueva automáticamente a menos que se cancele 24 horas antes del vencimiento del periodo actual.</p>
-                    <h2>2. Cancelación</h2>
-                    <p>Puedes administrar o cancelar tus suscripciones desde la configuración de tu cuenta en la tienda de aplicaciones.</p>
-                    <h2>3. Ley Aplicable</h2>
-                    <p>Estos términos se rigen por las leyes del Gran Ducado de Luxemburgo.</p>
-                `,
+            <h1>Términos de Uso (EULA)</h1>
+            <p>Al usar <strong>DuoElo</strong>, aceptas los términos gestionados por <strong>BARNX S.A R.L.-S</strong> (Luxemburgo).</p>
+            <h2>1. Suscripciones</h2>
+            <p>Se renuevan automáticamente salvo cancelación 24h antes del vencimiento mediante App Store o Google Play Store.</p>
+            <h2>2. Limitación de Responsabilidad</h2>
+            <p>La responsabilidad total de BARNX S.A R.L.-S está limitada al monto pagado por el usuario en los últimos 12 meses.</p>
+            <h2>3. Ley Aplicable</h2>
+            <p>Sujeto a las leyes del Gran Ducado de Luxemburgo.</p>
+          `,
           privacidade: `
-                    <h1>Política de Privacidad</h1>
-                    <p>La privacidad es fundamental en <strong>DuoElo</strong> (BARNX S.A R.L.-S).</p>
-                    <h2>1. Recopilación de Datos</h2>
-                    <p>Recopilamos correo electrónico, nombre, foto de perfil y progreso de misiones para brindar el servicio.</p>
-                    <h2>2. Encriptación</h2>
-                    <p>Las entradas personales del diario están encriptadas de extremo a extremo.</p>
-                    <h2>3. Contacto</h2>
-                    <p>Soporte: <strong>suporte@duoelo.lu</strong></p>
-                `,
+            <h1>Política de Privacidad</h1>
+            <p>Protección global garantizada por <strong>BARNX S.A R.L.-S</strong>.</p>
+            <h2>1. Cifrado E2EE</h2>
+            <p>Las entradas del diario están cifradas localmente con AES-256. BARNX no posee llaves de acceso.</p>
+            <h2>2. Eliminación de Datos</h2>
+            <p>Borrado definitivo de PII a través de la app. El compañero pasa automáticamente al modo Solo.</p>
+            <h2>3. Contacto DPO</h2>
+            <p>Escríbenos a: <strong>privacy@duoelo.lu</strong></p>
+          `
         },
         fr: {
-          tabTermos: "Conditions d'Utilisation",
-          tabPrivacidade: "Confidentialité",
+          tabTermos: "Conditions d'Utilisation (EULA)",
+          tabPrivacidade: "Politique de Confidentialité",
           termos: `
-                    <h1>Conditions d'Utilisation (EULA)</h1>
-                    <p>En utilisant l'application <strong>DuoElo</strong>, exploitée par BARNX S.A R.L.-S, vous acceptez les présentes conditions.</p>
-                    <h2>1. Abonnements et Renouvellement</h2>
-                    <p>Le paiement sera prélevé sur votre compte App Store ou Google Play à la confirmation. L'abonnement se renouvelle automatiquement sauf annulation 24h avant la fin de la période en cours.</p>
-                    <h2>2. Annulation</h2>
-                    <p>Gérez vos abonnements directement dans les paramètres de votre compte store.</p>
-                    <h2>3. Droit Applicable</h2>
-                    <p>Ces conditions sont régies par les lois du Grand-Duché de Luxembourg.</p>
-                `,
+            <h1>Conditions d'Utilisation (EULA)</h1>
+            <p>En utilisant <strong>DuoElo</strong>, vous acceptez les conditions édictées par <strong>BARNX S.A R.L.-S</strong> (Luxembourg).</p>
+            <h2>1. Abonnements et Renouvellement</h2>
+            <p>Facturation via l'App Store ou Google Play. Renouvellement automatique sauf résiliation 24h avant l'échéance.</p>
+            <h2>2. Limitation de Responsabilité</h2>
+            <p>DuoElo est un outil de renforcement relationnel. La responsabilité de BARNX S.A R.L.-S est plafonnée au montant payé lors des 12 derniers mois.</p>
+            <h2>3. Droit Applicable</h2>
+            <p>Soumis exclusivement aux lois du Grand-Duché de Luxembourg.</p>
+          `,
           privacidade: `
-                    <h1>Politique de Confidentialité</h1>
-                    <p>Votre vie privée est essentielle sur <strong>DuoElo</strong> (BARNX S.A R.L.-S).</p>
-                    <h2>1. Données Collectées</h2>
-                    <p>Nous collectons l'email, le nom, la photo et le suivi des missions pour assurer le service du couple.</p>
-                    <h2>2. Chiffrement</h2>
-                    <p>Les notes du journal intime sont chiffrées de bout en bout.</p>
-                    <h2>3. Contact</h2>
-                    <p>Support: <strong>suporte@duoelo.lu</strong></p>
-                `,
+            <h1>Politique de Confidentialité (RGPD)</h1>
+            <p>Exploité par <strong>BARNX S.A R.L.-S</strong> en architecture Zero-Knowledge.</p>
+            <h2>1. Chiffrement de Bout en Bout</h2>
+            <p>Le journal est chiffré en AES-256 localement. BARNX ne détient aucune clé de déchiffrement.</p>
+            <h2>2. Droit à l'Oubli (Art. 17 RGPD)</h2>
+            <p>Suppression complète des données personnelles sur demande. Migration automatique du partenaire vers le mode Solo.</p>
+            <h2>3. Contact DPO</h2>
+            <p>Contacter le DPO: <strong>privacy@duoelo.lu</strong></p>
+          `
         },
         de: {
-          tabTermos: "Nutzungsbedingungen",
-          tabPrivacidade: "Datenschutz",
+          tabTermos: "Nutzungsbedingungen (EULA)",
+          tabPrivacidade: "Datenschutzerklärung",
           termos: `
-                    <h1>Nutzungsbedingungen (EULA)</h1>
-                    <p>Durch die Nutzung der App <strong>DuoElo</strong>, betrieben von BARNX S.A R.L.-S, stimmen Sie diesen Bedingungen zu.</p>
-                    <h2>1. Abonnements & Verlängerung</h2>
-                    <p>Abonnements verlängern sich automatisch, sofern sie nicht mindestens 24 Stunden vor Ablauf des aktuellen Zeitraums gekündigt werden.</p>
-                    <h2>2. Kündigung</h2>
-                    <p>Verwalten Sie Ihre Abonnements in den Einstellungen Ihres App Store-Kontos.</p>
-                    <h2>3. Anwendbares Recht</h2>
-                    <p>Diese Bedingungen unterliegen dem Recht des Großherzogtums Luxemburg.</p>
-                `,
+            <h1>Nutzungsbedingungen (EULA)</h1>
+            <p>Nutzung von <strong>DuoElo</strong> unterliegt den Bedingungen von <strong>BARNX S.A R.L.-S</strong> (Luxemburg).</p>
+            <h2>1. Abonnements & Verlängerung</h2>
+            <p>Abrechnung über App Store oder Google Play. Automatische Verlängerung, sofern nicht 24h vorher gekündigt.</p>
+            <h2>2. Haftungsbeschränkung</h2>
+            <p>Die Gesamthaftung von BARNX S.A R.L.-S ist auf den Betrag beschränkt, der in den letzten 12 Monaten gezahlt wurde.</p>
+            <h2>3. Gerichtsstand</h2>
+            <p>Geltendes Recht des Großherzogtums Luxemburg.</p>
+          `,
           privacidade: `
-                    <h1>Datenschutz-Bestimmungen</h1>
-                    <p>Datenschutz hat bei <strong>DuoElo</strong> (BARNX S.A R.L.-S) höchste Priorität.</p>
-                    <h2>1. Datenerhebung</h2>
-                    <p>Wir erheben E-Mail, Name, Profilbild und Fortschrittsdaten zur Bereitstellung der App.</p>
-                    <h2>2. Ende-zu-Ende-Verschlüsselung</h2>
-                    <p>Tagebucheinträge werden lokal Ende-zu-Ende verschlüsselt.</p>
-                    <h2>3. Kontakt</h2>
-                    <p>Support: <strong>suporte@duoelo.lu</strong></p>
-                `,
+            <h1>Datenschutzerklärung (DSGVO)</h1>
+            <p>Bereitgestellt von <strong>BARNX S.A R.L.-S</strong> mit Ende-zu-Ende-Verschlüsselung.</p>
+            <h2>1. Ende-zu-Ende Verschlüsselung</h2>
+            <p>Tagebucheinträge werden lokal mit AES-256 verschlüsselt. BARNX hat keinen Zugriff auf den Inhalt.</p>
+            <h2>2. Recht auf Löschung (Art. 17 DSGVO)</h2>
+            <p>Vollständige Löschung aller PII auf Wunsch. Nahtloser Übergang des Partners in den Solo-Modus.</p>
+            <h2>3. DPO Kontakt</h2>
+            <p>Kontakt: <strong>privacy@duoelo.lu</strong></p>
+          `
         },
         ja: {
-          tabTermos: "利用規約",
+          tabTermos: "利用規約 (EULA)",
           tabPrivacidade: "プライバシーポリシー",
           termos: `
-                    <h1>利用規約 (EULA)</h1>
-                    <p>BARNX S.A R.L.-S が運営する <strong>DuoElo</strong> アプリを使用することにより、本利用規約に同意したことになります。</p>
-                    <h2>1. サブスクリプションと自動更新</h2>
-                    <p>現在の期間が終了する少なくとも24時間前にキャンセルされない限り、サブスクリプションは自動的に更新されます。</p>
-                    <h2>2. キャンセルと復元</h2>
-                    <p>App StoreまたはGoogle Playのアカウント設定からいつでも解約できます。</p>
-                    <h2>3. 準拠法</h2>
-                    <p>本規約はルクセンブルク大公国の法律に準拠します。</p>
-                `,
+            <h1>利用規約 (EULA)</h1>
+            <p><strong>DuoElo</strong>の利用には、ルクセンブルクの<strong>BARNX S.A R.L.-S</strong>が定める本規約が適用されます。</p>
+            <h2>1. サブスクリプションと自動更新</h2>
+            <p>お支払いはApp StoreまたはGoogle Playで行われます。期間終了の24時間前までに解約されない限り自動更新されます。</p>
+            <h2>2. 責任の制限</h2>
+            <p>BARNX S.A R.L.-Sの損害賠償責任は、過去12ヶ月間にユーザーが支払った総額を上限とします。</p>
+            <h2>3. 準拠法</h2>
+            <p>ルクセンブルク大公国の法律に準拠します。</p>
+          `,
           privacidade: `
-                    <h1>プライバシーポリシー</h1>
-                    <p><strong>DuoElo</strong> (BARNX S.A R.L.-S) ではプライバシーの保護を重要視しています。</p>
-                    <h2>1. 収集するデータ</h2>
-                    <p>メールアドレス、名前、プロフィール写真、ミッションの進行状況を収集します。</p>
-                    <h2>2. エンドツーエンド暗号化</h2>
-                    <p>日記のエントリは端末間でローカルに暗号化されます。</p>
-                    <h2>3. お問い合わせ</h2>
-                    <p>サポート: <strong>suporte@duoelo.lu</strong></p>
-                `,
-        },
+            <h1>プライバシーポリシー (APPI / GDPR)</h1>
+            <p><strong>BARNX S.A R.L.-S</strong>はゼロナレッジ暗号化で個人情報を保護します。</p>
+            <h2>1. エンドツーエンド暗号化</h2>
+            <p>日記は端末上でAES-256により暗号化されます。当社が復号キーを保持することはありません。</p>
+            <h2>2. データ消去とソロモード</h2>
+            <p>アカウント削除時にすべてのPIIを消去します。パートナーは自動的にソロモードへ移行します。</p>
+            <h2>3. DPOへのお問い合わせ</h2>
+            <p>メール: <strong>privacy@duoelo.lu</strong></p>
+          `
+        }
       };
 
       let currentLang = "pt-BR";
@@ -408,7 +374,7 @@
       }
 
       function setLanguage(lang) {
-        currentLang = lang;
+        currentLang = LEGAL_DATA[lang] ? lang : "en";
         render();
       }
 
@@ -418,7 +384,7 @@
       }
 
       function render() {
-        const langData = LEGAL_DATA[currentLang] || LEGAL_DATA["pt-BR"];
+        const langData = LEGAL_DATA[currentLang] || LEGAL_DATA["en"];
 
         document.querySelectorAll(".lang-btn").forEach((btn) => {
           btn.classList.remove("active");
@@ -428,16 +394,12 @@
         });
 
         document.getElementById("btn-termos").innerText = langData.tabTermos;
-        document.getElementById("btn-privacidade").innerText =
-          langData.tabPrivacidade;
+        document.getElementById("btn-privacidade").innerText = langData.tabPrivacidade;
 
-        document.getElementById("btn-termos").className =
-          `tab-btn ${currentTab === "termos" ? "active" : ""}`;
-        document.getElementById("btn-privacidade").className =
-          `tab-btn ${currentTab === "privacidade" ? "active" : ""}`;
+        document.getElementById("btn-termos").className = `tab-btn ${currentTab === "termos" ? "active" : ""}`;
+        document.getElementById("btn-privacidade").className = `tab-btn ${currentTab === "privacidade" ? "active" : ""}`;
 
-        document.getElementById("content-box").innerHTML =
-          currentTab === "termos" ? langData.termos : langData.privacidade;
+        document.getElementById("content-box").innerHTML = currentTab === "termos" ? langData.termos : langData.privacidade;
       }
 
       window.onload = init;

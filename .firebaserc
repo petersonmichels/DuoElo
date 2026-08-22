@@ -1,5 +1,6 @@
 {
   "projects": {
-    "default": "duoelo-987fd"
+    "default": "duoelo-987fd",
+    "production": "duoelo-987fd"
   }
 }

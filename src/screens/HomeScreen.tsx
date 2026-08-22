@@ -29,24 +29,22 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Circle } from "react-native-svg";
 
+import { MasterPasswordModal } from "../components/MasterPasswordModal";
 import { auth, db } from "../config/firebase";
 import { t } from "../i18n/translations";
+import { logAuditEvent } from "../services/auditService";
 import { scheduleDailyReminder } from "../services/notificationService";
+import { encryptText } from "../services/securityService";
 import MissionExecutionScreen from "./MissionExecutionScreen";
 
-// 📳 Carregamento seguro do Haptics
 let Haptics: any = null;
 try {
   Haptics = require("expo-haptics");
-} catch (e) {
-  console.log("Haptics indisponível neste ambiente.");
-}
+} catch (e) {}
 
-// 🚫 Detecta se está rodando no Expo Go
 const isExpoGo =
   Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
-// 🔒 Carregamento seguro de Notificações Push
 let Notifications: any = null;
 if (!isExpoGo) {
   try {
@@ -66,7 +64,7 @@ if (!isExpoGo) {
 async function sendPushNotificationDirectly(
   expoPushToken: string,
   title: string,
-  body: string,
+  body: string
 ) {
   if (!expoPushToken || isExpoGo) return;
 
@@ -176,13 +174,23 @@ const FloatingHearts = () => {
             duration: 0,
             useNativeDriver: true,
           }),
-        ]),
+        ])
       );
     };
 
-    createHeartAnim(anim1, 0).start();
-    createHeartAnim(anim2, 700).start();
-    createHeartAnim(anim3, 1400).start();
+    const a1 = createHeartAnim(anim1, 0);
+    const a2 = createHeartAnim(anim2, 700);
+    const a3 = createHeartAnim(anim3, 1400);
+
+    a1.start();
+    a2.start();
+    a3.start();
+
+    return () => {
+      a1.stop();
+      a2.stop();
+      a3.stop();
+    };
   }, [anim1, anim2, anim3]);
 
   const renderHeart = (anim: Animated.Value, left: number, size: number) => {
@@ -285,6 +293,9 @@ export default function HomeScreen({ navigation }: any) {
   const [isHardResetModalVisible, setIsHardResetModalVisible] = useState(false);
   const [isNotificationsVisible, setIsNotificationsVisible] = useState(false);
 
+  const [isMasterPasswordModalVisible, setIsMasterPasswordModalVisible] = useState(false);
+  const [pendingMissionStepIndex, setPendingMissionStepIndex] = useState<number | null>(null);
+
   const unreadNudges = userData?.cutucadas || 0;
   const [isGeneratingJourney, setIsGeneratingJourney] = useState(false);
 
@@ -295,7 +306,7 @@ export default function HomeScreen({ navigation }: any) {
       | "heavy"
       | "success"
       | "warning"
-      | "error" = "light",
+      | "error" = "light"
   ) => {
     if (!Haptics || userData?.enableHaptics === false) return;
     try {
@@ -334,7 +345,7 @@ export default function HomeScreen({ navigation }: any) {
     confirmText = "",
     onConfirm: any = null,
     secondaryText = "",
-    onSecondary: any = null,
+    onSecondary: any = null
   ) => {
     triggerHaptic("warning");
     setCustomAlert({
@@ -368,19 +379,28 @@ export default function HomeScreen({ navigation }: any) {
   }, []);
 
   useEffect(() => {
-    if (currentUid) {
+    if (!currentUid) {
+      setUserData(null);
+      setPartnerData(null);
+      return;
+    }
+
+    let unsubscribeUser: () => void;
+
+    const timer = setTimeout(() => {
       registerForPushNotificationsAsync().then(async (token) => {
         if (token) {
           try {
             await setDoc(
               doc(db, "users", currentUid),
               { pushToken: token },
-              { merge: true },
+              { merge: true }
             );
           } catch (e) {}
         }
       });
-      const unsubscribe = onSnapshot(
+
+      unsubscribeUser = onSnapshot(
         doc(db, "users", currentUid),
         (docSnap) => {
           if (docSnap.exists()) {
@@ -388,18 +408,18 @@ export default function HomeScreen({ navigation }: any) {
             setUserData(data);
             if (data.language) {
               setUserLang(data.language);
-              // 🔔 Agendamento do Lembrete Diário
               scheduleDailyReminder(data.language, 20, 0);
             }
           }
           setLoading(false);
-        },
+        }
       );
-      return () => unsubscribe();
-    } else {
-      setUserData(null);
-      setPartnerData(null);
-    }
+    }, 50);
+
+    return () => {
+      clearTimeout(timer);
+      if (unsubscribeUser) unsubscribeUser();
+    };
   }, [currentUid]);
 
   useEffect(() => {
@@ -408,27 +428,37 @@ export default function HomeScreen({ navigation }: any) {
       setDoc(
         doc(db, "users", currentUid),
         { myInviteCode: generatedCode },
-        { merge: true },
+        { merge: true }
       ).catch(() => {});
     }
   }, [currentUid, userData]);
 
   useEffect(() => {
-    if (userData && userData.partnerId) {
-      const unsubscribePartner = onSnapshot(
+    if (!userData?.partnerId) {
+      setPartnerData(null);
+      return;
+    }
+    let unsubscribePartner: () => void;
+
+    const timer = setTimeout(() => {
+      unsubscribePartner = onSnapshot(
         doc(db, "users", userData.partnerId),
         (docSnap) => {
           if (docSnap.exists()) setPartnerData(docSnap.data());
-        },
+        }
       );
-      return () => unsubscribePartner();
-    } else {
-      setPartnerData(null);
-    }
+    }, 50);
+
+    return () => {
+      clearTimeout(timer);
+      if (unsubscribePartner) unsubscribePartner();
+    };
   }, [userData?.partnerId]);
 
   useEffect(() => {
     if (!userData) return;
+    let isMounted = true;
+
     const fetchWeekThemes = async () => {
       try {
         const querySnapshot = await getDocs(collection(db, "weeks"));
@@ -436,19 +466,27 @@ export default function HomeScreen({ navigation }: any) {
         querySnapshot.forEach((docSnap) => {
           const data = docSnap.data();
           const weekNum = Number(
-            data.weekNumber || data.week || docSnap.id.replace(/\D/g, ""),
+            data.weekNumber || data.week || docSnap.id.replace(/\D/g, "")
           );
           const themeText = data.theme || data.title || data.name || data.topic;
           if (!isNaN(weekNum) && themeText) themes[weekNum] = themeText;
         });
-        setWeekThemes(themes);
+        if (isMounted) setWeekThemes(themes);
       } catch (error) {}
     };
-    fetchWeekThemes();
+
+    const timer = setTimeout(() => {
+      fetchWeekThemes();
+    }, 100);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
   }, [userData]);
 
   useEffect(() => {
-    Animated.loop(
+    const fAnim = Animated.loop(
       Animated.sequence([
         Animated.timing(floatAnim, {
           toValue: -6,
@@ -460,10 +498,10 @@ export default function HomeScreen({ navigation }: any) {
           duration: 1200,
           useNativeDriver: true,
         }),
-      ]),
-    ).start();
+      ])
+    );
 
-    Animated.loop(
+    const pAnim = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
           toValue: 1.05,
@@ -475,10 +513,10 @@ export default function HomeScreen({ navigation }: any) {
           duration: 1200,
           useNativeDriver: true,
         }),
-      ]),
-    ).start();
+      ])
+    );
 
-    Animated.loop(
+    const rAnim = Animated.loop(
       Animated.sequence([
         Animated.timing(ringPulseAnim, {
           toValue: 1.15,
@@ -490,8 +528,18 @@ export default function HomeScreen({ navigation }: any) {
           duration: 1200,
           useNativeDriver: true,
         }),
-      ]),
-    ).start();
+      ])
+    );
+
+    fAnim.start();
+    pAnim.start();
+    rAnim.start();
+
+    return () => {
+      fAnim.stop();
+      pAnim.stop();
+      rAnim.stop();
+    };
   }, [floatAnim, pulseAnim, ringPulseAnim]);
 
   const hasCompletedAnamnesis = Boolean(userData?.hasCompletedAnamnesis);
@@ -503,10 +551,10 @@ export default function HomeScreen({ navigation }: any) {
   const hasPartner = Boolean(userData?.partnerId);
   const isSoloMode = Boolean(userData?.isSoloMode);
   const iAmReady = Boolean(
-    userData?.isReadyToStart || userData?.hasPressedPlay,
+    userData?.isReadyToStart || userData?.hasPressedPlay
   );
   const partnerIsReady = Boolean(
-    partnerData?.isReadyToStart || partnerData?.hasPressedPlay,
+    partnerData?.isReadyToStart || partnerData?.hasPressedPlay
   );
 
   const isMatchOrSoloDone = hasPartner || isSoloMode;
@@ -590,15 +638,15 @@ export default function HomeScreen({ navigation }: any) {
     : null;
   const hasCompletedTaskToday = Boolean(
     lastTaskDateObj &&
-    lastTaskDateObj.getDate() === today.getDate() &&
-    lastTaskDateObj.getMonth() === today.getMonth() &&
-    lastTaskDateObj.getFullYear() === today.getFullYear(),
+      lastTaskDateObj.getDate() === today.getDate() &&
+      lastTaskDateObj.getMonth() === today.getMonth() &&
+      lastTaskDateObj.getFullYear() === today.getFullYear()
   );
 
   const generateTrailMatrix = async (
     uid: string,
     partnerId: string | null,
-    isSolo: boolean,
+    isSolo: boolean
   ) => {
     try {
       let q = query(collection(db, "tasks"), where("language", "==", userLang));
@@ -665,7 +713,7 @@ export default function HomeScreen({ navigation }: any) {
             anamnesisLocked: true,
             myTrail: personalTrail,
           },
-          { merge: true },
+          { merge: true }
         );
       } catch (e) {}
     }
@@ -677,7 +725,7 @@ export default function HomeScreen({ navigation }: any) {
         t("solo_journey_generated_title", userLang),
         t("solo_journey_generated_msg", userLang),
         "check-circle",
-        "#67D4A8",
+        "#67D4A8"
       );
     }, 2000);
   };
@@ -693,7 +741,7 @@ export default function HomeScreen({ navigation }: any) {
         const myTrail = await generateTrailMatrix(
           currentUid,
           targetPartnerId,
-          false,
+          false
         );
 
         await setDoc(
@@ -704,14 +752,14 @@ export default function HomeScreen({ navigation }: any) {
             anamnesisLocked: true,
             myTrail: myTrail,
           },
-          { merge: true },
+          { merge: true }
         );
 
         if (targetPartnerId) {
           const partnerTrail = await generateTrailMatrix(
             targetPartnerId,
             currentUid,
-            false,
+            false
           );
           await setDoc(
             doc(db, "users", targetPartnerId),
@@ -721,7 +769,7 @@ export default function HomeScreen({ navigation }: any) {
               anamnesisLocked: true,
               myTrail: partnerTrail,
             },
-            { merge: true },
+            { merge: true }
           );
         }
 
@@ -729,7 +777,7 @@ export default function HomeScreen({ navigation }: any) {
           sendPushNotificationDirectly(
             partnerData.pushToken,
             t("push_journey_unlocked_title", userLang),
-            t("push_journey_unlocked_body", userLang),
+            t("push_journey_unlocked_body", userLang)
           );
         }
 
@@ -738,7 +786,7 @@ export default function HomeScreen({ navigation }: any) {
           t("start_authorized_title", userLang),
           t("start_authorized_msg", userLang),
           "flag-checkered",
-          "#67D4A8",
+          "#67D4A8"
         );
       } else {
         await setDoc(
@@ -748,14 +796,14 @@ export default function HomeScreen({ navigation }: any) {
             hasPressedPlay: true,
             anamnesisLocked: true,
           },
-          { merge: true },
+          { merge: true }
         );
 
         if (partnerData?.pushToken) {
           sendPushNotificationDirectly(
             partnerData.pushToken,
             t("push_green_light_title", userLang),
-            t("push_green_light_body", userLang),
+            t("push_green_light_body", userLang)
           );
         }
 
@@ -764,7 +812,7 @@ export default function HomeScreen({ navigation }: any) {
           t("green_light_given_title", userLang),
           t("green_light_given_msg", userLang, { name: pName }),
           "hourglass-half",
-          "#EAB64A",
+          "#EAB64A"
         );
       }
     } catch (e) {
@@ -772,7 +820,7 @@ export default function HomeScreen({ navigation }: any) {
         t("error_title", userLang),
         t("error_try_again", userLang),
         "times-circle",
-        "#D96C6C",
+        "#D96C6C"
       );
     } finally {
       setIsGeneratingJourney(false);
@@ -791,7 +839,7 @@ export default function HomeScreen({ navigation }: any) {
         t("btn_see_plans", userLang),
         () => navigation.navigate("PaywallScreen"),
         t("btn_not_now", userLang),
-        () => {},
+        () => {}
       );
       return;
     }
@@ -814,7 +862,7 @@ export default function HomeScreen({ navigation }: any) {
             await setDoc(
               doc(db, "users", currentUid),
               { hasCompletedAnamnesis: true, profileType: "standard_default" },
-              { merge: true },
+              { merge: true }
             );
 
             if (hasPartner) {
@@ -825,7 +873,7 @@ export default function HomeScreen({ navigation }: any) {
                   t("waiting_partner_msg", userLang),
                   "hourglass-half",
                   "#EAB64A",
-                  t("btn_understand", userLang),
+                  t("btn_understand", userLang)
                 );
                 return;
               }
@@ -836,21 +884,20 @@ export default function HomeScreen({ navigation }: any) {
               await setDoc(
                 doc(db, "users", currentUid),
                 { isSoloMode: true },
-                { merge: true },
+                { merge: true }
               );
               await handleStartSolo();
             }
           } catch (error) {
-            console.error("Erro ao processar perfil padrão:", error);
             setIsGeneratingJourney(false);
             showCustomAlert(
               t("connection_error_title", userLang),
               t("connection_error_msg", userLang),
               "times-circle",
-              "#D96C6C",
+              "#D96C6C"
             );
           }
-        },
+        }
       );
       return;
     }
@@ -862,7 +909,7 @@ export default function HomeScreen({ navigation }: any) {
           t("waiting_partner_msg", userLang),
           "hourglass-half",
           "#EAB64A",
-          t("btn_understand", userLang),
+          t("btn_understand", userLang)
         );
         return;
       }
@@ -883,20 +930,21 @@ export default function HomeScreen({ navigation }: any) {
             await setDoc(
               doc(db, "users", currentUid),
               { isSoloMode: true },
-              { merge: true },
+              { merge: true }
             );
             handleStartSolo();
           }
-        },
+        }
       );
     }
   };
 
+  // 🎯 ABERTURA DA MISSÃO CORRIGIDA
   const handleOpenMission = async (
     stepIndex: number,
     isActuallyLocked: boolean,
     isWaiting: boolean,
-    isCompleted: boolean,
+    isCompleted: boolean
   ) => {
     triggerHaptic("light");
 
@@ -905,7 +953,7 @@ export default function HomeScreen({ navigation }: any) {
         t("assessment_pending_title", userLang),
         t("assessment_pending_msg", userLang),
         "clipboard-list",
-        "#EAB64A",
+        "#EAB64A"
       );
       navigation.navigate("AnamneseScreen");
       return;
@@ -920,7 +968,7 @@ export default function HomeScreen({ navigation }: any) {
         t("btn_see_plans", userLang),
         () => navigation.navigate("PaywallScreen"),
         t("btn_not_now", userLang),
-        () => {},
+        () => {}
       );
       return;
     }
@@ -932,117 +980,137 @@ export default function HomeScreen({ navigation }: any) {
         t("all_in_good_time_title", userLang),
         t("all_in_good_time_msg", userLang),
         "hourglass-half",
-        "#202D3A",
+        "#202D3A"
       );
       return;
     }
 
-    const fetchMissionData = async () => {
-      setIsFetchingMission(true);
-      try {
-        const phaseToFetch = userData?.myTrail
-          ? userData.myTrail[stepIndex]
-          : stepIndex + 1;
+    // 🔒 MODO REVISÃO PARA MISSÕES CUMPRIDAS
+    if (isCompleted) {
+      setIsReviewMode(true);
+      await executeMissionFetch(stepIndex, true);
+      return;
+    }
 
-        let q = query(
-          collection(db, "tasks"),
-          where("language", "==", userLang),
-          where("day", "==", phaseToFetch),
-        );
-        let querySnapshot = await getDocs(q);
+    setIsReviewMode(false);
+    setPendingMissionStepIndex(stepIndex);
 
-        if (querySnapshot.empty) {
-          q = query(
-            collection(db, "tasks"),
-            where("language", "==", "pt-BR"),
-            where("day", "==", phaseToFetch),
-          );
-          querySnapshot = await getDocs(q);
-        }
+    if (userData?.masterPasswordHash) {
+      setIsMasterPasswordModalVisible(true);
+      return;
+    }
 
-        if (!querySnapshot.empty) {
-          const requiredScope = hasPartner ? "bilateral" : "unilateral";
-          let missionsList = querySnapshot.docs.map((d) => ({
-            id: d.id,
-            ...d.data(),
-          }));
-
-          let pool = missionsList.filter(
-            (m: any) => m.scope === requiredScope || !m.scope,
-          );
-          if (pool.length === 0) pool = missionsList;
-
-          let selectedIndex = 0;
-          let isSecondary = false;
-
-          if (hasPartner && currentUid && userData?.partnerId) {
-            isSecondary = currentUid > userData.partnerId;
-            if (isSecondary && pool.length > 1) {
-              selectedIndex = 1;
-            }
-          }
-
-          let rawMission: any = pool[selectedIndex] || pool[0];
-
-          let matchedMission = { ...rawMission, displayPhase: stepIndex + 1 };
-
-          if (isSecondary && pool.length === 1 && hasPartner) {
-            matchedMission = {
-              ...rawMission,
-              displayPhase: stepIndex + 1,
-              title:
-                rawMission.partnerTitle ||
-                rawMission.title ||
-                t("your_mission_part_title", userLang),
-              concept:
-                rawMission.partnerConcept ||
-                rawMission.action ||
-                rawMission.concept,
-              action:
-                rawMission.partnerAction ||
-                rawMission.concept ||
-                rawMission.action,
-            };
-          }
-
-          setActiveMission(matchedMission);
-          setIsReviewMode(Boolean(isCompleted));
-          setIsModalVisible(true);
-        } else {
-          showCustomAlert(
-            t("mission_under_construction_title", userLang),
-            t("mission_under_construction_msg", userLang),
-            "hard-hat",
-            "#EAB64A",
-          );
-        }
-      } catch (error) {
-        console.error("Erro ao carregar missão:", error);
-      } finally {
-        setIsFetchingMission(false);
-      }
-    };
-
-    fetchMissionData();
+    await executeMissionFetch(stepIndex, false);
   };
 
+  const executeMissionFetch = async (stepIndex: number, isCompleted: boolean) => {
+    setIsFetchingMission(true);
+    try {
+      const phaseToFetch = userData?.myTrail
+        ? userData.myTrail[stepIndex]
+        : stepIndex + 1;
+
+      let q = query(
+        collection(db, "tasks"),
+        where("language", "==", userLang),
+        where("day", "==", phaseToFetch)
+      );
+      let querySnapshot = await getDocs(q);
+
+      if (querySnapshot.empty) {
+        q = query(
+          collection(db, "tasks"),
+          where("language", "==", "pt-BR"),
+          where("day", "==", phaseToFetch)
+        );
+        querySnapshot = await getDocs(q);
+      }
+
+      if (!querySnapshot.empty) {
+        const requiredScope = hasPartner ? "bilateral" : "unilateral";
+        let missionsList = querySnapshot.docs.map((d) => ({
+          id: d.id,
+          ...d.data(),
+        }));
+
+        let pool = missionsList.filter(
+          (m: any) => m.scope === requiredScope || !m.scope
+        );
+        if (pool.length === 0) pool = missionsList;
+
+        let selectedIndex = 0;
+        let isSecondary = false;
+
+        if (hasPartner && currentUid && userData?.partnerId) {
+          isSecondary = currentUid > userData.partnerId;
+          if (isSecondary && pool.length > 1) {
+            selectedIndex = 1;
+          }
+        }
+
+        let rawMission: any = pool[selectedIndex] || pool[0];
+
+        let matchedMission = { ...rawMission, displayPhase: stepIndex + 1 };
+
+        if (isSecondary && pool.length === 1 && hasPartner) {
+          matchedMission = {
+            ...rawMission,
+            displayPhase: stepIndex + 1,
+            title:
+              rawMission.partnerTitle ||
+              rawMission.title ||
+              t("your_mission_part_title", userLang),
+            concept:
+              rawMission.partnerConcept ||
+              rawMission.action ||
+              rawMission.concept,
+            action:
+              rawMission.partnerAction ||
+              rawMission.concept ||
+              rawMission.action,
+          };
+        }
+
+        setActiveMission(matchedMission);
+        setIsReviewMode(Boolean(isCompleted));
+        setIsModalVisible(true);
+      } else {
+        showCustomAlert(
+          t("mission_under_construction_title", userLang),
+          t("mission_under_construction_msg", userLang),
+          "hard-hat",
+          "#EAB64A"
+        );
+      }
+    } catch (error) {
+    } finally {
+      setIsFetchingMission(false);
+    }
+  };
+
+  // 🔐 ENCRIPTAÇÃO COM SESSÃO / UID
   const handleCompleteMission = async (journalText: string = "") => {
     if (!currentUid || !activeMission) return;
 
     try {
+      const encryptedJournal = journalText.trim().length > 0 
+        ? await encryptText(journalText, currentUid)
+        : "";
+
       if (activeMission.isGoldChallenge) {
         await setDoc(
           doc(db, "users", currentUid),
           { totalPE: increment(activeMission.pointsPE || 150) },
-          { merge: true },
+          { merge: true }
         );
 
         const journalRef = doc(collection(db, "users", currentUid, "journals"));
         await setDoc(journalRef, {
           phase: activeMission.phase,
-          text: journalText,
+          text: encryptedJournal,
           date: new Date().toISOString(),
           isGold: true,
+          isEncrypted: true,
         });
 
         setIsModalVisible(false);
@@ -1055,7 +1123,7 @@ export default function HomeScreen({ navigation }: any) {
             points: activeMission.pointsPE || 150,
           }),
           "trophy",
-          "#EAB64A",
+          "#EAB64A"
         );
         return;
       }
@@ -1070,12 +1138,12 @@ export default function HomeScreen({ navigation }: any) {
         const todayZero = new Date(
           todayDate.getFullYear(),
           todayDate.getMonth(),
-          todayDate.getDate(),
+          todayDate.getDate()
         );
         const lastZero = new Date(
           lastDate.getFullYear(),
           lastDate.getMonth(),
-          lastDate.getDate(),
+          lastDate.getDate()
         );
         const diffDays =
           (todayZero.getTime() - lastZero.getTime()) / (1000 * 3600 * 24);
@@ -1107,9 +1175,10 @@ export default function HomeScreen({ navigation }: any) {
             activeMission.displayPhase ||
             activeMission.phase ||
             currentStep + 1,
-          text: journalText,
+          text: encryptedJournal,
           date: new Date().toISOString(),
           step: 3,
+          isEncrypted: true,
         });
       }
 
@@ -1124,7 +1193,7 @@ export default function HomeScreen({ navigation }: any) {
         sendPushNotificationDirectly(
           partnerData.pushToken,
           t("push_mission_done_title", userLang),
-          t("push_mission_done_body", userLang),
+          t("push_mission_done_body", userLang)
         );
       }
 
@@ -1135,9 +1204,7 @@ export default function HomeScreen({ navigation }: any) {
         cupidProgress: weekCycleProgress,
         isChallenge: false,
       });
-    } catch (error) {
-      console.error(error);
-    }
+    } catch (error) {}
   };
 
   const handleOpenGoldChallenge = async (weekNumber: number) => {
@@ -1147,7 +1214,7 @@ export default function HomeScreen({ navigation }: any) {
       let q = query(
         collection(db, "weekly_challenges"),
         where("language", "==", userLang),
-        where("week", "==", weekNumber),
+        where("week", "==", weekNumber)
       );
       let querySnapshot = await getDocs(q);
 
@@ -1155,7 +1222,7 @@ export default function HomeScreen({ navigation }: any) {
         q = query(
           collection(db, "weekly_challenges"),
           where("language", "==", "pt-BR"),
-          where("week", "==", weekNumber),
+          where("week", "==", weekNumber)
         );
         querySnapshot = await getDocs(q);
       }
@@ -1165,52 +1232,42 @@ export default function HomeScreen({ navigation }: any) {
       if (uid) {
         const journalQuery = query(
           collection(db, "users", uid, "journals"),
-          where("phase", "==", `gold_week_${weekNumber}`),
+          where("phase", "==", `gold_week_${weekNumber}`)
         );
         const journalSnap = await getDocs(journalQuery);
         alreadyCompletedGold = !journalSnap.empty;
       }
 
-      if (!querySnapshot.empty) {
-        const challengeData = querySnapshot.docs[0].data();
-        setActiveMission({
-          title:
-            challengeData.title ||
-            t("gold_challenge_default_title", userLang, { week: weekNumber }),
-          description:
-            challengeData.description ||
-            t("gold_challenge_default_desc", userLang),
-          concept:
-            challengeData.concept ||
-            challengeData.description ||
-            t("gold_challenge_default_concept", userLang),
-          action:
-            challengeData.action ||
-            challengeData.description ||
-            t("gold_challenge_default_action", userLang),
-          pointsPE: 150,
-          isGoldChallenge: true,
-          phase: `gold_week_${weekNumber}`,
-        });
-        setIsReviewMode(alreadyCompletedGold);
-        setIsModalVisible(true);
-      } else {
-        setActiveMission({
-          title: t("gold_challenge_default_title", userLang, {
-            week: weekNumber,
-          }),
-          description: t("gold_challenge_default_desc", userLang),
-          concept: t("gold_challenge_default_concept", userLang),
-          action: t("gold_challenge_default_action", userLang),
-          pointsPE: 150,
-          isGoldChallenge: true,
-          phase: `gold_week_${weekNumber}`,
-        });
-        setIsReviewMode(alreadyCompletedGold);
-        setIsModalVisible(true);
-      }
+      const challengeTitle =
+        querySnapshot.empty
+          ? t("gold_challenge_default_title", userLang, { week: weekNumber })
+          : querySnapshot.docs[0].data().title ||
+            t("gold_challenge_default_title", userLang, { week: weekNumber });
+
+      const challengeData = !querySnapshot.empty ? querySnapshot.docs[0].data() : {};
+
+      setActiveMission({
+        title: challengeTitle,
+        description:
+          challengeData.description ||
+          t("gold_challenge_default_desc", userLang),
+        concept:
+          challengeData.concept ||
+          challengeData.description ||
+          t("gold_challenge_default_concept", userLang),
+        action:
+          challengeData.action ||
+          challengeData.description ||
+          t("gold_challenge_default_action", userLang),
+        pointsPE: 150,
+        isGoldChallenge: true,
+        phase: `gold_week_${weekNumber}`,
+      });
+
+      setIsReviewMode(alreadyCompletedGold);
+      setIsModalVisible(true);
     } catch (error) {
-      console.error(error);
+      console.error("Erro ao abrir desafio de ouro:", error);
     } finally {
       setIsFetchingMission(false);
     }
@@ -1354,7 +1411,7 @@ export default function HomeScreen({ navigation }: any) {
                     t("btn_redo_assessment", userLang),
                     () => navigation.navigate("AnamneseScreen"),
                     t("btn_keep_current", userLang),
-                    () => {},
+                    () => {}
                   );
                 } else {
                   navigation.navigate("AnamneseScreen");
@@ -1408,7 +1465,7 @@ export default function HomeScreen({ navigation }: any) {
                     t("btn_ok", userLang),
                     () => {},
                     t("btn_manage_match", userLang),
-                    () => navigation.navigate("Match"),
+                    () => navigation.navigate("Match")
                   );
                 } else {
                   navigation.navigate("Match");
@@ -1532,7 +1589,7 @@ export default function HomeScreen({ navigation }: any) {
 
               const tasksDoneThisWeek = Math.max(
                 0,
-                currentStep - (weekNumber - 1) * 7,
+                currentStep - (weekNumber - 1) * 7
               );
               const starsActive = Math.min(3, tasksDoneThisWeek);
               const isGoldUnlocked = starsActive >= 3;
@@ -1685,7 +1742,7 @@ export default function HomeScreen({ navigation }: any) {
                               index,
                               isLocked,
                               isWaitingForTomorrow,
-                              isCompleted,
+                              isCompleted
                             )
                           }
                           style={({ pressed }) => [
@@ -1727,6 +1784,7 @@ export default function HomeScreen({ navigation }: any) {
                       )}
                     </View>
 
+                    {/* 🏆 DESAFIO DE OURO COM CONTAINER QUE NÃO BLOQUEIA O TOQUE ABAIXO */}
                     {isDay5 && (
                       <View
                         style={[
@@ -1740,6 +1798,7 @@ export default function HomeScreen({ navigation }: any) {
                             elevation: 20,
                           },
                         ]}
+                        pointerEvents="box-none"
                       >
                         {isGoldUnlocked ? (
                           <Animated.View
@@ -1747,14 +1806,9 @@ export default function HomeScreen({ navigation }: any) {
                               transform: [{ scale: pulseAnim }],
                             }}
                           >
-                            <Pressable
+                            <TouchableOpacity
+                              activeOpacity={0.8}
                               style={styles.goldBtnUnlocked}
-                              hitSlop={{
-                                top: 12,
-                                bottom: 12,
-                                left: 12,
-                                right: 12,
-                              }}
                               onPress={(e) => {
                                 e.stopPropagation();
                                 handleOpenGoldChallenge(weekNumber);
@@ -1766,17 +1820,12 @@ export default function HomeScreen({ navigation }: any) {
                                 size={24}
                                 color="#202D3A"
                               />
-                            </Pressable>
+                            </TouchableOpacity>
                           </Animated.View>
                         ) : (
-                          <Pressable
+                          <TouchableOpacity
+                            activeOpacity={0.8}
                             style={styles.goldBtnLocked}
-                            hitSlop={{
-                              top: 12,
-                              bottom: 12,
-                              left: 12,
-                              right: 12,
-                            }}
                             onPress={(e) => {
                               e.stopPropagation();
                               showCustomAlert(
@@ -1785,7 +1834,7 @@ export default function HomeScreen({ navigation }: any) {
                                   progress: tasksDoneThisWeek,
                                 }),
                                 "lock",
-                                "#EAB64A",
+                                "#EAB64A"
                               );
                             }}
                           >
@@ -1794,7 +1843,7 @@ export default function HomeScreen({ navigation }: any) {
                               size={20}
                               color="rgba(234, 182, 74, 0.7)"
                             />
-                          </Pressable>
+                          </TouchableOpacity>
                         )}
                         <Text style={styles.challengeLabel}>
                           {t("challenge_label", userLang)}
@@ -1836,7 +1885,7 @@ export default function HomeScreen({ navigation }: any) {
                       t("congrats_completion_title", userLang),
                       t("congrats_completion_msg", userLang),
                       "trophy",
-                      "#EAB64A",
+                      "#EAB64A"
                     );
                   } else if (hasCompletedAnamnesis && !isPremium) {
                     showCustomAlert(
@@ -1847,7 +1896,7 @@ export default function HomeScreen({ navigation }: any) {
                       t("btn_see_plans", userLang),
                       () => navigation.navigate("PaywallScreen"),
                       t("btn_not_now", userLang),
-                      () => {},
+                      () => {}
                     );
                   }
                 }}
@@ -1895,6 +1944,22 @@ export default function HomeScreen({ navigation }: any) {
         )}
       </Modal>
 
+      {/* MODAL DE SENHA MESTRA */}
+      <MasterPasswordModal
+        visible={isMasterPasswordModalVisible}
+        onSuccess={async () => {
+          setIsMasterPasswordModalVisible(false);
+          if (pendingMissionStepIndex !== null) {
+            await executeMissionFetch(pendingMissionStepIndex, false);
+            setPendingMissionStepIndex(null);
+          }
+        }}
+        onCancel={() => {
+          setIsMasterPasswordModalVisible(false);
+          setPendingMissionStepIndex(null);
+        }}
+      />
+
       {/* MODAL DE IDIOMAS */}
       <Modal visible={isLangModalVisible} transparent animationType="fade">
         <TouchableOpacity
@@ -1918,7 +1983,7 @@ export default function HomeScreen({ navigation }: any) {
                     await setDoc(
                       doc(db, "users", currentUid),
                       { language: lang.code },
-                      { merge: true },
+                      { merge: true }
                     );
                 }}
               >
@@ -2070,7 +2135,13 @@ export default function HomeScreen({ navigation }: any) {
                       t("resetting_database_title", userLang),
                       t("resetting_database_msg", userLang),
                       "spinner",
-                      "#EAB64A",
+                      "#EAB64A"
+                    );
+
+                    await logAuditEvent(
+                      currentUid,
+                      "ACCOUNT_EXCLUSION_REQUESTED",
+                      "Exclusão total solicitada via Hard Reset na HomeScreen"
                     );
 
                     if (userData?.partnerId) {
@@ -2083,15 +2154,15 @@ export default function HomeScreen({ navigation }: any) {
                           isReadyToStart: false,
                           hasPressedPlay: false,
                         },
-                        { merge: true },
+                        { merge: true }
                       );
                     }
 
                     const journalsSnap = await getDocs(
-                      collection(db, "users", currentUid, "journals"),
+                      collection(db, "users", currentUid, "journals")
                     );
                     const deletePromises = journalsSnap.docs.map((d) =>
-                      deleteDoc(d.ref),
+                      deleteDoc(d.ref)
                     );
                     await Promise.all(deletePromises);
 
@@ -2108,7 +2179,7 @@ export default function HomeScreen({ navigation }: any) {
                       t("reset_error_title", userLang),
                       t("reset_error_msg", userLang),
                       "times-circle",
-                      "#D96C6C",
+                      "#D96C6C"
                     );
                   }
                 }

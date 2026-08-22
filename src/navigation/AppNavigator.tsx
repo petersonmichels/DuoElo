@@ -12,11 +12,10 @@ import {
   View,
 } from "react-native";
 
-// 🔥 Controle de segurança do Firebase
+// 🔥 Controle de segurança e serviços oficiais do Firebase
 import { auth, authControls, db } from "../config/firebase";
 import { t } from "../i18n/translations";
-
-// Suas Telas Oficiais
+// Telas Oficiais
 import AnamneseScreen from "../screens/AnamneseScreen";
 import HomeScreen from "../screens/HomeScreen";
 import LoginScreen from "../screens/LoginScreen";
@@ -26,12 +25,18 @@ import PaywallScreen from "../screens/PaywallScreen";
 import ProfileScreen from "../screens/ProfileScreen";
 import ShopScreen from "../screens/ShopScreen";
 
-const Stack = createNativeStackNavigator();
+export type RootStackParamList = {
+  MainTabs: undefined;
+  AnamneseScreen: undefined;
+  PaywallScreen: undefined;
+  MissionReward: undefined;
+  Login: undefined;
+};
+
+const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator();
 
-// ==========================================
-// 🚀 TELAS PROVISÓRIAS
-// ==========================================
+// Placeholder para telas em desenvolvimento
 const PlaceholderScreen = ({
   title,
   icon,
@@ -57,7 +62,7 @@ const TarefasScreen = () => (
   <PlaceholderScreen title="Feed de Tarefas" icon="clipboard-list" />
 );
 
-// Wrapper para injetar userData e partnerData na ShopScreen
+// Wrapper da Loja com escuta de dados em tempo real (Protegido para Web/Mobile)
 function ShopScreenWrapper(props: any) {
   const [userData, setUserData] = useState<any>(null);
   const [partnerData, setPartnerData] = useState<any>(null);
@@ -65,15 +70,23 @@ function ShopScreenWrapper(props: any) {
 
   useEffect(() => {
     if (!currentUid) return;
-    const unsubscribeUser = onSnapshot(
-      doc(db, "users", currentUid),
-      (docSnap) => {
-        if (docSnap.exists()) {
-          setUserData(docSnap.data());
+    let unsubscribeUser: () => void;
+
+    const timer = setTimeout(() => {
+      unsubscribeUser = onSnapshot(
+        doc(db, "users", currentUid),
+        (docSnap) => {
+          if (docSnap.exists()) {
+            setUserData(docSnap.data());
+          }
         }
-      },
-    );
-    return () => unsubscribeUser();
+      );
+    }, 50);
+
+    return () => {
+      clearTimeout(timer);
+      if (unsubscribeUser) unsubscribeUser();
+    };
   }, [currentUid]);
 
   useEffect(() => {
@@ -81,15 +94,23 @@ function ShopScreenWrapper(props: any) {
       setPartnerData(null);
       return;
     }
-    const unsubscribePartner = onSnapshot(
-      doc(db, "users", userData.partnerId),
-      (docSnap) => {
-        if (docSnap.exists()) {
-          setPartnerData(docSnap.data());
+    let unsubscribePartner: () => void;
+
+    const timer = setTimeout(() => {
+      unsubscribePartner = onSnapshot(
+        doc(db, "users", userData.partnerId),
+        (docSnap) => {
+          if (docSnap.exists()) {
+            setPartnerData(docSnap.data());
+          }
         }
-      },
-    );
-    return () => unsubscribePartner();
+      );
+    }, 50);
+
+    return () => {
+      clearTimeout(timer);
+      if (unsubscribePartner) unsubscribePartner();
+    };
   }, [userData?.partnerId]);
 
   return (
@@ -97,25 +118,30 @@ function ShopScreenWrapper(props: any) {
   );
 }
 
-// ==========================================
-// 🚀 O MENU INFERIOR (BOTTOM TABS)
-// ==========================================
+// 🚀 NAVEGADOR DE ABAS INFERIORES (BOTTOM TABS)
 function MainTabs() {
   const [userLang, setUserLang] = useState("pt-BR");
   const currentUid = auth.currentUser?.uid;
 
-  // 🌐 Escuta o idioma do usuário em tempo real
   useEffect(() => {
     if (!currentUid) return;
-    const unsubscribe = onSnapshot(doc(db, "users", currentUid), (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        if (data.language) {
-          setUserLang(data.language);
+    let unsubscribe: () => void;
+
+    const timer = setTimeout(() => {
+      unsubscribe = onSnapshot(doc(db, "users", currentUid), (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data?.language) {
+            setUserLang(data.language);
+          }
         }
-      }
-    });
-    return () => unsubscribe();
+      });
+    }, 50);
+
+    return () => {
+      clearTimeout(timer);
+      if (unsubscribe) unsubscribe();
+    };
   }, [currentUid]);
 
   return (
@@ -124,10 +150,10 @@ function MainTabs() {
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: true,
-        tabBarActiveTintColor: "#202D3A",
+        tabBarActiveTintColor: "#1A2F3B",
         tabBarInactiveTintColor: "#AFAFAF",
         tabBarStyle: {
-          backgroundColor: "#FFF",
+          backgroundColor: "#FFFFFF",
           borderTopWidth: 0,
           elevation: 15,
           shadowColor: "#000",
@@ -182,7 +208,7 @@ function MainTabs() {
               <FontAwesome5
                 name="map-marked-alt"
                 size={24}
-                color={focused ? "#202D3A" : "#FFF"}
+                color={focused ? "#1A2F3B" : "#FFFFFF"}
               />
             </View>
           ),
@@ -214,9 +240,7 @@ function MainTabs() {
   );
 }
 
-// ==========================================
 // 🚀 NAVEGADOR PRINCIPAL (STACK)
-// ==========================================
 export default function AppNavigator() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -281,12 +305,12 @@ const styles = StyleSheet.create({
   placeholderTitle: {
     fontSize: 22,
     fontFamily: "Montserrat_900Black",
-    color: "#202D3A",
+    color: "#1A2F3B",
   },
   placeholderSub: {
     fontSize: 14,
     fontFamily: "Montserrat_700Bold",
-    color: "#60646C",
+    color: "#2C3E50",
     marginTop: 8,
   },
   floatingButton: {
@@ -303,7 +327,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 8,
     borderWidth: 4,
-    borderColor: "#FFF",
+    borderColor: "#FFFFFF",
   },
   floatingButtonActive: {
     backgroundColor: "#67D4A8",

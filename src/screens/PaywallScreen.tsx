@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth, db } from "../config/firebase";
 
 import { t } from "../i18n/translations";
+import { logAuditEvent } from "../services/auditService";
 
 const { width } = Dimensions.get("window");
 
@@ -222,6 +223,13 @@ export default function PaywallScreen({ navigation }: any) {
         );
       }
 
+      // 📜 REGISTRO DE AUDITORIA DE SEGURANÇA (ATIVAÇÃO DE ASSINATURA)
+      await logAuditEvent(
+        currentUid,
+        "SUBSCRIPTION_ACTIVATED",
+        `Assinatura ativada no plano ${planCategory.toUpperCase()} - ciclo: ${selectedPlan}`
+      );
+
       Alert.alert(
         t("sub_confirmed_title", userLang),
         t("sub_confirmed_msg", userLang, {
@@ -270,6 +278,13 @@ export default function PaywallScreen({ navigation }: any) {
             doc(db, "users", currentUid),
             { isPremium: true },
             { merge: true },
+          );
+
+          // 📜 REGISTRO DE AUDITORIA (RESTAURAÇÃO DE COMPRA)
+          await logAuditEvent(
+            currentUid,
+            "PURCHASE_RESTORED",
+            "Restauração de assinatura processada com sucesso"
           );
         }
 

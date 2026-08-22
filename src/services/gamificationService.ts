@@ -15,12 +15,22 @@ export interface GamificationResult {
 }
 
 /**
- * Motor de Gamificação: Registra a vitória, calcula a ofensiva e dá as recompensas.
+ * Retorna a data no formato YYYY-MM-DD respeitando o fuso horário local do usuário
+ */
+function getLocalDateString(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Motor de Gamificação: Registra a vitória, calcula a ofensiva e distribui recompensas.
  */
 export async function completeDailyTask(
   userId: string,
   taskId: string,
-  pointsPE: number,
+  pointsPE: number
 ): Promise<GamificationResult> {
   try {
     const userRef = doc(db, "users", userId);
@@ -34,18 +44,17 @@ export async function completeDailyTask(
     const lastTaskDate = userData.lastTaskDate;
     let currentStreak = userData.streak || 0;
 
-    // --- MATEMÁTICA DO TEMPO (FUSO HORÁRIO SEGURO) ---
+    // --- MATEMÁTICA DO TEMPO (FUSO HORÁRIO LOCAL SEGURO) ---
     const now = new Date();
-    const today = now.toISOString().split("T")[0]; // Ex: "2026-07-30"
+    const today = getLocalDateString(now);
 
     const yesterdayObj = new Date(now);
     yesterdayObj.setDate(yesterdayObj.getDate() - 1);
-    const yesterday = yesterdayObj.toISOString().split("T")[0];
+    const yesterday = getLocalDateString(yesterdayObj);
 
     // --- LÓGICA DO FOGUINHO (STREAK) ---
     if (lastTaskDate === today) {
-      // Defesa dupla: Se por algum milagre ele burlar o Sniper e enviar de novo hoje
-      console.log("Missão já computada hoje. Nenhuma alteração feita.");
+      // Missão já executada hoje
       return {
         success: true,
         earnedPE: 0,
@@ -53,26 +62,26 @@ export async function completeDailyTask(
         earnedCoins: 0,
       };
     } else if (lastTaskDate === yesterday) {
-      // Jogou ontem e jogou hoje: Aumenta o foguinho! 🔥
+      // Jogou ontem e hoje: incrementa a racha/streak 🔥
       currentStreak += 1;
     } else {
-      // Ficou mais de 1 dia sem jogar: Foguinho volta pro 1 🧊
+      // Perdeu mais de 1 dia: reinicia a racha para 1 🧊
       currentStreak = 1;
     }
 
-    const earnedCoins = 10; // Valor fixo de moedas por missão (pode ser dinâmico depois)
+    const earnedCoins = 10; // Valor de Bonds concedidos por tarefa
 
     // --- ATUALIZAÇÃO BLINDADA NO FIREBASE ---
     await updateDoc(userRef, {
-      completedTasks: arrayUnion(taskId), // Adiciona o ID na lista sem apagar os antigos
-      lastTaskDate: today, // Trava o Sniper para o resto do dia
-      streak: currentStreak, // Atualiza o Foguinho
-      totalPE: increment(pointsPE), // Soma os Pontos de Evolução matematicamente
-      duoCoins: increment(earnedCoins), // Soma as moedas na carteira
+      completedTasks: arrayUnion(taskId),
+      lastTaskDate: today,
+      streak: currentStreak,
+      totalPE: increment(pointsPE),
+      duoCoins: increment(earnedCoins),
     });
 
     console.log(
-      `✅ Vitória registrada! +${pointsPE} PE | Streak: ${currentStreak}`,
+      `✅ Gamificação Registrada! +${pointsPE} PE | Streak: ${currentStreak}`
     );
 
     return {

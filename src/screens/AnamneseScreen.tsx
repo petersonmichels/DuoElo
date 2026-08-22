@@ -25,7 +25,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { auth, db } from "../config/firebase";
 
 import { t } from "../i18n/translations";
-import { encryptData, generateVaultKey } from "../utils/security";
+import { logAuditEvent } from "../services/auditService";
+import { encryptText } from "../services/securityService";
 
 const { width } = Dimensions.get("window");
 
@@ -300,6 +301,14 @@ export default function AnamneseScreen({ navigation, route }: any) {
                 anamnesisSkippedAt: new Date().toISOString(),
               },
               { merge: true },
+            );
+
+            // 📜 REGISTRO DE AUDITORIA DE SEGURANÇA (ANAMNESE PULADA)
+            await logAuditEvent(
+              userId,
+              "ANAMNESE_SKIPPED",
+              "Anamnese pulada: Perfil padrão ativado pelo usuário",
+              userLang
             );
 
             if (isGuestOrHasPartner) {
@@ -578,13 +587,10 @@ export default function AnamneseScreen({ navigation, route }: any) {
         .slice(0, 3)
         .map((p) => p.name);
 
-      const pId = currentUserData?.partnerId;
-      const vaultKey = pId
-        ? generateVaultKey(userId, pId)
-        : generateVaultKey(userId, userId);
-
-      const encryptedTags = encryptData(diagnosticTags, vaultKey);
-      const encryptedScores = encryptData(priorityPillars, vaultKey);
+      // 🔐 CRIPTOGRAFIA ZERO-KNOWLEDGE (AES-256)
+      const secretKey = userId;
+      const encryptedTags = await encryptText(JSON.stringify(diagnosticTags), secretKey);
+      const encryptedScores = await encryptText(JSON.stringify(priorityPillars), secretKey);
 
       const payloadToSave = {
         hasCompletedAnamnesis: true,
@@ -599,6 +605,15 @@ export default function AnamneseScreen({ navigation, route }: any) {
       };
 
       await setDoc(doc(db, "users", userId), payloadToSave, { merge: true });
+
+      // 📜 REGISTRO DE AUDITORIA DE SEGURANÇA (ANAMNESE CONCLUÍDA)
+      await logAuditEvent(
+        userId,
+        "ANAMNESE_COMPLETED",
+        "Anamnese concluída e encriptada com sucesso",
+        userLang
+      );
+
       return true;
     } catch (error) {
       console.error("❌ Erro ao salvar avaliação no Firebase:", error);

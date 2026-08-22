@@ -1,45 +1,67 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+# ==========================================
+# DUOELO - BLINDAGEM DE ARQUIVOS E SEGREDO
+# ==========================================
 
-# dependencies
+# 1. Dependências
 node_modules/
+.pnp
+.pnp.js
 
-# Expo
+# 2. Arquivos de Variáveis de Ambiente e Segredos (CRÍTICO)
+.env
+.env.*
+!.env.example
+
+# 3. Chaves Privadas, Certificados e Servidores
+*.pem
+*.pub
+*.key
+*.p8
+*.p12
+*.jks
+*.keystore
+*.pepk
+*.mobileprovision
+*serviceAccount*.json
+serviceAccountKey.json
+google-services.json
+GoogleService-Info.plist
+
+# 4. Expo & Bundlers
 .expo/
 dist/
 web-build/
 expo-env.d.ts
-
-# Native
-.kotlin/
-*.orig.*
-*.jks
-*.p8
-*.p12
-*.key
-*.mobileprovision
-
-# Metro
 .metro-health-check*
 
-# debug
+# 5. Pastas Nativas Geradas (Bare Workflow / Prebuild)
+/ios
+/android
+.kotlin/
+*.orig.*
+
+# 6. Logs de Debug e Execução
 npm-debug.*
 yarn-debug.*
 yarn-error.*
+firebase-debug.log
+firebase-debug.*.log
 
-# macOS
+# 7. Sistema Operacional e IDEs
 .DS_Store
-*.pem
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/settings.json
 
-# local env files
-.env*.local
-
-# typescript
+# 8. Build Artifacts & TypeScript
 *.tsbuildinfo
-
+*.apk
+*.aab
+*.ipa
 example
-
-# generated native folders
-/ios
-/android
-src/database/seed/serviceAccountKey.json
-src/database/seed/serviceAccountKey.json

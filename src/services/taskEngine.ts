@@ -8,7 +8,6 @@ import {
 } from "firebase/firestore";
 import { db } from "../config/firebase";
 
-// 1. TRAZEMOS A REGRA MULTI-IDIOMA PARA DENTRO DO MOTOR
 export type MultiLanguageText = {
   pt: string;
   en: string;
@@ -18,7 +17,6 @@ export type MultiLanguageText = {
   ja: string;
 };
 
-// 2. DEFINIMOS EXATAMENTE COMO A TAREFA É
 export interface MissionTask {
   id: string;
   moduleId: number;
@@ -29,13 +27,23 @@ export interface MissionTask {
 }
 
 /**
+ * Retorna a data no formato YYYY-MM-DD respeitando o fuso horário local
+ */
+function getLocalDateString(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+/**
  * Algoritmo Sniper: Busca a próxima Missão Diária ideal para o usuário.
  *
  * @param userId ID do usuário logado
  * @returns O objeto da tarefa (MissionTask) totalmente multi-idioma ou null.
  */
 export async function getDailySniperTask(
-  userId: string,
+  userId: string
 ): Promise<MissionTask | null> {
   try {
     const userRef = doc(db, "users", userId);
@@ -47,18 +55,15 @@ export async function getDailySniperTask(
 
     const userData = userSnap.data();
 
-    // --- TRAVA DE GAMIFICAÇÃO DIÁRIA ---
-    // Pega a data de hoje no formato YYYY-MM-DD (ex: "2026-07-30")
-    const today = new Date().toISOString().split("T")[0];
+    // --- TRAVA DE GAMIFICAÇÃO DIÁRIA (FUSO LOCAL) ---
+    const today = getLocalDateString(new Date());
     const lastTaskDate = userData.lastTaskDate;
 
-    // Se ele já completou uma tarefa com a data de hoje, abortamos a busca.
-    // Isso fará a HomeScreen receber 'null' e transformar o Semáforo em VERDE.
     if (lastTaskDate === today) {
-      console.log("✅ Usuário já completou a missão de hoje.");
+      console.log("✅ [SNIPER] Usuário já completou a missão de hoje.");
       return null;
     }
-    // ------------------------------------
+    // ------------------------------------------------
 
     const priorityModules: number[] = userData.priorityModules || [1];
     const completedTasks: string[] = userData.completedTasks || [];
@@ -69,28 +74,27 @@ export async function getDailySniperTask(
       const q = query(
         tasksRef,
         where("moduleId", "==", moduleId),
-        where("phase", "==", currentPhase),
+        where("phase", "==", currentPhase)
       );
 
       const querySnapshot = await getDocs(q);
 
-      const availableTasks = querySnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
+      const availableTasks = querySnapshot.docs.map((docSnap) => ({
+        id: docSnap.id,
+        ...docSnap.data(),
       })) as MissionTask[];
 
-      // Filtra as tarefas que o usuário AINDA NÃO FEZ
+      // Filtra tarefas pendentes
       const pendingTasks = availableTasks.filter(
-        (task) => !completedTasks.includes(task.id),
+        (task) => !completedTasks.includes(task.id)
       );
 
       if (pendingTasks.length > 0) {
-        // Encontrou a tarefa perfeita! Retorna a primeira da lista.
         return pendingTasks[0];
       }
     }
 
-    console.log("🎯 Fase concluída para os módulos prioritários!");
+    console.log("🎯 [SNIPER] Fase concluída para os módulos prioritários!");
     return null;
   } catch (error) {
     console.error("❌ Erro no Algoritmo Sniper:", error);

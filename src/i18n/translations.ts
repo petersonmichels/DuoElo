@@ -1,4 +1,11 @@
-export type LanguageCode = "pt-BR" | "pt-PT" | "en" | "es" | "fr" | "de" | "ja";
+export type LanguageCode =
+  | "pt-BR"
+  | "pt-PT"
+  | "en"
+  | "es"
+  | "fr"
+  | "de"
+  | "ja";
 
 export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
   "pt-BR": {
@@ -7,6 +14,11 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     tab_match: "Match",
     tab_shop: "Loja",
     tab_profile: "Perfil",
+
+    guide_green_label: "Verde:",
+    guide_green_desc: "Você já fez a tarefa e quer registrar.",
+    guide_orange_label: "Laranja:",
+    guide_orange_desc: "Precisamos fazer ao longo do dia.",
 
     // Geral / Alertas
     btn_understand: "Entendi",
@@ -330,6 +342,10 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     btn_completing_label: "FINALIZANDO...",
     btn_mark_accomplished_label: "MARCAR COMO CUMPRIDA",
 
+    // Novos Botões de Ação Prática (Refatoração de Usabilidade)
+    btn_do_real_life: "VOU FAZER NA VIDA REAL AGORA 🚀",
+    btn_already_did_register: "JÁ FIZ, QUERO REGISTRAR ✓",
+
     // HomeScreen
     solo_journey_generated_title: "Jornada Solo Gerada! 🚀",
     solo_journey_generated_msg:
@@ -387,7 +403,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
       "Seu amor já completou a missão de hoje! Agora é a sua vez de fazer a sua parte e fortalecer o elo.",
     gold_challenge_default_title: "Desafio de Ouro da Semana {{week}}",
     gold_challenge_default_desc:
-      "Desafio prático bônus para fortalecer o elo do casal no fim de semana.",
+      "Desafio prático bónus para fortalecer o elo do casal no fim de semana.",
     gold_challenge_default_concept:
       "Momento de sintonia total para revalidar a conexão construída ao longo da semana.",
     gold_challenge_default_action:
@@ -515,8 +531,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
       "só começa a contar a partir da sua primeira tarefa.",
     duo_sub_coverage_desc:
       "Sua assinatura cobre você e seu parceiro(a) sem taxas adicionais.",
-    solo_upgrade_desc:
-      "Você pode atualizar para o Plano Duo a qualquer momento.",
+    solo_upgrade_desc: "Você pode atualizar para o Plano Duo a qualquer momento.",
     what_is_included_title: "O que está incluso no {{category}}?",
     btn_restore_purchases: "Restaurar Compras",
     terms_of_use_eula: "Termos de Uso (EULA)",
@@ -597,9 +612,33 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     contact_support_menu: "Fale com o Suporte",
     logout_menu_option: "Sair da Conta",
     delete_account_permanently_btn: "Excluir minha conta permanentemente",
+
+    // Configurações & Auditoria
+    app_language_title: "Idioma do App",
+    haptics_label: "Efeitos Táteis (Haptics)",
+    haptics_desc: "Vibrações ao concluir tarefas e interagir",
+    choose_language_title: "Escolha seu Idioma",
+    audit_account_deleted:
+      "Solicitação de exclusão total da conta via ProfileScreen. Parceiro desvinculado: {{partner}}",
+    audit_anamnese_skipped:
+      "Anamnese pulada: Perfil padrão ativado pelo usuário",
+    audit_anamnese_completed: "Anamnese concluída e encriptada com sucesso",
+    audit_partner_linked: "Parceiro vinculado com sucesso via convite",
+    audit_partner_match_request:
+      "Solicitação de pareamento enviada para o parceiro ID: {{partnerId}}",
+    audit_hard_reset: "Exclusão total solicitada via Hard Reset na HomeScreen",
+    audit_sub_activated:
+      "Assinatura ativada no plano {{category}} - {{plan}}",
+    audit_sub_restored: "Restauração de compras realizada com sucesso",
+    audit_gift_redeemed:
+      "Vale resgatado na loja. Semanas: {{week}}, GiftID: {{giftId}}",
   },
 
   "pt-PT": {
+    guide_green_label: "Verde:",
+    guide_green_desc: "Já concluiu a tarefa e quer registar.",
+    guide_orange_label: "Laranja:",
+    guide_orange_desc: "Precisam de fazer ao longo do dia.",
     tab_tasks: "Tarefas",
     tab_match: "Match",
     tab_shop: "Loja",
@@ -671,7 +710,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     default_pillar_name: "Sintonia e Comunicação",
     skip_anamnesis_title: "Seguir com Perfil Padrão? 💍",
     skip_anamnesis_msg:
-      "O seu diagnóstico será definido com o modelo padrão para libertar a sua utilização imediatamente.\n\nPoderá personalizar a avaliação a qualquer momento no seu Perfil.",
+      "O seu diagnóstico será definido com o modelo padrão para libertar o seu uso imediatamente.",
     btn_answer_assessment: "Responder à Avaliação",
     btn_use_default_profile: "Seguir com Perfil Padrão",
     loading_step_1: "A mapear os Eixos de Conexão do casal...",
@@ -680,43 +719,42 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     loading_step_4: "A gerar o mapa de prioridades da jornada...",
     compass_prompt_title: "A Bússola da sua Relação 💍",
     compass_prompt_msg:
-      "Para criarmos uma jornada realmente única e personalizada, é fundamental mapearmos a sintonia do casal primeiro.\n\nResponder à avaliação leva menos de 2 minutos e garante que as missões atuem exatamente onde mais precisam.\n\nDeseja responder agora para gerar a sua trilha à medida?",
+      "Para criarmos uma jornada única, é fundamental mapearmos a sintonia do casal primeiro.",
     btn_answer_assessment_now: "Responder ao Mapeamento Agora",
     btn_start_default_profile: "Iniciar com Perfil Padrão",
     solo_mode_alert_title: "A Jornada É Melhor a Dois! ❤️",
     solo_mode_alert_msg:
-      "O DuoElo foi concebido para criar pontes de cumplicidade e transformar o quotidiano do casal numa experiência partilhada.\n\nConvidar o seu amor agora desbloqueia a dinâmica de missões cruzadas, onde cada gesto responde exatamente ao que o outro necessita.\n\nQue tal enviar um convite especial para o seu amor antes de darmos o Play?",
+      "O DuoElo foi desenhado para criar pontes de cumplicidade e transformar o quotidiano do casal.",
     btn_send_partner_invite: "Enviar Convite para o Meu Amor",
-    btn_continue_solo_for_now: "Continuar no Modo Solo por Enquanto",
+    btn_continue_solo_for_now: "Continuar no Modo Solo por Agora",
     journey_locked_title: "Jornada Ativa & Congelada 🔐",
     journey_locked_msg:
-      "A sua avaliação foi registada e o seu Play foi ativado. As respostas estão congeladas para manter a integridade da sua Jornada de 90 Dias.",
+      "A sua avaliação foi registada e o seu Play foi ativado. As respostas estão congeladas.",
     btn_back_to_home: "Voltar ao Início",
     intro_title: "Mapeamento de Sintonia DuoElo 💍",
     intro_text_part1: "Esta etapa é a",
     intro_text_highlight: "bússola da sua jornada",
     intro_text_part2:
-      ". O mapeamento identifica a intensidade ideal e a ordem de missões para o momento atual do casal.",
+      ". O mapeamento identifica a intensidade ideal e a ordem de missões para o casal.",
     btn_start_mapping: "Iniciar Mapeamento (2 min)",
     btn_skip_assessment: "Prefiro não responder à avaliação",
     step_counter: "Passo {{current}} de {{total}}",
     analyzing_tuning_title: "A Analisar Sintonia",
     result_cold_title: "Conexão em Pausa ❄️",
     result_cold_desc:
-      "A rotina acabou por vos distanciar. O amor permanece, mas precisa de pequenos gestos diários sem pressão para reaproximar o casal.",
+      "A rotina acabou por vos distanciar. O amor permanece, mas precisa de pequenos gestos diários.",
     result_warm_title: "Modo Automático 🌥️",
     result_warm_desc:
-      "Têm uma base forte, mas entraram no piloto automático. A jornada de 90 dias traz os estímulos certos para reacender o diálogo.",
+      "Têm uma base forte, mas entraram no piloto automático. A jornada de 90 dias traz os estímulos certos.",
     result_hot_title: "Conexão Ativa 🌿",
-    result_hot_desc:
-      "Sintonia admirável! Mantêm a cumplicidade acesa. A jornada será o escudo perfeito para blindar a relação contra o desgaste.",
+    result_hot_desc: "Sintonia admirável! Mantêm a cumplicidade acesa.",
     tuning_index_header: "Índice de Sintonia DuoElo:",
-    risk_box_title: "Risco Estatístico de Afastamento: {{risk}}%",
+    risk_box_title: "Risco Estatístico de Distanciamento: {{risk}}%",
     risk_box_text_part1:
       "Com base em análises de comportamento de casais, o cenário atual indica",
-    risk_box_text_highlight: "{{risk}}% de risco de afastamento",
+    risk_box_text_highlight: "{{risk}}% de risco de distanciamento",
     risk_box_text_part2:
-      "a longo prazo caso o diálogo não receba atenção contínua.",
+      "a longo prazo se o diálogo não receber atenção contínua.",
     hope_box_part1: "Com base no seu mapeamento, organizámos a",
     hope_box_highlight: "Jornada de 90 Dias",
     hope_box_part2: "ideal para blindar a sua relação.",
@@ -740,18 +778,18 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     toggle_no_account_msg: "Ainda não tem conta?",
     toggle_has_account_msg: "Já faz parte do DuoElo?",
     toggle_create_account_link: "Criar conta",
-    toggle_login_link: "Iniciar sessão",
+    toggle_login_link: "Entrar",
     forgot_pwd_empty_title: "Escreva o seu E-mail",
     forgot_pwd_empty_msg:
-      "Por favor, indique o seu e-mail no campo acima para enviarmos o link de recuperação de palavra-passe.",
+      "Por favor, indique o seu e-mail no campo acima para enviarmos o link de recuperação.",
     forgot_pwd_success_title: "E-mail Enviado! 📩",
     forgot_pwd_success_msg:
-      'Enviámos as instruções de recuperação de palavra-passe para "{{email}}". Verifique a sua caixa de entrada e spam.',
+      'Enviámos as instruções de recuperação para "{{email}}". Verifique a caixa de entrada.',
     forgot_pwd_error_default:
       "Não foi possível enviar o e-mail de recuperação.",
     forgot_pwd_error_not_found:
       "Não encontrámos nenhuma conta registada com este e-mail.",
-    forgot_pwd_error_invalid_email: "O formato de e-mail indicado é inválido.",
+    forgot_pwd_error_invalid_email: "O formato do e-mail é inválido.",
     forgot_pwd_error_title: "Falha ao Enviar",
     account_created_title: "Conta Criada! 🎉",
     account_created_msg:
@@ -766,112 +804,108 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     short_password_msg: "A sua palavra-passe deve ter pelo menos 6 caracteres.",
     username_unavailable_title: "Nome Indisponível",
     username_unavailable_msg:
-      "Este @username já está a ser utilizado. Escolha outro.",
+      "Este @username já está a ser utilizado. Por favor, escolha outro.",
     email_in_use_title: "E-mail Registado 👋",
     email_in_use_msg:
-      "Este e-mail já tem conta no DuoElo. Alterne para a barra de Login para entrar.",
-    btn_go_to_login: "IR PARA LOGIN",
+      "Este e-mail já tem conta no DuoElo. Mude para a aba Iniciar Sessão.",
+    btn_go_to_login: "IR PARA INICIAR SESSÃO",
     account_not_found_title: "Conta não encontrada! 🧐",
     account_not_found_msg:
-      'Não encontrámos uma conta para "{{email}}" ou a palavra-passe está incorreta.\n\nDeseja criar uma nova conta agora?',
+      'Não encontrámos uma conta para "{{email}}" ou a palavra-passe está incorreta.',
     btn_create_account: "CRIAR CONTA",
     btn_try_again: "Tentar Novamente",
-    signup_error_title: "Erro no Registo",
+    signup_error_title: "Erro de Registo",
     signup_error_msg:
       "Verifique as informações introduzidas e tente novamente.",
     temp_block_title: "Bloqueio Temporário",
-    temp_block_msg:
-      "Muitas tentativas sem sucesso. Aguarde alguns instantes antes de tentar novamente.",
+    temp_block_msg: "Muitas tentativas sem sucesso. Aguarde alguns instantes.",
     invalid_email_title: "E-mail Inválido",
-    invalid_email_msg:
-      "Por favor, escreva um endereço de e-mail num formato válido.",
+    invalid_email_msg: "Por favor, escreva um endereço de e-mail válido.",
     auth_error_default_msg:
       "Ocorreu um erro de autenticação. Verifique a sua ligação.",
     dev_mode_title: "Modo de Desenvolvimento 🛠️",
-    dev_mode_msg:
-      "O login nativo do Google requer código nativo compilado e não funciona no Expo Go. Utilize o login por E-mail/Palavra-passe durante os testes.",
+    dev_mode_msg: "O login nativo da Google requer código nativo compilado.",
     login_canceled_title: "Login Cancelado",
-    login_canceled_msg: "Não foi possível concluir o login com o Google.",
-    ios_only_title: "Apenas no iOS",
+    login_canceled_msg: "Não foi possível concluir a entrada com a Google.",
+    ios_only_title: "Apenas em iOS",
     ios_only_msg:
-      "O login com a Apple está disponível apenas em dispositivos iOS (iPhone e iPad). Utilize o Google Sign-In no Android.",
-    apple_login_error_title: "Erro de Login",
-    apple_login_error_msg: "Não foi possível concluir o login com a Apple.",
-    partner_default_name: "Parceiro(a)",
-    mysterious_user: "Utilizador Misterioso",
+      "A autenticação com a Apple está disponível apenas em dispositivos iOS.",
+    apple_login_error_title: "Erro de Autenticação",
+    apple_login_error_msg: "Não foi possível concluir a entrada com a Apple.",
+    partner_default_name: "O Seu Amor",
+    mysterious_user: "Utilizador Mistério",
     code_copied_title: "Código Copiado! 📋",
     code_copied_msg:
-      "Código copiado para a área de transferência. Envie para o seu amor!",
+      "Código copiado para a área de transferência. Envie ao seu amor!",
     whatsapp_error_title: "Erro ao Abrir WhatsApp",
     whatsapp_error_msg:
-      "Não conseguimos abrir o WhatsApp. Copie o código e envie manualmente.",
+      "Não foi possível abrir o WhatsApp. Copie o código manualmente.",
     disconnect_confirm_title: "Desconectar Parceiro",
     disconnect_confirm_msg:
-      "Tem a certeza de que deseja desfazer a ligação? A sua trilha pessoal e histórico permanecerão salvos intactos.",
+      "Tem a certeza de que deseja desfazer a ligação? O seu histórico permanecerá intacto.",
     btn_yes_disconnect: "Sim, Desconectar",
     disconnected_title: "Desconectado",
     disconnected_msg:
-      "A ligação foi desfeita. O seu progresso individual permanece salvo intacto!",
-    disconnect_error_msg: "Não foi possível desfazer a ligação neste momento.",
+      "A ligação foi desfeita! A sua evolução individual permanece guardada.",
+    disconnect_error_msg:
+      "Não foi possível desfazer a ligação neste momento.",
     invalid_code_or_username_msg: "Escreva um código ou @username válido.",
     match_not_found_title: "Match Não Encontrado",
     match_not_found_msg:
-      "Não encontrámos ninguém com esse código ou @username. Verifique se escreveu corretamente.",
+      "Não encontrámos ninguém com esse código ou @username.",
     action_blocked_title: "Ação Bloqueada",
-    own_code_error_msg: "Não pode utilizar o seu próprio código ou utilizador!",
+    own_code_error_msg: "Não pode utilizar o seu próprio código!",
     user_busy_title: "Utilizador Ocupado",
-    user_busy_msg: "Este perfil já está ligado a outro parceiro no DuoElo.",
-    search_account_error_msg:
-      "Ocorreu um problema ao tentar procurar a conta. Tente novamente.",
+    user_busy_msg: "Este perfil já está conectado a outro parceiro no DuoElo.",
+    search_account_error_msg: "Ocorreu um problema ao procurar a conta.",
     session_expired_title: "Sessão Expirada 🔒",
     session_expired_msg: "A sua sessão expirou. Inicie sessão novamente.",
     code_unavailable_title: "Código Indisponível",
-    code_unavailable_msg:
-      "Não conseguimos obter o código deste perfil. Tente novamente.",
+    code_unavailable_msg: "Não foi possível obter o código deste perfil.",
     match_success_title: "Match Realizado! ❤️",
     match_success_msg:
-      "Foram ligados com sucesso! Voltem ao Início e deem Play juntos para desbloquear a trilha sincronizada.",
+      "Estão ligados com sucesso! Voltem ao Início e deem o Play juntos.",
     match_error_title: "Erro no Match",
     match_error_msg: "Não foi possível processar a ligação neste momento.",
     match_header_title: "O Seu Match",
-    connected_with_label: "Ligado a",
+    connected_with_label: "Ligado com",
     btn_disconnect_partner: "Desconectar Parceiro",
     no_connection_label: "Nenhuma ligação",
     waiting_match_label: "A aguardar Match",
     invite_section_1_title: "1. Convide o(a) seu/sua Parceiro(a)",
     invite_section_1_desc:
-      "Envie o seu código exclusivo. O seu parceiro precisará dele para iniciarem a jornada sincronizados.",
+      "Envie o seu código exclusivo. O seu parceiro precisará dele para iniciarem em sintonia.",
     btn_invite_whatsapp: "Convidar pelo WhatsApp",
     invite_section_2_title: "2. Já tem um código ou @?",
     invite_section_2_desc:
-      "Cole o código ou @username do seu parceiro abaixo para dar o Match.",
+      "Cole o código ou o @username do seu parceiro abaixo para dar Match.",
     placeholder_code_or_username: "Código ou @username",
     btn_connect: "Ligar",
     is_this_person_title: "É esta pessoa?",
-    is_this_person_sub: "Verifique se a conta abaixo pertence ao seu amor.",
+    is_this_person_sub: "Confirme se a conta abaixo pertence ao seu amor.",
     btn_yes_connect: "Sim, Ligar!",
-    btn_no_wrong_code: "Não, errei o código",
+    btn_no_wrong_code: "Não, código errado",
     invite_whatsapp_message:
-      "Amor, estou a investir na nossa relação porque és muito importante para mim. Vamos fazer juntos esta jornada de 90 dias do DuoElo? Descarrega a app e introduz o meu código para darmos match: *{{code}}* 👇\n\nhttps://duoelo.com/app",
+      "Amor, estou a investir na nossa relação! Vamos fazer juntos a jornada de 90 dias do DuoElo? Descarrega a app e usa o meu código: *{{code}}* 👇\n\nhttps://duoelo.com/app",
     whatsapp_not_found_title: "WhatsApp não encontrado",
     whatsapp_not_found_msg:
       "Parece que não tem o WhatsApp instalado. Copie o código e envie manualmente!",
     waiting_partner_alert_title: "A aguardar...",
     waiting_partner_alert_msg:
-      "Assim que o seu parceiro introduzir o código na app dele, serão ligados automaticamente!",
+      "Assim que o seu parceiro introduzir o código na app dele, ficarão automaticamente ligados!",
     invite_header_title_0: "Convide o seu Par!",
     invite_header_sub_0:
-      "A jornada do DuoElo foi concetualizada para ser vivida a dois. Ligue-se ao seu parceiro agora.",
+      "A jornada DuoElo foi desenhada para ser vivida a dois.",
     invite_header_title_1: "Estão quase lá!",
     invite_header_sub_1:
-      "Falta pouco para a jornada começar. Peça ao seu parceiro para introduzir o código na app.",
-    invite_header_title_2: "Estão ligados!",
+      "Peça ao seu parceiro para introduzir o código na app.",
+    invite_header_title_2: "Estão Ligados!",
     invite_header_sub_2:
-      "Os elos foram unidos. Preparem-se para fortalecer a relação a partir de hoje.",
+      "Os elos foram unidos. Preparem-se para fortalecer a relação.",
     workflow_step_1_active: "1. Enviar convite do DuoElo",
     workflow_step_1_done: "1. Convite enviado!",
     workflow_step_2_waiting: "2. A aguardar instalação do parceiro...",
-    workflow_step_2_done: "2. Parceiro instalou a app!",
+    workflow_step_2_done: "2. O parceiro instalou a app!",
     workflow_step_3_title: "3. Contas unidas",
     code_generator_label: "Código gerador",
     btn_update_status: "Atualizar Estado",
@@ -879,9 +913,9 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     btn_already_have_code: "Já tenho um código",
     welcome_duoelo_msg: "Bem-vindos ao DuoElo!",
     fallback_mission_concept:
-      "Com o tempo, a rotina faz com que os casais parem de olhar verdadeiramente um para o outro. O silêncio e a falta de contacto visual são os primeiros sinais de afastamento.",
+      "Com o tempo, a rotina faz com que casais parem de se olhar de verdade. Falamos de contas, sobre os filhos, mas não nos conectamos mais.",
     fallback_mission_action:
-      "Hoje, sente-se de frente para o seu parceiro, dêm as mãos e olhem-se nos olhos durante 2 minutos ininterruptos, sem falar.",
+      "Hoje, sente-se de frente para o seu parceiro, deem as mãos e olhem-se nos olhos durante 2 minutos ininterruptos, sem falar nada.",
     decryption_failed_warn: "⚠️ Falha ao desencriptar.",
     gold_challenge_review_title: "Desafio de Ouro",
     daily_mission_review_title: "Missão do Dia",
@@ -893,8 +927,8 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     action_section_title: "Ação Prática",
     journal_section_title: "📖 O Seu Diário (Opcional)",
     journal_section_sub:
-      "A sua reflexão e sentimentos guardados para rever mais tarde.",
-    no_reflection_recorded_msg: "Nenhuma reflexão foi escrita neste dia.",
+      "A sua reflexão guardada para rever mais tarde.",
+    no_reflection_recorded_msg: "Nenhuma reflexão registada neste dia.",
     step_badge_gold: "DESAFIO DE OURO",
     step_badge_1: "PASSO 1 DE 3",
     btn_advance_to_action: "Avançar para Ação",
@@ -904,72 +938,76 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     step_badge_3: "PASSO 3 DE 3",
     conclusion_title: "Conclusão",
     conclusion_sub_gold:
-      "Incrível! Concluíram o Desafio de Ouro da semana. Registem o momento abaixo para gerar +150 Bonds!",
+      "Incrível! Concluíram o Desafio de Ouro da semana (+150 Bonds)!",
     conclusion_sub_default:
-      "O vosso elo foi fortalecido. Que tal registar no diário de bordo como foi a experiência antes de concluir?",
+      "O vosso elo foi fortalecido. Que tal registar no diário de bordo?",
     placeholder_journal_entry: "Como se sentiu hoje? (Opcional)",
     btn_completing_label: "A FINALIZAR...",
     btn_mark_accomplished_label: "MARCAR COMO CUMPRIDA",
+
+    // Novos Botões de Ação Prática
+    btn_do_real_life: "VOU FAZER NA VIDA REAL AGORA 🚀",
+    btn_already_did_register: "JÁ FIZ, QUERO REGISTAR ✓",
+
     solo_journey_generated_title: "Jornada Solo Gerada! 🚀",
     solo_journey_generated_msg:
-      "Cruzámos os dados da sua avaliação. A trilha oficial de 90 dias está libertada!",
+      "Analisámos os seus dados. A trilha oficial de 90 dias está disponível!",
     push_journey_unlocked_title: "🚀 Jornada Libertada!",
     push_journey_unlocked_body:
       "A vossa trilha começou. Toque para ver a 1ª missão!",
     start_authorized_title: "Partida Autorizada! 🚀",
     start_authorized_msg:
-      "O algoritmo sincronizou as tarefas. A vossa trilha oficial de 90 dias está libertada!",
+      "O algoritmo sincronizou as tarefas. A trilha oficial de 90 dias está disponível!",
     push_green_light_title: "Sinal Verde Dado! 🚦",
     push_green_light_body:
-      "O seu amor já deu o Play para a Jornada. Só falta você!",
+      "O seu amor já deu o Play para a Jornada. Falta você!",
     green_light_given_title: "Sinal Verde Dado! 🚦",
     green_light_given_msg:
-      "A aguardar que o seu parceiro ({{name}}) prima Play para a partida oficial!",
+      "A aguardar que o seu parceiro ({{name}}) prima Play!",
     error_try_again: "Tente novamente.",
     plan_required_title: "Plano Necessário 🔒",
     plan_required_msg:
-      "Para libertar a trilha oficial de 90 dias de desafios, escolha um dos planos de subscrição.",
+      "Para libertar a trilha oficial de 90 dias, escolha um dos planos de subscrição.",
     btn_see_plans: "Ver Planos",
     btn_not_now: "Agora Não",
     relationship_compass_title: "A Bússola da sua Relação 💍",
     relationship_compass_msg:
-      "Para criarmos uma jornada realmente única, responder ao mapeamento demora menos de 2 minutos e garante missões adaptadas às vossas necessidades.\n\nDeseja responder agora ou seguir com o modelo padrão?",
+      "Responder ao mapeamento (menos de 2 min) garante missões focadas nas vossas necessidades.",
     btn_answer_mapping: "Responder ao Mapeamento",
-    waiting_partner_title: "A aguardar o Amor ⏳",
+    waiting_partner_title: "A aguardar pelo seu amor ⏳",
     waiting_partner_msg:
-      "O seu amor ainda está a preencher a avaliação inicial.\n\nA partida oficial começará assim que ambos concluírem o diagnóstico!",
+      "O seu amor ainda está a preencher a avaliação inicial.",
     connection_error_title: "Erro de Ligação",
     connection_error_msg:
-      "Não foi possível registar o perfil neste momento. Tente novamente.",
+      "Não foi possível registar o perfil de momento. Tente novamente.",
     better_together_title: "A Jornada É Melhor a Dois! ❤️",
     better_together_msg:
-      "O DuoElo foi concebido para criar pontes de cumplicidade a dois.\n\nQue tal enviar um convite especial para o seu amor antes de darmos Play?",
+      "O DuoElo foi concebido para criar pontes de cumplicidade a dois.",
     btn_send_invite: "Enviar Convite",
     btn_continue_solo: "Continuar no Modo Solo",
     assessment_pending_title: "Avaliação Pendente",
     assessment_pending_msg:
-      "Faça a avaliação primeiro para descobrirmos o diagnóstico exato da sua relação.",
+      "Faça a avaliação primeiro para descobrirmos o diagnóstico exato da relação.",
     sub_required_title: "Subscrição Necessária 🔒",
     sub_required_msg:
-      "Para aceder e realizar esta missão, escolha um plano de subscrição.",
+      "Para aceder a esta missão, escolha um plano de subscrição.",
     all_in_good_time_title: "Tudo a seu tempo ⏳",
-    all_in_good_time_msg:
-      "Já concluiu a missão de hoje! Volte amanhã para continuarmos a fortalecer o vosso elo.",
+    all_in_good_time_msg: "Já concluiu a missão de hoje! Volte amanhã.",
     your_mission_part_title: "A Sua Parte da Missão",
     mission_under_construction_title: "Missão em Construção 🚧",
     mission_under_construction_msg:
       "A missão desta etapa está a ser preparada e estará disponível em breve!",
     gold_challenge_completed_title: "Desafio Concluído! 🏆",
     gold_challenge_completed_msg:
-      "Vocês concluíram o desafio com sucesso! +{{points}} Bonds adicionados à sua conta.",
+      "Concluíram o desafio com sucesso! +{{points}} Bonds adicionados à sua conta.",
     push_mission_done_title: "Missão Cumprida! 🌟",
     push_mission_done_body:
-      "O seu amor já completou a missão de hoje! Agora é a sua vez de fazer a sua parte e fortalecer o elo.",
+      "O seu amor já completou a missão de hoje! Agora é a sua vez.",
     gold_challenge_default_title: "Desafio de Ouro da Semana {{week}}",
     gold_challenge_default_desc:
       "Desafio prático bónus para fortalecer o elo do casal no fim de semana.",
     gold_challenge_default_concept:
-      "Momento de sintonia total para revalidar a conexão construída ao longo da semana.",
+      "Momento de sintonia total para revalidar a conexão construída.",
     gold_challenge_default_action:
       "Reservem 30 minutos a sós para realizar uma atividade leve e romântica.",
     connection_rescue: "Resgate da Conexão",
@@ -977,15 +1015,14 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     badge_free: "GRATUITO",
     redo_assessment_title: "Refazer Avaliação?",
     redo_assessment_msg:
-      "A sua avaliação já foi registada com perfil padrão/personalizado. Deseja responder novamente para atualizar o diagnóstico do casal?",
+      "A sua avaliação já foi registada. Deseja responder novamente?",
     btn_redo_assessment: "Refazer Avaliação",
     btn_keep_current: "Manter Atual",
     your_assessment_title: "A Sua Avaliação",
     diagnostic_completed: "Diagnóstico Concluído ✓",
     discover_temp_sub: "Descubram a temperatura da relação",
     match_completed_title: "Match Concluído ✅",
-    match_completed_msg:
-      "A sua opção de Match/Solo já foi registada. Siga para o botão Play!",
+    match_completed_msg: "A sua opção foi registada. Siga para o botão Play!",
     btn_manage_match: "Gerir Match",
     match_completed_label: "Match Concluído",
     make_match_label: "Fazer Match",
@@ -997,70 +1034,64 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
       "Conclua pelo menos 3 missões esta semana para desbloquear.\n\nProgresso atual: {{progress}}/3",
     challenge_label: "Desafio",
     congrats_completion_title: "🏆 Parabéns!",
-    congrats_completion_msg: "Completou os 90 dias de conexão profunda.",
+    congrats_completion_msg: "Concluiu os 90 dias de conexão profunda.",
     sub_required_completion_msg:
       "Para desbloquear a conclusão da sua jornada, escolha um plano.",
     notifications_title: "Notificações",
     nudge_title: "Ei, atenção aqui!",
-    nudge_text_part1: "O seu parceiro mandou-lhe",
+    nudge_text_part1: "O seu parceiro enviou-lhe",
     nudge_text_part2: "cutucada(s)! 👀",
-    no_notifications_msg:
-      "Nenhuma notificação nova de momento. Está tudo tranquilo por aqui!",
+    no_notifications_msg: "Nenhuma notificação nova de momento.",
     btn_nudge_partner: "Cutucar Parceiro",
-    generating_journey_title: "A Gerar a sua Jornada...",
+    generating_journey_title: "A gerar a sua Jornada...",
     generating_journey_sub:
-      "Estamos a cruzar os dados da avaliação. Prepare-se para a partida!",
-    delete_account_title: "Eliminar Conta Permanentemente?",
+      "A cruzar os dados da avaliação. Prepare-se para a partida!",
+    delete_account_title: "Eliminar Conta Definitivamente?",
     delete_account_msg:
-      "Isto eliminará permanentemente a sua avaliação, estado premium, desligará o parceiro e reiniciará a conta do zero.",
-    resetting_database_title: "A Limpar a Base de Dados...",
+      "Isto apagará permanentemente a sua avaliação, estado premium e desligará o parceiro.",
+    resetting_database_title: "A limpar a Base de Dados...",
     resetting_database_msg: "Aguarde, a eliminar todos os dados desta conta.",
     btn_confirm_delete_account: "SIM, ELIMINAR A MINHA CONTA",
-    reset_error_title: "Erro de Reinicialização",
-    reset_error_msg: "Verifique a ligação ou inicie sessão recentemente.",
+    reset_error_title: "Erro de Reset",
+    reset_error_msg: "Verifique a ligação ou inicie sessão novamente.",
     daily_mission_completed_label: "Missão Diária Concluída",
-    streak_maintained_label: "Sequência Mantida",
+    streak_maintained_label: "Ofensiva Mantida",
     cupid_awake_title: "Cupido Desperto! 🎉",
     cupid_asleep_title: "Desperte o Cupido da Semana",
     cupid_awake_sub: "Desafio prático libertado no mapa.",
     cupid_asleep_sub: "(Conclua 3 missões na semana)",
-    journey_90_days_title: "Jornada de 90 Dias",
+    journey_90_days_title: "Parcours de 90 Dias",
     day_counter_text: "Dia {{day}} / {{total}}",
     btn_continue_label: "CONTINUAR",
     session_expired_sub_msg:
-      "Precisa de estar ligado para realizar uma subscrição. Inicie sessão novamente.",
+      "Precisa de estar ligado para realizar uma subscrição.",
     sub_confirmed_title: "Subscrição Confirmada! 🎉",
     sub_confirmed_msg:
       "Plano {{category}} ({{plan}}) ativado com sucesso!{{partnerBonus}}",
     sub_confirmed_partner_bonus:
-      " O acesso do seu amor também já foi libertado!",
+      " O acesso do seu amor também foi libertado!",
     btn_access_app: "Aceder à App",
     sub_error_title: "Erro na Subscrição",
-    sub_error_msg:
-      "Não foi possível processar a subscrição de momento. Tente novamente.",
+    sub_error_msg: "Não foi possível processar a subscrição de momento.",
     sub_restored_title: "Subscrição Restaurada! 🎉",
     sub_restored_msg:
       "A sua subscrição ativa foi encontrada e restaurada com sucesso.",
     btn_go_to_start: "Ir para o Início",
     no_active_sub_title: "Nenhuma Subscrição Ativa",
     no_active_sub_msg:
-      "Não encontrámos nenhuma subscrição ativa associada à sua conta de loja.",
-    restore_purchases_error_msg:
-      "Falha ao tentar restaurar compras. Tente novamente.",
+      "Não encontrámos nenhuma subscrição ativa associada à sua conta.",
+    restore_purchases_error_msg: "Falha ao tentar restaurar compras.",
     feat_duo_1_title: "1 Subscrição Cobre 2 Pessoas",
-    feat_duo_1_desc:
-      "Você e o seu amor ligados sem precisar de pagar dois acessos.",
+    feat_duo_1_desc: "Você e o seu amor ligados sem pagar duas vezes.",
     feat_duo_2_title: "Trilha Sincronizada de 90 Dias",
-    feat_duo_2_desc:
-      "Desafios em tempo real para blindar e resgatar a relação.",
+    feat_duo_2_desc: "Desafios em tempo real para blindar a relação.",
     feat_duo_3_title: "Desafios de Ouro do Casal",
     feat_duo_3_desc: "Missões bónus nos fins de semana para sair da rotina.",
     feat_solo_1_title: "Acesso Individual (Modo Solo)",
-    feat_solo_1_desc:
-      "Para quem quer iniciar a jornada de autocuidado primeiro.",
+    feat_solo_1_desc: "Para quem quer iniciar a jornada individual primeiro.",
     feat_solo_2_title: "Trilha de 90 Dias Unilateral",
     feat_solo_2_desc:
-      "Missões focadas na atitude, escuta ativa e mudança pessoal.",
+      "Missões focadas em postura, escuta ativa e mudança pessoal.",
     plan_duo_monthly_name: "Duo Mensal",
     plan_duo_monthly_desc: "19,90 €/mês para o casal",
     period_per_month: "/mês",
@@ -1080,18 +1111,18 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     plan_solo_annual_desc: "10,82 €/mês (Total 129,90 €)",
     paywall_hero_title: "O Plano de Resgate da Sua Relação",
     paywall_hero_sub:
-      "Escolha como prefere iniciar. Lembre-se: no Plano Duo, uma única subscrição libertará a app para ambos!",
+      "Escolha como prefere iniciar. No Plano Duo, uma subscrição serve para os dois!",
     toggle_couple_duo: "Casal Duo (2 Acessos)",
     toggle_individual_solo: "Individual Solo",
     partner_connected_notice:
-      "Já estão ligados! Apenas uma subscrição Duo libertará o acesso dos dois.",
+      "Já estão ligados! Apenas uma subscrição Duo é necessária.",
     time_protected_title: "O seu tempo está protegido!",
     journey_starts_text_part1: "A Jornada de 90 dias",
     journey_starts_text_highlight:
       "só começa a contar a partir da sua primeira tarefa.",
     duo_sub_coverage_desc:
-      "A sua subscrição cobre-o a si e ao seu parceiro sem custos adicionais.",
-    solo_upgrade_desc: "Poderá atualizar para o Plano Duo a qualquer momento.",
+      "A sua subscrição cobre ambos sem taxas adicionais.",
+    solo_upgrade_desc: "Pode atualizar para o Plano Duo a qualquer momento.",
     what_is_included_title: "O que está incluído no {{category}}?",
     btn_restore_purchases: "Restaurar Compras",
     terms_of_use_eula: "Termos de Utilização (EULA)",
@@ -1103,43 +1134,40 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     secure_payment_env: "Ambiente de Pagamento 100% Seguro",
     verify_email_sent_title: "E-mail Enviado! ✉️",
     verify_email_sent_msg:
-      "Um link de confirmação foi enviado para a sua caixa de entrada. Clique nele para verificar a conta.",
+      "Um link de confirmação foi enviado para a sua caixa de entrada.",
     wait_title: "Aguarde",
     verify_email_too_many_msg:
-      "Já enviámos um e-mail recentemente. Verifique o seu spam ou aguarde alguns minutos.",
-    verify_email_error_msg:
-      "Não foi possível enviar o e-mail de verificação neste momento.",
-    photo_too_large_title: "Foto muito grande",
+      "Enviámos um e-mail recentemente. Verifique os spams.",
+    verify_email_error_msg: "Não foi possível enviar o e-mail de verificação.",
+    photo_too_large_title: "Fotografia muito grande",
     photo_too_large_msg: "Por favor, escolha uma imagem com menor resolução.",
-    update_photo_error_msg: "Não foi possível atualizar a foto.",
-    profile_photo_prompt_title: "Foto de Perfil",
-    profile_photo_prompt_msg: "Onde deseja selecionar a imagem?",
-    btn_take_photo: "Tirar Foto (Câmara)",
+    update_photo_error_msg: "Não foi possível atualizar a fotografia.",
+    profile_photo_prompt_title: "Fotografia de Perfil",
+    profile_photo_prompt_msg: "De onde quer escolher a imagem?",
+    btn_take_photo: "Tirar Fotografia (Câmara)",
     permission_title: "Permissão",
     camera_permission_msg:
-      "Precisa de dar permissão de acesso à câmara para tirar fotos.",
+      "Precisa de permitir o acesso à câmara para tirar fotografias.",
     btn_choose_gallery: "Escolher da Galeria",
     gallery_permission_msg:
-      "Precisa de dar permissão de acesso à galeria para alterar a foto.",
-    switch_google_account_title: "Trocar Conta Google",
+      "Precisa de permitir o acesso à galeria de imagens.",
+    switch_google_account_title: "Mudar de Conta Google",
     switch_google_account_msg:
-      "Deseja desligar a conta atual do Google para escolher outro e-mail?",
+      "Deseja desligar a conta Google atual para escolher outro e-mail?",
     btn_disconnect_google: "Sim, Desligar Google",
     account_disconnected_title: "Conta Desligada 🌐",
-    account_disconnected_msg:
-      "A sua sessão foi encerrada. No próximo acesso poderá escolher outra conta.",
-    logout_title: "Sair da Conta",
-    logout_msg: "Tem a certeza de que deseja sair?",
+    account_disconnected_msg: "A sua sessão foi encerrada.",
+    logout_title: "Terminar Sessão",
+    logout_msg: "Tem a certeza de que deseja terminar sessão?",
     btn_logout: "Sair",
     delete_account_warning_msg:
-      "⚠️ Atenção: Esta ação eliminará permanentemente todos os seus dados. Deseja continuar?",
+      "⚠️ Atenção: Esta ação apagará permanentemente todos os seus dados.",
     btn_yes_delete: "Sim, Eliminar",
     security_title: "Segurança",
     reauth_required_delete_msg:
-      "Por motivos de segurança, inicie sessão novamente e repita a operação.",
+      "Por motivos de segurança, inicie sessão novamente antes de eliminar.",
     delete_error_title: "Erro ao Eliminar",
-    delete_error_msg:
-      "Não foi possível eliminar a conta neste momento. Tente novamente mais tarde.",
+    delete_error_msg: "Não foi possível eliminar a conta de momento.",
     cannot_open_page_msg: "Não foi possível abrir a página.",
     user_default_name: "Utilizador",
     my_profile_title: "O Meu Perfil",
@@ -1156,7 +1184,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     last_name_label: "Apelido",
     last_name_placeholder: "Ex: Silva",
     full_address_label: "Morada Completa",
-    full_address_placeholder: "Rua, Número, Freguesia...",
+    full_address_placeholder: "Rua, Número, Andar...",
     zip_code_label: "Código Postal",
     phone_label: "Telefone",
     sub_legal_title: "Subscrição & Jurídico",
@@ -1164,15 +1192,35 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     account_settings_title: "Definições da Conta",
     bypass_lock_label: "Ignorar Bloqueio Diário",
     bypass_lock_desc: "Permite realizar várias tarefas no mesmo dia",
-    switch_google_account_menu: "Trocar Conta Google",
-    switch_google_account_desc: "Força a seleção de e-mail no próximo login",
+    switch_google_account_menu: "Mudar de Conta Google",
+    switch_google_account_desc: "Força a seleção de e-mail ao iniciar sessão",
     adjust_notifications_menu: "Ajustar Notificações",
-    contact_support_menu: "Contactar Suporte",
-    logout_menu_option: "Sair da Conta",
-    delete_account_permanently_btn: "Eliminar a minha conta permanentemente",
+    contact_support_menu: "Falar com o Suporte",
+    logout_menu_option: "Terminar Sessão",
+    delete_account_permanently_btn: "Eliminar permanentemente a minha conta",
+    app_language_title: "Idioma da App",
+    haptics_label: "Efeitos Táteis (Haptics)",
+    haptics_desc: "Vibrações ao concluir tarefas e interagir",
+    choose_language_title: "Escolha o seu Idioma",
+    audit_account_deleted:
+      "Pedido de eliminação total da conta via ProfileScreen. Parceiro desvinculado: {{partner}}",
+    audit_anamnese_skipped: "Anamnese pulada: Perfil padrão ativado pelo usuário",
+    audit_anamnese_completed: "Anamnese concluída e encriptada com sucesso",
+    audit_partner_linked: "Parceiro vinculado com sucesso via convite",
+    audit_partner_match_request:
+      "Solicitação de pareamento enviada para o parceiro ID: {{partnerId}}",
+    audit_hard_reset: "Exclusão total solicitada via Hard Reset na HomeScreen",
+    audit_sub_activated: "Assinatura ativada no plano {{category}} - {{plan}}",
+    audit_sub_restored: "Restauração de compras realizada com sucesso",
+    audit_gift_redeemed:
+      "Vale resgatado na loja. Semanas: {{week}}, GiftID: {{giftId}}",
   },
 
   en: {
+    guide_green_label: "Green:",
+    guide_green_desc: "You've already done the task and want to log it.",
+    guide_orange_label: "Orange:",
+    guide_orange_desc: "Need to do it together during the day.",
     tab_tasks: "Tasks",
     tab_match: "Match",
     tab_shop: "Shop",
@@ -1474,6 +1522,11 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     placeholder_journal_entry: "How did you feel today? (Optional)",
     btn_completing_label: "COMPLETING...",
     btn_mark_accomplished_label: "MARK AS ACCOMPLISHED",
+
+    // New Practical Action Buttons
+    btn_do_real_life: "I'LL DO IT IN REAL LIFE NOW 🚀",
+    btn_already_did_register: "I'VE DONE IT, LET'S REGISTER ✓",
+
     solo_journey_generated_title: "Solo Journey Generated! 🚀",
     solo_journey_generated_msg:
       "We analyzed your assessment. Your 90-day trail is now unlocked!",
@@ -1724,6 +1777,25 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     contact_support_menu: "Contact Support",
     logout_menu_option: "Sign Out",
     delete_account_permanently_btn: "Permanently delete my account",
+    app_language_title: "App Language",
+    haptics_label: "Haptic Feedback",
+    haptics_desc: "Vibrations upon task completion and interaction",
+    choose_language_title: "Choose your Language",
+    audit_account_deleted:
+      "Full account deletion request via ProfileScreen. Unlinked partner: {{partner}}",
+    audit_anamnese_skipped:
+      "Anamnesis skipped: Default profile activated by user",
+    audit_anamnese_completed:
+      "Anamnesis successfully completed and encrypted",
+    audit_partner_linked: "Partner successfully linked via invitation",
+    audit_partner_match_request:
+      "Pairing request sent to partner ID: {{partnerId}}",
+    audit_hard_reset: "Full deletion requested via Hard Reset on HomeScreen",
+    audit_sub_activated:
+      "Subscription activated for plan {{category}} - {{plan}}",
+    audit_sub_restored: "Purchases successfully restored",
+    audit_gift_redeemed:
+      "Voucher redeemed in store. Weeks: {{week}}, GiftID: {{giftId}}",
   },
 
   es: {
@@ -1738,7 +1810,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     error_title: "Error",
     attention_title: "Atención",
     ops_title: "¡Ups!",
-    warning_label: "⚠️ ATENCIÓN:",
+    warning_label: "⚠️ ATENÇÃO:",
     invalid_username_format_msg:
       "El nombre de usuario solo puede contener letras, números y guiones bajos (_). No use puntos, espacios ni símbolos.",
     account_created_success_title: "¡Cuenta Creada con Éxito! 🎉",
@@ -1826,7 +1898,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     intro_text_part2:
       ". El mapeo identifica la intensidad ideal y el orden de misiones para la pareja.",
     btn_start_mapping: "Iniciar Mapeo (2 min)",
-    btn_skip_assessment: "Prefiero no responder mi evaluación",
+    btn_skip_assessment: "Prefiro no responder mi evaluación",
     step_counter: "Paso {{current}} de {{total}}",
     analyzing_tuning_title: "Analizando Sintonía",
     result_cold_title: "Conexión en Pausa ❄️",
@@ -2011,12 +2083,12 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     decryption_failed_warn: "⚠️ Fallo al desencriptar.",
     gold_challenge_review_title: "Desafío de Oro",
     daily_mission_review_title: "Misión del Día",
-    gold_challenge_title_default: "Desafio de Oro",
+    gold_challenge_title_default: "Desafío de Oro",
     mission_day_title_default: "Día {{day}}",
     gold_challenge_completed_badge: "🏆 Desafío Concluido (+150 Bonds)",
     mission_accomplished_badge: "Misión Cumplida",
     concept_section_title: "El Concepto",
-    action_section_title: "Acción Práctica",
+    action_section_title: "Acción Prática",
     journal_section_title: "📖 Tu Diario (Opcional)",
     journal_section_sub: "Tus reflexiones guardadas para revisar después.",
     no_reflection_recorded_msg: "No se escribió ninguna reflexión este día.",
@@ -2035,6 +2107,11 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     placeholder_journal_entry: "¿Cómo te sentiste hoy? (Opcional)",
     btn_completing_label: "FINALIZANDO...",
     btn_mark_accomplished_label: "MARCAR COMO CUMPRIDA",
+
+    // Novos Botões de Ação Prática
+    btn_do_real_life: "¡LO HARÉ EN LA VIDA REAL AHORA! 🚀",
+    btn_already_did_register: "YA LO HICE, QUIERO REGISTRARLO ✓",
+
     solo_journey_generated_title: "¡Jornada Solo Generada! 🚀",
     solo_journey_generated_msg:
       "Cruzamos los datos de tu evaluación. ¡Tu ruta de 90 días está liberada!",
@@ -2105,7 +2182,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     btn_keep_current: "Mantener Actual",
     your_assessment_title: "Tu Evaluación",
     diagnostic_completed: "Diagnóstico Concluido ✓",
-    discover_temp_sub: "Descubran la temperatura de la relación",
+    discover_temp_sub: "Descubram a temperatura da relação",
     match_completed_title: "Match Concluído ✅",
     match_completed_msg:
       "Opción de Match/Solo registrada. ¡Sigue hacia el botón Play!",
@@ -2232,7 +2309,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     update_photo_error_msg: "No se pudo actualizar la foto de perfil.",
     profile_photo_prompt_title: "Foto de Perfil",
     profile_photo_prompt_msg: "¿De dónde quieres seleccionar tu imagen?",
-    btn_take_photo: "Tomar Foto (Cámara)",
+    btn_take_photo: "Tomar Foto (Cámera)",
     permission_title: "Permiso Requerido",
     camera_permission_msg: "Se requiere permiso de cámara para tomar fotos.",
     btn_choose_gallery: "Elegir de la Galería",
@@ -2288,9 +2365,33 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     contact_support_menu: "Contactar a Soporte",
     logout_menu_option: "Cerrar Sesión",
     delete_account_permanently_btn: "Eliminar mi cuenta permanentemente",
+
+    app_language_title: "Idioma de la Aplicación",
+    haptics_label: "Efectos Táctiles (Haptics)",
+    haptics_desc: "Vibraciones al completar tareas e interactuar",
+    choose_language_title: "Elige tu Idioma",
+    audit_account_deleted:
+      "Solicitud de eliminación total de cuenta vía ProfileScreen. Pareja desvinculada: {{partner}}",
+    audit_anamnese_skipped:
+      "Anamnesis omitida: Perfil predeterminado activado por el usuario",
+    audit_anamnese_completed: "Anamnesis completada y encriptada con éxito",
+    audit_partner_linked: "Pareja vinculada con éxito mediante invitación",
+    audit_partner_match_request:
+      "Solicitud de vinculación enviada al ID de pareja: {{partnerId}}",
+    audit_hard_reset:
+      "Eliminación total solicitada vía Hard Reset en HomeScreen",
+    audit_sub_activated:
+      "Suscripción activada en el plan {{category}} - {{plan}}",
+    audit_sub_restored: "Restauración de compras realizada con éxito",
+    audit_gift_redeemed:
+      "Vale canjeado en la tienda. Semanas: {{week}}, GiftID: {{giftId}}",
   },
 
   fr: {
+    guide_green_label: "Vert :",
+    guide_green_desc: "Vous avez déjà fait la tâche e souhaitez l'enregistrer.",
+    guide_orange_label: "Orange :",
+    guide_orange_desc: "À réaliser ensemble au cours de la journée.",
     tab_tasks: "Tâches",
     tab_match: "Match",
     tab_shop: "Boutique",
@@ -2325,7 +2426,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     partner_no_gifts: "{{name}} n'a pas encore sélectionné de cadeaux.",
     week_tag: "SEMAINE {{week}}",
     btn_buy: "ACHETER (150 BONDS)",
-    btn_mark_delivered: "Marquer comme Livré dans la Vraie Vie",
+    btn_mark_delivered: "Marcar comme Livré dans la Vraie Vie",
     waiting_partner_confirm:
       "⏳ Livré ! En attente de confirmation par {{name}}",
     delivered_confirmed_partner: "✓ Livré & Confirmé par {{name}} ❤️",
@@ -2456,7 +2557,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     short_password_title: "Mot de Passe Trop Court",
     short_password_msg:
       "Votre mot de passe doit contenir au moins 6 caractères.",
-    username_unavailable_title: "Nom Indisponible",
+    username_unavailable_title: "Nom Indisponibile",
     username_unavailable_msg:
       "Ce @username est déjà pris. Veuillez en choisir un autre.",
     email_in_use_title: "E-mail Déjà Inscrit 👋",
@@ -2600,6 +2701,11 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
       "Comment vous êtes-vous senti(e) aujourd'hui ? (Optionnel)",
     btn_completing_label: "FINALISATION...",
     btn_mark_accomplished_label: "MARQUER COMME ACCOMPLIE",
+
+    // Novos Botões de Ação Prática
+    btn_do_real_life: "JE VAIS LE FAIRE DANS LA VRAIE VIE 🚀",
+    btn_already_did_register: "JE L'AI FAIT, JE VEUX ENREGISTRER ✓",
+
     solo_journey_generated_title: "Parcours Solo Généré ! 🚀",
     solo_journey_generated_msg:
       "Analyse terminée ! Votre parcours de 90 jours est maintenant débloqué.",
@@ -2780,7 +2886,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
       "Votre abonnement vous couvre vous et votre partenaire sans frais supplémentaires.",
     solo_upgrade_desc: "Vous pouvez passer au Plan Duo à tout moment.",
     what_is_included_title: "Que comprend le {{category}} ?",
-    btn_restore_purchases: "Restaurer les Achats",
+    btn_restore_purchases: "Restaurar Compras",
     terms_of_use_eula: "Conditions d'Utilisation (EULA)",
     privacy_policy_link: "Confidentialité",
     btn_subscribe_plan_cta: "S'abonner au Plan {{category}} {{period}}",
@@ -2857,9 +2963,34 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     contact_support_menu: "Contacter le Support",
     logout_menu_option: "Se Déconnecter",
     delete_account_permanently_btn: "Supprimer mon compte définitivement",
+
+    // Configurações & Auditoria
+    app_language_title: "Langue de l'application",
+    haptics_label: "Retours haptiques",
+    haptics_desc: "Vibrations lors de l'achèvement des tâches et interactions",
+    choose_language_title: "Choisissez votre langue",
+    audit_account_deleted:
+      "Demande de suppression totale du compte via ProfileScreen. Partenaire dissocié: {{partner}}",
+    audit_anamnese_skipped:
+      "Anamnèse ignorée: Profil par défaut activé par l'utilisateur",
+    audit_anamnese_completed: "Anamnèse terminée et cryptée avec succès",
+    audit_partner_linked: "Partenaire lié avec succès via invitation",
+    audit_partner_match_request:
+      "Demande d'appairage envoyée à l'ID partenaire: {{partnerId}}",
+    audit_hard_reset:
+      "Suppression totale demandée via Hard Reset sur HomeScreen",
+    audit_sub_activated:
+      "Abonnement activé pour le forfait {{category}} - {{plan}}",
+    audit_sub_restored: "Restauration des achats réussie",
+    audit_gift_redeemed:
+      "Bon échangé dans la boutique. Semaines: {{week}}, GiftID: {{giftId}}",
   },
 
   de: {
+    guide_green_label: "Grün:",
+    guide_green_desc: "Du hast die Aufgabe erledigt und möchtest sie eintragen.",
+    guide_orange_label: "Orange:",
+    guide_orange_desc: "Im Laufe des Tages gemeinsam erledigen.",
     tab_tasks: "Aufgaben",
     tab_match: "Match",
     tab_shop: "Shop",
@@ -2948,12 +3079,12 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     btn_start_default_profile: "Mit Standardprofil starten",
     solo_mode_alert_title: "Gemeinsam ist es schöner! ❤️",
     solo_mode_alert_msg:
-      "DuoElo verbindet Paare und macht den Alltag zu einer gemeinsamen Erfahrung.\n\nWenn Sie Ihren Schatz jetzt einladen, schalten Sie gegenseitige Aufgaben frei.\n\nMöchten Sie eine Einladung senden, bevor Sie auf Play drücken?",
+      "DuoElo wurde entwickelt, um Verbindungen zu schaffen.\n\nWenn Sie Ihren Schatz jetzt einladen, schalten Sie gegenseitige Aufgaben frei.\n\nMöchten Sie eine Einladung senden, bevor Sie auf Play drücken?",
     btn_send_partner_invite: "Einladung an Schatz senden",
     btn_continue_solo_for_now: "Vorerst im Solo-Modus fortfahren",
     journey_locked_title: "Reise aktiv & gesperrt 🔐",
     journey_locked_msg:
-      "Ihre Analyse ist gespeichert und Play ist aktiv. Antworte sind gesperrt, um Ihre 90-Tage-Reise zu schützen.",
+      "Ihre Analyse ist gespeichert und Play ist aktiv. Antworten sind gesperrt, um Ihre 90-Tage-Reise zu schützen.",
     btn_back_to_home: "Zurück zur Startseite",
     intro_title: "DuoElo Harmonie-Analyse 💍",
     intro_text_part1: "Dieser Schritt ist der",
@@ -3167,6 +3298,11 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     placeholder_journal_entry: "Wie haben Sie sich heute gefühlt? (Optional)",
     btn_completing_label: "WIRD ABGESCHLOSSEN...",
     btn_mark_accomplished_label: "ALS ERFÜLLT MARKIEREN",
+
+    // Novos Botões de Ação Prática
+    btn_do_real_life: "ICH MACHE ES JETZT IM WIRKLICHEN LEBEN 🚀",
+    btn_already_did_register: "SCHON GEMACHT, EINTRAGEN ✓",
+
     solo_journey_generated_title: "Solo-Reise erstellt! 🚀",
     solo_journey_generated_msg:
       "Ihre Analyse wurde verarbeitet. Ihre 90-Tage-Route ist freigeschaltet!",
@@ -3304,7 +3440,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     feat_duo_1_desc: "Sie und Ihr Partner verbunden, ohne zweimal zu zahlen.",
     feat_duo_2_title: "Synchronisierte 90-Tage-Route",
     feat_duo_2_desc: "Echtzeit-Herausforderungen zum Schutz Ihrer Beziehung.",
-    feat_duo_3_title: "Gold-Herausforderungen für Paare",
+    feat_duo_3_title: "Paar-Gold-Herausforderungen",
     feat_duo_3_desc: "Bonus-Wochenendaufgabe gegen die Routine.",
     feat_solo_1_title: "Einzelzugang (Solo-Modus)",
     feat_solo_1_desc:
@@ -3347,7 +3483,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     btn_restore_purchases: "Käufe wiederherstellen",
     terms_of_use_eula: "Nutzungsbedingungen (EULA)",
     privacy_policy_link: "Datenschutz",
-    btn_subscribe_plan_cta: "{{category}} {{period}} abonnieren",
+    btn_subscribe_plan_cta: "{{category}} {{period}}-Plan Abonnieren",
     period_monthly_word: "Monatlich",
     period_quarterly_word: "Quartalsweise",
     period_annual_word: "Jährlich",
@@ -3417,9 +3553,34 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     contact_support_menu: "Support kontaktieren",
     logout_menu_option: "Abmelden",
     delete_account_permanently_btn: "Mein Konto dauerhaft löschen",
+
+    // Configurações & Auditoria
+    app_language_title: "App-Sprache",
+    haptics_label: "Haptisches Feedback",
+    haptics_desc: "Vibrationen bei Aufgabenerfüllung und Interaktion",
+    choose_language_title: "Wählen Sie Ihre Sprache",
+    audit_account_deleted:
+      "Antrag auf vollständige Kontolöschung über ProfileScreen. Entkoppelter Partner: {{partner}}",
+    audit_anamnese_skipped:
+      "Anamnese übersprungen: Standardprofil vom Benutzer aktiviert",
+    audit_anamnese_completed:
+      "Anamnese erfolgreich abgeschlossen und verschlüsselt",
+    audit_partner_linked: "Partner erfolgreich per Einladung verknüpft",
+    audit_partner_match_request:
+      "Kopplungsanfrage an Partner-ID gesendet: {{partnerId}}",
+    audit_hard_reset:
+      "Vollständige Löschung über Hard Reset im HomeScreen angefordert",
+    audit_sub_activated: "Abonnement aktiviert für Paket {{category}} - {{plan}}",
+    audit_sub_restored: "Käufe erfolgreich wiederhergestellt",
+    audit_gift_redeemed:
+      "Gutschein im Shop eingelöst. Wochen: {{week}}, GiftID: {{giftId}}",
   },
 
   ja: {
+    guide_green_label: "緑：",
+    guide_green_desc: "タスクは完了しており、記録します。",
+    guide_orange_label: "オレンジ：",
+    guide_orange_desc: "日中に二人で行うタスクです。",
     tab_tasks: "タスク",
     tab_match: "マッチ",
     tab_shop: "ショップ",
@@ -3469,7 +3630,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     modal_select_sub: "{{name}}から何を受け取りたいですか？",
     insufficient_bonds_title: "Bondsが不足しています 🔒",
     insufficient_bonds_msg:
-      "購入には150 Bondsが必要です。ホームでデイリークエストを完了しましょう！",
+      "購入에는 150 Bondsが必要です。ホームでデイリークエストを完了しましょう！",
     gift_bought_title: "プレゼントを購入しました！ 🎁",
     gift_bought_msg:
       "「{{gift}}」を購入しました。現実で渡したら「渡し済み」をタップ！",
@@ -3497,13 +3658,13 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     loading_step_4: "旅の優先度マップを生成中...",
     compass_prompt_title: "ふたりの関係のコンパス 💍",
     compass_prompt_msg:
-      "おふたりだけの旅を創るため、まず調和度をマッピングすることが重要です。\n\n2分未満で完了し、毎日のクエストが最適な目標に届きます。\n\n今すぐ回答しますか？",
+      "おふたりだけの旅を創るため、まず調和度をマッピングすることが重要です。\n\n2分未満で完了し、必要なデイリークエストが届きます。\n\n今すぐ回答しますか？それとも標準設定で進めますか？",
     btn_answer_assessment_now: "今すぐ診断を受ける",
     btn_start_default_profile: "標準プロファイルで開始",
     solo_mode_alert_title: "ふたりならもっと楽しい！ ❤️",
     solo_mode_alert_msg:
-      "DuoEloは絆の架け橋を架け、日常を共有する体験に変えるよう設計されています。\n\nパートナーを招待すると相互ミッションが解放されます。\n\nPlayを押す前に招待状を送りませんか？",
-    btn_send_partner_invite: "パートナーに招待を送る",
+      "DuoEloはふたりで絆を育むために作られました。\n\nPlayを押す前にパートナーを招待しませんか？",
+    btn_send_partner_invite: "パートナーに招待状を送る",
     btn_continue_solo_for_now: "今はソロモードで続ける",
     journey_locked_title: "ジャーニー進行中・ロック 🔐",
     journey_locked_msg:
@@ -3720,6 +3881,11 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     placeholder_journal_entry: "今日の気分や感想を入力（任意）",
     btn_completing_label: "完了処理中...",
     btn_mark_accomplished_label: "達成としてマーク",
+
+    // Novos Botões de Ação Prática
+    btn_do_real_life: "今すぐ現実の世界で実行する 🚀",
+    btn_already_did_register: "実行済み、記録する ✓",
+
     solo_journey_generated_title: "ソロジャーニー生成完了！ 🚀",
     solo_journey_generated_msg:
       "診断結果に基づき、90日間の公式ルートが解放されました！",
@@ -3771,7 +3937,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
       "チャレンジ成功です！ +{{points}} Bondsがアカウントに追加されました。",
     push_mission_done_title: "ミッション達成！ 🌟",
     push_mission_done_body:
-      "パートナーが今日のミッションを完了しました！次はあなたの番です！",
+      "パートナーが今日のミッションを完了しました！次は your の番です！",
     gold_challenge_default_title: "第 {{week}} 週ゴールドチャレンジ",
     gold_challenge_default_desc: "週末にふたりの絆を強めるボーナスミッション。",
     gold_challenge_default_concept:
@@ -3966,22 +4132,34 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     switch_google_account_menu: "Googleアカウントの切り替え",
     switch_google_account_desc:
       "次回ログイン時にメール選択画面を強制表示します",
-    adjust_notifications_menu: "通知設定の調整",
-    contact_support_menu: "サポートに問い合わせる",
+    adjust_notifications_menu: "通知設定",
+    contact_support_menu: "サポートに連絡",
     logout_menu_option: "ログアウト",
     delete_account_permanently_btn: "アカウントを永久に削除",
-  },
-};
 
+    // Configurações & Auditoria
+    app_language_title: "アプリの言語",
+    haptics_label: "触覚フィードバック (Haptics)",
+    haptics_desc: "タスクを完了するときに振動フィードバックを提供します",
+
+    
+  }
+}
+
+/**
+ * Função de internacionalização principal do DuoElo (t)
+ */
 export function t(
   key: string,
   lang: string = "pt-BR",
   params?: Record<string, string | number>,
 ): string {
-  const code = (
-    TRANSLATIONS[lang as LanguageCode] ? lang : "pt-BR"
-  ) as LanguageCode;
-  let text = TRANSLATIONS[code][key] || TRANSLATIONS["pt-BR"][key] || key;
+  const selectedLang = TRANSLATIONS[lang as LanguageCode] ? (lang as LanguageCode) : "pt-BR";
+  
+  let text =
+    TRANSLATIONS[selectedLang]?.[key] ||
+    TRANSLATIONS["pt-BR"]?.[key] ||
+    key;
 
   if (params) {
     Object.entries(params).forEach(([paramKey, value]) => {
@@ -3990,4 +4168,14 @@ export function t(
   }
 
   return text;
+}
+
+/**
+ * Helper auxiliar para obter o idioma atual configurado ou aplicar o fallback
+ */
+export function getSupportedLanguage(lang?: string): LanguageCode {
+  if (lang && TRANSLATIONS[lang as LanguageCode]) {
+    return lang as LanguageCode;
+  }
+  return "pt-BR";
 }

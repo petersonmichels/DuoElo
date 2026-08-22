@@ -3,62 +3,69 @@
  * Foco: Redução de carga cognitiva, segurança psicológica e indução de ocitocina.
  */
 
-import "@/global.css";
 import { Platform } from "react-native";
 
 export const Colors = {
   light: {
-    // Cores de Superfície (Segurança/Calma)
+    // Cores de Superfície (Segurança / Calma)
     background: "#F0F4F8", // Fundo principal Azul-Cinza Suave
     backgroundElement: "#FFFFFF", // Fundo de cards para destacar suavemente
     backgroundSelected: "#E8F4F1", // Verde-Menta atenuado para áreas selecionadas
 
     // Texto & Legibilidade (Estabilidade)
-    text: "#1A2F3B", // Azul-Petróleo Escuro (Evita o contraste agressivo do preto)
+    text: "#1A2F3B", // Azul-Petróleo Escuro (evita o contraste agressivo do preto)
     textSecondary: "#2C3E50", // Slate Blue para textos de apoio
 
-    // Ações & Feedbacks (Ocitocina e Dopamina)
+    // Ações & Feedbacks (Ocitocina e Destaque)
     primary: "#1A2F3B",
-    accent: "#E5A93C", // Ouro Suave para destaque ativo/calor
-    success: "#4BDE95", // Verde Esmeralda para cura e sucesso
+    accent: "#EAB64A", // Ouro/Mel Suave para destaque
+    mint: "#67D4A8", // Verde Menta
+    success: "#4BDE95", // Verde Esmeralda
+    border: "#D1D9E0",
   },
   dark: {
-    // Cores de Superfície (Abraço/Conforto em baixa luz)
-    background: "#1A2F3B", // Fundo principal Azul-Petróleo Escuro
-    backgroundElement: "#2C3E50", // Slate Blue para cards
-    backgroundSelected: "#3A506B", // Elevação suave para seleções
+    // Cores de Superfície (Conforto em baixa luminosidade)
+    background: "#09090C", // Fundo primário Dark
+    backgroundElement: "#1A1A22", // Card Background Dark
+    backgroundSelected: "#2D2D3B", // Elevação suave para seleções
 
     // Texto & Legibilidade
-    text: "#F0F4F8", // Azul-Cinza muito claro (Evita o brilho do branco puro)
-    textSecondary: "#B0C4DE", // Tom de azul acinzentado de apoio
+    text: "#E1E7ED", // Azul-Cinza claro
+    textSecondary: "#94A3B8", // Tom acinzentado de apoio
 
     // Ações & Feedbacks
-    primary: "#E8F4F1",
-    accent: "#DCA052", // Mel Quente para destaque ativo no dark mode
+    primary: "#0F0F12",
+    accent: "#EAB64A", // Ouro/Mel Suave
+    mint: "#67D4A8", // Verde Menta
     success: "#4BDE95",
+    border: "#2D2D3B",
   },
 } as const;
 
 export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
 
+// Tipografia oficial Montserrat vinculada às fontes do Expo
 export const Fonts = Platform.select({
   ios: {
-    sans: "system-ui",
-    serif: "ui-serif",
-    rounded: "ui-rounded",
+    regular: "Montserrat_400Regular",
+    semiBold: "Montserrat_600SemiBold",
+    bold: "Montserrat_700Bold",
+    black: "Montserrat_900Black",
     mono: "ui-monospace",
   },
-  default: {
-    sans: "normal",
-    serif: "serif",
-    rounded: "normal",
+  android: {
+    regular: "Montserrat_400Regular",
+    semiBold: "Montserrat_600SemiBold",
+    bold: "Montserrat_700Bold",
+    black: "Montserrat_900Black",
     mono: "monospace",
   },
-  web: {
-    sans: "var(--font-display)",
-    serif: "var(--font-serif)",
-    rounded: "var(--font-rounded)",
-    mono: "var(--font-mono)",
+  default: {
+    regular: "Montserrat_400Regular",
+    semiBold: "Montserrat_600SemiBold",
+    bold: "Montserrat_700Bold",
+    black: "Montserrat_900Black",
+    mono: "monospace",
   },
 });
 

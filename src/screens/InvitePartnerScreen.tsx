@@ -15,6 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { auth, db } from "../config/firebase";
 
 import { t } from "../i18n/translations";
+import { logAuditEvent } from "../services/auditService";
 
 export default function InvitePartnerScreen({ navigation }: any) {
   // 0 = Inicial (Convidar) | 1 = Aguardando Parceiro | 2 = Conectados
@@ -90,7 +91,7 @@ export default function InvitePartnerScreen({ navigation }: any) {
     if (connectionStep === 0) {
       const message = t("invite_whatsapp_message", userLang, {
         code: myInviteCode,
-      });
+      }) || "";
       const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
 
       try {
@@ -100,8 +101,8 @@ export default function InvitePartnerScreen({ navigation }: any) {
           setConnectionStep(1);
         } else {
           Alert.alert(
-            t("whatsapp_not_found_title", userLang),
-            t("whatsapp_not_found_msg", userLang),
+            t("whatsapp_not_found_title", userLang) || "",
+            t("whatsapp_not_found_msg", userLang) || "",
           );
           setConnectionStep(1);
         }
@@ -110,8 +111,8 @@ export default function InvitePartnerScreen({ navigation }: any) {
       }
     } else if (connectionStep === 1) {
       Alert.alert(
-        t("waiting_partner_alert_title", userLang),
-        t("waiting_partner_alert_msg", userLang),
+        t("waiting_partner_alert_title", userLang) || "",
+        t("waiting_partner_alert_msg", userLang) || "",
       );
     } else if (connectionStep === 2) {
       // 🔒 ROTEAMENTO INTELIGENTE PÓS-MATCH
@@ -123,6 +124,14 @@ export default function InvitePartnerScreen({ navigation }: any) {
             doc(db, "users", currentUid),
             { isSoloMode: false },
             { merge: true },
+          );
+
+          // 📜 REGISTRO DE AUDITORIA DE SEGURANÇA (PARTNER_LINKED)
+          await logAuditEvent(
+            currentUid,
+            "PARTNER_LINKED",
+            "Parceiro vinculado com sucesso via convite",
+            userLang
           );
 
           const userSnap = await getDoc(doc(db, "users", currentUid));
@@ -160,18 +169,18 @@ export default function InvitePartnerScreen({ navigation }: any) {
     switch (connectionStep) {
       case 0:
         return {
-          title: t("invite_header_title_0", userLang),
-          sub: t("invite_header_sub_0", userLang),
+          title: t("invite_header_title_0", userLang) || "",
+          sub: t("invite_header_sub_0", userLang) || "",
         };
       case 1:
         return {
-          title: t("invite_header_title_1", userLang),
-          sub: t("invite_header_sub_1", userLang),
+          title: t("invite_header_title_1", userLang) || "",
+          sub: t("invite_header_sub_1", userLang) || "",
         };
       case 2:
         return {
-          title: t("invite_header_title_2", userLang),
-          sub: t("invite_header_sub_2", userLang),
+          title: t("invite_header_title_2", userLang) || "",
+          sub: t("invite_header_sub_2", userLang) || "",
         };
       default:
         return { title: "", sub: "" };
@@ -610,7 +619,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 2,
     borderColor: "#D1D9E0",
-    justify.content: "center",
+    justifyContent: "center",
     alignItems: "center",
   },
   secondaryButtonText: {

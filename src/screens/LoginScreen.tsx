@@ -10,15 +10,7 @@ import {
   signInWithEmailAndPassword,
   signOut,
 } from "firebase/auth";
-import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  query,
-  setDoc,
-  where,
-} from "firebase/firestore";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -40,6 +32,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { auth, authControls, db } from "../config/firebase";
 
 import { t } from "../i18n/translations";
+import { logAuditEvent } from "../services/auditService";
+import {
+  hasSecurityPin,
+  setSecurityPin,
+  verifySecurityPin,
+} from "../services/securityService";
 
 const { width } = Dimensions.get("window");
 
@@ -82,13 +80,20 @@ export default function LoginScreen({ navigation }: any) {
   const [userLang, setUserLang] = useState("pt-BR");
   const [isLangModalVisible, setIsLangModalVisible] = useState(false);
 
+  // 🔒 Estados do Modal de PIN de Segurança
+  const [isPinModalVisible, setIsPinModalVisible] = useState(false);
+  const [hasExistingPin, setHasExistingPin] = useState(false);
+  const [pinInput, setPinInput] = useState("");
+  const [confirmPinInput, setConfirmPinInput] = useState("");
+  const [pendingUid, setPendingUid] = useState<string | null>(null);
+
   const [customAlert, setCustomAlert] = useState({
     visible: false,
     title: "",
     message: "",
     icon: "info-circle",
     color: "#202D3A",
-    confirmText: t("btn_understand", userLang),
+    confirmText: t("btn_understand", userLang) || "",
     onConfirm: null as (() => void) | null,
     secondaryText: "",
     onSecondary: null as (() => void) | null,
@@ -173,7 +178,7 @@ export default function LoginScreen({ navigation }: any) {
     message: string,
     icon = "info-circle",
     color = "#202D3A",
-    confirmText = t("btn_understand", userLang),
+    confirmText = t("btn_understand", userLang) || "",
     onConfirm: (() => void) | null = null,
     secondaryText = "",
     onSecondary: (() => void) | null = null,
@@ -197,8 +202,8 @@ export default function LoginScreen({ navigation }: any) {
 
     if (!cleanEmail) {
       showCustomAlert(
-        t("forgot_pwd_empty_title", userLang),
-        t("forgot_pwd_empty_msg", userLang),
+        t("forgot_pwd_empty_title", userLang) || "",
+        t("forgot_pwd_empty_msg", userLang) || "",
         "envelope",
         "#EAB64A",
       );
@@ -210,25 +215,25 @@ export default function LoginScreen({ navigation }: any) {
       await sendPasswordResetEmail(auth, cleanEmail);
       setIsLoading(false);
       showCustomAlert(
-        t("forgot_pwd_success_title", userLang),
-        t("forgot_pwd_success_msg", userLang, { email: cleanEmail }),
+        t("forgot_pwd_success_title", userLang) || "",
+        t("forgot_pwd_success_msg", userLang, { email: cleanEmail }) || "",
         "check-circle",
         "#67D4A8",
       );
     } catch (error: any) {
       setIsLoading(false);
-      let errorMsg = t("forgot_pwd_error_default", userLang);
+      let errorMsg = t("forgot_pwd_error_default", userLang) || "";
       if (
         error?.code === "auth/user-not-found" ||
         error?.code === "auth/invalid-credential"
       ) {
-        errorMsg = t("forgot_pwd_error_not_found", userLang);
+        errorMsg = t("forgot_pwd_error_not_found", userLang) || "";
       } else if (error?.code === "auth/invalid-email") {
-        errorMsg = t("forgot_pwd_error_invalid_email", userLang);
+        errorMsg = t("forgot_pwd_error_invalid_email", userLang) || "";
       }
 
       showCustomAlert(
-        t("forgot_pwd_error_title", userLang),
+        t("forgot_pwd_error_title", userLang) || "",
         errorMsg,
         "times-circle",
         "#D96C6C",
@@ -290,23 +295,80 @@ export default function LoginScreen({ navigation }: any) {
     }
   };
 
+  // 🔒 Abertura do Modal de PIN antes do acesso final
+  const triggerPinCheck = async (uid: string) => {
+    setPendingUid(uid);
+    setPinInput("");
+    setConfirmPinInput("");
+    const pinExists = await hasSecurityPin();
+    setHasExistingPin(pinExists);
+    setIsPinModalVisible(true);
+  };
+
+  const handlePinSubmit = async () => {
+    if (hasExistingPin) {
+      // Validar PIN cadastrado
+      const isValid = await verifySecurityPin(pinInput);
+      if (isValid) {
+        setIsPinModalVisible(false);
+        if (pendingUid) {
+          await routeUserAfterLogin(pendingUid);
+        }
+      } else {
+        showCustomAlert(
+          "PIN Incorreto",
+          "O PIN de Segurança digitado está incorreto. Tente novamente.",
+          "lock",
+          "#D96C6C",
+        );
+      }
+    } else {
+      // Cadastrar novo PIN
+      if (pinInput.length < 4) {
+        showCustomAlert(
+          "PIN Muito Curto",
+          "O PIN de Segurança deve conter pelo menos 4 dígitos.",
+          "exclamation-triangle",
+          "#EAB64A",
+        );
+        return;
+      }
+
+      if (pinInput !== confirmPinInput) {
+        showCustomAlert(
+          "PINs Não Coincidem",
+          "O PIN e a confirmação devem ser idênticos.",
+          "exclamation-circle",
+          "#EAB64A",
+        );
+        return;
+      }
+
+      await setSecurityPin(pinInput);
+      setIsPinModalVisible(false);
+      if (pendingUid) {
+        await routeUserAfterLogin(pendingUid);
+      }
+    }
+  };
+
   const finalizeAuth = async (wasCreated: boolean) => {
     if (wasCreated) {
       await signOut(auth);
       setIsLoading(false);
       showCustomAlert(
-        t("account_created_title", userLang),
-        t("account_created_msg", userLang),
+        t("account_created_title", userLang) || "",
+        t("account_created_msg", userLang) || "",
         "check-circle",
         "#67D4A8",
-        t("btn_login_now", userLang),
+        t("btn_login_now", userLang) || "",
         () => setIsLogin(true),
       );
     } else {
       setIsLoading(false);
       const uid = auth.currentUser?.uid;
       if (uid) {
-        await routeUserAfterLogin(uid);
+        await triggerPinCheck(uid);
       } else if (navigation && navigation.navigate) {
         navigation.navigate("MainTabs", { screen: "Home" });
       }
@@ -321,8 +383,8 @@ export default function LoginScreen({ navigation }: any) {
 
     if (!cleanEmail || !password || (!isLogin && !rawUsername)) {
       showCustomAlert(
-        t("attention_title", userLang),
-        t("fill_required_fields_msg", userLang),
+        t("attention_title", userLang) || "",
+        t("fill_required_fields_msg", userLang) || "",
         "exclamation-triangle",
         "#EAB64A",
       );
@@ -330,12 +392,11 @@ export default function LoginScreen({ navigation }: any) {
     }
 
     if (!isLogin) {
-      // ⚠️ Validação estrita de formato do username (apenas a-z, 0-9 e _)
       const validUsernameRegex = /^[a-z0-9_]+$/;
       if (!validUsernameRegex.test(rawUsername)) {
         showCustomAlert(
-          t("attention_title", userLang),
-          t("invalid_username_format_msg", userLang),
+          t("attention_title", userLang) || "",
+          t("invalid_username_format_msg", userLang) || "",
           "user-times",
           "#EAB64A",
         );
@@ -344,8 +405,8 @@ export default function LoginScreen({ navigation }: any) {
 
       if (rawUsername.length < 3) {
         showCustomAlert(
-          t("short_username_title", userLang),
-          t("short_username_msg", userLang),
+          t("short_username_title", userLang) || "",
+          t("short_username_msg", userLang) || "",
           "user",
           "#EAB64A",
         );
@@ -355,8 +416,8 @@ export default function LoginScreen({ navigation }: any) {
 
     if (password.length < 6) {
       showCustomAlert(
-        t("short_password_title", userLang),
-        t("short_password_msg", userLang),
+        t("short_password_title", userLang) || "",
+        t("short_password_msg", userLang) || "",
         "lock",
         "#EAB64A",
       );
@@ -376,31 +437,14 @@ export default function LoginScreen({ navigation }: any) {
           password,
         );
         uid = userCred.user.uid;
-        // Salva idioma selecionado no usuário autenticado
         await setDoc(
           doc(db, "users", uid),
           { language: userLang },
           { merge: true },
         );
       } else {
-        const usernameQuery = query(
-          collection(db, "users"),
-          where("username", "==", rawUsername),
-        );
-        const usernameSnap = await getDocs(usernameQuery);
-
-        if (!usernameSnap.empty) {
-          setIsLoading(false);
-          showCustomAlert(
-            t("username_unavailable_title", userLang),
-            t("username_unavailable_msg", userLang),
-            "user-times",
-            "#EAB64A",
-          );
-          return;
-        }
-
         if (authControls) authControls.isCreatingAccount = true;
+
         const userCred = await createUserWithEmailAndPassword(
           auth,
           cleanEmail,
@@ -426,6 +470,18 @@ export default function LoginScreen({ navigation }: any) {
         };
 
         await setDoc(doc(db, "users", uid), userDataToSave, { merge: true });
+
+        try {
+          await logAuditEvent(
+            uid,
+            "EULA_ACCEPTED",
+            "Conta criada via E-mail/Senha com aceite do EULA e Política de Privacidade",
+            userLang
+          );
+        } catch (e) {
+          console.warn("Audit log error ignored:", e);
+        }
+
         if (authControls) authControls.isCreatingAccount = false;
       }
 
@@ -434,15 +490,17 @@ export default function LoginScreen({ navigation }: any) {
       if (authControls) authControls.isCreatingAccount = false;
       setIsLoading(false);
 
+      console.error("❌ ERRO NO HANDLE_AUTH:", error?.code, error?.message);
+
       const errorCode = error?.code || "";
 
       if (errorCode === "auth/email-already-in-use") {
         showCustomAlert(
-          t("email_in_use_title", userLang),
-          t("email_in_use_msg", userLang),
+          t("email_in_use_title", userLang) || "",
+          t("email_in_use_msg", userLang) || "",
           "info-circle",
           "#202D3A",
-          t("btn_go_to_login", userLang),
+          t("btn_go_to_login", userLang) || "",
           () => setIsLogin(true),
         );
       } else if (
@@ -452,41 +510,41 @@ export default function LoginScreen({ navigation }: any) {
       ) {
         if (isLogin) {
           showCustomAlert(
-            t("account_not_found_title", userLang),
-            t("account_not_found_msg", userLang, { email: cleanEmail }),
+            t("account_not_found_title", userLang) || "",
+            t("account_not_found_msg", userLang, { email: cleanEmail }) || "",
             "user-plus",
             "#EAB64A",
-            t("btn_create_account", userLang),
+            t("btn_create_account", userLang) || "",
             () => setIsLogin(false),
-            t("btn_try_again", userLang),
+            t("btn_try_again", userLang) || "",
             () => {},
           );
         } else {
           showCustomAlert(
-            t("signup_error_title", userLang),
-            t("signup_error_msg", userLang),
+            t("signup_error_title", userLang) || "",
+            t("signup_error_msg", userLang) || "",
             "times-circle",
             "#D96C6C",
           );
         }
       } else if (errorCode === "auth/too-many-requests") {
         showCustomAlert(
-          t("temp_block_title", userLang),
-          t("temp_block_msg", userLang),
+          t("temp_block_title", userLang) || "",
+          t("temp_block_msg", userLang) || "",
           "hourglass-half",
           "#EAB64A",
         );
       } else if (errorCode === "auth/invalid-email") {
         showCustomAlert(
-          t("invalid_email_title", userLang),
-          t("invalid_email_msg", userLang),
+          t("invalid_email_title", userLang) || "",
+          t("invalid_email_msg", userLang) || "",
           "exclamation-circle",
           "#EAB64A",
         );
       } else {
         showCustomAlert(
-          t("ops_title", userLang),
-          t("auth_error_default_msg", userLang),
+          t("ops_title", userLang) || "",
+          `${t("auth_error_default_msg", userLang)}\n(${errorCode || error?.message || "erro_desconhecido"})`,
           "times-circle",
           "#D96C6C",
         );
@@ -498,8 +556,8 @@ export default function LoginScreen({ navigation }: any) {
   const handleGoogleSignIn = async () => {
     if (isExpoGo || !GoogleSignin) {
       showCustomAlert(
-        t("dev_mode_title", userLang),
-        t("dev_mode_msg", userLang),
+        t("dev_mode_title", userLang) || "",
+        t("dev_mode_msg", userLang) || "",
         "info-circle",
         "#EAB64A",
       );
@@ -560,12 +618,21 @@ export default function LoginScreen({ navigation }: any) {
           currentTaskStep: 0,
           partnerId: null,
         });
+
+        try {
+          await logAuditEvent(
+            user.uid,
+            "EULA_ACCEPTED",
+            "Conta criada via Google Sign-In com aceite do EULA",
+            userLang
+          );
+        } catch (e) {}
       } else {
         await setDoc(userRef, { language: userLang }, { merge: true });
       }
 
       setIsLoading(false);
-      await routeUserAfterLogin(user.uid);
+      await triggerPinCheck(user.uid);
     } catch (error: any) {
       setIsLoading(false);
 
@@ -578,8 +645,8 @@ export default function LoginScreen({ navigation }: any) {
       }
 
       showCustomAlert(
-        t("login_canceled_title", userLang),
-        t("login_canceled_msg", userLang),
+        t("login_canceled_title", userLang) || "",
+        t("login_canceled_msg", userLang) || "",
         "times-circle",
         "#D96C6C",
       );
@@ -590,8 +657,8 @@ export default function LoginScreen({ navigation }: any) {
   const handleAppleSignIn = async () => {
     if (Platform.OS !== "ios") {
       showCustomAlert(
-        t("ios_only_title", userLang),
-        t("ios_only_msg", userLang),
+        t("ios_only_title", userLang) || "",
+        t("ios_only_msg", userLang) || "",
         "apple",
         "#202D3A",
       );
@@ -658,20 +725,29 @@ export default function LoginScreen({ navigation }: any) {
           currentTaskStep: 0,
           partnerId: null,
         });
+
+        try {
+          await logAuditEvent(
+            user.uid,
+            "EULA_ACCEPTED",
+            "Conta criada via Apple Sign-In com aceite do EULA",
+            userLang
+          );
+        } catch (e) {}
       } else {
         await setDoc(userRef, { language: userLang }, { merge: true });
       }
 
       setIsLoading(false);
-      await routeUserAfterLogin(user.uid);
+      await triggerPinCheck(user.uid);
     } catch (error: any) {
       setIsLoading(false);
       if (error?.code === "ERR_REQUEST_CANCELED") {
         return;
       }
       showCustomAlert(
-        t("apple_login_error_title", userLang),
-        t("apple_login_error_msg", userLang),
+        t("apple_login_error_title", userLang) || "",
+        t("apple_login_error_msg", userLang) || "",
         "times-circle",
         "#D96C6C",
       );
@@ -756,7 +832,7 @@ export default function LoginScreen({ navigation }: any) {
                 />
                 <TextInput
                   style={styles.input}
-                  placeholder={t("placeholder_username", userLang)}
+                  placeholder={t("placeholder_username", userLang) || ""}
                   placeholderTextColor="#AFAFAF"
                   autoCapitalize="none"
                   value={username}
@@ -774,7 +850,7 @@ export default function LoginScreen({ navigation }: any) {
               />
               <TextInput
                 style={styles.input}
-                placeholder={t("placeholder_email", userLang)}
+                placeholder={t("placeholder_email", userLang) || ""}
                 placeholderTextColor="#AFAFAF"
                 keyboardType="email-address"
                 autoCapitalize="none"
@@ -792,7 +868,7 @@ export default function LoginScreen({ navigation }: any) {
               />
               <TextInput
                 style={styles.input}
-                placeholder={t("placeholder_password", userLang)}
+                placeholder={t("placeholder_password", userLang) || ""}
                 placeholderTextColor="#AFAFAF"
                 secureTextEntry
                 value={password}
@@ -896,6 +972,80 @@ export default function LoginScreen({ navigation }: any) {
           </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* 🔒 MODAL DE PIN DE SEGURANÇA */}
+      <Modal visible={isPinModalVisible} transparent animationType="fade">
+        <View style={styles.bottomSheetOverlay}>
+          <View style={styles.bottomSheetContainer}>
+            <View style={styles.bottomSheetHandle} />
+
+            <View
+              style={[
+                styles.alertIconContainer,
+                { backgroundColor: "#EAB64A20" },
+              ]}
+            >
+              <FontAwesome5 name="lock" size={28} color="#EAB64A" />
+            </View>
+
+            <Text style={styles.bottomSheetTitle}>🔒 PIN de Segurança</Text>
+            <Text style={styles.bottomSheetText}>
+              {hasExistingPin
+                ? "Digite seu PIN de Segurança para desbloquear seu acesso."
+                : "Crie um PIN de Segurança de 4 dígitos para proteger suas informações."}
+            </Text>
+
+            <View style={{ width: "100%", gap: 12 }}>
+              <TextInput
+                secureTextEntry
+                keyboardType="numeric"
+                maxLength={6}
+                placeholder={
+                  hasExistingPin ? "Digite seu PIN" : "Crie um PIN (mín. 4 dígitos)"
+                }
+                placeholderTextColor="#AFAFAF"
+                value={pinInput}
+                onChangeText={setPinInput}
+                style={styles.pinInputStyle}
+              />
+
+              {!hasExistingPin && (
+                <TextInput
+                  secureTextEntry
+                  keyboardType="numeric"
+                  maxLength={6}
+                  placeholder="Confirme seu PIN"
+                  placeholderTextColor="#AFAFAF"
+                  value={confirmPinInput}
+                  onChangeText={setConfirmPinInput}
+                  style={styles.pinInputStyle}
+                />
+              )}
+
+              <TouchableOpacity
+                style={[
+                  styles.bottomSheetButtonPrimary,
+                  { backgroundColor: "#202D3A", marginTop: 8 },
+                ]}
+                onPress={handlePinSubmit}
+              >
+                <Text style={styles.bottomSheetButtonPrimaryText}>
+                  {hasExistingPin ? "Confirmar PIN" : "Cadastrar PIN"}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.bottomSheetButtonSecondary}
+                onPress={() => setIsPinModalVisible(false)}
+              >
+                <Text style={styles.bottomSheetButtonSecondaryText}>
+                  Cancelar
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* MODAL DE IDIOMAS */}
       <Modal visible={isLangModalVisible} transparent animationType="fade">
@@ -1066,6 +1216,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#202D3A",
     fontFamily: "Montserrat_600SemiBold",
+  },
+  pinInputStyle: {
+    backgroundColor: "#F0F4F8",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#D1D9E0",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    fontSize: 18,
+    color: "#202D3A",
+    textAlign: "center",
+    letterSpacing: 4,
+    fontFamily: "Montserrat_700Bold",
   },
   forgotPasswordBtn: { alignSelf: "flex-end", marginBottom: 15, marginTop: -5 },
   forgotPasswordText: {

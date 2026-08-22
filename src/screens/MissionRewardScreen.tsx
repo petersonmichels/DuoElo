@@ -1,4 +1,5 @@
 import { FontAwesome5 } from "@expo/vector-icons";
+import { doc, getDoc } from "firebase/firestore";
 import { useEffect, useRef, useState } from "react";
 import {
   Animated,
@@ -11,10 +12,18 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { auth, db } from "../config/firebase";
 
 import { t } from "../i18n/translations";
+import { logAuditEvent } from "../services/auditService";
 
 const { width } = Dimensions.get("window");
+
+// 📳 Carregamento seguro do Haptics
+let Haptics: any = null;
+try {
+  Haptics = require("expo-haptics");
+} catch (e) {}
 
 export default function MissionRewardScreen({ navigation, route }: any) {
   // Tratamento seguro de parâmetros numéricos
@@ -36,7 +45,47 @@ export default function MissionRewardScreen({ navigation, route }: any) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const popAnim = useRef(new Animated.Value(0)).current;
 
+  const triggerHaptic = (
+    type: "light" | "medium" | "heavy" | "success" | "warning" | "error" = "light"
+  ) => {
+    if (!Haptics) return;
+    try {
+      if (type === "success")
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      else if (type === "light")
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch (e) {}
+  };
+
   useEffect(() => {
+    const fetchUserData = async () => {
+      const uid = auth.currentUser?.uid;
+      if (uid) {
+        try {
+          const userSnap = await getDoc(doc(db, "users", uid));
+          if (userSnap.exists()) {
+            const data = userSnap.data();
+            if (data.language) {
+              setUserLang(data.language);
+            }
+          }
+
+          // 📜 REGISTRO DE AUDITORIA DE RECOMPENSA RESGATADA
+          await logAuditEvent(
+            uid,
+            "GIFT_REDEEMED",
+            `Recompensa de missão resgatada: +${earnedPE} Bonds`,
+            userLang
+          );
+        } catch (e) {
+          console.log("Erro ao carregar dados na tela de recompensa:", e);
+        }
+      }
+    };
+
+    fetchUserData();
+    triggerHaptic("success");
+
     // Entradas suaves de tela
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -99,6 +148,7 @@ export default function MissionRewardScreen({ navigation, route }: any) {
   });
 
   const handleContinue = () => {
+    triggerHaptic("light");
     navigation.reset({
       index: 0,
       routes: [

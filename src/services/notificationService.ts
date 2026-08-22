@@ -2,7 +2,7 @@ import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import { t } from "../i18n/translations";
 
-// Configura como a notificação se comporta quando o app está aberto em primeiro plano
+// Configura como a notificação se comporta com o app aberto em primeiro plano (compatível com a tipagem da SDK do Expo)
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -19,10 +19,10 @@ Notifications.setNotificationHandler({
 export async function scheduleDailyReminder(
   userLang: string = "pt-BR",
   hour: number = 20,
-  minute: number = 0,
-) {
+  minute: number = 0
+): Promise<boolean> {
   try {
-    // 1. Verificar/Solicitar permissões de notificação
+    // 1. Verificar e solicitar permissões de notificação
     const { status: existingStatus } =
       await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
@@ -33,11 +33,11 @@ export async function scheduleDailyReminder(
     }
 
     if (finalStatus !== "granted") {
-      console.log("Permissão de notificação negada pelo usuário.");
+      console.log("[NOTIF] Permissão de notificação negada pelo usuário.");
       return false;
     }
 
-    // Configuração especial para Android (canais de notificação)
+    // Configuração de canal para Android
     if (Platform.OS === "android") {
       await Notifications.setNotificationChannelAsync("daily-reminders", {
         name: "Lembretes Diários",
@@ -67,11 +67,13 @@ export async function scheduleDailyReminder(
     });
 
     console.log(
-      `Lembrete diário agendado com sucesso para às ${hour}:${minute < 10 ? "0" : ""}${minute}`,
+      `[NOTIF] Lembrete diário agendado com sucesso para às ${hour}:${
+        minute < 10 ? "0" : ""
+      }${minute}`
     );
     return true;
   } catch (error) {
-    console.error("Erro ao agendar notificação diária:", error);
+    console.error("[NOTIF_ERROR] Erro ao agendar notificação diária:", error);
     return false;
   }
 }

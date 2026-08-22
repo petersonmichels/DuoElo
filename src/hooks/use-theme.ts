@@ -1,14 +1,16 @@
+import { Colors } from "../constants/theme";
+import { useColorScheme } from "./use-color-scheme";
+
 /**
- * Learn more about light and dark modes:
- * https://docs.expo.dev/guides/color-schemes/
+ * Hook customizado para obter as cores ativas do tema DuoElo (Light ou Dark)
  */
-
-import { Colors } from "@/constants/themeold";
-import { useColorScheme } from "@/hooks/use-color-scheme";
-
 export function useTheme() {
   const scheme = useColorScheme();
-  const theme = scheme === "unspecified" ? "light" : scheme;
+  const theme = scheme === "dark" ? "dark" : "light";
 
-  return Colors[theme];
+  return {
+    colors: Colors[theme],
+    isDark: theme === "dark",
+    colorScheme: theme,
+  };
 }

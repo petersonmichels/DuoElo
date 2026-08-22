@@ -35,6 +35,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { auth, db } from "../config/firebase";
 
 import { t } from "../i18n/translations";
+import { logAuditEvent } from "../services/auditService";
 
 const isExpoGo =
   Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
@@ -72,7 +73,6 @@ export default function ProfileScreen({ navigation }: any) {
   const [enableHaptics, setEnableHaptics] = useState(true);
   const isFirstLoad = useRef(true);
 
-  // 🌐 Estado e Modal de Idioma
   const [userLang, setUserLang] = useState("pt-BR");
   const [isLangModalVisible, setIsLangModalVisible] = useState(false);
 
@@ -171,19 +171,19 @@ export default function ProfileScreen({ navigation }: any) {
     try {
       await sendEmailVerification(auth.currentUser);
       Alert.alert(
-        t("verify_email_sent_title", userLang),
-        t("verify_email_sent_msg", userLang),
+        t("verify_email_sent_title", userLang) || "",
+        t("verify_email_sent_msg", userLang) || "",
       );
     } catch (error: any) {
       if (error.code === "auth/too-many-requests") {
         Alert.alert(
-          t("wait_title", userLang),
-          t("verify_email_too_many_msg", userLang),
+          t("wait_title", userLang) || "",
+          t("verify_email_too_many_msg", userLang) || "",
         );
       } else {
         Alert.alert(
-          t("error_title", userLang),
-          t("verify_email_error_msg", userLang),
+          t("error_title", userLang) || "",
+          t("verify_email_error_msg", userLang) || "",
         );
       }
     } finally {
@@ -225,8 +225,8 @@ export default function ProfileScreen({ navigation }: any) {
 
       if (imageUri.length > 900000) {
         Alert.alert(
-          t("photo_too_large_title", userLang),
-          t("photo_too_large_msg", userLang),
+          t("photo_too_large_title", userLang) || "",
+          t("photo_too_large_msg", userLang) || "",
         );
         return;
       }
@@ -241,8 +241,8 @@ export default function ProfileScreen({ navigation }: any) {
           );
         } catch (e) {
           Alert.alert(
-            t("error_title", userLang),
-            t("update_photo_error_msg", userLang),
+            t("error_title", userLang) || "",
+            t("update_photo_error_msg", userLang) || "",
           );
         } finally {
           setLoading(false);
@@ -253,18 +253,18 @@ export default function ProfileScreen({ navigation }: any) {
 
   const handlePickImage = () => {
     Alert.alert(
-      t("profile_photo_prompt_title", userLang),
-      t("profile_photo_prompt_msg", userLang),
+      t("profile_photo_prompt_title", userLang) || "",
+      t("profile_photo_prompt_msg", userLang) || "",
       [
         {
-          text: t("btn_take_photo", userLang),
+          text: t("btn_take_photo", userLang) || "",
           onPress: async () => {
             const permissionResult =
               await ImagePicker.requestCameraPermissionsAsync();
             if (permissionResult.granted === false) {
               Alert.alert(
-                t("permission_title", userLang),
-                t("camera_permission_msg", userLang),
+                t("permission_title", userLang) || "",
+                t("camera_permission_msg", userLang) || "",
               );
               return;
             }
@@ -279,14 +279,14 @@ export default function ProfileScreen({ navigation }: any) {
           },
         },
         {
-          text: t("btn_choose_gallery", userLang),
+          text: t("btn_choose_gallery", userLang) || "",
           onPress: async () => {
             const permissionResult =
               await ImagePicker.requestMediaLibraryPermissionsAsync();
             if (permissionResult.granted === false) {
               Alert.alert(
-                t("permission_title", userLang),
-                t("gallery_permission_msg", userLang),
+                t("permission_title", userLang) || "",
+                t("gallery_permission_msg", userLang) || "",
               );
               return;
             }
@@ -300,7 +300,7 @@ export default function ProfileScreen({ navigation }: any) {
             processImageResult(result);
           },
         },
-        { text: t("modal_cancel", userLang), style: "cancel" },
+        { text: t("modal_cancel", userLang) || "", style: "cancel" },
       ],
       { cancelable: true },
     );
@@ -338,12 +338,12 @@ export default function ProfileScreen({ navigation }: any) {
 
   const handleSwitchGoogleAccount = () => {
     Alert.alert(
-      t("switch_google_account_title", userLang),
-      t("switch_google_account_msg", userLang),
+      t("switch_google_account_title", userLang) || "",
+      t("switch_google_account_msg", userLang) || "",
       [
-        { text: t("modal_cancel", userLang), style: "cancel" },
+        { text: t("modal_cancel", userLang) || "", style: "cancel" },
         {
-          text: t("btn_disconnect_google", userLang),
+          text: t("btn_disconnect_google", userLang) || "",
           onPress: async () => {
             try {
               if (GoogleSignin && typeof GoogleSignin.signOut === "function") {
@@ -351,8 +351,8 @@ export default function ProfileScreen({ navigation }: any) {
               }
               await signOut(auth);
               Alert.alert(
-                t("account_disconnected_title", userLang),
-                t("account_disconnected_msg", userLang),
+                t("account_disconnected_title", userLang) || "",
+                t("account_disconnected_msg", userLang) || "",
               );
             } catch (e) {
               await signOut(auth);
@@ -364,41 +364,62 @@ export default function ProfileScreen({ navigation }: any) {
   };
 
   const handleLogout = () => {
-    Alert.alert(t("logout_title", userLang), t("logout_msg", userLang), [
-      { text: t("modal_cancel", userLang), style: "cancel" },
-      {
-        text: t("btn_logout", userLang),
-        style: "destructive",
-        onPress: async () => {
-          try {
-            if (GoogleSignin && typeof GoogleSignin.signOut === "function") {
-              try {
-                await GoogleSignin.signOut();
-              } catch (e) {}
+    Alert.alert(
+      t("logout_title", userLang) || "",
+      t("logout_msg", userLang) || "",
+      [
+        { text: t("modal_cancel", userLang) || "", style: "cancel" },
+        {
+          text: t("btn_logout", userLang) || "",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              if (GoogleSignin && typeof GoogleSignin.signOut === "function") {
+                try {
+                  await GoogleSignin.signOut();
+                } catch (e) {}
+              }
+              await signOut(auth);
+            } catch (error) {
+              console.error("Erro ao deslogar:", error);
             }
-            await signOut(auth);
-          } catch (error) {
-            console.error("Erro ao deslogar:", error);
-          }
+          },
         },
-      },
-    ]);
+      ],
+    );
   };
 
   const handleDeleteAccount = () => {
     Alert.alert(
-      t("delete_account_title", userLang),
-      t("delete_account_warning_msg", userLang),
+      t("delete_account_title", userLang) || "",
+      t("delete_account_warning_msg", userLang) || "",
       [
-        { text: t("modal_cancel", userLang), style: "cancel" },
+        { text: t("modal_cancel", userLang) || "", style: "cancel" },
         {
-          text: t("btn_yes_delete", userLang),
+          text: t("btn_yes_delete", userLang) || "",
           style: "destructive",
           onPress: async () => {
             try {
               setLoading(true);
               const user = auth.currentUser;
-              if (user) {
+              if (user && user.uid) {
+                const uidString = String(user.uid);
+                const partnerString = userData?.partnerId
+                  ? String(userData.partnerId)
+                  : "sem_parceiro";
+
+                const rawDetails = t("audit_account_deleted", userLang, {
+                  partner: partnerString,
+                });
+                const detailsText = rawDetails ?? undefined;
+
+                await logAuditEvent(
+                  uidString,
+                  "ACCOUNT_EXCLUSION_REQUESTED",
+                  detailsText,
+                  userLang
+                );
+
                 if (userData?.partnerId) {
                   await setDoc(
                     doc(db, "users", userData.partnerId),
@@ -408,14 +429,14 @@ export default function ProfileScreen({ navigation }: any) {
                 }
 
                 const journalsSnap = await getDocs(
-                  collection(db, "users", user.uid, "journals"),
+                  collection(db, "users", uidString, "journals"),
                 );
                 const deletePromises = journalsSnap.docs.map((d) =>
                   deleteDoc(d.ref),
                 );
                 await Promise.all(deletePromises);
 
-                await deleteDoc(doc(db, "users", user.uid));
+                await deleteDoc(doc(db, "users", uidString));
 
                 if (
                   GoogleSignin &&
@@ -432,13 +453,13 @@ export default function ProfileScreen({ navigation }: any) {
               setLoading(false);
               if (error.code === "auth/requires-recent-login") {
                 Alert.alert(
-                  t("security_title", userLang),
-                  t("reauth_required_delete_msg", userLang),
+                  t("security_title", userLang) || "",
+                  t("reauth_required_delete_msg", userLang) || "",
                 );
               } else {
                 Alert.alert(
-                  t("delete_error_title", userLang),
-                  t("delete_error_msg", userLang),
+                  t("delete_error_title", userLang) || "",
+                  t("delete_error_msg", userLang) || "",
                 );
               }
             }
@@ -459,19 +480,19 @@ export default function ProfileScreen({ navigation }: any) {
       const restoredInfo = await Purchases.restorePurchases();
       if (Object.keys(restoredInfo.entitlements.active).length > 0) {
         Alert.alert(
-          t("sub_restored_title", userLang),
-          t("sub_restored_msg", userLang),
+          t("sub_restored_title", userLang) || "",
+          t("sub_restored_msg", userLang) || "",
         );
       } else {
         Alert.alert(
-          t("no_active_sub_title", userLang),
-          t("no_active_sub_msg", userLang),
+          t("no_active_sub_title", userLang) || "",
+          t("no_active_sub_msg", userLang) || "",
         );
       }
     } catch (e) {
       Alert.alert(
-        t("error_title", userLang),
-        t("restore_purchases_error_msg", userLang),
+        t("error_title", userLang) || "",
+        t("restore_purchases_error_msg", userLang) || "",
       );
     }
   };
@@ -487,8 +508,8 @@ export default function ProfileScreen({ navigation }: any) {
   const openUrl = (url: string) => {
     Linking.openURL(url).catch(() =>
       Alert.alert(
-        t("error_title", userLang),
-        t("cannot_open_page_msg", userLang),
+        t("error_title", userLang) || "",
+        t("cannot_open_page_msg", userLang) || "",
       ),
     );
   };
@@ -507,7 +528,8 @@ export default function ProfileScreen({ navigation }: any) {
     url.length > 5 &&
     url.toLowerCase() !== "null";
 
-  const getFirstName = (nameStr?: string) =>
+  // 🎯 CORREÇÃO CRÍTICA DO TYPE ERROR (getFirstName aceita string | undefined)
+  const getFirstName = (nameStr?: string | null) =>
     nameStr ? nameStr.trim().split(" ")[0] : null;
 
   const rawPhoto = userData?.photoURL || userData?.photoUrl;
@@ -520,13 +542,14 @@ export default function ProfileScreen({ navigation }: any) {
 
   const isPremium = userData?.isPremium || false;
 
+  // 🎯 CORREÇÃO NO TRATAMENTO DE NULL PARA GETFIRSTNAME
   const displayUsername = userData?.username
     ? `@${userData.username}`
     : firstName.trim()
       ? firstName.trim()
-      : getFirstName(userData?.billingFirstName) ||
-        getFirstName(userData?.displayName) ||
-        getFirstName(auth.currentUser?.displayName) ||
+      : getFirstName(userData?.billingFirstName ?? undefined) ||
+        getFirstName(userData?.displayName ?? undefined) ||
+        getFirstName(auth.currentUser?.displayName ?? undefined) ||
         t("user_default_name", userLang);
 
   const currentFlag =
@@ -861,7 +884,9 @@ export default function ProfileScreen({ navigation }: any) {
                   <Text style={{ fontSize: 18 }}>{currentFlag}</Text>
                 </View>
                 <View>
-                  <Text style={styles.menuOptionText}>Idioma do App</Text>
+                  <Text style={styles.menuOptionText}>
+                    {t("app_language_title", userLang)}
+                  </Text>
                   <Text
                     style={{
                       fontSize: 11,
@@ -890,7 +915,7 @@ export default function ProfileScreen({ navigation }: any) {
                 </View>
                 <View>
                   <Text style={styles.menuOptionText}>
-                    Efeitos Táteis (Haptics)
+                    {t("haptics_label", userLang)}
                   </Text>
                   <Text
                     style={{
@@ -900,7 +925,7 @@ export default function ProfileScreen({ navigation }: any) {
                       fontFamily: "Montserrat_400Regular",
                     }}
                   >
-                    Vibrações ao concluir tarefas e interagir
+                    {t("haptics_desc", userLang)}
                   </Text>
                 </View>
               </View>
@@ -1046,7 +1071,9 @@ export default function ProfileScreen({ navigation }: any) {
         >
           <View style={styles.bottomSheetContainer}>
             <View style={styles.bottomSheetHandle} />
-            <Text style={styles.bottomSheetTitle}>Escolha seu Idioma</Text>
+            <Text style={styles.bottomSheetTitle}>
+              {t("choose_language_title", userLang)}
+            </Text>
 
             <ScrollView style={{ width: "100%", maxHeight: 300 }}>
               {SUPPORTED_LANGUAGES.map((lang) => (

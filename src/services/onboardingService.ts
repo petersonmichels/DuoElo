@@ -1,6 +1,10 @@
-import { doc, updateDoc } from "firebase/firestore";
-import { db } from "../config/firebase"; // Ajuste se o seu arquivo firebase de front-end estiver em outro lugar
-import { AnamnesisAnswer, calculateThermometer } from "../utils/riskCalculator";
+import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
+import { db } from "../config/firebase";
+import {
+  AnamnesisAnswer,
+  calculateThermometer,
+  RiskDiagnosis,
+} from "./riskCalculator";
 
 /**
  * Processa a finalização do Onboarding (com ou sem Anamnese).
@@ -11,25 +15,24 @@ import { AnamnesisAnswer, calculateThermometer } from "../utils/riskCalculator";
  */
 export async function processUserOnboarding(
   userId: string,
-  answers: AnamnesisAnswer[] | null,
+  answers: AnamnesisAnswer[] | null
 ) {
   const userRef = doc(db, "users", userId);
 
   let priorityModules: number[];
-  let diagnosisResult = null;
+  let diagnosisResult: RiskDiagnosis | null = null;
 
   if (answers && answers.length > 0) {
     // CENÁRIO A: Usuário preencheu a Anamnese
     diagnosisResult = calculateThermometer(answers);
 
-    // Pega os módulos críticos (nota >= 8). Se ele for 100% "Verde", começa pela Manutenção (Módulo 9 - Intimidade)
+    // Módulos críticos (nota >= 8). Se for 100% seguro, inicia pela Manutenção (Módulo 9)
     priorityModules =
       diagnosisResult.criticalModules.length > 0
         ? diagnosisResult.criticalModules
         : [9];
   } else {
     // CENÁRIO B: Usuário pulou a Anamnese (Trilha Padrão)
-    // Assume que ele precisa da base da comunicação para evitar divórcio rápido
     // Módulo 1 (Início Áspero) e Módulo 2 (4 Cavaleiros)
     priorityModules = [1, 2];
   }
@@ -38,11 +41,11 @@ export async function processUserOnboarding(
     // Atualiza o documento do usuário no Firestore
     await updateDoc(userRef, {
       onboardingCompleted: true,
-      enrolledCourses: ["curso_duoelo"], // Matricula na trilha principal que acabamos de criar
-      activeCourseId: "curso_duoelo", // Define como curso visível na tela
-      priorityModules: priorityModules, // O Algoritmo Sniper vai ler esta fila para entregar as tarefas!
-      diagnosis: diagnosisResult, // Salva o histórico (ou null se pulou)
-      updatedAt: new Date().toISOString(),
+      enrolledCourses: ["curso_duoelo"],
+      activeCourseId: "curso_duoelo",
+      priorityModules: priorityModules,
+      diagnosis: diagnosisResult,
+      updatedAt: serverTimestamp(),
     });
 
     return {
@@ -51,7 +54,7 @@ export async function processUserOnboarding(
       priorityModules,
     };
   } catch (error) {
-    console.error("❌ Erro ao finalizar onboarding:", error);
+    console.error("[ONBOARDING_ERROR] Erro ao finalizar onboarding:", error);
     throw new Error("Não foi possível salvar a matrícula do usuário.");
   }
 }

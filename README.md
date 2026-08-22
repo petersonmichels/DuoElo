@@ -1,56 +1,34 @@
-# Welcome to your Expo app 👋
+# DuoElo 👩‍❤️‍👨 — Aplicativo de Fortalecimento de Vínculos de Casais
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Plataforma mobile multilíngue desenvolvida em React Native / Expo SDK 57 para casais, integrando gamificação de relacionamentos, trilha de tarefas de 90 dias, loja de vales e **Diário com Criptografia de Ponta a Ponta (E2EE) Zero-Knowledge**.
 
-## Get started
+---
 
-1. Install dependencies
+## 🛡️ Arquitetura de Segurança & Compliance Global
 
-   ```bash
-   npm install
-   ```
+O DuoElo foi projetado sob os princípios de **Privacy by Design** e **Security by Default**, atendendo rigorosamente às legislações de proteção de dados:
+* **GDPR (União Europeia)** — Autoridade de Controle da CNPD (Luxemburgo).
+* **LGPD (Brasil)** — Lei Geral de Proteção de Dados (Lei nº 13.709/2018).
+* **APPI (Japão)** — Act on the Protection of Personal Information (PPC Japão).
 
-2. Start the app
+### Módulos de Segurança Ativos
+1. **Zero-Knowledge E2EE (`src/services/securityService.ts`):** Conteúdos sensíveis do Diário do Casal são encriptados localmente no dispositivo usando o algoritmo **AES-256** derivado de uma Senha Mestra local. A empresa **BARNX S.A R.L.-S** e o banco de dados Firestore não possuem acesso às chaves de decodificação.
+2. **Hardware Key Storage:** Armazenamento seguro de tokens e sal de chave no hardware nativo através do **iOS Keychain** e **Android Keystore** (`expo-secure-store`).
+3. **Audit Trail Imutável (`src/services/auditService.ts`):** Registros de consentimento (EULA) e requisições de exclusão de conta armazenados com hash imutável sem exposição de dados PII (Personally Identifiable Information).
+4. **Sentry PII Stripping (`App.tsx`):** Sanitização em tempo de execução para remoção automática de e-mails e identificadores sensíveis em relatórios de exceções.
 
-   ```bash
-   npx expo start
-   ```
+---
 
-In the output, you'll find options to open the app in a
+## 🏢 Dados da Entidade Operadora
+* **Razão Social:** BARNX S.A R.L.-S
+* **Jurisdição:** Grão-Ducado de Luxemburgo
+* **Suporte / Privacidade:** privacy@duoelo.lu
+* **Página Jurídica Oficial:** https://duoelo.lu/terms
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+---
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+## 🚀 Execução do Projeto e Builds
 
-## Get a fresh project
-
-When you're ready, run:
-
+### 1. Instalar Dependências
 ```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-### Other setup steps
-
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+npm install

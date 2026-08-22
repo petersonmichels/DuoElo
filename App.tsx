@@ -1,26 +1,30 @@
-import { enableScreens } from "react-native-screens";
-// 🚀 DESATIVA O MODO FABRIC EXPERIMENTAL DE SCREENS QUE CAUSA NULL POINTER NO ANDROID
-enableScreens(false);
-
 import { NavigationContainer } from "@react-navigation/native";
-import { useEffect } from "react";
+import * as SplashScreen from "expo-splash-screen";
+import { useCallback, useEffect } from "react";
 import { ActivityIndicator, LogBox, Platform, View } from "react-native";
 import "react-native-gesture-handler";
 import "react-native-get-random-values";
 import Purchases from "react-native-purchases";
+import { enableScreens } from "react-native-screens";
+
 import AppNavigator from "./src/navigation/AppNavigator";
 
-// 🙈 SILENCIA WARNINGS INFORMATIVOS NO METRO
+// 🚀 ATIVA O SUPORTE A TELAS NATIVAS DE ALTA PERFORMANCE (EXPO SDK 57)
+enableScreens(true);
+
+// 🛡️ IMPEDE O AUTO-HIDE DA SPLASH SCREEN ATÉ O CARREGAMENTO TOTAL DE RECURSOS
+SplashScreen.preventAutoHideAsync().catch(() => {
+  /* ignora exceções se já estiver oculto */
+});
+
+// 🙈 FILTRAGEM ESTRITA DE WARNINGS DE TERCEIROS CONHECIDOS
 LogBox.ignoreLogs([
   "You are initializing Firebase Auth for React Native without providing AsyncStorage",
   "@firebase/auth",
   "Purchases instance already set",
 ]);
 
-// Ocultar notificações flutuantes do LogBox no Emulador:
-LogBox.ignoreAllLogs(true);
-
-// 🔥 IMPORTAÇÃO DA TIPOGRAFIA OFICIAL DA MARCA
+// 🔥 IMPORTAÇÃO DA TIPOGRAFIA OFICIAL DUOELO
 import {
   Montserrat_400Regular,
   Montserrat_600SemiBold,
@@ -37,24 +41,48 @@ export default function App() {
     Montserrat_900Black,
   });
 
+  // 💳 INICIALIZAÇÃO SEGURA DO REVENUECAT VIA VARIÁVEIS DE AMBIENTE
   useEffect(() => {
+    let isMounted = true;
+
     const setupRevenueCat = async () => {
       try {
         const isAlreadyConfigured = await Purchases.isConfigured();
-        if (isAlreadyConfigured) return;
+        if (isAlreadyConfigured || !isMounted) return;
 
-        if (Platform.OS === "android") {
-          Purchases.configure({ apiKey: "goog_bYcEfvvHdSDOOPlWDlhsnYxJJov" });
-        } else if (Platform.OS === "ios") {
-          Purchases.configure({ apiKey: "appl_SUA_CHAVE_IOS_AQUI" });
+        // Ativa os logs de debug do RevenueCat apenas em desenvolvimento
+        if (__DEV__) {
+          Purchases.setLogLevel(Purchases.LOG_LEVEL.DEBUG);
+        }
+
+        const apiKey = Platform.select({
+          ios: process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY || "appl_SUA_CHAVE_IOS_AQUI",
+          android: process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY || "goog_bYcEfvvHdSDOOPlWDlhsnYxJJov",
+        });
+
+        if (apiKey && !apiKey.includes("AQUI")) {
+          Purchases.configure({ apiKey });
+        } else if (__DEV__) {
+          console.warn("[REVENUECAT_WARNING] Chave do RevenueCat para iOS não configurada.");
         }
       } catch (error) {
-        console.error("Erro ao configurar RevenueCat:", error);
+        console.error("[REVENUECAT_ERROR] Erro na inicialização das compras:", error);
       }
     };
 
     setupRevenueCat();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
+
+  // 🎨 CONTROLE DE RENDERIZAÇÃO DA SPLASH SCREEN E DE FONTES
+  const onLayoutRootView = useCallback(async () => {
+    if (fontsLoaded) {
+      await SplashScreen.hideAsync().catch(() => {});
+    }
+  }, [fontsLoaded]);
 
   if (!fontsLoaded) {
     return (
@@ -63,7 +91,7 @@ export default function App() {
           flex: 1,
           justifyContent: "center",
           alignItems: "center",
-          backgroundColor: "#202D3A",
+          backgroundColor: "#0F0F12",
         }}
       >
         <ActivityIndicator size="large" color="#EAB64A" />
@@ -72,8 +100,10 @@ export default function App() {
   }
 
   return (
-    <NavigationContainer>
-      <AppNavigator />
-    </NavigationContainer>
+    <View style={{ flex: 1, backgroundColor: "#0F0F12" }} onLayout={onLayoutRootView}>
+      <NavigationContainer>
+        <AppNavigator />
+      </NavigationContainer>
+    </View>
   );
 }

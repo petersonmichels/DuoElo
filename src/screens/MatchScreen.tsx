@@ -7,7 +7,7 @@ import {
   onSnapshot,
   query,
   setDoc,
-  where
+  where,
 } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import {
@@ -29,6 +29,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { auth, db } from "../config/firebase";
 import { t } from "../i18n/translations";
+import { logAuditEvent } from "../services/auditService";
 
 export default function MatchScreen({ navigation }: any) {
   const [currentUid, setCurrentUid] = useState<string | null>(null);
@@ -178,6 +179,13 @@ export default function MatchScreen({ navigation }: any) {
 
             setIsDisconnecting(true);
             try {
+              // 📜 REGISTRO DE AUDITORIA DE SEGURANÇA (DESVÍNCULO DE PARCEIRO)
+              await logAuditEvent(
+                currentUid,
+                "PARTNER_UNLINKED",
+                `Desvinculação efetuada com o parceiro ${partnerUid || "desconhecido"}`
+              );
+
               await setDoc(
                 doc(db, "users", currentUid),
                 {
@@ -355,6 +363,13 @@ export default function MatchScreen({ navigation }: any) {
           myTrail: null,
         },
         { merge: true },
+      );
+
+      // 📜 REGISTRO DE AUDITORIA DE SEGURANÇA (PAREAMENTO)
+      await logAuditEvent(
+        currentUser.uid,
+        "PARTNER_MATCH_REQUESTED",
+        `Solicitação de pareamento enviada para o parceiro ID: ${pendingMatchPartner.id}`
       );
 
       setInviteCodeInput("");

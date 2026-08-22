@@ -29,6 +29,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { auth, authControls, db } from "../config/firebase";
 
 import { t } from "../i18n/translations";
+import { logAuditEvent } from "../services/auditService";
 
 export default function RegisterScreen({ navigation }: any) {
   const [username, setUsername] = useState("");
@@ -155,6 +156,13 @@ export default function RegisterScreen({ navigation }: any) {
       };
 
       await setDoc(doc(db, "users", uid), userDataToSave, { merge: true });
+
+      // 📜 REGISTRO DE AUDITORIA DE SEGURANÇA (ACEITE DE EULA/PRIVACIDADE)
+      await logAuditEvent(
+        uid,
+        "EULA_ACCEPTED",
+        "Conta criada diretamente via RegisterScreen com aceite do EULA"
+      );
 
       // 5. Envia e-mail de verificação oficial do Firebase
       await sendEmailVerification(userCredential.user);
