@@ -5,6 +5,7 @@ import {
   Animated,
   Dimensions,
   Easing,
+  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -17,7 +18,7 @@ import { auth, db } from "../config/firebase";
 import { t } from "../i18n/translations";
 import { logAuditEvent } from "../services/auditService";
 
-const { width } = Dimensions.get("window");
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 // 📳 Carregamento seguro do Haptics
 let Haptics: any = null;
@@ -25,25 +26,99 @@ try {
   Haptics = require("expo-haptics");
 } catch (e) {}
 
+// 🎊 PARTÍCULAS DA EXPLOSÃO DE AMOR / ENERGIA (60 FPS NATIVO)
+const EXPLOSION_COLORS = ["#EAB64A", "#67D4A8", "#202D3A", "#D96C6C", "#FFF"];
+
+const LoveExplosionParticle = ({ index }: { index: number }) => {
+  const anim = useRef(new Animated.Value(0)).current;
+
+  const color = EXPLOSION_COLORS[index % EXPLOSION_COLORS.length];
+  const angle = useRef((index / 16) * 2 * Math.PI).current;
+  const distance = useRef(75 + Math.random() * 95).current;
+
+  const targetX = useRef(Math.cos(angle) * distance).current;
+  const targetY = useRef(Math.sin(angle) * distance).current;
+  const size = useRef(10 + Math.random() * 8).current;
+  const isHeart = index % 2 === 0;
+
+  useEffect(() => {
+    Animated.timing(anim, {
+      toValue: 1,
+      duration: 1000 + Math.random() * 300,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: true,
+    }).start();
+  }, [anim]);
+
+  const translateX = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, targetX],
+  });
+
+  const translateY = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, targetY],
+  });
+
+  const scale = anim.interpolate({
+    inputRange: [0, 0.3, 1],
+    outputRange: [0.2, 1.4, 0],
+  });
+
+  const opacity = anim.interpolate({
+    inputRange: [0, 0.8, 1],
+    outputRange: [1, 1, 0],
+  });
+
+  return (
+    <Animated.View
+      style={{
+        position: "absolute",
+        transform: [{ translateX }, { translateY }, { scale }],
+        opacity,
+        pointerEvents: "none",
+      }}
+    >
+      {isHeart ? (
+        <FontAwesome5 name="heart" solid size={size} color={color} />
+      ) : (
+        <FontAwesome5 name="star" solid size={size * 0.8} color={color} />
+      )}
+    </Animated.View>
+  );
+};
+
 export default function MissionRewardScreen({ navigation, route }: any) {
   // Tratamento seguro de parâmetros numéricos
   const earnedPE = Number(route?.params?.earnedPE) || 50;
   const currentDay90 = Number(route?.params?.currentDay90) || 1;
-  const cupidProgress = Number(route?.params?.cupidProgress) || 1;
+  const rawCupidProgress = Number(route?.params?.cupidProgress) || 1;
+  
+  // 🎯 LIMITAÇÃO MÁXIMA DE 3 NO CUPIDO
+  const cupidProgress = Math.min(3, Math.max(1, rawCupidProgress));
   const cupidTotal = 3;
 
   // Idioma do usuário (padrão pt-BR)
   const [userLang, setUserLang] = useState("pt-BR");
+  const [userData, setUserData] = useState<any>(null);
+  const [partnerData, setPartnerData] = useState<any>(null);
+  const [hasExploded, setHasExploded] = useState(false);
 
   const isCupidAwake = cupidProgress >= cupidTotal;
   const cupidPercentage = Math.min((cupidProgress / cupidTotal) * 100, 100);
 
+  // 🎬 ANIMAÇÕES ORIGINAIS DE BARRA DE PROGRESSO
   const bar1Anim = useRef(new Animated.Value(0)).current;
   const bar2Anim = useRef(new Animated.Value(0)).current;
   const bar3Anim = useRef(new Animated.Value(0)).current;
   const slideUpAnim = useRef(new Animated.Value(50)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const popAnim = useRef(new Animated.Value(0)).current;
+
+  // 💥 ANIMAÇÃO DE TRAJETÓRIA DIRETA DOS LADOS OPOSTOS PARA O CENTRO
+  const leftAvatarAnim = useRef(new Animated.Value(-SCREEN_WIDTH * 0.8)).current;
+  const rightAvatarAnim = useRef(new Animated.Value(SCREEN_WIDTH * 0.8)).current;
+  const centerScaleAnim = useRef(new Animated.Value(1)).current;
 
   const triggerHaptic = (
     type: "light" | "medium" | "heavy" | "success" | "warning" | "error" = "light"
@@ -52,6 +127,8 @@ export default function MissionRewardScreen({ navigation, route }: any) {
     try {
       if (type === "success")
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      else if (type === "heavy")
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
       else if (type === "light")
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch (e) {}
@@ -65,8 +142,16 @@ export default function MissionRewardScreen({ navigation, route }: any) {
           const userSnap = await getDoc(doc(db, "users", uid));
           if (userSnap.exists()) {
             const data = userSnap.data();
+            setUserData(data);
             if (data.language) {
               setUserLang(data.language);
+            }
+
+            if (data.partnerId) {
+              const pSnap = await getDoc(doc(db, "users", data.partnerId));
+              if (pSnap.exists()) {
+                setPartnerData(pSnap.data());
+              }
             }
           }
 
@@ -84,7 +169,39 @@ export default function MissionRewardScreen({ navigation, route }: any) {
     };
 
     fetchUserData();
-    triggerHaptic("success");
+
+    // 🚀 CORRIDA DAS FOTOS DE MARGENS OPOSTAS EM DIREÇÃO AO CENTRO
+    Animated.parallel([
+      Animated.timing(leftAvatarAnim, {
+        toValue: 0,
+        duration: 650,
+        easing: Easing.out(Easing.back(1.2)),
+        useNativeDriver: true,
+      }),
+      Animated.timing(rightAvatarAnim, {
+        toValue: 0,
+        duration: 650,
+        easing: Easing.out(Easing.back(1.2)),
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      // 💥 CHOQUE NO CENTRO + VIBRAÇÃO FÍSICA + EXPLOSÃO VISUAL
+      setHasExploded(true);
+      triggerHaptic("heavy");
+
+      Animated.sequence([
+        Animated.timing(centerScaleAnim, {
+          toValue: 1.3,
+          duration: 120,
+          useNativeDriver: true,
+        }),
+        Animated.timing(centerScaleAnim, {
+          toValue: 1,
+          duration: 180,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    });
 
     // Entradas suaves de tela
     Animated.parallel([
@@ -160,6 +277,10 @@ export default function MissionRewardScreen({ navigation, route }: any) {
     });
   };
 
+  const isSolo = !userData?.partnerId || userData?.isSoloMode;
+  const myPhoto = userData?.photoURL || userData?.avatarUrl;
+  const partnerPhoto = partnerData?.photoURL || partnerData?.avatarUrl;
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView
@@ -175,6 +296,52 @@ export default function MissionRewardScreen({ navigation, route }: any) {
           }}
         >
           <Text style={styles.heroTitle}>+{earnedPE} Bonds!</Text>
+
+          {/* 🏆 ENCONTRO DAS FOTOS CORRENDO DE LADOS OPOSTOS */}
+          <View style={styles.avatarsCollisionWrapper}>
+            {hasExploded && (
+              <View style={styles.explosionCenterEmitter}>
+                {Array.from({ length: 22 }).map((_, i) => (
+                  <LoveExplosionParticle key={i} index={i} />
+                ))}
+              </View>
+            )}
+
+            {/* FOTO DO USUÁRIO (Vem da Esquerda) */}
+            <Animated.View
+              style={[
+                styles.avatarFrame,
+                { transform: [{ translateX: leftAvatarAnim }, { scale: centerScaleAnim }] },
+              ]}
+            >
+              {myPhoto ? (
+                <Image source={{ uri: myPhoto }} style={styles.avatarImage} />
+              ) : (
+                <FontAwesome5 name="user" size={30} color="#202D3A" />
+              )}
+            </Animated.View>
+
+            {/* FOTO DO PARCEIRO OU LOGO DUOELO NO SOLO (Vem da Direita) */}
+            <Animated.View
+              style={[
+                styles.avatarFrame,
+                isSolo && styles.logoFrameSolo,
+                { transform: [{ translateX: rightAvatarAnim }, { scale: centerScaleAnim }] },
+              ]}
+            >
+              {isSolo ? (
+                <Image
+                  source={require("../assets/duoelo_brand_logo.png")}
+                  style={styles.logoImageSolo}
+                  resizeMode="contain"
+                />
+              ) : partnerPhoto ? (
+                <Image source={{ uri: partnerPhoto }} style={styles.avatarImage} />
+              ) : (
+                <FontAwesome5 name="heart" solid size={30} color="#EAB64A" />
+              )}
+            </Animated.View>
+          </View>
 
           <View style={styles.card}>
             {/* MISSÃO DIÁRIA */}
@@ -221,7 +388,7 @@ export default function MissionRewardScreen({ navigation, route }: any) {
                     ]}
                   />
                   <Text style={[styles.progressTextOver, { color: "#202D3A" }]}>
-                    1 / 1
+                    {userData?.streak || 1} / {userData?.streak || 1}
                   </Text>
                 </View>
                 <Animated.View
@@ -327,16 +494,61 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 50,
+    paddingTop: 30,
     paddingBottom: 120,
     alignItems: "center",
   },
   heroTitle: {
-    fontSize: 28,
+    fontSize: 32,
     fontFamily: "Montserrat_900Black",
     color: "#67D4A8",
-    marginBottom: 25,
+    marginBottom: 15,
     textAlign: "center",
+  },
+  avatarsCollisionWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+    height: 90,
+    width: "100%",
+    marginBottom: 20,
+  },
+  explosionCenterEmitter: {
+    position: "absolute",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 99,
+  },
+  avatarFrame: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    borderWidth: 4,
+    borderColor: "#EAB64A",
+    backgroundColor: "#FFF",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 5,
+    zIndex: 10,
+    marginHorizontal: -8, // Encontro perfeito com sobreposição suave
+  },
+  logoFrameSolo: {
+    borderColor: "#202D3A",
+    backgroundColor: "#202D3A",
+  },
+  avatarImage: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+  },
+  logoImageSolo: {
+    width: 42,
+    height: 42,
   },
   card: {
     width: "100%",

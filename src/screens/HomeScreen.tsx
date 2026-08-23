@@ -1,10 +1,8 @@
 import { FontAwesome5 } from "@expo/vector-icons";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import * as Device from "expo-device";
-import { deleteUser } from "firebase/auth";
 import {
   collection,
-  deleteDoc,
   doc,
   getDocs,
   increment,
@@ -17,6 +15,9 @@ import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
+  AppState,
+  Dimensions,
+  Image,
   Modal,
   Platform,
   Pressable,
@@ -32,10 +33,14 @@ import Svg, { Circle } from "react-native-svg";
 import { MasterPasswordModal } from "../components/MasterPasswordModal";
 import { auth, db } from "../config/firebase";
 import { t } from "../i18n/translations";
-import { logAuditEvent } from "../services/auditService";
 import { scheduleDailyReminder } from "../services/notificationService";
-import { encryptText } from "../services/securityService";
+import {
+  isSessionUnlocked,
+  lockSession
+} from "../services/securityService";
 import MissionExecutionScreen from "./MissionExecutionScreen";
+
+const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 let Haptics: any = null;
 try {
@@ -86,6 +91,42 @@ async function sendPushNotificationDirectly(
       body: JSON.stringify(message),
     });
   } catch (error) {}
+}
+
+async function registerForPushNotificationsAsync(): Promise<string | null> {
+  if (isExpoGo || !Notifications) return null;
+
+  let token: string | null = null;
+  try {
+    if (Platform.OS === "android") {
+      await Notifications.setNotificationChannelAsync("default", {
+        name: "default",
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: "#FF231F7C",
+      });
+    }
+    if (Device.isDevice) {
+      const { status: existingStatus } =
+        await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+      if (existingStatus !== "granted") {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+      if (finalStatus !== "granted") return null;
+
+      const projectId =
+        Constants?.expoConfig?.extra?.eas?.projectId ??
+        Constants?.easConfig?.projectId;
+
+      if (!projectId)
+        token = (await Notifications.getExpoPushTokenAsync()).data;
+      else
+        token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+    }
+  } catch (e) {}
+  return token;
 }
 
 const SUPPORTED_LANGUAGES = [
@@ -193,7 +234,13 @@ const FloatingHearts = () => {
     };
   }, [anim1, anim2, anim3]);
 
-  const renderHeart = (anim: Animated.Value, left: number, size: number) => {
+  const renderIcon = (
+    anim: Animated.Value,
+    left: number,
+    size: number,
+    iconName: "heart" | "fire",
+    color: string
+  ) => {
     const translateY = anim.interpolate({
       inputRange: [0, 1],
       outputRange: [0, -60],
@@ -217,55 +264,19 @@ const FloatingHearts = () => {
           transform: [{ translateY }, { scale }],
         }}
       >
-        <FontAwesome5 name="heart" solid size={size} color="#EAB64A" />
+        <FontAwesome5 name={iconName} solid size={size} color={color} />
       </Animated.View>
     );
   };
 
   return (
     <>
-      {renderHeart(anim1, -15, 14)}
-      {renderHeart(anim2, 10, 18)}
-      {renderHeart(anim3, -5, 12)}
+      {renderIcon(anim1, -15, 16, "heart", "#D96C6C")}
+      {renderIcon(anim2, 10, 18, "fire", "#EAB64A")}
+      {renderIcon(anim3, -5, 14, "heart", "#D96C6C")}
     </>
   );
 };
-
-async function registerForPushNotificationsAsync() {
-  if (isExpoGo || !Notifications) return null;
-
-  let token;
-  try {
-    if (Platform.OS === "android") {
-      await Notifications.setNotificationChannelAsync("default", {
-        name: "default",
-        importance: Notifications.AndroidImportance.MAX,
-        vibrationPattern: [0, 250, 250, 250],
-        lightColor: "#FF231F7C",
-      });
-    }
-    if (Device.isDevice) {
-      const { status: existingStatus } =
-        await Notifications.getPermissionsAsync();
-      let finalStatus = existingStatus;
-      if (existingStatus !== "granted") {
-        const { status } = await Notifications.requestPermissionsAsync();
-        finalStatus = status;
-      }
-      if (finalStatus !== "granted") return null;
-
-      const projectId =
-        Constants?.expoConfig?.extra?.eas?.projectId ??
-        Constants?.easConfig?.projectId;
-
-      if (!projectId)
-        token = (await Notifications.getExpoPushTokenAsync()).data;
-      else
-        token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
-    }
-  } catch (e) {}
-  return token;
-}
 
 export default function HomeScreen({ navigation }: any) {
   const [currentUid, setCurrentUid] = useState<string | null>(null);
@@ -279,18 +290,21 @@ export default function HomeScreen({ navigation }: any) {
   const nodesWrapperY = useRef<number>(0);
   const nodePositions = useRef<{ [key: number]: number }>({}).current;
 
-  const [isInitialPositionSet, setIsInitialPositionSet] = useState(false);
+  const anamnesisYRef = useRef<number>(0);
+  const matchYRef = useRef<number>(120);
+  const playYRef = useRef<number>(240);
+
   const fabVisibleRef = useRef(false);
   const [showFab, setShowFab] = useState(false);
 
   const [activeMission, setActiveMission] = useState<any>(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
-  const [isFetchingMission, setIsFetchingMission] = useState(false);
+
+  const [fetchingStepIndex, setFetchingStepIndex] = useState<number | string | null>(null);
   const [isReviewMode, setIsReviewMode] = useState(false);
 
   const [userLang, setUserLang] = useState("pt-BR");
   const [isLangModalVisible, setIsLangModalVisible] = useState(false);
-  const [isHardResetModalVisible, setIsHardResetModalVisible] = useState(false);
   const [isNotificationsVisible, setIsNotificationsVisible] = useState(false);
 
   const [isMasterPasswordModalVisible, setIsMasterPasswordModalVisible] = useState(false);
@@ -366,10 +380,59 @@ export default function HomeScreen({ navigation }: any) {
   const floatAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const ringPulseAnim = useRef(new Animated.Value(1)).current;
+  const logoPulseAnim = useRef(new Animated.Value(1)).current;
 
   const currentTaskStep = userData?.currentTaskStep || 0;
-  const currentStep = (userData?.currentPhase || 1) - 1;
+
+  const today = new Date();
+  const lastTaskDateObj = userData?.lastTaskDate
+    ? new Date(userData.lastTaskDate)
+    : null;
+  const hasCompletedTaskToday = Boolean(
+    lastTaskDateObj &&
+      lastTaskDateObj.getDate() === today.getDate() &&
+      lastTaskDateObj.getMonth() === today.getMonth() &&
+      lastTaskDateObj.getFullYear() === today.getFullYear()
+  );
+  const bypassDailyLock = Boolean(userData?.bypassDailyLock);
+
+  const rawPhaseStep = (userData?.currentPhase || 1) - 1;
+  const nextAvailableStep = Math.min(
+    totalStepsInModule - 1,
+    Math.max(0, rawPhaseStep)
+  );
+
+  const currentStep = nextAvailableStep;
   const isJourneyFinished = currentStep >= totalStepsInModule;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(logoPulseAnim, {
+          toValue: 1.12,
+          duration: 900,
+          useNativeDriver: true,
+        }),
+        Animated.timing(logoPulseAnim, {
+          toValue: 1,
+          duration: 900,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, [logoPulseAnim]);
+
+  // 🔒 BLOQUEIO RÍGIDO AO MINIMIZAR O APLICATIVO
+  useEffect(() => {
+    const handleAppStateChange = async (nextAppState: string) => {
+      if (nextAppState === "background" || nextAppState === "inactive") {
+        lockSession();
+      }
+    };
+
+    const subscription = AppState.addEventListener("change", handleAppStateChange);
+    return () => subscription.remove();
+  }, []);
 
   useEffect(() => {
     const unsubscribeAuth = auth.onAuthStateChanged((user) => {
@@ -388,7 +451,7 @@ export default function HomeScreen({ navigation }: any) {
     let unsubscribeUser: () => void;
 
     const timer = setTimeout(() => {
-      registerForPushNotificationsAsync().then(async (token) => {
+      registerForPushNotificationsAsync().then(async (token: string | null) => {
         if (token) {
           try {
             await setDoc(
@@ -468,8 +531,8 @@ export default function HomeScreen({ navigation }: any) {
           const weekNum = Number(
             data.weekNumber || data.week || docSnap.id.replace(/\D/g, "")
           );
-          const themeText = data.theme || data.title || data.name || data.topic;
-          if (!isNaN(weekNum) && themeText) themes[weekNum] = themeText;
+          const themeData = data.translations || data.theme || data.title || data.topic;
+          if (!isNaN(weekNum) && themeData) themes[weekNum] = themeData;
         });
         if (isMounted) setWeekThemes(themes);
       } catch (error) {}
@@ -486,22 +549,22 @@ export default function HomeScreen({ navigation }: any) {
   }, [userData]);
 
   useEffect(() => {
-    const fAnim = Animated.loop(
+    Animated.loop(
       Animated.sequence([
         Animated.timing(floatAnim, {
           toValue: -6,
           duration: 1200,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
         Animated.timing(floatAnim, {
           toValue: 0,
           duration: 1200,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
       ])
-    );
+    ).start();
 
-    const pAnim = Animated.loop(
+    Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
           toValue: 1.05,
@@ -514,47 +577,46 @@ export default function HomeScreen({ navigation }: any) {
           useNativeDriver: true,
         }),
       ])
-    );
+    ).start();
 
-    const rAnim = Animated.loop(
+    Animated.loop(
       Animated.sequence([
         Animated.timing(ringPulseAnim, {
           toValue: 1.15,
-          duration: 1200,
+          duration: 1000,
           useNativeDriver: true,
         }),
         Animated.timing(ringPulseAnim, {
           toValue: 1,
-          duration: 1200,
+          duration: 1000,
           useNativeDriver: true,
         }),
       ])
-    );
-
-    fAnim.start();
-    pAnim.start();
-    rAnim.start();
-
-    return () => {
-      fAnim.stop();
-      pAnim.stop();
-      rAnim.stop();
-    };
+    ).start();
   }, [floatAnim, pulseAnim, ringPulseAnim]);
 
   const hasCompletedAnamnesis = Boolean(userData?.hasCompletedAnamnesis);
   const partnerCompletedAnamnesis = Boolean(partnerData?.hasCompletedAnamnesis);
 
+  // 🎯 VALIDAÇÃO CIRÚRGICA DE ACESSO PREMIUM (SOLO VS DUO)
+  const myIsPremium = Boolean(userData?.isPremium);
+
+  const partnerIsPremium = Boolean(partnerData?.isPremium);
+  const partnerPlanType = partnerData?.planType || (partnerData?.activeProductId?.includes("_duo_") ? "duo" : "solo");
+
+  // Acesso liberado se:
+  // 1. O próprio usuário tem uma assinatura ativa (Solo ou Duo)
+  // 2. OU o parceiro dele tem uma assinatura ativa especificamente do tipo DUO
   const isPremium =
-    Boolean(userData?.isPremium) || Boolean(partnerData?.isPremium);
+    myIsPremium || (partnerIsPremium && partnerPlanType === "duo");
 
   const hasPartner = Boolean(userData?.partnerId);
   const isSoloMode = Boolean(userData?.isSoloMode);
   const iAmReady = Boolean(
-    userData?.isReadyToStart || userData?.hasPressedPlay
+    userData?.isReadyToStart || userData?.hasPressedPlay || (userData?.currentPhase || 1) > 1
   );
   const partnerIsReady = Boolean(
-    partnerData?.isReadyToStart || partnerData?.hasPressedPlay
+    partnerData?.isReadyToStart || partnerData?.hasPressedPlay || (partnerData?.currentPhase || 1) > 1
   );
 
   const isMatchOrSoloDone = hasPartner || isSoloMode;
@@ -562,34 +624,61 @@ export default function HomeScreen({ navigation }: any) {
   const isTrailUnlocked =
     hasCompletedAnamnesis &&
     isPremium &&
-    iAmReady &&
-    (isSoloMode || (partnerIsReady && partnerCompletedAnamnesis));
+    (iAmReady || partnerIsReady) &&
+    (isSoloMode || !hasPartner || partnerCompletedAnamnesis || partnerIsReady);
 
-  const scrollToActiveNode = (animated = false) => {
-    const targetY = nodePositions[currentStep];
-    if (scrollViewRef.current && targetY !== undefined) {
-      const absoluteY = targetY + nodesWrapperY.current;
-      const targetScrollY = Math.max(0, absoluteY - 250);
+  // 🎯 CÁLCULO DO NÓ ATIVO DA TAREFA ATUAL DA JORNADA
+  const getTargetStepIndex = () => {
+    return nextAvailableStep;
+  };
 
-      scrollViewRef.current.scrollTo({ y: targetScrollY, animated: animated });
-      setIsInitialPositionSet(true);
+  const getActiveNodeScrollY = (): number | null => {
+    if (isTrailUnlocked) {
+      const targetStep = getTargetStepIndex();
+      const rawY = nodePositions[targetStep];
+      if (rawY !== undefined && rawY !== null && rawY >= 0) {
+        return Math.max(0, rawY + nodesWrapperY.current - SCREEN_HEIGHT / 3);
+      }
+    } else {
+      if (!hasCompletedAnamnesis) return Math.max(0, anamnesisYRef.current);
+      if (!isMatchOrSoloDone) return Math.max(0, matchYRef.current);
+      return Math.max(0, playYRef.current);
+    }
+    return null;
+  };
+
+  const executeScrollToTarget = (animated = true) => {
+    const targetScrollY = getActiveNodeScrollY();
+    if (scrollViewRef.current && targetScrollY !== null) {
+      scrollViewRef.current.scrollTo({ y: targetScrollY, animated });
+      setShowFab(false);
+      fabVisibleRef.current = false;
     }
   };
 
+  const scrollToActiveNode = (animated = true) => {
+    let attempts = 0;
+    const performScroll = () => {
+      const targetScrollY = getActiveNodeScrollY();
+      if (scrollViewRef.current && targetScrollY !== null) {
+        scrollViewRef.current.scrollTo({ y: targetScrollY, animated });
+        setShowFab(false);
+        fabVisibleRef.current = false;
+      } else if (attempts < 20) {
+        attempts++;
+        setTimeout(performScroll, 100);
+      }
+    };
+    performScroll();
+  };
+
+  // 🔄 RE-SCROLL AUTOMÁTICO SEGURO AO VOLTAR DE UMA MISSÃO/TELA
   useEffect(() => {
     const unsubscribe = navigation.addListener("focus", () => {
-      if (isTrailUnlocked) {
-        setTimeout(() => scrollToActiveNode(false), 100);
-      }
+      setTimeout(() => scrollToActiveNode(true), 250);
     });
     return unsubscribe;
-  }, [navigation, isTrailUnlocked, currentStep]);
-
-  useEffect(() => {
-    if (isTrailUnlocked && !isInitialPositionSet) {
-      setTimeout(() => scrollToActiveNode(false), 300);
-    }
-  }, [currentStep, isTrailUnlocked, isInitialPositionSet]);
+  }, [navigation, isTrailUnlocked, nextAvailableStep, userData?.currentPhase]);
 
   const handleScroll = (event: any) => {
     const offsetY = event.nativeEvent.contentOffset.y;
@@ -605,13 +694,10 @@ export default function HomeScreen({ navigation }: any) {
     }
     if (visibleWeek !== active) setVisibleWeek(active);
 
-    const targetY = nodePositions[currentStep];
-    if (targetY !== undefined) {
-      const absoluteY = targetY + nodesWrapperY.current;
-      const idealScrollY = Math.max(0, absoluteY - 250);
-      const distance = Math.abs(offsetY - idealScrollY);
-
-      const shouldShow = distance > 50;
+    const targetScrollY = getActiveNodeScrollY();
+    if (targetScrollY !== null) {
+      const distance = Math.abs(offsetY - targetScrollY);
+      const shouldShow = distance > 300;
 
       if (shouldShow !== fabVisibleRef.current) {
         fabVisibleRef.current = shouldShow;
@@ -631,17 +717,6 @@ export default function HomeScreen({ navigation }: any) {
     getFirstName(partnerData) ||
     partnerData?.email?.split("@")[0] ||
     t("partner_default_name", userLang);
-
-  const today = new Date();
-  const lastTaskDateObj = userData?.lastTaskDate
-    ? new Date(userData.lastTaskDate)
-    : null;
-  const hasCompletedTaskToday = Boolean(
-    lastTaskDateObj &&
-      lastTaskDateObj.getDate() === today.getDate() &&
-      lastTaskDateObj.getMonth() === today.getMonth() &&
-      lastTaskDateObj.getFullYear() === today.getFullYear()
-  );
 
   const generateTrailMatrix = async (
     uid: string,
@@ -685,11 +760,6 @@ export default function HomeScreen({ navigation }: any) {
     }
   };
 
-  const handleHardReset = () => {
-    triggerHaptic("warning");
-    setIsHardResetModalVisible(true);
-  };
-
   const handleSendNudge = async () => {
     triggerHaptic("light");
   };
@@ -703,7 +773,9 @@ export default function HomeScreen({ navigation }: any) {
     setIsGeneratingJourney(true);
 
     if (currentUid) {
-      const personalTrail = await generateTrailMatrix(currentUid, null, true);
+      const personalTrail = userData?.myTrail && userData.myTrail.length > 0 
+        ? userData.myTrail 
+        : await generateTrailMatrix(currentUid, null, true);
       try {
         await setDoc(
           doc(db, "users", currentUid),
@@ -738,17 +810,16 @@ export default function HomeScreen({ navigation }: any) {
 
     try {
       if (partnerIsReady && partnerCompletedAnamnesis) {
-        const myTrail = await generateTrailMatrix(
-          currentUid,
-          targetPartnerId,
-          false
-        );
+        const myTrail = userData?.myTrail && userData.myTrail.length > 0 
+          ? userData.myTrail 
+          : await generateTrailMatrix(currentUid, targetPartnerId, false);
 
         await setDoc(
           doc(db, "users", currentUid),
           {
             isReadyToStart: true,
             hasPressedPlay: true,
+            isSoloMode: false,
             anamnesisLocked: true,
             myTrail: myTrail,
           },
@@ -756,16 +827,16 @@ export default function HomeScreen({ navigation }: any) {
         );
 
         if (targetPartnerId) {
-          const partnerTrail = await generateTrailMatrix(
-            targetPartnerId,
-            currentUid,
-            false
-          );
+          const partnerTrail = partnerData?.myTrail && partnerData.myTrail.length > 0
+            ? partnerData.myTrail
+            : await generateTrailMatrix(targetPartnerId, currentUid, false);
+
           await setDoc(
             doc(db, "users", targetPartnerId),
             {
               isReadyToStart: true,
               hasPressedPlay: true,
+              isSoloMode: false,
               anamnesisLocked: true,
               myTrail: partnerTrail,
             },
@@ -939,7 +1010,7 @@ export default function HomeScreen({ navigation }: any) {
     }
   };
 
-  // 🎯 ABERTURA DA MISSÃO CORRIGIDA
+  // 🔒 A TRAVA DE SEGURANÇA: EXIGE O PIN EM TODA TAREFA BLOQUEADA OU REVISÃO
   const handleOpenMission = async (
     stepIndex: number,
     isActuallyLocked: boolean,
@@ -985,26 +1056,19 @@ export default function HomeScreen({ navigation }: any) {
       return;
     }
 
-    // 🔒 MODO REVISÃO PARA MISSÕES CUMPRIDAS
-    if (isCompleted) {
-      setIsReviewMode(true);
-      await executeMissionFetch(stepIndex, true);
-      return;
-    }
-
-    setIsReviewMode(false);
-    setPendingMissionStepIndex(stepIndex);
-
-    if (userData?.masterPasswordHash) {
+    // Se a sessão expirou (seja minimizada ou timeout), EXIGE PIN ANTES DE ABRIR TUDO
+    if (!isSessionUnlocked()) {
+      setIsReviewMode(Boolean(isCompleted));
+      setPendingMissionStepIndex(stepIndex);
       setIsMasterPasswordModalVisible(true);
-      return;
+      return; 
     }
 
-    await executeMissionFetch(stepIndex, false);
+    await executeMissionFetch(stepIndex, isCompleted);
   };
 
   const executeMissionFetch = async (stepIndex: number, isCompleted: boolean) => {
-    setIsFetchingMission(true);
+    setFetchingStepIndex(stepIndex);
     try {
       const phaseToFetch = userData?.myTrail
         ? userData.myTrail[stepIndex]
@@ -1084,18 +1148,20 @@ export default function HomeScreen({ navigation }: any) {
       }
     } catch (error) {
     } finally {
-      setIsFetchingMission(false);
+      setFetchingStepIndex(null);
     }
   };
 
-  // 🔐 ENCRIPTAÇÃO COM SESSÃO / UID
+  // 🎯 GRAVAÇÃO E CONCLUSAO DA MISSÃO TOTALMENTE ALINHADA COM A BUSCA DO DIÁRIO
   const handleCompleteMission = async (journalText: string = "") => {
     if (!currentUid || !activeMission) return;
 
     try {
-      const encryptedJournal = journalText.trim().length > 0 
-        ? await encryptText(journalText, currentUid)
-        : "";
+      const targetPhase =
+        activeMission.displayPhase ||
+        activeMission.phase ||
+        activeMission.day ||
+        nextAvailableStep + 1;
 
       if (activeMission.isGoldChallenge) {
         await setDoc(
@@ -1104,14 +1170,18 @@ export default function HomeScreen({ navigation }: any) {
           { merge: true }
         );
 
-        const journalRef = doc(collection(db, "users", currentUid, "journals"));
-        await setDoc(journalRef, {
-          phase: activeMission.phase,
-          text: encryptedJournal,
-          date: new Date().toISOString(),
-          isGold: true,
-          isEncrypted: true,
-        });
+        if (journalText.trim().length > 0) {
+          const goldJournalId = String(activeMission.phase || `gold_week_${visibleWeek}`);
+          const journalRef = doc(db, "users", currentUid, "journals", goldJournalId);
+          await setDoc(journalRef, {
+            phase: goldJournalId,
+            numericPhase: Number(visibleWeek),
+            text: journalText, // String E2EE gravada sem re-criptografia
+            date: new Date().toISOString(),
+            isGold: true,
+            isEncrypted: true,
+          });
+        }
 
         setIsModalVisible(false);
         setActiveMission(null);
@@ -1168,14 +1238,14 @@ export default function HomeScreen({ navigation }: any) {
 
       await setDoc(doc(db, "users", currentUid), updates, { merge: true });
 
+      // 🎯 GRAVAÇÃO COM ID DETERMINÍSTICO DE FASE NO FIRESTORE
       if (journalText.trim().length > 0) {
-        const journalRef = doc(collection(db, "users", currentUid, "journals"));
+        const docId = String(targetPhase);
+        const journalRef = doc(db, "users", currentUid, "journals", docId);
         await setDoc(journalRef, {
-          phase:
-            activeMission.displayPhase ||
-            activeMission.phase ||
-            currentStep + 1,
-          text: encryptedJournal,
+          phase: targetPhase,
+          numericPhase: Number(targetPhase) || nextAvailableStep + 1,
+          text: journalText, // Criptografia mantida do cliente
           date: new Date().toISOString(),
           step: 3,
           isEncrypted: true,
@@ -1186,7 +1256,7 @@ export default function HomeScreen({ navigation }: any) {
       setIsModalVisible(false);
       setActiveMission(null);
 
-      const completedDay = currentStep + 1;
+      const completedDay = nextAvailableStep + 1;
       const weekCycleProgress = ((completedDay - 1) % 7) + 1;
 
       if (partnerData?.pushToken && !hasCompletedTaskToday) {
@@ -1204,12 +1274,20 @@ export default function HomeScreen({ navigation }: any) {
         cupidProgress: weekCycleProgress,
         isChallenge: false,
       });
-    } catch (error) {}
+    } catch (error) {
+      console.error("Erro ao salvar conclusão na Home:", error);
+    }
   };
 
   const handleOpenGoldChallenge = async (weekNumber: number) => {
     triggerHaptic("light");
-    setIsFetchingMission(true);
+
+    if (!isSessionUnlocked()) {
+      setIsMasterPasswordModalVisible(true);
+      return;
+    }
+
+    setFetchingStepIndex(`gold_${weekNumber}`);
     try {
       let q = query(
         collection(db, "weekly_challenges"),
@@ -1262,6 +1340,7 @@ export default function HomeScreen({ navigation }: any) {
         pointsPE: 150,
         isGoldChallenge: true,
         phase: `gold_week_${weekNumber}`,
+        week: weekNumber,
       });
 
       setIsReviewMode(alreadyCompletedGold);
@@ -1269,17 +1348,55 @@ export default function HomeScreen({ navigation }: any) {
     } catch (error) {
       console.error("Erro ao abrir desafio de ouro:", error);
     } finally {
-      setIsFetchingMission(false);
+      setFetchingStepIndex(null);
     }
   };
 
-  const getDisplayThemeForWeek = (weekNum: number) =>
-    weekThemes[weekNum] ||
-    DEFAULT_WEEK_THEMES[weekNum] ||
-    t("connection_rescue", userLang);
+  const getDisplayThemeForWeek = (weekNum: number) => {
+    const weekData = weekThemes[weekNum];
+
+    if (typeof weekData === "object" && weekData !== null) {
+      return (
+        weekData[userLang] ||
+        weekData["pt-BR"] ||
+        weekData.theme ||
+        t(`week_theme_${weekNum}`, userLang)
+      );
+    }
+
+    if (typeof weekData === "string" && weekData.trim().length > 0) {
+      return weekData;
+    }
+
+    const staticKeyTranslation = t(`week_theme_${weekNum}`, userLang);
+    if (staticKeyTranslation && staticKeyTranslation !== `week_theme_${weekNum}`) {
+      return staticKeyTranslation;
+    }
+
+    return DEFAULT_WEEK_THEMES[weekNum] || t("connection_rescue", userLang);
+  };
+
   const bannerWeekTheme = getDisplayThemeForWeek(visibleWeek);
   const currentFlag =
     SUPPORTED_LANGUAGES.find((l) => l.code === userLang)?.flag || "🇧🇷";
+
+  if (loading) {
+    return (
+      <SafeAreaView style={[styles.container, styles.loadingSplashContainer]}>
+        <Animated.View style={{ transform: [{ scale: logoPulseAnim }], alignItems: "center" }}>
+          <Image
+            source={require("../assets/duoelo_brand_logo.png")}
+            style={{ width: 110, height: 110, borderRadius: 25, marginBottom: 20 }}
+            resizeMode="contain"
+          />
+        </Animated.View>
+        <ActivityIndicator size="large" color="#67D4A8" style={{ marginBottom: 12 }} />
+        <Text style={{ fontFamily: "Montserrat_700Bold", color: "#202D3A", fontSize: 16 }}>
+          Carregando sua jornada...
+        </Text>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -1326,14 +1443,6 @@ export default function HomeScreen({ navigation }: any) {
             )}
           </View>
         </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.topBarItem}
-          onPress={handleHardReset}
-          activeOpacity={0.7}
-        >
-          <FontAwesome5 name="eraser" size={20} color="#202D3A" />
-        </TouchableOpacity>
       </View>
 
       <View style={styles.fixedHeaderBannerContainer}>
@@ -1365,10 +1474,7 @@ export default function HomeScreen({ navigation }: any) {
       </View>
 
       <ScrollView
-        style={[
-          styles.scrollContainer,
-          { opacity: isTrailUnlocked && !isInitialPositionSet ? 0 : 1 },
-        ]}
+        style={styles.scrollContainer}
         ref={scrollViewRef}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -1377,7 +1483,12 @@ export default function HomeScreen({ navigation }: any) {
       >
         <View style={styles.trailContainer}>
           {/* NÓ 1: AVALIAÇÃO */}
-          <View style={styles.anamnesisNodeContainer}>
+          <View
+            style={styles.anamnesisNodeContainer}
+            onLayout={(e) => {
+              anamnesisYRef.current = e.nativeEvent.layout.y;
+            }}
+          >
             {!hasCompletedAnamnesis && (
               <Animated.View
                 style={[
@@ -1437,7 +1548,12 @@ export default function HomeScreen({ navigation }: any) {
           <View style={styles.trailConnector} />
 
           {/* NÓ 2: CADEIA DE MATCH */}
-          <View style={styles.specialNodeContainer}>
+          <View
+            style={styles.specialNodeContainer}
+            onLayout={(e) => {
+              matchYRef.current = e.nativeEvent.layout.y;
+            }}
+          >
             <TouchableOpacity
               style={[
                 styles.startJourneyBtn,
@@ -1493,7 +1609,12 @@ export default function HomeScreen({ navigation }: any) {
           <View style={styles.trailConnector} />
 
           {/* NÓ 3: DAR O PLAY */}
-          <View style={styles.specialNodeContainer}>
+          <View
+            style={styles.specialNodeContainer}
+            onLayout={(e) => {
+              playYRef.current = e.nativeEvent.layout.y;
+            }}
+          >
             {isTrailUnlocked ? (
               <View style={{ alignItems: "center" }}>
                 <TouchableOpacity
@@ -1509,21 +1630,6 @@ export default function HomeScreen({ navigation }: any) {
                   {t("active_trail_label", userLang)}
                 </Text>
               </View>
-            ) : iAmReady ? (
-              <View style={{ alignItems: "center" }}>
-                <TouchableOpacity
-                  style={[
-                    styles.startJourneyBtn,
-                    { backgroundColor: "#EAB64A", borderColor: "#F9ECCC" },
-                  ]}
-                  activeOpacity={1}
-                >
-                  <FontAwesome5 name="hourglass-half" size={28} color="#FFF" />
-                </TouchableOpacity>
-                <Text style={styles.mapLabelText}>
-                  {t("waiting_partner_label", userLang, { name: pName })}
-                </Text>
-              </View>
             ) : (
               <Animated.View
                 style={{
@@ -1534,24 +1640,28 @@ export default function HomeScreen({ navigation }: any) {
                 <TouchableOpacity
                   style={[
                     styles.startJourneyBtn,
-                    {
-                      backgroundColor: "#67D4A8",
-                      borderColor: "#E8F4F1",
-                      shadowColor: "#67D4A8",
-                    },
+                    iAmReady
+                      ? { backgroundColor: "#EAB64A", borderColor: "#F9ECCC" }
+                      : {
+                          backgroundColor: "#67D4A8",
+                          borderColor: "#E8F4F1",
+                          shadowColor: "#67D4A8",
+                        },
                   ]}
                   activeOpacity={0.8}
                   onPress={handlePolitePlayTrigger}
                 >
                   <FontAwesome5
-                    name="play"
+                    name={iAmReady ? "hourglass-half" : "play"}
                     size={28}
                     color="#FFF"
-                    style={{ marginLeft: 4 }}
+                    style={!iAmReady ? { marginLeft: 4 } : {}}
                   />
                 </TouchableOpacity>
                 <Text style={[styles.mapLabelText, { color: "#202D3A" }]}>
-                  {t("press_play_label", userLang)}
+                  {iAmReady
+                    ? t("waiting_partner_label", userLang, { name: pName })
+                    : t("press_play_label", userLang)}
                 </Text>
               </Animated.View>
             )}
@@ -1565,16 +1675,15 @@ export default function HomeScreen({ navigation }: any) {
             ]}
             onLayout={(e) => {
               nodesWrapperY.current = e.nativeEvent.layout.y;
-              if (isTrailUnlocked && !isInitialPositionSet)
-                scrollToActiveNode(false);
+              if (isTrailUnlocked) {
+                setTimeout(() => scrollToActiveNode(false), 50);
+              }
             }}
           >
             {Array.from({ length: totalStepsInModule }).map((_, index) => {
-              const isCompleted = isTrailUnlocked ? index < currentStep : false;
-              const isNextUp = isTrailUnlocked ? index === currentStep : false;
-              const isLocked = !isTrailUnlocked ? true : index > currentStep;
-
-              const bypassDailyLock = Boolean(userData?.bypassDailyLock);
+              const isCompleted = isTrailUnlocked ? index < nextAvailableStep : false;
+              const isNextUp = isTrailUnlocked ? index === nextAvailableStep : false;
+              const isLocked = !isTrailUnlocked ? true : index > nextAvailableStep;
 
               const isWaitingForTomorrow =
                 isNextUp && hasCompletedTaskToday && !bypassDailyLock;
@@ -1589,7 +1698,7 @@ export default function HomeScreen({ navigation }: any) {
 
               const tasksDoneThisWeek = Math.max(
                 0,
-                currentStep - (weekNumber - 1) * 7
+                nextAvailableStep - (weekNumber - 1) * 7
               );
               const starsActive = Math.min(3, tasksDoneThisWeek);
               const isGoldUnlocked = starsActive >= 3;
@@ -1600,7 +1709,7 @@ export default function HomeScreen({ navigation }: any) {
               let iconSize = 22 + dayOfWeek * 1.5;
 
               let faceColor = "#D1D9E0";
-              let baseColor = "#F0F4F8";
+              let baseColor = "#AFAFAF";
               let iconName = WEEKLY_PROGRESSION_ICONS[dayOfWeek];
               let iconColor = "#202D3A";
 
@@ -1610,12 +1719,12 @@ export default function HomeScreen({ navigation }: any) {
                 iconName = "gift";
                 if (isCompleted) {
                   faceColor = "#67D4A8";
-                  baseColor = "#E8F4F1";
+                  baseColor = "#4BB890";
                   iconName = "check";
                   iconColor = "#FFF";
                 } else if (isActive) {
                   faceColor = "#EAB64A";
-                  baseColor = "#F9ECCC";
+                  baseColor = "#C99632";
                   iconName = "check";
                   iconColor = "#FFF";
                 } else if (isWaitingForTomorrow) {
@@ -1631,12 +1740,12 @@ export default function HomeScreen({ navigation }: any) {
               } else {
                 if (isCompleted) {
                   faceColor = "#67D4A8";
-                  baseColor = "#E8F4F1";
+                  baseColor = "#4BB890";
                   iconName = "check";
                   iconColor = "#FFF";
                 } else if (isActive) {
                   faceColor = "#EAB64A";
-                  baseColor = "#F9ECCC";
+                  baseColor = "#C99632";
                   iconName = "check";
                   iconColor = "#FFF";
                 } else if (isWaitingForTomorrow) {
@@ -1649,7 +1758,7 @@ export default function HomeScreen({ navigation }: any) {
 
               const ringPadding = 26;
               const ringSize = nodeSize + ringPadding;
-              const ringOffset = (ringSize - nodeSize) / 2;
+              const isThisNodeFetching = fetchingStepIndex === index;
 
               return (
                 <React.Fragment key={index}>
@@ -1681,8 +1790,10 @@ export default function HomeScreen({ navigation }: any) {
                       alignItems: "center",
                       justifyContent: "center",
                       position: "relative",
+                      marginVertical: 5,
                     }}
                   >
+                    {/* NÓ PRINCIPAL DA TAREFA DO DIA */}
                     <View
                       style={[
                         styles.nodeWrapper,
@@ -1693,28 +1804,29 @@ export default function HomeScreen({ navigation }: any) {
                         },
                       ]}
                       onLayout={(e) => {
-                        nodePositions[index] = e.nativeEvent.layout.y;
-
-                        if (
-                          index === currentStep &&
-                          isTrailUnlocked &&
-                          !isInitialPositionSet
-                        ) {
-                          setTimeout(() => scrollToActiveNode(false), 50);
+                        const y = e.nativeEvent.layout.y;
+                        nodePositions[index] = y + nodesWrapperY.current;
+                        if (index === nextAvailableStep) {
+                          if (isTrailUnlocked) {
+                            executeScrollToTarget(true);
+                          }
                         }
                       }}
                     >
+                      {/* 🌟 ARO PULSANTE CENTRALIZADO E REANIMADO */}
                       {isNextUp && (
                         <Animated.View
                           style={{
                             position: "absolute",
                             width: ringSize,
                             height: ringSize,
-                            top: -ringOffset - 2.5,
-                            left: -ringOffset,
                             transform: [{ scale: ringPulseAnim }],
                             zIndex: 0,
                             pointerEvents: "none",
+                            justifyContent: "center",
+                            alignItems: "center",
+                            top: -(ringSize - nodeSize) / 2,
+                            left: -(ringSize - nodeSize) / 2,
                           }}
                         >
                           <SegmentedRing
@@ -1724,6 +1836,7 @@ export default function HomeScreen({ navigation }: any) {
                         </Animated.View>
                       )}
 
+                      {/* BASE 3D FÍSICA DO BOTÃO */}
                       <View
                         style={[
                           styles.nodeBase,
@@ -1745,18 +1858,18 @@ export default function HomeScreen({ navigation }: any) {
                               isCompleted
                             )
                           }
-                          style={({ pressed }) => [
+                          style={({ pressed }: { pressed: boolean }) => [
                             styles.nodeFace,
                             {
                               backgroundColor: faceColor,
                               width: nodeSize,
                               height: nodeSize,
                               borderRadius: nodeSize / 2,
-                              transform: [{ translateY: pressed ? 0 : -5 }],
+                              transform: [{ translateY: pressed ? 0 : -6 }],
                             },
                           ]}
                         >
-                          {isFetchingMission && isActive ? (
+                          {isThisNodeFetching ? (
                             <ActivityIndicator size="small" color="#FFF" />
                           ) : (
                             <FontAwesome5
@@ -1768,7 +1881,8 @@ export default function HomeScreen({ navigation }: any) {
                         </Pressable>
                       </View>
 
-                      {isActive && currentTaskStep === 0 && (
+                      {/* 💖🔥 EFEITO FLUTUANTE DE CORAÇÕES E FOGO */}
+                      {isActive && (
                         <View
                           style={[
                             styles.floatingHeartsContainer,
@@ -1784,21 +1898,20 @@ export default function HomeScreen({ navigation }: any) {
                       )}
                     </View>
 
-                    {/* 🏆 DESAFIO DE OURO COM CONTAINER QUE NÃO BLOQUEIA O TOQUE ABAIXO */}
+                    {/* DESAFIO DE OURO ISOLADO */}
                     {isDay5 && (
                       <View
-                        style={[
-                          styles.goldChallengeWrapper,
-                          {
-                            transform: [
-                              { translateX: translateX + nodeSize / 2 + 55 },
-                            ],
-                            top: 0,
-                            zIndex: 99999,
-                            elevation: 20,
-                          },
-                        ]}
-                        pointerEvents="box-none"
+                        style={{
+                          position: "absolute",
+                          left: "50%",
+                          transform: [
+                            { translateX: translateX + nodeSize / 2 + 25 },
+                          ],
+                          top: -5,
+                          alignItems: "center",
+                          zIndex: 999999,
+                          elevation: 30,
+                        }}
                       >
                         {isGoldUnlocked ? (
                           <Animated.View
@@ -1814,12 +1927,16 @@ export default function HomeScreen({ navigation }: any) {
                                 handleOpenGoldChallenge(weekNumber);
                               }}
                             >
-                              <FontAwesome5
-                                name="infinity"
-                                solid
-                                size={24}
-                                color="#202D3A"
-                              />
+                              {fetchingStepIndex === `gold_${weekNumber}` ? (
+                                <ActivityIndicator size="small" color="#202D3A" />
+                              ) : (
+                                <FontAwesome5
+                                  name="infinity"
+                                  solid
+                                  size={24}
+                                  color="#202D3A"
+                                />
+                              )}
                             </TouchableOpacity>
                           </Animated.View>
                         ) : (
@@ -1869,6 +1986,7 @@ export default function HomeScreen({ navigation }: any) {
               );
             })}
 
+            {/* 🏆 NÓ DO DIA 90 (TRAVA & CELEBRAÇÃO SIMPLES MVP) */}
             <View style={[styles.endNodeContainer, { marginTop: 40 }]}>
               <TouchableOpacity
                 style={[
@@ -1882,8 +2000,8 @@ export default function HomeScreen({ navigation }: any) {
                   triggerHaptic("light");
                   if (isTrailUnlocked && isJourneyFinished) {
                     showCustomAlert(
-                      t("congrats_completion_title", userLang),
-                      t("congrats_completion_msg", userLang),
+                      t("congrats_completion_title", userLang) || "🏆 Parabéns pelo Dia 90!",
+                      t("congrats_completion_msg", userLang) || "Vocês concluíram a Jornada DuoElo de 90 dias com sucesso!",
                       "trophy",
                       "#EAB64A"
                     );
@@ -1897,6 +2015,13 @@ export default function HomeScreen({ navigation }: any) {
                       () => navigation.navigate("PaywallScreen"),
                       t("btn_not_now", userLang),
                       () => {}
+                    );
+                  } else {
+                    showCustomAlert(
+                      "Jornada em Andamento",
+                      "Continue realizando as tarefas diárias para desbloquear a conquista do Dia 90!",
+                      "lock",
+                      "#202D3A"
                     );
                   }
                 }}
@@ -1914,7 +2039,8 @@ export default function HomeScreen({ navigation }: any) {
         </View>
       </ScrollView>
 
-      {isTrailUnlocked && showFab && !isModalVisible && (
+      {/* 🎯 BOTÃO FLUTUANTE GLOBAL */}
+      {showFab && !isModalVisible && (
         <TouchableOpacity
           style={styles.floatingTargetBtn}
           onPress={() => {
@@ -1944,13 +2070,14 @@ export default function HomeScreen({ navigation }: any) {
         )}
       </Modal>
 
-      {/* MODAL DE SENHA MESTRA */}
+      {/* MODAL DE SENHA MESTRA / ROSTO */}
       <MasterPasswordModal
         visible={isMasterPasswordModalVisible}
+        userLanguage={userLang}
         onSuccess={async () => {
           setIsMasterPasswordModalVisible(false);
           if (pendingMissionStepIndex !== null) {
-            await executeMissionFetch(pendingMissionStepIndex, false);
+            await executeMissionFetch(pendingMissionStepIndex, isReviewMode);
             setPendingMissionStepIndex(null);
           }
         }}
@@ -2089,127 +2216,6 @@ export default function HomeScreen({ navigation }: any) {
         </View>
       </Modal>
 
-      {/* MODAL DE RESET DA CONTA */}
-      <Modal
-        visible={isHardResetModalVisible}
-        transparent
-        animationType="slide"
-      >
-        <View style={styles.bottomSheetOverlay}>
-          <View style={styles.bottomSheetContainer}>
-            <View style={styles.bottomSheetHandle} />
-
-            <View
-              style={[
-                styles.alertIconContainer,
-                { backgroundColor: "#D96C6C20" },
-              ]}
-            >
-              <FontAwesome5 name="eraser" size={28} color="#D96C6C" />
-            </View>
-
-            <Text style={styles.bottomSheetTitle}>
-              {t("delete_account_title", userLang)}
-            </Text>
-            <Text style={styles.bottomSheetText}>
-              <Text
-                style={{ fontFamily: "Montserrat_900Black", color: "#D96C6C" }}
-              >
-                {t("warning_label", userLang)}
-              </Text>{" "}
-              {t("delete_account_msg", userLang)}
-            </Text>
-
-            <TouchableOpacity
-              style={[
-                styles.bottomSheetButtonPrimary,
-                { backgroundColor: "#D96C6C", marginBottom: 10 },
-              ]}
-              activeOpacity={0.8}
-              onPress={async () => {
-                triggerHaptic("warning");
-                setIsHardResetModalVisible(false);
-                if (currentUid) {
-                  try {
-                    showCustomAlert(
-                      t("resetting_database_title", userLang),
-                      t("resetting_database_msg", userLang),
-                      "spinner",
-                      "#EAB64A"
-                    );
-
-                    await logAuditEvent(
-                      currentUid,
-                      "ACCOUNT_EXCLUSION_REQUESTED",
-                      "Exclusão total solicitada via Hard Reset na HomeScreen"
-                    );
-
-                    if (userData?.partnerId) {
-                      await setDoc(
-                        doc(db, "users", userData.partnerId),
-                        {
-                          partnerId: null,
-                          isSoloMode: false,
-                          myTrail: null,
-                          isReadyToStart: false,
-                          hasPressedPlay: false,
-                        },
-                        { merge: true }
-                      );
-                    }
-
-                    const journalsSnap = await getDocs(
-                      collection(db, "users", currentUid, "journals")
-                    );
-                    const deletePromises = journalsSnap.docs.map((d) =>
-                      deleteDoc(d.ref)
-                    );
-                    await Promise.all(deletePromises);
-
-                    await deleteDoc(doc(db, "users", currentUid));
-
-                    const user = auth.currentUser;
-                    if (user) {
-                      await deleteUser(user);
-                    } else {
-                      await auth.signOut();
-                    }
-                  } catch (error) {
-                    showCustomAlert(
-                      t("reset_error_title", userLang),
-                      t("reset_error_msg", userLang),
-                      "times-circle",
-                      "#D96C6C"
-                    );
-                  }
-                }
-              }}
-            >
-              <View
-                style={{ flexDirection: "row", alignItems: "center", gap: 10 }}
-              >
-                <FontAwesome5 name="trash-alt" size={16} color="#FFF" />
-                <Text style={styles.bottomSheetButtonPrimaryText}>
-                  {t("btn_confirm_delete_account", userLang)}
-                </Text>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.bottomSheetButtonSecondary}
-              onPress={() => {
-                triggerHaptic("light");
-                setIsHardResetModalVisible(false);
-              }}
-            >
-              <Text style={styles.bottomSheetButtonSecondaryText}>
-                {t("modal_cancel", userLang)}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
       {/* ALERTAS CUSTOMIZADOS */}
       <Modal visible={customAlert.visible} transparent animationType="slide">
         <View style={styles.bottomSheetOverlay}>
@@ -2273,6 +2279,11 @@ export default function HomeScreen({ navigation }: any) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F0F4F8", width: "100%" },
+  loadingSplashContainer: {
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#F0F4F8",
+  },
   topBar: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -2595,10 +2606,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 6,
+    position: "relative",
   },
   nodeFace: {
     justifyContent: "center",
@@ -2606,7 +2618,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 0,
     left: 0,
-    zIndex: 1,
+    zIndex: 2,
   },
   floatingTargetBtn: {
     position: "absolute",

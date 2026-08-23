@@ -103,6 +103,7 @@ export default function PaywallScreen({ navigation }: any) {
     ]).start();
   }, []);
 
+  // 🎯 MAPEAMENTO CIRÚRGICO COM BASE NOS PRODUTOS DO REVENUECAT
   const findPackage = (
     category: "duo" | "individual",
     period: "mensal" | "trimestral" | "anual",
@@ -206,21 +207,56 @@ export default function PaywallScreen({ navigation }: any) {
         return;
       }
 
-      const userUpdates: any = {
-        isPremium: true,
-        subscriptionCategory: planCategory,
-        subscriptionPlan: selectedPlan,
-        subscriptionDate: new Date().toISOString(),
-      };
+      const pkgToPurchase = findPackage(planCategory, selectedPlan);
 
-      await setDoc(doc(db, "users", currentUid), userUpdates, { merge: true });
+      if (pkgToPurchase) {
+        // 💳 PROCESSA A COMPRA VIA REVENUECAT
+        const { customerInfo } = await Purchases.purchasePackage(pkgToPurchase);
+        const activeProdId = customerInfo.activeSubscriptions[0] || pkgToPurchase.product.identifier;
+        const isDuoPlan = planCategory === "duo" || activeProdId.includes("_duo_");
 
-      if (planCategory === "duo" && partnerId) {
-        await setDoc(
-          doc(db, "users", partnerId),
-          { isPremium: true, isPartnerPremium: true },
-          { merge: true },
-        );
+        const userUpdates: any = {
+          isPremium: true,
+          planType: isDuoPlan ? "duo" : "solo",
+          activeProductId: activeProdId,
+          subscriptionCategory: planCategory,
+          subscriptionPlan: selectedPlan,
+          subscriptionDate: new Date().toISOString(),
+        };
+
+        await setDoc(doc(db, "users", currentUid), userUpdates, { merge: true });
+
+        // 🎯 O PARCEIRO SÓ HERDA A ASSINATURA SE FOR PLANO DUO
+        if (isDuoPlan && partnerId) {
+          await setDoc(
+            doc(db, "users", partnerId),
+            { isPremium: true, isPartnerPremium: true, planType: "duo" },
+            { merge: true },
+          );
+        }
+      } else {
+        // Fallback em ambiente de teste sem RevenueCat configurado
+        const isDuoPlan = planCategory === "duo";
+        const userUpdates: any = {
+          isPremium: true,
+          planType: isDuoPlan ? "duo" : "solo",
+          activeProductId: isDuoPlan
+            ? `duoelo_duo_${selectedPlan}`
+            : `duoelo_${selectedPlan}`,
+          subscriptionCategory: planCategory,
+          subscriptionPlan: selectedPlan,
+          subscriptionDate: new Date().toISOString(),
+        };
+
+        await setDoc(doc(db, "users", currentUid), userUpdates, { merge: true });
+
+        if (isDuoPlan && partnerId) {
+          await setDoc(
+            doc(db, "users", partnerId),
+            { isPremium: true, isPartnerPremium: true, planType: "duo" },
+            { merge: true },
+          );
+        }
       }
 
       // 📜 REGISTRO DE AUDITORIA DE SEGURANÇA (ATIVAÇÃO DE ASSINATURA)
@@ -258,8 +294,9 @@ export default function PaywallScreen({ navigation }: any) {
         ],
       );
     } catch (error: any) {
-      Alert.alert(t("sub_error_title", userLang), t("sub_error_msg", userLang));
-      console.error("Erro na assinatura:", error);
+      if (!error.userCancelled) {
+        Alert.alert(t("sub_error_title", userLang), t("sub_error_msg", userLang));
+      }
     } finally {
       setIsProcessing(false);
     }
@@ -274,11 +311,26 @@ export default function PaywallScreen({ navigation }: any) {
       if (Object.keys(restoredInfo.entitlements.active).length > 0) {
         const currentUid = auth.currentUser?.uid;
         if (currentUid) {
+          const activeSubId = restoredInfo.activeSubscriptions[0] || "";
+          const isDuoPlan = activeSubId.includes("_duo_");
+
           await setDoc(
             doc(db, "users", currentUid),
-            { isPremium: true },
+            {
+              isPremium: true,
+              planType: isDuoPlan ? "duo" : "solo",
+              activeProductId: activeSubId,
+            },
             { merge: true },
           );
+
+          if (isDuoPlan && partnerId) {
+            await setDoc(
+              doc(db, "users", partnerId),
+              { isPremium: true, isPartnerPremium: true, planType: "duo" },
+              { merge: true },
+            );
+          }
 
           // 📜 REGISTRO DE AUDITORIA (RESTAURAÇÃO DE COMPRA)
           await logAuditEvent(
@@ -313,7 +365,6 @@ export default function PaywallScreen({ navigation }: any) {
         t("error_title", userLang),
         t("restore_purchases_error_msg", userLang),
       );
-      console.error("Erro ao restaurar compras:", error);
     } finally {
       setIsProcessing(false);
     }

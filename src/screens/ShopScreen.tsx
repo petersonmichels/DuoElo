@@ -47,7 +47,7 @@ export default function ShopScreen({ userData, partnerData }: any) {
       | "heavy"
       | "success"
       | "warning"
-      | "error" = "light",
+      | "error" = "light"
   ) => {
     if (!Haptics || userData?.enableHaptics === false) return;
     try {
@@ -65,6 +65,9 @@ export default function ShopScreen({ userData, partnerData }: any) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } catch (e) {}
   };
+
+  // 🟢 ABA ATIVA DA LOJA ("partner" = Desejos do Amor | "my" = Minha Lista)
+  const [activeTab, setActiveTab] = useState<"partner" | "my">("partner");
 
   // Estados dos Desejos e Status
   const [myDesires, setMyDesires] = useState<{ [week: number]: string }>({});
@@ -104,17 +107,18 @@ export default function ShopScreen({ userData, partnerData }: any) {
     message: string,
     icon = "info-circle",
     color = "#202D3A",
-    hapticType: "warning" | "success" | "error" = "warning",
+    hapticType: "warning" | "success" | "error" = "warning"
   ) => {
     triggerHaptic(hapticType);
     setCustomAlert({ visible: true, title, message, icon, color });
   };
 
-  const currentBonds = userData?.totalPE || 0;
+  // Compatibilidade de saldo Bonds (totalPE ou pointsPE)
+  const currentBonds = userData?.totalPE ?? userData?.pointsPE ?? 0;
   const currentPhase = userData?.currentPhase || 1;
   const unlockedWeeksCount = Math.min(
     13,
-    Math.floor((currentPhase - 1) / 7) + 1,
+    Math.floor((currentPhase - 1) / 7) + 1
   );
 
   // 1. Leitura em Tempo Real (Perfil Logado)
@@ -198,7 +202,7 @@ export default function ShopScreen({ userData, partnerData }: any) {
         t("gift_locked_msg", userLang) || "Seu amor já comprou este presente para você!",
         "lock",
         "#EAB64A",
-        "warning",
+        "warning"
       );
       return;
     }
@@ -208,7 +212,6 @@ export default function ShopScreen({ userData, partnerData }: any) {
     try {
       const updated = { ...myDesires, [activeWeekSlot]: giftId };
 
-      // Grava no Firestore
       await setDoc(
         doc(db, "users", currentUid, "shop", "desires"),
         {
@@ -228,7 +231,7 @@ export default function ShopScreen({ userData, partnerData }: any) {
         t("error_save", userLang) || "Não foi possível salvar o presente.",
         "times-circle",
         "#D96C6C",
-        "error",
+        "error"
       );
     } finally {
       setIsSaving(false);
@@ -245,7 +248,7 @@ export default function ShopScreen({ userData, partnerData }: any) {
         t("insufficient_bonds_msg", userLang) || "Você precisa de 150 Bonds para resgatar este presente.",
         "lock",
         "#EAB64A",
-        "warning",
+        "warning"
       );
       return;
     }
@@ -262,16 +265,19 @@ export default function ShopScreen({ userData, partnerData }: any) {
             purchasedAt: new Date().toISOString(),
           },
         },
-        { merge: true },
+        { merge: true }
       );
 
+      // Desconta em ambos os campos para manter sincronizado no perfil
       await setDoc(
         doc(db, "users", currentUid),
-        { totalPE: increment(-cost) },
-        { merge: true },
+        {
+          totalPE: increment(-cost),
+          pointsPE: increment(-cost),
+        },
+        { merge: true }
       );
 
-      // Audit Log seguro com bloco isolado
       try {
         const auditDetails =
           t("audit_gift_redeemed", userLang, {
@@ -288,7 +294,7 @@ export default function ShopScreen({ userData, partnerData }: any) {
         t("gift_bought_msg", userLang, { gift: translatedTitle }) || `Você adquiriu ${translatedTitle}!`,
         "gift",
         "#D96C6C",
-        "success",
+        "success"
       );
     } catch (e) {
       showAlert(
@@ -296,7 +302,7 @@ export default function ShopScreen({ userData, partnerData }: any) {
         t("error_register", userLang) || "Não foi possível registrar a compra.",
         "times-circle",
         "#D96C6C",
-        "error",
+        "error"
       );
     }
   };
@@ -305,15 +311,17 @@ export default function ShopScreen({ userData, partnerData }: any) {
   const handleMarkDelivered = async (weekNum: number) => {
     if (!currentUid) return;
     try {
+      const existing = myPurchases[weekNum] || {};
       await setDoc(
         doc(db, "users", currentUid, "shop", "redemptions"),
         {
           [weekNum]: {
+            ...existing,
             status: "delivered",
             deliveredAt: new Date().toISOString(),
           },
         },
-        { merge: true },
+        { merge: true }
       );
 
       showAlert(
@@ -321,7 +329,7 @@ export default function ShopScreen({ userData, partnerData }: any) {
         t("delivered_success_msg", userLang) || "Aguarde seu amor confirmar o recebimento.",
         "check-circle",
         "#EAB64A",
-        "success",
+        "success"
       );
     } catch (e) {
       showAlert(
@@ -329,12 +337,12 @@ export default function ShopScreen({ userData, partnerData }: any) {
         t("error_save", userLang) || "Erro ao atualizar status.",
         "times-circle",
         "#D96C6C",
-        "error",
+        "error"
       );
     }
   };
 
-  // Ação 4: Confirmar Recebimento
+  // Ação 4: Confirmar Recebimento (Lado de quem ganha)
   const handleConfirmReceived = async (weekNum: number) => {
     if (!currentUid) return;
     try {
@@ -343,7 +351,7 @@ export default function ShopScreen({ userData, partnerData }: any) {
         {
           [weekNum]: true,
         },
-        { merge: true },
+        { merge: true }
       );
 
       showAlert(
@@ -351,7 +359,7 @@ export default function ShopScreen({ userData, partnerData }: any) {
         t("confirmed_success_msg", userLang) || "Que momento especial juntos!",
         "heart",
         "#67D4A8",
-        "success",
+        "success"
       );
     } catch (e) {
       showAlert(
@@ -359,7 +367,7 @@ export default function ShopScreen({ userData, partnerData }: any) {
         t("error_save", userLang) || "Erro ao confirmar recebimento.",
         "times-circle",
         "#D96C6C",
-        "error",
+        "error"
       );
     }
   };
@@ -372,151 +380,264 @@ export default function ShopScreen({ userData, partnerData }: any) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* SALDO DE BONDS */}
-        <View style={styles.balanceHeader}>
-          <Text style={styles.balanceLabel}>
-            {t("available_bonds", userLang) || "SEUS BONDS DISPONÍVEIS"}
-          </Text>
-          <View style={styles.balanceRow}>
-            <FontAwesome5 name="infinity" solid size={26} color="#EAB64A" />
-            <Text style={styles.balanceValue}>{currentBonds}</Text>
-          </View>
+      {/* SALDO DE BONDS */}
+      <View style={styles.balanceHeader}>
+        <Text style={styles.balanceLabel}>
+          {t("available_bonds", userLang) || "SEUS BONDS DISPONÍVEIS"}
+        </Text>
+        <View style={styles.balanceRow}>
+          <FontAwesome5 name="infinity" solid size={26} color="#EAB64A" />
+          <Text style={styles.balanceValue}>{currentBonds}</Text>
         </View>
+      </View>
 
-        {/* PARTE 1: PRESENTES QUE SEU AMOR QUER GANHAR */}
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>
-            {t("partner_desires_title", userLang, { name: partnerName }) || `Desejos de ${partnerName}`}
+      {/* 🟢 SELETOR DE ABAS (ORGANIZA A LOJA E ACABA COM A CONFUSÃO VISUAL) */}
+      <View style={styles.tabToggleRow}>
+        <TouchableOpacity
+          style={[styles.toggleTab, activeTab === "partner" && styles.toggleTabActive]}
+          onPress={() => {
+            triggerHaptic("light");
+            setActiveTab("partner");
+          }}
+        >
+          <FontAwesome5 name="gift" size={14} color={activeTab === "partner" ? "#FFF" : "#60646C"} />
+          <Text style={[styles.toggleTabText, activeTab === "partner" && styles.toggleTabTextActive]}>
+            Desejos de {partnerName}
           </Text>
-          <Text style={styles.sectionSub}>
-            {t("partner_desires_sub", userLang, { name: partnerName }) || `Veja os presentes escolhidos por ${partnerName}`}
-          </Text>
+        </TouchableOpacity>
 
-          {!partnerUid ? (
-            <View style={styles.emptyCard}>
-              <FontAwesome5 name="user-plus" size={24} color="#AFAFAF" />
-              <Text style={styles.emptyCardText}>
-                {t("no_match_text", userLang) || "Conecte-se ao seu amor para ver os desejos."}
-              </Text>
-            </View>
-          ) : Object.keys(partnerDesires).length === 0 ? (
-            <View style={styles.emptyCard}>
-              <FontAwesome5 name="hourglass-half" size={24} color="#EAB64A" />
-              <Text style={styles.emptyCardText}>
-                {t("partner_no_gifts", userLang, { name: partnerName }) || `${partnerName} ainda não escolheu presentes.`}
-              </Text>
-            </View>
-          ) : (
+        <TouchableOpacity
+          style={[styles.toggleTab, activeTab === "my" && styles.toggleTabActive]}
+          onPress={() => {
+            triggerHaptic("light");
+            setActiveTab("my");
+          }}
+        >
+          <FontAwesome5 name="star" size={14} color={activeTab === "my" ? "#FFF" : "#60646C"} />
+          <Text style={[styles.toggleTabText, activeTab === "my" && styles.toggleTabTextActive]}>
+            Sua Lista
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* ==================== ABA 1: DESEJOS DO SEU AMOR ==================== */}
+        {activeTab === "partner" && (
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionSub}>
+              {t("partner_desires_sub", userLang, { name: partnerName }) || `Compre os presentes que ${partnerName} gostaria de receber!`}
+            </Text>
+
+            {!partnerUid ? (
+              <View style={styles.emptyCard}>
+                <FontAwesome5 name="user-plus" size={24} color="#AFAFAF" />
+                <Text style={styles.emptyCardText}>
+                  {t("no_match_text", userLang) || "Conecte-se ao seu amor para ver os desejos."}
+                </Text>
+              </View>
+            ) : Object.keys(partnerDesires).length === 0 ? (
+              <View style={styles.emptyCard}>
+                <FontAwesome5 name="hourglass-half" size={24} color="#EAB64A" />
+                <Text style={styles.emptyCardText}>
+                  {t("partner_no_gifts", userLang, { name: partnerName }) || `${partnerName} ainda não escolheu presentes.`}
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.listGap}>
+                {Object.entries(partnerDesires).map(([week, giftId]) => {
+                  const weekNum = Number(week);
+                  const purchaseData = myPurchases[weekNum];
+                  const status = purchaseData?.status;
+                  const isConfirmedByPartner = Boolean(partnerConfirmations[weekNum]);
+
+                  const giftTitle = getGiftTitle(giftId, userLang);
+                  const giftIcon = getGiftIcon(giftId);
+
+                  return (
+                    <View
+                      key={week}
+                      style={[
+                        styles.card,
+                        status === "bought" && styles.cardBought,
+                        status === "delivered" && !isConfirmedByPartner && styles.cardDelivered,
+                        isConfirmedByPartner && styles.cardConfirmed,
+                      ]}
+                    >
+                      <View style={styles.cardHeader}>
+                        <Text style={styles.weekTag}>
+                          {t("week_tag", userLang, { week: weekNum }) || `SEMANA ${weekNum}`}
+                        </Text>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 2 }}>
+                          <FontAwesome5 name={giftIcon} size={14} color="#202D3A" />
+                          <Text style={styles.giftTitle}>{giftTitle}</Text>
+                        </View>
+                      </View>
+
+                      {/* BOTÃO DE COMPRAR */}
+                      {!status && (
+                        <TouchableOpacity
+                          style={[styles.btnBuy, currentBonds < 150 && styles.btnBuyDisabled]}
+                          onPress={() => {
+                            triggerHaptic("medium");
+                            handleBuyGift(weekNum, giftId);
+                          }}
+                        >
+                          <FontAwesome5 name="infinity" solid size={11} color="#FFF" style={{ marginRight: 6 }} />
+                          <Text style={styles.btnBuyText}>
+                            {currentBonds >= 150
+                              ? t("btn_buy", userLang) || "COMPRAR (150 BONDS)"
+                              : "SALDO INSUFICIENTE (150 BONDS)"}
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+
+                      {/* STATUS COMPRADO (PRONTO PARA ENTREGAR) */}
+                      {status === "bought" && (
+                        <TouchableOpacity
+                          style={styles.btnDeliverOrange}
+                          onPress={() => {
+                            triggerHaptic("light");
+                            handleMarkDelivered(weekNum);
+                          }}
+                        >
+                          <FontAwesome5 name="hand-holding-heart" size={14} color="#FFF" style={{ marginRight: 6 }} />
+                          <Text style={styles.btnDeliverText}>
+                            {t("btn_mark_delivered", userLang) || "MARCAR COMO ENTREGUE NA VIDA REAL"}
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+
+                      {/* STATUS ENTREGUE */}
+                      {status === "delivered" && !isConfirmedByPartner && (
+                        <View style={styles.statusBadgeWaiting}>
+                          <Text style={styles.statusBadgeWaitingText}>
+                            {t("waiting_partner_confirm", userLang, { name: partnerName }) || `⏳ Entregue! Aguardando ${partnerName} confirmar`}
+                          </Text>
+                        </View>
+                      )}
+
+                      {/* STATUS CONFIRMADO */}
+                      {isConfirmedByPartner && (
+                        <View style={styles.statusBadgeConfirmed}>
+                          <Text style={styles.statusBadgeConfirmedText}>
+                            {t("delivered_confirmed_partner", userLang, { name: partnerName }) || `✓ Entregue & Confirmado por ${partnerName}! ❤️`}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* ==================== ABA 2: SUA LISTA DE DESEJOS ==================== */}
+        {activeTab === "my" && (
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionSub}>
+              {t("my_gifts_sub", userLang) || "Escolha os presentes que você gostaria de ganhar de cada semana:"}
+            </Text>
+
             <View style={styles.listGap}>
-              {Object.entries(partnerDesires).map(([week, giftId]) => {
-                const weekNum = Number(week);
-                const purchaseData = myPurchases[weekNum];
-                const status = purchaseData?.status;
-                const isConfirmedByPartner = Boolean(
-                  partnerConfirmations[weekNum],
-                );
+              {Array.from({ length: 13 }).map((_, index) => {
+                const weekNum = index + 1;
+                const isUnlocked = weekNum <= unlockedWeeksCount;
+                const myGiftId = myDesires[weekNum];
+                const myGiftTitle = myGiftId ? getGiftTitle(myGiftId, userLang) : "";
+                const myGiftIcon = myGiftId ? getGiftIcon(myGiftId) : "gift";
 
-                const giftTitle = getGiftTitle(giftId, userLang);
-                const giftIcon = getGiftIcon(giftId);
+                const partnerPurchase = partnerPurchases[weekNum];
+                const isBoughtByPartner = Boolean(partnerPurchase);
+                const isDeliveredByPartner = partnerPurchase?.status === "delivered";
+                const isConfirmedByMe = Boolean(myConfirmations[weekNum]);
 
                 return (
                   <View
-                    key={week}
+                    key={weekNum}
                     style={[
-                      styles.card,
-                      status === "bought" && styles.cardBought,
-                      status === "delivered" &&
-                        !isConfirmedByPartner &&
-                        styles.cardDelivered,
-                      isConfirmedByPartner && styles.cardConfirmed,
+                      styles.slotCard,
+                      !isUnlocked && styles.slotCardLocked,
+                      isBoughtByPartner && !isDeliveredByPartner && styles.slotCardBought,
+                      isDeliveredByPartner && !isConfirmedByMe && styles.slotCardDelivered,
+                      isConfirmedByMe && styles.slotCardConfirmed,
                     ]}
                   >
-                    <View style={styles.cardHeader}>
-                      <Text style={styles.weekTag}>
+                    <View style={styles.slotHeader}>
+                      <Text style={styles.slotWeekTitle}>
                         {t("week_tag", userLang, { week: weekNum }) || `SEMANA ${weekNum}`}
                       </Text>
-                      <View
-                        style={{
-                          flexDirection: "row",
-                          alignItems: "center",
-                          gap: 8,
-                          marginTop: 2,
-                        }}
-                      >
-                        <FontAwesome5
-                          name={giftIcon}
-                          size={14}
-                          color="#202D3A"
-                        />
-                        <Text style={styles.giftTitle}>{giftTitle}</Text>
-                      </View>
+
+                      {!isUnlocked ? (
+                        <View style={styles.lockBadge}>
+                          <FontAwesome5 name="lock" size={10} color="#AFAFAF" style={{ marginRight: 4 }} />
+                          <Text style={styles.lockBadgeText}>{t("status_locked", userLang) || "Bloqueado"}</Text>
+                        </View>
+                      ) : isBoughtByPartner && !isDeliveredByPartner ? (
+                        <View style={styles.lockBadge}>
+                          <FontAwesome5 name="lock" size={10} color="#D96C6C" style={{ marginRight: 4 }} />
+                          <Text style={[styles.lockBadgeText, { color: "#D96C6C" }]}>
+                            {t("status_bought_by_partner", userLang) || "Comprado pelo seu amor"}
+                          </Text>
+                        </View>
+                      ) : null}
                     </View>
 
-                    {/* BOTÃO DE COMPRAR */}
-                    {!status && (
-                      <TouchableOpacity
-                        style={styles.btnBuy}
-                        onPress={() => {
-                          triggerHaptic("medium");
-                          handleBuyGift(weekNum, giftId);
-                        }}
-                      >
-                        <FontAwesome5
-                          name="infinity"
-                          solid
-                          size={11}
-                          color="#FFF"
-                          style={{ marginRight: 6 }}
-                        />
-                        <Text style={styles.btnBuyText}>
-                          {t("btn_buy", userLang) || "COMPRAR (150 BONDS)"}
-                        </Text>
-                      </TouchableOpacity>
-                    )}
+                    {myGiftId ? (
+                      <View style={styles.selectedRow}>
+                        <FontAwesome5 name={myGiftIcon} size={14} color="#EAB64A" style={{ marginRight: 8 }} />
+                        <Text style={styles.selectedGiftText}>{myGiftTitle}</Text>
 
-                    {/* STATUS COMPRADO */}
-                    {status === "bought" && (
+                        {isUnlocked && !isBoughtByPartner && (
+                          <TouchableOpacity
+                            onPress={() => {
+                              triggerHaptic("light");
+                              setActiveWeekSlot(weekNum);
+                            }}
+                          >
+                            <FontAwesome5 name="edit" size={14} color="#202D3A" />
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    ) : isUnlocked ? (
                       <TouchableOpacity
-                        style={styles.btnDeliverOrange}
+                        style={styles.btnAddGift}
                         onPress={() => {
                           triggerHaptic("light");
-                          handleMarkDelivered(weekNum);
+                          setActiveWeekSlot(weekNum);
                         }}
                       >
-                        <FontAwesome5
-                          name="hand-holding-heart"
-                          size={14}
-                          color="#FFF"
-                          style={{ marginRight: 6 }}
-                        />
+                        <FontAwesome5 name="plus-circle" size={14} color="#67D4A8" style={{ marginRight: 6 }} />
+                        <Text style={styles.btnAddGiftText}>
+                          {t("choose_weekly_gift", userLang) || "Escolher presente da semana"}
+                        </Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <Text style={styles.lockedSub}>
+                        {t("unlocks_at_week", userLang, { week: weekNum }) || `Libera ao alcançar a Semana ${weekNum} na Home`}
+                      </Text>
+                    )}
+
+                    {/* BOTÃO DE CONFIRMAR RECEBIMENTO QUANDO O PARCEIRO ENTREGOU */}
+                    {isDeliveredByPartner && !isConfirmedByMe && (
+                      <TouchableOpacity
+                        style={[styles.btnConfirmGreen, { marginTop: 10 }]}
+                        onPress={() => {
+                          triggerHaptic("light");
+                          handleConfirmReceived(weekNum);
+                        }}
+                      >
+                        <FontAwesome5 name="heart" solid size={12} color="#FFF" style={{ marginRight: 6 }} />
                         <Text style={styles.btnDeliverText}>
-                          {t("btn_mark_delivered", userLang) || "MARCAR COMO ENTREGUE"}
+                          {t("btn_confirm_received", userLang) || "CONFIRMAR QUE RECEBI NA VIDA REAL ❤️"}
                         </Text>
                       </TouchableOpacity>
                     )}
 
-                    {/* STATUS ENTREGUE */}
-                    {status === "delivered" && !isConfirmedByPartner && (
-                      <View style={styles.statusBadgeWaiting}>
-                        <Text style={styles.statusBadgeWaitingText}>
-                          {t("waiting_partner_confirm", userLang, {
-                            name: partnerName,
-                          }) || `Aguardando confirmação de ${partnerName}`}
-                        </Text>
-                      </View>
-                    )}
-
-                    {/* STATUS CONFIRMADO */}
-                    {isConfirmedByPartner && (
+                    {isConfirmedByMe && (
                       <View style={styles.statusBadgeConfirmed}>
                         <Text style={styles.statusBadgeConfirmedText}>
-                          {t("delivered_confirmed_partner", userLang, {
-                            name: partnerName,
-                          }) || `Entregue e Confirmado por ${partnerName}!`}
+                          {t("received_confirmed_with_love", userLang) || "✓ Recebido & Confirmado com Amor"}
                         </Text>
                       </View>
                     )}
@@ -524,191 +645,25 @@ export default function ShopScreen({ userData, partnerData }: any) {
                 );
               })}
             </View>
-          )}
-        </View>
-
-        {/* PARTE 2: SEUS SLOTS DE 13 SEMANAS */}
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>
-            {t("my_gifts_title", userLang) || "Seus Desejos Semanais"}
-          </Text>
-          <Text style={styles.sectionSub}>
-            {t("my_gifts_sub", userLang) || "Escolha os presentes que você deseja ganhar."}
-          </Text>
-
-          <View style={styles.listGap}>
-            {Array.from({ length: 13 }).map((_, index) => {
-              const weekNum = index + 1;
-              const isUnlocked = weekNum <= unlockedWeeksCount;
-              const myGiftId = myDesires[weekNum];
-              const myGiftTitle = myGiftId
-                ? getGiftTitle(myGiftId, userLang)
-                : "";
-              const myGiftIcon = myGiftId ? getGiftIcon(myGiftId) : "gift";
-
-              const partnerPurchase = partnerPurchases[weekNum];
-              const isBoughtByPartner = Boolean(partnerPurchase);
-              const isDeliveredByPartner =
-                partnerPurchase?.status === "delivered";
-              const isConfirmedByMe = Boolean(myConfirmations[weekNum]);
-
-              return (
-                <View
-                  key={weekNum}
-                  style={[
-                    styles.slotCard,
-                    !isUnlocked && styles.slotCardLocked,
-                    isBoughtByPartner &&
-                      !isDeliveredByPartner &&
-                      styles.slotCardBought,
-                    isDeliveredByPartner &&
-                      !isConfirmedByMe &&
-                      styles.slotCardDelivered,
-                    isConfirmedByMe && styles.slotCardConfirmed,
-                  ]}
-                >
-                  <View style={styles.slotHeader}>
-                    <Text style={styles.slotWeekTitle}>
-                      {t("week_tag", userLang, { week: weekNum }) || `SEMANA ${weekNum}`}
-                    </Text>
-                    {!isUnlocked ? (
-                      <View style={styles.lockBadge}>
-                        <FontAwesome5
-                          name="lock"
-                          size={10}
-                          color="#AFAFAF"
-                          style={{ marginRight: 4 }}
-                        />
-                        <Text style={styles.lockBadgeText}>
-                          {t("status_locked", userLang) || "Bloqueado"}
-                        </Text>
-                      </View>
-                    ) : isBoughtByPartner && !isDeliveredByPartner ? (
-                      <View style={styles.lockBadge}>
-                        <FontAwesome5
-                          name="lock"
-                          size={10}
-                          color="#D96C6C"
-                          style={{ marginRight: 4 }}
-                        />
-                        <Text
-                          style={[styles.lockBadgeText, { color: "#D96C6C" }]}
-                        >
-                          {t("status_bought_by_partner", userLang) || "Comprado por seu amor!"}
-                        </Text>
-                      </View>
-                    ) : null}
-                  </View>
-
-                  {myGiftId ? (
-                    <View style={styles.selectedRow}>
-                      <FontAwesome5
-                        name={myGiftIcon}
-                        size={14}
-                        color="#EAB64A"
-                        style={{ marginRight: 8 }}
-                      />
-                      <Text style={styles.selectedGiftText}>{myGiftTitle}</Text>
-
-                      {isUnlocked && !isBoughtByPartner && (
-                        <TouchableOpacity
-                          onPress={() => {
-                            triggerHaptic("light");
-                            setActiveWeekSlot(weekNum);
-                          }}
-                        >
-                          <FontAwesome5 name="edit" size={14} color="#202D3A" />
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  ) : isUnlocked ? (
-                    <TouchableOpacity
-                      style={styles.btnAddGift}
-                      onPress={() => {
-                        triggerHaptic("light");
-                        setActiveWeekSlot(weekNum);
-                      }}
-                    >
-                      <FontAwesome5
-                        name="plus-circle"
-                        size={14}
-                        color="#67D4A8"
-                        style={{ marginRight: 6 }}
-                      />
-                      <Text style={styles.btnAddGiftText}>
-                        {t("choose_weekly_gift", userLang) || "Escolher presente da semana"}
-                      </Text>
-                    </TouchableOpacity>
-                  ) : (
-                    <Text style={styles.lockedSub}>
-                      {t("unlocks_at_week", userLang, { week: weekNum }) || `Desbloqueia na fase correspondente`}
-                    </Text>
-                  )}
-
-                  {/* BOTAO DE CONFIRMAR */}
-                  {isDeliveredByPartner && !isConfirmedByMe && (
-                    <TouchableOpacity
-                      style={[styles.btnConfirmGreen, { marginTop: 10 }]}
-                      onPress={() => {
-                        triggerHaptic("light");
-                        handleConfirmReceived(weekNum);
-                      }}
-                    >
-                      <FontAwesome5
-                        name="heart"
-                        solid
-                        size={12}
-                        color="#FFF"
-                        style={{ marginRight: 6 }}
-                      />
-                      <Text style={styles.btnDeliverText}>
-                        {t("btn_confirm_received", userLang) || "CONFIRMAR QUE RECEBI"}
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-
-                  {isConfirmedByMe && (
-                    <View style={styles.statusBadgeConfirmed}>
-                      <Text style={styles.statusBadgeConfirmedText}>
-                        {t("received_confirmed_with_love", userLang) || "Recebido e Confirmado com Amor! ❤️"}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              );
-            })}
           </View>
-        </View>
+        )}
       </ScrollView>
 
       {/* MODAL DE SELEÇÃO DOS PRESENTES */}
-      <Modal
-        visible={activeWeekSlot !== null}
-        transparent
-        animationType="slide"
-      >
+      <Modal visible={activeWeekSlot !== null} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalCardLarge}>
             <Text style={styles.modalTitle}>
-              {t("modal_select_title", userLang, {
-                week: activeWeekSlot || 1,
-              }) || `Escolha o Presente - Semana ${activeWeekSlot}`}
+              {t("modal_select_title", userLang, { week: activeWeekSlot || 1 }) || `Presente da Semana ${activeWeekSlot}`}
             </Text>
             <Text style={styles.modalSub}>
-              {t("modal_select_sub", userLang, { name: partnerName }) || `Seu amor poderá resgatá-lo para você`}
+              {t("modal_select_sub", userLang, { name: partnerName }) || `O que você gostaria de ganhar de ${partnerName}?`}
             </Text>
 
             {isSaving ? (
-              <ActivityIndicator
-                size="large"
-                color="#202D3A"
-                style={{ marginVertical: 30 }}
-              />
+              <ActivityIndicator size="large" color="#202D3A" style={{ marginVertical: 30 }} />
             ) : (
-              <ScrollView
-                style={{ maxHeight: 360, width: "100%" }}
-                showsVerticalScrollIndicator={false}
-              >
+              <ScrollView style={{ maxHeight: 360, width: "100%" }} showsVerticalScrollIndicator={false}>
                 {giftsList.map((item) => {
                   const title =
                     item.translations?.[userLang] ||
@@ -723,12 +678,7 @@ export default function ShopScreen({ userData, partnerData }: any) {
                         handleSelectGift(item.id);
                       }}
                     >
-                      <FontAwesome5
-                        name={item.icon || "gift"}
-                        size={14}
-                        color="#EAB64A"
-                        style={{ marginRight: 10 }}
-                      />
+                      <FontAwesome5 name={item.icon || "gift"} size={14} color="#EAB64A" style={{ marginRight: 10 }} />
                       <Text style={styles.giftOptionText}>{title}</Text>
                     </TouchableOpacity>
                   );
@@ -743,9 +693,7 @@ export default function ShopScreen({ userData, partnerData }: any) {
                 setActiveWeekSlot(null);
               }}
             >
-              <Text style={styles.btnCancelText}>
-                {t("modal_cancel", userLang) || "Cancelar"}
-              </Text>
+              <Text style={styles.btnCancelText}>{t("modal_cancel", userLang) || "Cancelar"}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -755,33 +703,19 @@ export default function ShopScreen({ userData, partnerData }: any) {
       <Modal visible={customAlert.visible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalCardAlert}>
-            <View
-              style={[
-                styles.alertIconBg,
-                { backgroundColor: customAlert.color + "20" },
-              ]}
-            >
-              <FontAwesome5
-                name={customAlert.icon}
-                size={28}
-                color={customAlert.color}
-              />
+            <View style={[styles.alertIconBg, { backgroundColor: customAlert.color + "20" }]}>
+              <FontAwesome5 name={customAlert.icon} size={28} color={customAlert.color} />
             </View>
             <Text style={styles.modalTitle}>{customAlert.title}</Text>
             <Text style={styles.modalSub}>{customAlert.message}</Text>
             <TouchableOpacity
-              style={[
-                styles.btnPrimaryAlert,
-                { backgroundColor: customAlert.color },
-              ]}
+              style={[styles.btnPrimaryAlert, { backgroundColor: customAlert.color }]}
               onPress={() => {
                 triggerHaptic("light");
                 setCustomAlert({ ...customAlert, visible: false });
               }}
             >
-              <Text style={styles.btnPrimaryAlertText}>
-                {t("btn_understand", userLang) || "Entendi"}
-              </Text>
+              <Text style={styles.btnPrimaryAlertText}>{t("btn_understand", userLang) || "Entendi"}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -792,13 +726,14 @@ export default function ShopScreen({ userData, partnerData }: any) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F0F4F8" },
-  scrollContent: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 120 },
   balanceHeader: {
     backgroundColor: "#202D3A",
     borderRadius: 20,
     padding: 18,
     alignItems: "center",
-    marginBottom: 20,
+    marginHorizontal: 20,
+    marginTop: 10,
+    marginBottom: 15,
   },
   balanceLabel: {
     fontFamily: "Montserrat_900Black",
@@ -808,18 +743,30 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   balanceRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  balanceValue: {
-    fontFamily: "Montserrat_900Black",
-    fontSize: 32,
-    color: "#FFF",
+  balanceValue: { fontFamily: "Montserrat_900Black", fontSize: 32, color: "#FFF" },
+  tabToggleRow: {
+    flexDirection: "row",
+    paddingHorizontal: 20,
+    gap: 10,
+    marginBottom: 10,
   },
+  toggleTab: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFF",
+    paddingVertical: 12,
+    borderRadius: 14,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: "#D1D9E0",
+  },
+  toggleTabActive: { backgroundColor: "#202D3A", borderColor: "#202D3A" },
+  toggleTabText: { fontSize: 13, fontFamily: "Montserrat_700Bold", color: "#60646C" },
+  toggleTabTextActive: { color: "#FFF" },
+  scrollContent: { paddingHorizontal: 20, paddingTop: 6, paddingBottom: 120 },
   sectionContainer: { marginBottom: 28 },
-  sectionTitle: {
-    fontFamily: "Montserrat_900Black",
-    fontSize: 17,
-    color: "#202D3A",
-    marginBottom: 4,
-  },
   sectionSub: {
     fontFamily: "Montserrat_400Regular",
     fontSize: 13,
@@ -850,7 +797,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#D1D9E0",
   },
-  cardBought: { backgroundColor: "#FDF2F2", borderColor: "#D96C6C" },
+  cardBought: { backgroundColor: "#FFF9E6", borderColor: "#EAB64A", borderWidth: 1.5 },
   cardDelivered: { backgroundColor: "#FFF9E6", borderColor: "#EAB64A" },
   cardConfirmed: { backgroundColor: "#E8F4F1", borderColor: "#67D4A8" },
   cardHeader: { marginBottom: 10 },
@@ -876,6 +823,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 10,
   },
+  btnBuyDisabled: { backgroundColor: "#AFAFAF" },
   btnBuyText: {
     fontFamily: "Montserrat_900Black",
     color: "#FFF",

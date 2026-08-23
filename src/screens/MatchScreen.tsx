@@ -9,10 +9,13 @@ import {
   setDoc,
   where,
 } from "firebase/firestore";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Animated,
+  Dimensions,
+  Easing,
   Image,
   KeyboardAvoidingView,
   Linking,
@@ -31,6 +34,75 @@ import { auth, db } from "../config/firebase";
 import { t } from "../i18n/translations";
 import { logAuditEvent } from "../services/auditService";
 
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+
+let Haptics: any = null;
+try {
+  Haptics = require("expo-haptics");
+} catch (e) {}
+
+// 🎊 PARTÍCULAS DA EXPLOSÃO DE AMOR / MATCH (60 FPS NATIVO)
+const EXPLOSION_COLORS = ["#67D4A8", "#EAB64A", "#202D3A", "#D96C6C", "#FFF"];
+
+const LoveExplosionParticle = ({ index }: { index: number }) => {
+  const anim = useRef(new Animated.Value(0)).current;
+
+  const color = EXPLOSION_COLORS[index % EXPLOSION_COLORS.length];
+  const angle = useRef((index / 16) * 2 * Math.PI).current;
+  const distance = useRef(65 + Math.random() * 85).current;
+
+  const targetX = useRef(Math.cos(angle) * distance).current;
+  const targetY = useRef(Math.sin(angle) * distance).current;
+  const size = useRef(10 + Math.random() * 8).current;
+  const isHeart = index % 2 === 0;
+
+  useEffect(() => {
+    Animated.timing(anim, {
+      toValue: 1,
+      duration: 1000 + Math.random() * 300,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: true,
+    }).start();
+  }, [anim]);
+
+  const translateX = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, targetX],
+  });
+
+  const translateY = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, targetY],
+  });
+
+  const scale = anim.interpolate({
+    inputRange: [0, 0.3, 1],
+    outputRange: [0.2, 1.4, 0],
+  });
+
+  const opacity = anim.interpolate({
+    inputRange: [0, 0.8, 1],
+    outputRange: [1, 1, 0],
+  });
+
+  return (
+    <Animated.View
+      style={{
+        position: "absolute",
+        transform: [{ translateX }, { translateY }, { scale }],
+        opacity,
+        pointerEvents: "none",
+      }}
+    >
+      {isHeart ? (
+        <FontAwesome5 name="heart" solid size={size} color={color} />
+      ) : (
+        <FontAwesome5 name="star" solid size={size * 0.8} color={color} />
+      )}
+    </Animated.View>
+  );
+};
+
 export default function MatchScreen({ navigation }: any) {
   const [currentUid, setCurrentUid] = useState<string | null>(null);
   const [userData, setUserData] = useState<any>(null);
@@ -46,8 +118,13 @@ export default function MatchScreen({ navigation }: any) {
 
   // ESTADOS PARA O MODAL DE CONFIRMAÇÃO DO MATCH
   const [pendingMatchPartner, setPendingMatchPartner] = useState<any>(null);
-  const [isMatchConfirmationVisible, setIsMatchConfirmationVisible] =
-    useState(false);
+  const [isMatchConfirmationVisible, setIsMatchConfirmationVisible] = useState(false);
+  const [hasMatchExploded, setHasMatchExploded] = useState(false);
+
+  // 💥 CONTROLES DA ANIMAÇÃO DE COLISÃO DO MATCH
+  const leftAvatarAnim = useRef(new Animated.Value(-SCREEN_WIDTH * 0.7)).current;
+  const rightAvatarAnim = useRef(new Animated.Value(SCREEN_WIDTH * 0.7)).current;
+  const centerScaleAnim = useRef(new Animated.Value(1)).current;
 
   // ESTADO DE ALERTAS PERSONALIZADOS
   const [customAlert, setCustomAlert] = useState({
@@ -67,6 +144,20 @@ export default function MatchScreen({ navigation }: any) {
     onConfirm: (() => void) | null = null,
   ) => {
     setCustomAlert({ visible: true, title, message, icon, color, onConfirm });
+  };
+
+  const triggerHaptic = (
+    type: "light" | "medium" | "heavy" | "success" | "warning" | "error" = "light"
+  ) => {
+    if (!Haptics) return;
+    try {
+      if (type === "heavy")
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+      else if (type === "success")
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      else if (type === "light")
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch (e) {}
   };
 
   useEffect(() => {
@@ -128,6 +219,47 @@ export default function MatchScreen({ navigation }: any) {
     }
   }, [userData?.partnerId, userData?.isPremium, currentUid]);
 
+  // 🚀 DISPARO DA ANIMAÇÃO AO ABRIR O MODAL DE CONFIRMAÇÃO DO PARCEIRO
+  useEffect(() => {
+    if (isMatchConfirmationVisible) {
+      setHasMatchExploded(false);
+      leftAvatarAnim.setValue(-SCREEN_WIDTH * 0.7);
+      rightAvatarAnim.setValue(SCREEN_WIDTH * 0.7);
+      centerScaleAnim.setValue(1);
+
+      Animated.parallel([
+        Animated.timing(leftAvatarAnim, {
+          toValue: 0,
+          duration: 650,
+          easing: Easing.out(Easing.back(1.2)),
+          useNativeDriver: true,
+        }),
+        Animated.timing(rightAvatarAnim, {
+          toValue: 0,
+          duration: 650,
+          easing: Easing.out(Easing.back(1.2)),
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        setHasMatchExploded(true);
+        triggerHaptic("heavy");
+
+        Animated.sequence([
+          Animated.timing(centerScaleAnim, {
+            toValue: 1.25,
+            duration: 120,
+            useNativeDriver: true,
+          }),
+          Animated.timing(centerScaleAnim, {
+            toValue: 1,
+            duration: 180,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      });
+    }
+  }, [isMatchConfirmationVisible]);
+
   const handleCopyCode = async () => {
     const codeToCopy = userData?.myInviteCode || currentUid;
     if (codeToCopy) {
@@ -179,7 +311,6 @@ export default function MatchScreen({ navigation }: any) {
 
             setIsDisconnecting(true);
             try {
-              // 📜 REGISTRO DE AUDITORIA DE SEGURANÇA (DESVÍNCULO DE PARCEIRO)
               await logAuditEvent(
                 currentUid,
                 "PARTNER_UNLINKED",
@@ -365,7 +496,6 @@ export default function MatchScreen({ navigation }: any) {
         { merge: true },
       );
 
-      // 📜 REGISTRO DE AUDITORIA DE SEGURANÇA (PAREAMENTO)
       await logAuditEvent(
         currentUser.uid,
         "PARTNER_MATCH_REQUESTED",
@@ -415,6 +545,12 @@ export default function MatchScreen({ navigation }: any) {
     typeof url === "string" &&
     url.length > 5 &&
     url.toLowerCase() !== "null";
+
+  const myPhoto = isValidPhoto(userData?.photoURL)
+    ? userData.photoURL
+    : isValidPhoto(userData?.photoUrl)
+      ? userData.photoUrl
+      : null;
 
   const partnerPhoto = isValidPhoto(partnerData?.photoURL)
     ? partnerData.photoURL
@@ -635,7 +771,7 @@ export default function MatchScreen({ navigation }: any) {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* MODAL DE CONFIRMAÇÃO DO MATCH */}
+      {/* 🏆 MODAL DE CONFIRMAÇÃO COM ANIMAÇÃO DE COLISÃO E EXPLOSÃO */}
       <Modal
         visible={isMatchConfirmationVisible}
         transparent
@@ -650,22 +786,49 @@ export default function MatchScreen({ navigation }: any) {
               {t("is_this_person_sub", userLang)}
             </Text>
 
-            <View style={{ alignItems: "center", marginBottom: 25 }}>
-              {pendingPhoto ? (
-                <Image
-                  source={{ uri: pendingPhoto }}
-                  style={styles.pendingAvatarImage}
-                />
-              ) : (
-                <View style={styles.pendingAvatarPlaceholder}>
-                  <FontAwesome5 name="user-alt" size={30} color="#202D3A" />
+            {/* 💥 ENCONTRO DAS FOTOS NO CENTRO DO MODAL */}
+            <View style={styles.avatarsCollisionWrapper}>
+              {hasMatchExploded && (
+                <View style={styles.explosionCenterEmitter}>
+                  {Array.from({ length: 20 }).map((_, i) => (
+                    <LoveExplosionParticle key={i} index={i} />
+                  ))}
                 </View>
               )}
-              <Text style={styles.pendingNameText}>{pendingName}</Text>
+
+              {/* FOTO DO USUÁRIO ATUAL (Vem da Esquerda) */}
+              <Animated.View
+                style={[
+                  styles.matchAvatarFrame,
+                  { transform: [{ translateX: leftAvatarAnim }, { scale: centerScaleAnim }] },
+                ]}
+              >
+                {myPhoto ? (
+                  <Image source={{ uri: myPhoto }} style={styles.matchAvatarImage} />
+                ) : (
+                  <FontAwesome5 name="user" size={26} color="#202D3A" />
+                )}
+              </Animated.View>
+
+              {/* FOTO DO PARCEIRO ENCONTRADO (Vem da Direita) */}
+              <Animated.View
+                style={[
+                  styles.matchAvatarFrame,
+                  { transform: [{ translateX: rightAvatarAnim }, { scale: centerScaleAnim }] },
+                ]}
+              >
+                {pendingPhoto ? (
+                  <Image source={{ uri: pendingPhoto }} style={styles.matchAvatarImage} />
+                ) : (
+                  <FontAwesome5 name="heart" solid size={26} color="#EAB64A" />
+                )}
+              </Animated.View>
             </View>
 
+            <Text style={styles.pendingNameText}>{pendingName}</Text>
+
             <TouchableOpacity
-              style={[styles.linkButton, { backgroundColor: "#67D4A8" }]}
+              style={[styles.linkButton, { backgroundColor: "#67D4A8", marginTop: 15 }]}
               onPress={confirmMatchCode}
             >
               <Text style={styles.linkButtonText}>
@@ -940,29 +1103,50 @@ const styles = StyleSheet.create({
     fontFamily: "Montserrat_400Regular",
     color: "#60646C",
     textAlign: "center",
-    marginBottom: 20,
-  },
-  pendingAvatarImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
     marginBottom: 15,
-    borderWidth: 3,
-    borderColor: "#202D3A",
   },
-  pendingAvatarPlaceholder: {
-    width: 80,
+  avatarsCollisionWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
     height: 80,
-    borderRadius: 40,
-    backgroundColor: "#F0F4F8",
+    width: "100%",
+    marginBottom: 15,
+  },
+  explosionCenterEmitter: {
+    position: "absolute",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 99,
+  },
+  matchAvatarFrame: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    borderWidth: 3,
+    borderColor: "#EAB64A",
+    backgroundColor: "#FFF",
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 15,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 5,
+    zIndex: 10,
+    marginHorizontal: -8,
+  },
+  matchAvatarImage: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
   },
   pendingNameText: {
-    fontSize: 20,
+    fontSize: 19,
     fontFamily: "Montserrat_900Black",
     color: "#202D3A",
+    marginBottom: 5,
   },
   linkButton: {
     width: "100%",

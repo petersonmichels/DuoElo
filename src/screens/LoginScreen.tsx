@@ -35,13 +35,13 @@ import { t } from "../i18n/translations";
 import { logAuditEvent } from "../services/auditService";
 import {
   hasSecurityPin,
+  isStrongPassword,
   setSecurityPin,
   verifySecurityPin,
 } from "../services/securityService";
 
 const { width } = Dimensions.get("window");
 
-// Lista de idiomas suportados no login
 const SUPPORTED_LANGUAGES = [
   { code: "pt-BR", flag: "🇧🇷" },
   { code: "pt-PT", flag: "🇵🇹" },
@@ -52,11 +52,9 @@ const SUPPORTED_LANGUAGES = [
   { code: "ja", flag: "🇯🇵" },
 ];
 
-// 🚫 Detecta se está rodando dentro do Expo Go
 const isExpoGo =
   Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
-// 🔒 Importação dinâmica e protegida do Google Sign-In contra falhas no Expo Go
 let GoogleSignin: any = null;
 let statusCodes: any = {};
 if (!isExpoGo) {
@@ -76,11 +74,9 @@ export default function LoginScreen({ navigation }: any) {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  // 🌐 Estado e Modal de Idioma
   const [userLang, setUserLang] = useState("pt-BR");
   const [isLangModalVisible, setIsLangModalVisible] = useState(false);
 
-  // 🔒 Estados do Modal de PIN de Segurança
   const [isPinModalVisible, setIsPinModalVisible] = useState(false);
   const [hasExistingPin, setHasExistingPin] = useState(false);
   const [pinInput, setPinInput] = useState("");
@@ -108,7 +104,6 @@ export default function LoginScreen({ navigation }: any) {
   const btnIcon = isLogin ? "sign-in-alt" : "arrow-right";
   const btnTextColor = isLogin ? "#FFF" : "#202D3A";
 
-  // 🛠️ INICIALIZAÇÃO SEGURA DO GOOGLE SIGN-IN NATIVO
   useEffect(() => {
     if (!isExpoGo && GoogleSignin) {
       try {
@@ -152,7 +147,7 @@ export default function LoginScreen({ navigation }: any) {
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: false,
         }),
-      ]),
+      ])
     ).start();
 
     Animated.loop(
@@ -169,7 +164,7 @@ export default function LoginScreen({ navigation }: any) {
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: false,
         }),
-      ]),
+      ])
     ).start();
   }, []);
 
@@ -181,7 +176,7 @@ export default function LoginScreen({ navigation }: any) {
     confirmText = t("btn_understand", userLang) || "",
     onConfirm: (() => void) | null = null,
     secondaryText = "",
-    onSecondary: (() => void) | null = null,
+    onSecondary: (() => void) | null = null
   ) => {
     setCustomAlert({
       visible: true,
@@ -196,7 +191,6 @@ export default function LoginScreen({ navigation }: any) {
     });
   };
 
-  // 📧 RECUPERAÇÃO DE SENHA
   const handleForgotPassword = async () => {
     const cleanEmail = email.trim().toLowerCase();
 
@@ -205,7 +199,7 @@ export default function LoginScreen({ navigation }: any) {
         t("forgot_pwd_empty_title", userLang) || "",
         t("forgot_pwd_empty_msg", userLang) || "",
         "envelope",
-        "#EAB64A",
+        "#EAB64A"
       );
       return;
     }
@@ -218,7 +212,7 @@ export default function LoginScreen({ navigation }: any) {
         t("forgot_pwd_success_title", userLang) || "",
         t("forgot_pwd_success_msg", userLang, { email: cleanEmail }) || "",
         "check-circle",
-        "#67D4A8",
+        "#67D4A8"
       );
     } catch (error: any) {
       setIsLoading(false);
@@ -236,18 +230,16 @@ export default function LoginScreen({ navigation }: any) {
         t("forgot_pwd_error_title", userLang) || "",
         errorMsg,
         "times-circle",
-        "#D96C6C",
+        "#D96C6C"
       );
     }
   };
 
-  // 🔒 REDIRECIONAMENTO INTELIGENTE PÓS-AUTENTICAÇÃO
   const routeUserAfterLogin = async (uid: string) => {
     try {
       const userSnap = await getDoc(doc(db, "users", uid));
       const userData = userSnap.data();
 
-      // 1. Checa Anamnese
       if (!userData?.hasCompletedAnamnesis) {
         navigation.reset({
           index: 0,
@@ -256,7 +248,6 @@ export default function LoginScreen({ navigation }: any) {
         return;
       }
 
-      // 2. Checa se o casal possui Match feito (partnerId)
       if (!userData?.partnerId) {
         navigation.reset({
           index: 0,
@@ -265,7 +256,6 @@ export default function LoginScreen({ navigation }: any) {
         return;
       }
 
-      // 3. Checa status Premium (próprio ou do parceiro)
       let isUserPremium = Boolean(userData?.isPremium);
 
       if (!isUserPremium && userData?.partnerId) {
@@ -275,7 +265,6 @@ export default function LoginScreen({ navigation }: any) {
         }
       }
 
-      // 4. Direciona para o Paywall ou para a Home
       if (!isUserPremium) {
         navigation.reset({
           index: 0,
@@ -295,7 +284,6 @@ export default function LoginScreen({ navigation }: any) {
     }
   };
 
-  // 🔒 Abertura do Modal de PIN antes do acesso final
   const triggerPinCheck = async (uid: string) => {
     setPendingUid(uid);
     setPinInput("");
@@ -307,7 +295,6 @@ export default function LoginScreen({ navigation }: any) {
 
   const handlePinSubmit = async () => {
     if (hasExistingPin) {
-      // Validar PIN cadastrado
       const isValid = await verifySecurityPin(pinInput);
       if (isValid) {
         setIsPinModalVisible(false);
@@ -316,30 +303,29 @@ export default function LoginScreen({ navigation }: any) {
         }
       } else {
         showCustomAlert(
-          "PIN Incorreto",
-          "O PIN de Segurança digitado está incorreto. Tente novamente.",
+          t("pin_err_incorrect_title", userLang),
+          t("pin_err_incorrect_msg", userLang),
           "lock",
-          "#D96C6C",
+          "#D96C6C"
         );
       }
     } else {
-      // Cadastrar novo PIN
       if (pinInput.length < 4) {
         showCustomAlert(
-          "PIN Muito Curto",
-          "O PIN de Segurança deve conter pelo menos 4 dígitos.",
+          t("pin_err_short_title", userLang),
+          t("pin_err_short_msg", userLang),
           "exclamation-triangle",
-          "#EAB64A",
+          "#EAB64A"
         );
         return;
       }
 
       if (pinInput !== confirmPinInput) {
         showCustomAlert(
-          "PINs Não Coincidem",
-          "O PIN e a confirmação devem ser idênticos.",
+          t("pin_err_mismatch_title", userLang),
+          t("pin_err_mismatch_msg", userLang),
           "exclamation-circle",
-          "#EAB64A",
+          "#EAB64A"
         );
         return;
       }
@@ -362,7 +348,7 @@ export default function LoginScreen({ navigation }: any) {
         "check-circle",
         "#67D4A8",
         t("btn_login_now", userLang) || "",
-        () => setIsLogin(true),
+        () => setIsLogin(true)
       );
     } else {
       setIsLoading(false);
@@ -386,7 +372,7 @@ export default function LoginScreen({ navigation }: any) {
         t("attention_title", userLang) || "",
         t("fill_required_fields_msg", userLang) || "",
         "exclamation-triangle",
-        "#EAB64A",
+        "#EAB64A"
       );
       return;
     }
@@ -398,7 +384,7 @@ export default function LoginScreen({ navigation }: any) {
           t("attention_title", userLang) || "",
           t("invalid_username_format_msg", userLang) || "",
           "user-times",
-          "#EAB64A",
+          "#EAB64A"
         );
         return;
       }
@@ -408,18 +394,29 @@ export default function LoginScreen({ navigation }: any) {
           t("short_username_title", userLang) || "",
           t("short_username_msg", userLang) || "",
           "user",
-          "#EAB64A",
+          "#EAB64A"
+        );
+        return;
+      }
+
+      const passwordCheck = isStrongPassword(password, userLang);
+      if (!passwordCheck.isValid) {
+        showCustomAlert(
+          t("security_req_title", userLang),
+          passwordCheck.message || t("weak_password_fallback", userLang),
+          "shield-alt",
+          "#EAB64A"
         );
         return;
       }
     }
 
-    if (password.length < 6) {
+    if (isLogin && password.length < 6) {
       showCustomAlert(
         t("short_password_title", userLang) || "",
         t("short_password_msg", userLang) || "",
         "lock",
-        "#EAB64A",
+        "#EAB64A"
       );
       return;
     }
@@ -434,13 +431,13 @@ export default function LoginScreen({ navigation }: any) {
         const userCred = await signInWithEmailAndPassword(
           auth,
           cleanEmail,
-          password,
+          password
         );
         uid = userCred.user.uid;
         await setDoc(
           doc(db, "users", uid),
           { language: userLang },
-          { merge: true },
+          { merge: true }
         );
       } else {
         if (authControls) authControls.isCreatingAccount = true;
@@ -448,7 +445,7 @@ export default function LoginScreen({ navigation }: any) {
         const userCred = await createUserWithEmailAndPassword(
           auth,
           cleanEmail,
-          password,
+          password
         );
         uid = userCred.user.uid;
         isNewUser = true;
@@ -490,8 +487,6 @@ export default function LoginScreen({ navigation }: any) {
       if (authControls) authControls.isCreatingAccount = false;
       setIsLoading(false);
 
-      console.error("❌ ERRO NO HANDLE_AUTH:", error?.code, error?.message);
-
       const errorCode = error?.code || "";
 
       if (errorCode === "auth/email-already-in-use") {
@@ -501,7 +496,7 @@ export default function LoginScreen({ navigation }: any) {
           "info-circle",
           "#202D3A",
           t("btn_go_to_login", userLang) || "",
-          () => setIsLogin(true),
+          () => setIsLogin(true)
         );
       } else if (
         errorCode === "auth/invalid-credential" ||
@@ -517,14 +512,14 @@ export default function LoginScreen({ navigation }: any) {
             t("btn_create_account", userLang) || "",
             () => setIsLogin(false),
             t("btn_try_again", userLang) || "",
-            () => {},
+            () => {}
           );
         } else {
           showCustomAlert(
             t("signup_error_title", userLang) || "",
             t("signup_error_msg", userLang) || "",
             "times-circle",
-            "#D96C6C",
+            "#D96C6C"
           );
         }
       } else if (errorCode === "auth/too-many-requests") {
@@ -532,34 +527,33 @@ export default function LoginScreen({ navigation }: any) {
           t("temp_block_title", userLang) || "",
           t("temp_block_msg", userLang) || "",
           "hourglass-half",
-          "#EAB64A",
+          "#EAB64A"
         );
       } else if (errorCode === "auth/invalid-email") {
         showCustomAlert(
           t("invalid_email_title", userLang) || "",
           t("invalid_email_msg", userLang) || "",
           "exclamation-circle",
-          "#EAB64A",
+          "#EAB64A"
         );
       } else {
         showCustomAlert(
           t("ops_title", userLang) || "",
           `${t("auth_error_default_msg", userLang)}\n(${errorCode || error?.message || "erro_desconhecido"})`,
           "times-circle",
-          "#D96C6C",
+          "#D96C6C"
         );
       }
     }
   };
 
-  // 🚀 GOOGLE SIGN-IN NATIVO SEGURO
   const handleGoogleSignIn = async () => {
     if (isExpoGo || !GoogleSignin) {
       showCustomAlert(
         t("dev_mode_title", userLang) || "",
         t("dev_mode_msg", userLang) || "",
         "info-circle",
-        "#EAB64A",
+        "#EAB64A"
       );
       return;
     }
@@ -648,19 +642,18 @@ export default function LoginScreen({ navigation }: any) {
         t("login_canceled_title", userLang) || "",
         t("login_canceled_msg", userLang) || "",
         "times-circle",
-        "#D96C6C",
+        "#D96C6C"
       );
     }
   };
 
-  // 🍎 APPLE SIGN-IN NATIVO
   const handleAppleSignIn = async () => {
     if (Platform.OS !== "ios") {
       showCustomAlert(
         t("ios_only_title", userLang) || "",
         t("ios_only_msg", userLang) || "",
         "apple",
-        "#202D3A",
+        "#202D3A"
       );
       return;
     }
@@ -749,7 +742,7 @@ export default function LoginScreen({ navigation }: any) {
         t("apple_login_error_title", userLang) || "",
         t("apple_login_error_msg", userLang) || "",
         "times-circle",
-        "#D96C6C",
+        "#D96C6C"
       );
     }
   };
@@ -767,7 +760,6 @@ export default function LoginScreen({ navigation }: any) {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* 🌐 SELETOR DE IDIOMA NO CANTO SUPERIOR DIREITO */}
       <TouchableOpacity
         style={styles.langSelectorBtn}
         onPress={() => setIsLangModalVisible(true)}
@@ -777,6 +769,7 @@ export default function LoginScreen({ navigation }: any) {
 
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "android" ? 20 : 0}
         style={{ flex: 1 }}
       >
         <ScrollView
@@ -988,11 +981,13 @@ export default function LoginScreen({ navigation }: any) {
               <FontAwesome5 name="lock" size={28} color="#EAB64A" />
             </View>
 
-            <Text style={styles.bottomSheetTitle}>🔒 PIN de Segurança</Text>
+            <Text style={styles.bottomSheetTitle}>
+              🔒 {t("pin_modal_title", userLang)}
+            </Text>
             <Text style={styles.bottomSheetText}>
               {hasExistingPin
-                ? "Digite seu PIN de Segurança para desbloquear seu acesso."
-                : "Crie um PIN de Segurança de 4 dígitos para proteger suas informações."}
+                ? t("pin_enter_msg", userLang)
+                : t("pin_create_msg", userLang)}
             </Text>
 
             <View style={{ width: "100%", gap: 12 }}>
@@ -1001,7 +996,9 @@ export default function LoginScreen({ navigation }: any) {
                 keyboardType="numeric"
                 maxLength={6}
                 placeholder={
-                  hasExistingPin ? "Digite seu PIN" : "Crie um PIN (mín. 4 dígitos)"
+                  hasExistingPin
+                    ? t("pin_placeholder_enter", userLang)
+                    : t("pin_placeholder_create", userLang)
                 }
                 placeholderTextColor="#AFAFAF"
                 value={pinInput}
@@ -1014,7 +1011,7 @@ export default function LoginScreen({ navigation }: any) {
                   secureTextEntry
                   keyboardType="numeric"
                   maxLength={6}
-                  placeholder="Confirme seu PIN"
+                  placeholder={t("pin_placeholder_confirm", userLang)}
                   placeholderTextColor="#AFAFAF"
                   value={confirmPinInput}
                   onChangeText={setConfirmPinInput}
@@ -1030,7 +1027,9 @@ export default function LoginScreen({ navigation }: any) {
                 onPress={handlePinSubmit}
               >
                 <Text style={styles.bottomSheetButtonPrimaryText}>
-                  {hasExistingPin ? "Confirmar PIN" : "Cadastrar PIN"}
+                  {hasExistingPin
+                    ? t("pin_btn_confirm", userLang)
+                    : t("pin_btn_create", userLang)}
                 </Text>
               </TouchableOpacity>
 
@@ -1039,7 +1038,7 @@ export default function LoginScreen({ navigation }: any) {
                 onPress={() => setIsPinModalVisible(false)}
               >
                 <Text style={styles.bottomSheetButtonSecondaryText}>
-                  Cancelar
+                  {t("modal_cancel", userLang) || "Cancelar"}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -1157,7 +1156,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: 30,
     justifyContent: "center",
-    paddingBottom: 40,
+    paddingBottom: 60,
     paddingTop: 60,
   },
   header: { alignItems: "center", marginBottom: 35 },

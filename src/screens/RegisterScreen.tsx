@@ -1,29 +1,29 @@
 import { FontAwesome5 } from "@expo/vector-icons";
 import {
-  createUserWithEmailAndPassword,
-  sendEmailVerification,
-  signOut,
+    createUserWithEmailAndPassword,
+    sendEmailVerification,
+    signOut,
 } from "firebase/auth";
 import {
-  collection,
-  doc,
-  getDocs,
-  query,
-  setDoc,
-  where,
+    collection,
+    doc,
+    getDocs,
+    query,
+    setDoc,
+    where,
 } from "firebase/firestore";
 import { useState } from "react";
 import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { auth, authControls, db } from "../config/firebase";

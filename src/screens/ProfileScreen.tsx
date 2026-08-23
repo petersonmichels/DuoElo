@@ -36,6 +36,7 @@ import { auth, db } from "../config/firebase";
 
 import { t } from "../i18n/translations";
 import { logAuditEvent } from "../services/auditService";
+import { clearSecurityPin } from "../services/securityService";
 
 const isExpoGo =
   Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
@@ -52,6 +53,20 @@ const SUPPORTED_LANGUAGES = [
   { code: "ja", flag: "🇯🇵", label: "日本語" },
 ];
 
+// 🌍 LISTA DE PAÍSES PARA SELEÇÃO DE DDI
+const COUNTRY_CODES = [
+  { code: "BR", flag: "🇧🇷", ddi: "+55", name: "Brasil" },
+  { code: "PT", flag: "🇵🇹", ddi: "+351", name: "Portugal" },
+  { code: "US", flag: "🇺🇸", ddi: "+1", name: "EUA" },
+  { code: "ES", flag: "🇪🇸", ddi: "+34", name: "Espanha" },
+  { code: "FR", flag: "🇫🇷", ddi: "+33", name: "França" },
+  { code: "DE", flag: "🇩🇪", ddi: "+49", name: "Alemanha" },
+  { code: "IT", flag: "🇮🇹", ddi: "+39", name: "Itália" },
+  { code: "GB", flag: "🇬🇧", ddi: "+44", name: "Reino Unido" },
+  { code: "LU", flag: "🇱🇺", ddi: "+352", name: "Luxemburgo" },
+  { code: "CH", flag: "🇨🇭", ddi: "+41", name: "Suiça" },
+];
+
 export default function ProfileScreen({ navigation }: any) {
   const [userData, setUserData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -60,10 +75,14 @@ export default function ProfileScreen({ navigation }: any) {
   const [lastName, setLastName] = useState("");
   const [address, setAddress] = useState("");
   const [zipCode, setZipCode] = useState("");
-  const [phone, setPhone] = useState("");
+
+  // DDI e Telefone Local
+  const [selectedCountry, setSelectedCountry] = useState(COUNTRY_CODES[0]);
+  const [localPhone, setLocalPhone] = useState("");
+  const [isCountryModalVisible, setIsCountryModalVisible] = useState(false);
 
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">(
-    "idle",
+    "idle"
   );
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [isEmailVerified, setIsEmailVerified] = useState(false);
@@ -89,7 +108,7 @@ export default function ProfileScreen({ navigation }: any) {
         }
       };
       checkEmailVerification();
-    }, []),
+    }, [])
   );
 
   useEffect(() => {
@@ -103,7 +122,7 @@ export default function ProfileScreen({ navigation }: any) {
           await auth.currentUser.reload();
           setIsEmailVerified(auth.currentUser.emailVerified || false);
         }
-      },
+      }
     );
 
     const userRef = doc(db, "users", currentUid);
@@ -116,11 +135,20 @@ export default function ProfileScreen({ navigation }: any) {
         if (data.language) setUserLang(data.language);
 
         if (isFirstLoad.current) {
-          setFirstName(data.billingFirstName || "");
-          setLastName(data.billingLastName || "");
-          setAddress(data.billingAddress || "");
-          setZipCode(data.billingZipCode || "");
-          setPhone(data.billingPhone || "");
+          setFirstName(data.billingFirstName || data.firstName || "");
+          setLastName(data.billingLastName || data.lastName || "");
+          setAddress(
+            data.billingAddress || data.fullAddress || data.address || ""
+          );
+          setZipCode(
+            data.billingZipCode || data.billingZip || data.zipCode || ""
+          );
+
+          // Extrai DDI e número local se já existirem no Firestore
+          const rawPhone =
+            data.billingPhone || data.phone || data.phoneNumber || "";
+          parseInitialPhone(rawPhone);
+
           isFirstLoad.current = false;
         }
       }
@@ -133,6 +161,35 @@ export default function ProfileScreen({ navigation }: any) {
     };
   }, []);
 
+  // Separa o DDI do número local ao carregar do banco
+  const parseInitialPhone = (raw: string) => {
+    if (!raw) return;
+    const matchedCountry = COUNTRY_CODES.find((c) => raw.startsWith(c.ddi));
+    if (matchedCountry) {
+      setSelectedCountry(matchedCountry);
+      const numberOnly = raw.replace(matchedCountry.ddi, "").trim();
+      setLocalPhone(formatLocalNumber(numberOnly));
+    } else {
+      const numberOnly = raw.replace(/\D/g, "");
+      setLocalPhone(formatLocalNumber(numberOnly));
+    }
+  };
+
+  const formatLocalNumber = (text: string) => {
+    let cleaned = text.replace(/\D/g, "");
+    if (cleaned.length <= 2) return cleaned;
+    if (cleaned.length <= 6)
+      return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2)}`;
+    if (cleaned.length <= 10)
+      return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2, 6)}-${cleaned.slice(
+        6
+      )}`;
+    return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2, 7)}-${cleaned.slice(
+      7,
+      11
+    )}`;
+  };
+
   const triggerSaveAnimation = (toValue: number, callback?: () => void) => {
     Animated.timing(saveAnim, {
       toValue,
@@ -141,28 +198,33 @@ export default function ProfileScreen({ navigation }: any) {
     }).start(callback);
   };
 
-  const handleAutoSave = async (field: string, value: string) => {
+  const handleAutoSave = async (fields: { [key: string]: string }) => {
     const currentUid = auth.currentUser?.uid;
-    if (!currentUid || userData?.[field] === value) return;
+    if (!currentUid) return;
 
     setSaveStatus("saving");
     triggerSaveAnimation(1);
 
     try {
-      await setDoc(
-        doc(db, "users", currentUid),
-        { [field]: value },
-        { merge: true },
-      );
+      await setDoc(doc(db, "users", currentUid), fields, { merge: true });
       setSaveStatus("saved");
       setTimeout(
         () => triggerSaveAnimation(0, () => setSaveStatus("idle")),
-        2000,
+        2000
       );
     } catch (e) {
       setSaveStatus("idle");
       triggerSaveAnimation(0);
     }
+  };
+
+  const savePhoneWithDDI = (newLocalPhone: string, country = selectedCountry) => {
+    const fullNumber = `${country.ddi} ${newLocalPhone}`.trim();
+    handleAutoSave({
+      billingPhone: fullNumber,
+      phone: fullNumber,
+      phoneNumber: fullNumber,
+    });
   };
 
   const handleVerifyEmail = async () => {
@@ -172,38 +234,23 @@ export default function ProfileScreen({ navigation }: any) {
       await sendEmailVerification(auth.currentUser);
       Alert.alert(
         t("verify_email_sent_title", userLang) || "",
-        t("verify_email_sent_msg", userLang) || "",
+        t("verify_email_sent_msg", userLang) || ""
       );
     } catch (error: any) {
       if (error.code === "auth/too-many-requests") {
         Alert.alert(
           t("wait_title", userLang) || "",
-          t("verify_email_too_many_msg", userLang) || "",
+          t("verify_email_too_many_msg", userLang) || ""
         );
       } else {
         Alert.alert(
           t("error_title", userLang) || "",
-          t("verify_email_error_msg", userLang) || "",
+          t("verify_email_error_msg", userLang) || ""
         );
       }
     } finally {
       setIsSendingEmail(false);
     }
-  };
-
-  const handlePhoneChange = (text: string) => {
-    let cleaned = text.replace(/\D/g, "");
-    let formatted = cleaned;
-    if (cleaned.length > 0) {
-      if (cleaned.length <= 2) formatted = `+${cleaned}`;
-      else if (cleaned.length <= 4)
-        formatted = `+${cleaned.slice(0, 2)} (${cleaned.slice(2)}`;
-      else if (cleaned.length <= 9)
-        formatted = `+${cleaned.slice(0, 2)} (${cleaned.slice(2, 4)}) ${cleaned.slice(4)}`;
-      else
-        formatted = `+${cleaned.slice(0, 2)} (${cleaned.slice(2, 4)}) ${cleaned.slice(4, 9)}-${cleaned.slice(9, 13)}`;
-    }
-    setPhone(formatted);
   };
 
   const handleZipChange = (text: string) => {
@@ -226,7 +273,7 @@ export default function ProfileScreen({ navigation }: any) {
       if (imageUri.length > 900000) {
         Alert.alert(
           t("photo_too_large_title", userLang) || "",
-          t("photo_too_large_msg", userLang) || "",
+          t("photo_too_large_msg", userLang) || ""
         );
         return;
       }
@@ -237,12 +284,12 @@ export default function ProfileScreen({ navigation }: any) {
           await setDoc(
             doc(db, "users", currentUid),
             { photoURL: imageUri, photoUrl: imageUri },
-            { merge: true },
+            { merge: true }
           );
         } catch (e) {
           Alert.alert(
             t("error_title", userLang) || "",
-            t("update_photo_error_msg", userLang) || "",
+            t("update_photo_error_msg", userLang) || ""
           );
         } finally {
           setLoading(false);
@@ -264,7 +311,7 @@ export default function ProfileScreen({ navigation }: any) {
             if (permissionResult.granted === false) {
               Alert.alert(
                 t("permission_title", userLang) || "",
-                t("camera_permission_msg", userLang) || "",
+                t("camera_permission_msg", userLang) || ""
               );
               return;
             }
@@ -286,7 +333,7 @@ export default function ProfileScreen({ navigation }: any) {
             if (permissionResult.granted === false) {
               Alert.alert(
                 t("permission_title", userLang) || "",
-                t("gallery_permission_msg", userLang) || "",
+                t("gallery_permission_msg", userLang) || ""
               );
               return;
             }
@@ -302,7 +349,7 @@ export default function ProfileScreen({ navigation }: any) {
         },
         { text: t("modal_cancel", userLang) || "", style: "cancel" },
       ],
-      { cancelable: true },
+      { cancelable: true }
     );
   };
 
@@ -314,7 +361,7 @@ export default function ProfileScreen({ navigation }: any) {
       await setDoc(
         doc(db, "users", currentUid),
         { bypassDailyLock: value },
-        { merge: true },
+        { merge: true }
       );
     } catch (e) {
       setBypassDailyLock(!value);
@@ -329,7 +376,7 @@ export default function ProfileScreen({ navigation }: any) {
       await setDoc(
         doc(db, "users", currentUid),
         { enableHaptics: value },
-        { merge: true },
+        { merge: true }
       );
     } catch (e) {
       setEnableHaptics(!value);
@@ -349,17 +396,18 @@ export default function ProfileScreen({ navigation }: any) {
               if (GoogleSignin && typeof GoogleSignin.signOut === "function") {
                 await GoogleSignin.signOut();
               }
+              await clearSecurityPin();
               await signOut(auth);
               Alert.alert(
                 t("account_disconnected_title", userLang) || "",
-                t("account_disconnected_msg", userLang) || "",
+                t("account_disconnected_msg", userLang) || ""
               );
             } catch (e) {
               await signOut(auth);
             }
           },
         },
-      ],
+      ]
     );
   };
 
@@ -379,13 +427,14 @@ export default function ProfileScreen({ navigation }: any) {
                   await GoogleSignin.signOut();
                 } catch (e) {}
               }
+              await clearSecurityPin();
               await signOut(auth);
             } catch (error) {
               console.error("Erro ao deslogar:", error);
             }
           },
         },
-      ],
+      ]
     );
   };
 
@@ -411,7 +460,9 @@ export default function ProfileScreen({ navigation }: any) {
                 const rawDetails = t("audit_account_deleted", userLang, {
                   partner: partnerString,
                 });
-                const detailsText = rawDetails ?? undefined;
+                const detailsText =
+                  rawDetails ??
+                  "Exclusão de conta solicitada pelo usuário no perfil. Logs mantidos para auditoria legal.";
 
                 await logAuditEvent(
                   uidString,
@@ -424,18 +475,19 @@ export default function ProfileScreen({ navigation }: any) {
                   await setDoc(
                     doc(db, "users", userData.partnerId),
                     { partnerId: null, isSoloMode: false },
-                    { merge: true },
+                    { merge: true }
                   );
                 }
 
                 const journalsSnap = await getDocs(
-                  collection(db, "users", uidString, "journals"),
+                  collection(db, "users", uidString, "journals")
                 );
                 const deletePromises = journalsSnap.docs.map((d) =>
-                  deleteDoc(d.ref),
+                  deleteDoc(d.ref)
                 );
                 await Promise.all(deletePromises);
 
+                await clearSecurityPin();
                 await deleteDoc(doc(db, "users", uidString));
 
                 if (
@@ -454,25 +506,28 @@ export default function ProfileScreen({ navigation }: any) {
               if (error.code === "auth/requires-recent-login") {
                 Alert.alert(
                   t("security_title", userLang) || "",
-                  t("reauth_required_delete_msg", userLang) || "",
+                  t("reauth_required_delete_msg", userLang) || ""
                 );
               } else {
                 Alert.alert(
                   t("delete_error_title", userLang) || "",
-                  t("delete_error_msg", userLang) || "",
+                  t("delete_error_msg", userLang) || ""
                 );
               }
             }
           },
         },
-      ],
+      ]
     );
   };
 
   const handleManageSubscription = () => {
     if (Platform.OS === "ios")
       Linking.openURL("https://apps.apple.com/account/subscriptions");
-    else Linking.openURL("https://play.google.com/store/account/subscriptions");
+    else
+      Linking.openURL(
+        "https://play.google.com/store/account/subscriptions"
+      );
   };
 
   const handleRestorePurchases = async () => {
@@ -481,18 +536,18 @@ export default function ProfileScreen({ navigation }: any) {
       if (Object.keys(restoredInfo.entitlements.active).length > 0) {
         Alert.alert(
           t("sub_restored_title", userLang) || "",
-          t("sub_restored_msg", userLang) || "",
+          t("sub_restored_msg", userLang) || ""
         );
       } else {
         Alert.alert(
           t("no_active_sub_title", userLang) || "",
-          t("no_active_sub_msg", userLang) || "",
+          t("no_active_sub_msg", userLang) || ""
         );
       }
     } catch (e) {
       Alert.alert(
         t("error_title", userLang) || "",
-        t("restore_purchases_error_msg", userLang) || "",
+        t("restore_purchases_error_msg", userLang) || ""
       );
     }
   };
@@ -509,8 +564,8 @@ export default function ProfileScreen({ navigation }: any) {
     Linking.openURL(url).catch(() =>
       Alert.alert(
         t("error_title", userLang) || "",
-        t("cannot_open_page_msg", userLang) || "",
-      ),
+        t("cannot_open_page_msg", userLang) || ""
+      )
     );
   };
 
@@ -528,7 +583,6 @@ export default function ProfileScreen({ navigation }: any) {
     url.length > 5 &&
     url.toLowerCase() !== "null";
 
-  // 🎯 CORREÇÃO CRÍTICA DO TYPE ERROR (getFirstName aceita string | undefined)
   const getFirstName = (nameStr?: string | null) =>
     nameStr ? nameStr.trim().split(" ")[0] : null;
 
@@ -542,15 +596,14 @@ export default function ProfileScreen({ navigation }: any) {
 
   const isPremium = userData?.isPremium || false;
 
-  // 🎯 CORREÇÃO NO TRATAMENTO DE NULL PARA GETFIRSTNAME
   const displayUsername = userData?.username
     ? `@${userData.username}`
     : firstName.trim()
-      ? firstName.trim()
-      : getFirstName(userData?.billingFirstName ?? undefined) ||
-        getFirstName(userData?.displayName ?? undefined) ||
-        getFirstName(auth.currentUser?.displayName ?? undefined) ||
-        t("user_default_name", userLang);
+    ? firstName.trim()
+    : getFirstName(userData?.billingFirstName ?? undefined) ||
+      getFirstName(userData?.displayName ?? undefined) ||
+      getFirstName(auth.currentUser?.displayName ?? undefined) ||
+      t("user_default_name", userLang);
 
   const currentFlag =
     SUPPORTED_LANGUAGES.find((l) => l.code === userLang)?.flag || "🇧🇷";
@@ -674,6 +727,45 @@ export default function ProfileScreen({ navigation }: any) {
             )}
           </View>
 
+          {/* HÁBITOS DA VIDA */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              {t("life_habits_section_title", userLang) || "HÁBITOS DA VIDA"}
+            </Text>
+
+            <TouchableOpacity
+              style={styles.menuOption}
+              onPress={() => navigation.navigate("HabitsConfigScreen")}
+            >
+              <View style={styles.menuOptionLeft}>
+                <View
+                  style={[styles.menuIconBg, { backgroundColor: "#E8F4F1" }]}
+                >
+                  <FontAwesome5 name="leaf" size={16} color="#67D4A8" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.menuOptionText}>
+                    {t("menu_configure_habits", userLang) ||
+                      "Configurar Hábitos Diários"}
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: 11,
+                      color: "#60646C",
+                      fontFamily: "Montserrat_400Regular",
+                      marginTop: 2,
+                    }}
+                  >
+                    {t("menu_configure_habits_sub", userLang) ||
+                      "Personalize e selecione seus hábitos no feed VIDA"}
+                  </Text>
+                </View>
+              </View>
+              <FontAwesome5 name="chevron-right" size={14} color="#D1D9E0" />
+            </TouchableOpacity>
+          </View>
+
+          {/* ESTATÍSTICAS */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
               {t("journey_stats_title", userLang)}
@@ -688,12 +780,15 @@ export default function ProfileScreen({ navigation }: any) {
               </View>
               <View style={styles.statBox}>
                 <FontAwesome5 name="infinity" size={24} color="#EAB64A" />
-                <Text style={styles.statValue}>{userData?.totalPE || 0}</Text>
+                <Text style={styles.statValue}>
+                  {userData?.totalPE || userData?.pointsPE || 0}
+                </Text>
                 <Text style={styles.statLabel}>Bonds</Text>
               </View>
             </View>
           </View>
 
+          {/* DADOS PESSOAIS */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
               {t("personal_data_autosave_title", userLang)}
@@ -710,7 +805,12 @@ export default function ProfileScreen({ navigation }: any) {
                     placeholderTextColor="#AFAFAF"
                     value={firstName}
                     onChangeText={setFirstName}
-                    onBlur={() => handleAutoSave("billingFirstName", firstName)}
+                    onBlur={() =>
+                      handleAutoSave({
+                        billingFirstName: firstName,
+                        firstName: firstName,
+                      })
+                    }
                   />
                 </View>
                 <View style={[styles.inputGroup, styles.halfInput]}>
@@ -723,7 +823,12 @@ export default function ProfileScreen({ navigation }: any) {
                     placeholderTextColor="#AFAFAF"
                     value={lastName}
                     onChangeText={setLastName}
-                    onBlur={() => handleAutoSave("billingLastName", lastName)}
+                    onBlur={() =>
+                      handleAutoSave({
+                        billingLastName: lastName,
+                        lastName: lastName,
+                      })
+                    }
                   />
                 </View>
               </View>
@@ -738,7 +843,13 @@ export default function ProfileScreen({ navigation }: any) {
                   placeholderTextColor="#AFAFAF"
                   value={address}
                   onChangeText={setAddress}
-                  onBlur={() => handleAutoSave("billingAddress", address)}
+                  onBlur={() =>
+                    handleAutoSave({
+                      billingAddress: address,
+                      fullAddress: address,
+                      address: address,
+                    })
+                  }
                 />
               </View>
 
@@ -754,29 +865,53 @@ export default function ProfileScreen({ navigation }: any) {
                     keyboardType="number-pad"
                     value={zipCode}
                     onChangeText={handleZipChange}
-                    onBlur={() => handleAutoSave("billingZipCode", zipCode)}
+                    onBlur={() =>
+                      handleAutoSave({
+                        billingZipCode: zipCode,
+                        billingZip: zipCode,
+                        zipCode: zipCode,
+                      })
+                    }
                     maxLength={9}
                   />
                 </View>
+
+                {/* 🟢 CAMPO TELEFONE COM BANDEIRA + DDI SELETOR */}
                 <View style={[styles.inputGroup, styles.halfInput]}>
                   <Text style={styles.inputLabel}>
                     {t("phone_label", userLang)}
                   </Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="+55 (11) 99999-9999"
-                    placeholderTextColor="#AFAFAF"
-                    keyboardType="phone-pad"
-                    value={phone}
-                    onChangeText={handlePhoneChange}
-                    onBlur={() => handleAutoSave("billingPhone", phone)}
-                    maxLength={19}
-                  />
+                  <View style={styles.phoneContainer}>
+                    <TouchableOpacity
+                      style={styles.countryPickerBtn}
+                      onPress={() => setIsCountryModalVisible(true)}
+                    >
+                      <Text style={styles.flagText}>
+                        {selectedCountry.flag}
+                      </Text>
+                      <Text style={styles.ddiText}>{selectedCountry.ddi}</Text>
+                    </TouchableOpacity>
+
+                    <TextInput
+                      style={styles.phoneInput}
+                      placeholder="(99) 99999-9999"
+                      placeholderTextColor="#AFAFAF"
+                      keyboardType="phone-pad"
+                      value={localPhone}
+                      onChangeText={(txt) => {
+                        const formatted = formatLocalNumber(txt);
+                        setLocalPhone(formatted);
+                      }}
+                      onBlur={() => savePhoneWithDDI(localPhone)}
+                      maxLength={16}
+                    />
+                  </View>
                 </View>
               </View>
             </View>
           </View>
 
+          {/* LEGAL E CONFIGURAÇÕES */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
               {t("sub_legal_title", userLang)}
@@ -872,7 +1007,6 @@ export default function ProfileScreen({ navigation }: any) {
               {t("account_settings_title", userLang)}
             </Text>
 
-            {/* 🌐 SELETOR DE IDIOMA */}
             <TouchableOpacity
               style={styles.menuOption}
               onPress={() => setIsLangModalVisible(true)}
@@ -905,7 +1039,6 @@ export default function ProfileScreen({ navigation }: any) {
               <FontAwesome5 name="chevron-right" size={14} color="#D1D9E0" />
             </TouchableOpacity>
 
-            {/* 📳 ALTERNADOR DE HAPTICS / RESPOSTA TÁTIL */}
             <View style={[styles.menuOption, { paddingVertical: 12 }]}>
               <View style={styles.menuOptionLeft}>
                 <View
@@ -1017,7 +1150,10 @@ export default function ProfileScreen({ navigation }: any) {
               <FontAwesome5 name="chevron-right" size={14} color="#D1D9E0" />
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.menuOption} onPress={handleSupport}>
+            <TouchableOpacity
+              style={styles.menuOption}
+              onPress={handleSupport}
+            >
               <View style={styles.menuOptionLeft}>
                 <View
                   style={[styles.menuIconBg, { backgroundColor: "#F0F4F8" }]}
@@ -1062,6 +1198,51 @@ export default function ProfileScreen({ navigation }: any) {
         </ScrollView>
       </KeyboardAvoidingView>
 
+      {/* 🌍 MODAL SELETOR DE PAÍS / DDI */}
+      <Modal visible={isCountryModalVisible} transparent animationType="slide">
+        <TouchableOpacity
+          style={styles.bottomSheetOverlay}
+          activeOpacity={1}
+          onPress={() => setIsCountryModalVisible(false)}
+        >
+          <View style={styles.bottomSheetContainer}>
+            <View style={styles.bottomSheetHandle} />
+            <Text style={styles.bottomSheetTitle}>Selecione o País</Text>
+
+            <ScrollView style={{ width: "100%", maxHeight: 320 }}>
+              {COUNTRY_CODES.map((c) => (
+                <TouchableOpacity
+                  key={c.code}
+                  style={[
+                    styles.langOptionItem,
+                    selectedCountry.code === c.code &&
+                      styles.langOptionItemActive,
+                  ]}
+                  onPress={() => {
+                    setSelectedCountry(c);
+                    setIsCountryModalVisible(false);
+                    savePhoneWithDDI(localPhone, c);
+                  }}
+                >
+                  <Text style={{ fontSize: 24, marginRight: 12 }}>
+                    {c.flag}
+                  </Text>
+                  <Text style={styles.langOptionText}>{c.name}</Text>
+                  <Text
+                    style={{
+                      fontFamily: "Montserrat_700Bold",
+                      color: "#60646C",
+                    }}
+                  >
+                    {c.ddi}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
       {/* MODAL SELETOR DE IDIOMAS */}
       <Modal visible={isLangModalVisible} transparent animationType="slide">
         <TouchableOpacity
@@ -1091,7 +1272,7 @@ export default function ProfileScreen({ navigation }: any) {
                       await setDoc(
                         doc(db, "users", uid),
                         { language: lang.code },
-                        { merge: true },
+                        { merge: true }
                       );
                     }
                   }}
@@ -1311,6 +1492,39 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 14,
     fontSize: 15,
+    color: "#202D3A",
+    fontFamily: "Montserrat_600SemiBold",
+  },
+  // 🟢 ESTILOS DO COMPONENTE COM SELETOR DE PAÍS / DDI
+  phoneContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F0F4F8",
+    borderWidth: 1,
+    borderColor: "#D1D9E0",
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  countryPickerBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#E8F4F1",
+    paddingHorizontal: 10,
+    paddingVertical: 14,
+    gap: 4,
+    borderRightWidth: 1,
+    borderRightColor: "#D1D9E0",
+  },
+  flagText: { fontSize: 16 },
+  ddiText: {
+    fontSize: 13,
+    fontFamily: "Montserrat_700Bold",
+    color: "#202D3A",
+  },
+  phoneInput: {
+    flex: 1,
+    padding: 14,
+    fontSize: 14,
     color: "#202D3A",
     fontFamily: "Montserrat_600SemiBold",
   },

@@ -3,20 +3,20 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { doc, onSnapshot } from "firebase/firestore";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
   Platform,
   StyleSheet,
-  Text,
   View,
 } from "react-native";
 
-// 🔥 Controle de segurança e serviços oficiais do Firebase
 import { auth, authControls, db } from "../config/firebase";
 import { t } from "../i18n/translations";
-// Telas Oficiais
+
 import AnamneseScreen from "../screens/AnamneseScreen";
+import HabitsConfigScreen from "../screens/HabitsConfigScreen";
 import HomeScreen from "../screens/HomeScreen";
 import LoginScreen from "../screens/LoginScreen";
 import MatchScreen from "../screens/MatchScreen";
@@ -24,6 +24,7 @@ import MissionRewardScreen from "../screens/MissionRewardScreen";
 import PaywallScreen from "../screens/PaywallScreen";
 import ProfileScreen from "../screens/ProfileScreen";
 import ShopScreen from "../screens/ShopScreen";
+import VidaScreen from "../screens/VidaScreen";
 
 export type RootStackParamList = {
   MainTabs: undefined;
@@ -31,38 +32,127 @@ export type RootStackParamList = {
   PaywallScreen: undefined;
   MissionReward: undefined;
   Login: undefined;
+  HabitsConfigScreen: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator();
 
-// Placeholder para telas em desenvolvimento
-const PlaceholderScreen = ({
-  title,
-  icon,
-}: {
-  title: string;
-  icon: string;
-}) => (
-  <View style={styles.placeholderContainer}>
-    <FontAwesome5
-      name={icon}
-      size={60}
-      color="#D1D9E0"
-      style={{ marginBottom: 20 }}
-    />
-    <Text style={styles.placeholderTitle}>{title}</Text>
-    <Text style={styles.placeholderSub}>
-      Área em construção (Próxima Sprint)
-    </Text>
-  </View>
-);
+// 💡 ÍCONE DA VIDA PULSANTE EM VERMELHO VIVO QUANDO HÁ PENDÊNCIAS
+const PulsingVidaIcon = ({ color, uid }: { color: string; uid: string | undefined }) => {
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const [hasPending, setHasPending] = useState(false);
 
-const TarefasScreen = () => (
-  <PlaceholderScreen title="Feed de Tarefas" icon="clipboard-list" />
-);
+  useEffect(() => {
+    if (!uid) return;
+    const todayStr = new Date().toISOString().split("T")[0];
 
-// Wrapper da Loja com escuta de dados em tempo real (Protegido para Web/Mobile)
+    const unsubscribeUser = onSnapshot(doc(db, "users", uid), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        const partnerUid = data.partnerId;
+
+        // Onboarding e Dados Cadastrais
+        const noPhoto = !data.photoURL && !data.photoUrl;
+        const noPartner = !partnerUid && !data.isSoloMode;
+
+        const hasName = !!(data.billingFirstName || data.firstName || data.displayName);
+        const hasPhone = !!(data.billingPhone || data.phone || data.phoneNumber);
+        const hasCompleteProfileData = hasName && hasPhone;
+
+        const isJourneyStarted =
+          !!data.isSoloMode ||
+          !!data.isJourneyStarted ||
+          !!data.anamneseCompleted ||
+          !!data.anamneseSkipped ||
+          !!data.lastTaskDate ||
+          (data.currentPhase && data.currentPhase > 0);
+
+        // Checagem rigorosa da missão do dia
+        const isMissionDoneToday =
+          data.lastTaskDate === todayStr ||
+          data.isDailyTaskCompleted === true ||
+          data.dailyTaskDone === true ||
+          data.isTaskPending === false;
+
+        const habitsNotDone =
+          data.habitsCompletedDate !== todayStr ||
+          (data.completedHabitsToday || []).length === 0;
+
+        // Subcoleção de Compras
+        const unSubRedemptions = onSnapshot(
+          doc(db, "users", uid, "shop", "redemptions"),
+          (redemptionSnap) => {
+            const myPurchases = redemptionSnap.exists() ? redemptionSnap.data() : {};
+            const hasGiftToDeliver = Object.entries(myPurchases).some(
+              ([_, value]: [string, any]) => value?.status === "bought"
+            );
+
+            // Subcoleção de Desejos
+            const unSubDesires = onSnapshot(
+              doc(db, "users", uid, "shop", "desires"),
+              (desiresSnap) => {
+                const currentPhase = data.currentPhase || 1;
+                const currentWeek = Math.min(13, Math.floor((currentPhase - 1) / 7) + 1);
+                const myDesires = desiresSnap.exists() ? desiresSnap.data().list || {} : {};
+                const hasSelectedMyCurrentWeekGift = !!myDesires[currentWeek];
+
+                setHasPending(
+                  noPhoto ||
+                  !hasCompleteProfileData ||
+                  noPartner ||
+                  !isJourneyStarted ||
+                  !isMissionDoneToday ||
+                  !hasSelectedMyCurrentWeekGift ||
+                  hasGiftToDeliver ||
+                  habitsNotDone
+                );
+              }
+            );
+
+            return () => unSubDesires();
+          }
+        );
+
+        return () => unSubRedemptions();
+      }
+    });
+
+    return () => unsubscribeUser();
+  }, [uid]);
+
+  useEffect(() => {
+    if (hasPending) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.25,
+            duration: 700,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 700,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    } else {
+      pulseAnim.setValue(1);
+    }
+  }, [hasPending]);
+
+  return (
+    <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+      <FontAwesome5
+        name="heartbeat"
+        size={20}
+        color={hasPending ? "#FF4B4B" : color}
+      />
+    </Animated.View>
+  );
+};
+
 function ShopScreenWrapper(props: any) {
   const [userData, setUserData] = useState<any>(null);
   const [partnerData, setPartnerData] = useState<any>(null);
@@ -73,14 +163,11 @@ function ShopScreenWrapper(props: any) {
     let unsubscribeUser: () => void;
 
     const timer = setTimeout(() => {
-      unsubscribeUser = onSnapshot(
-        doc(db, "users", currentUid),
-        (docSnap) => {
-          if (docSnap.exists()) {
-            setUserData(docSnap.data());
-          }
+      unsubscribeUser = onSnapshot(doc(db, "users", currentUid), (docSnap) => {
+        if (docSnap.exists()) {
+          setUserData(docSnap.data());
         }
-      );
+      });
     }, 50);
 
     return () => {
@@ -118,7 +205,6 @@ function ShopScreenWrapper(props: any) {
   );
 }
 
-// 🚀 NAVEGADOR DE ABAS INFERIORES (BOTTOM TABS)
 function MainTabs() {
   const [userLang, setUserLang] = useState("pt-BR");
   const currentUid = auth.currentUser?.uid;
@@ -172,12 +258,12 @@ function MainTabs() {
       }}
     >
       <Tab.Screen
-        name="Tarefas"
-        component={TarefasScreen}
+        name="Vida"
+        component={VidaScreen}
         options={{
-          tabBarLabel: t("tab_tasks", userLang),
+          tabBarLabel: "VIDA",
           tabBarIcon: ({ color }) => (
-            <FontAwesome5 name="tasks" size={20} color={color} />
+            <PulsingVidaIcon color={color} uid={currentUid} />
           ),
         }}
       />
@@ -240,7 +326,6 @@ function MainTabs() {
   );
 }
 
-// 🚀 NAVEGADOR PRINCIPAL (STACK)
 export default function AppNavigator() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -279,6 +364,10 @@ export default function AppNavigator() {
           <Stack.Screen name="AnamneseScreen" component={AnamneseScreen} />
           <Stack.Screen name="PaywallScreen" component={PaywallScreen} />
           <Stack.Screen name="MissionReward" component={MissionRewardScreen} />
+          <Stack.Screen
+            name="HabitsConfigScreen"
+            component={HabitsConfigScreen}
+          />
         </Stack.Group>
       ) : (
         <Stack.Group>
@@ -295,23 +384,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#F0F4F8",
-  },
-  placeholderContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#F0F4F8",
-  },
-  placeholderTitle: {
-    fontSize: 22,
-    fontFamily: "Montserrat_900Black",
-    color: "#1A2F3B",
-  },
-  placeholderSub: {
-    fontSize: 14,
-    fontFamily: "Montserrat_700Bold",
-    color: "#2C3E50",
-    marginTop: 8,
   },
   floatingButton: {
     top: -20,

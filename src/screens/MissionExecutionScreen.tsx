@@ -14,6 +14,9 @@ import {
   Animated,
   Dimensions,
   Easing,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -28,14 +31,12 @@ import { t } from "../i18n/translations";
 import { logAuditEvent } from "../services/auditService";
 import { decryptText, encryptText } from "../services/securityService";
 
-const { width } = Dimensions.get("window");
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 let Haptics: any = null;
 try {
   Haptics = require("expo-haptics");
-} catch (e) {
-  console.log("Haptics indisponível neste ambiente.");
-}
+} catch (e) {}
 
 export default function MissionExecutionScreen({
   mission,
@@ -53,15 +54,21 @@ export default function MissionExecutionScreen({
   const [loadingJournal, setLoadingJournal] = useState(false);
   const [fetchedJournal, setFetchedJournal] = useState<string | null>(null);
 
+  // 💡 Estado para fechar a caixa explicativa dos botões
+  const [showGuideBox, setShowGuideBox] = useState(true);
+
   const progressAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const slideAnim = useRef(new Animated.Value(0)).current;
-  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const ringPulseAnim = useRef(new Animated.Value(1)).current;
 
-  const currentWeek = mission?.week || mission?.phase || 1;
+  const currentDayOrPhase = Number(
+    mission?.displayPhase || mission?.day || mission?.phase || 1
+  );
+  const isGold = Boolean(mission?.isGoldChallenge);
 
   const triggerHaptic = (
-    type: "light" | "medium" | "heavy" | "success" | "warning" | "error" = "light",
+    type: "light" | "medium" | "heavy" | "success" | "warning" | "error" = "light"
   ) => {
     if (!Haptics || !userEnableHaptics) return;
     try {
@@ -96,13 +103,13 @@ export default function MissionExecutionScreen({
   const conceptText = extractText(
     mission?.concept || mission?.description,
     "concept",
-    "fallback_mission_concept",
+    "fallback_mission_concept"
   );
 
   const actionText = extractText(
     mission?.action || mission?.description,
     "action",
-    "fallback_mission_action",
+    "fallback_mission_action"
   );
 
   useEffect(() => {
@@ -122,19 +129,18 @@ export default function MissionExecutionScreen({
           if (isMounted && snap.exists()) {
             const data = snap.data();
             setUserEnableHaptics(data.enableHaptics !== false);
-            if (data.currentTaskStep === 2) {
-              setCurrentStep(2);
-              progressAnim.setValue(50);
-            } else if (data.currentTaskStep === 3) {
-              setCurrentStep(3);
-              progressAnim.setValue(100);
+
+            if (!isGold) {
+              if (data.currentTaskStep === 2) {
+                setCurrentStep(2);
+                progressAnim.setValue(50);
+              } else if (data.currentTaskStep === 3) {
+                setCurrentStep(3);
+                progressAnim.setValue(100);
+              }
             }
           }
-        } catch (error: any) {
-          if (error?.message && !error.message.includes("closing/hidden")) {
-            console.log("Erro ao buscar passo da missão:", error);
-          }
-        }
+        } catch (error: any) {}
       }
       if (isMounted) setLoading(false);
     };
@@ -144,9 +150,9 @@ export default function MissionExecutionScreen({
     return () => {
       isMounted = false;
     };
-  }, [isReviewMode]);
+  }, [isReviewMode, isGold]);
 
-  // 🔓 LEITURA E DESCRIPTOGRAFIA GARANTIDA DO DIÁRIO
+  // 📖 LEITURA INFALÍVEL DO DIÁRIO
   useEffect(() => {
     let isMounted = true;
 
@@ -156,30 +162,51 @@ export default function MissionExecutionScreen({
         if (!uid) return;
         if (isMounted) setLoadingJournal(true);
         try {
-          const phaseToFetch =
-            mission.phase || mission.displayPhase || mission.day || mission.week;
+          const rawPhase =
+            mission.displayPhase || mission.phase || mission.day || mission.week;
+          const strPhase = String(rawPhase);
+          const numPhase = Number(rawPhase);
 
-          const q = query(
-            collection(db, "users", uid, "journals"),
-            where("phase", "==", phaseToFetch)
-          );
-          const snapshot = await getDocs(q);
+          let journalData: any = null;
+
+          const directDocRef = doc(db, "users", uid, "journals", strPhase);
+          const directSnap = await getDoc(directDocRef);
+
+          if (directSnap.exists()) {
+            journalData = directSnap.data();
+          } else {
+            let q = query(
+              collection(db, "users", uid, "journals"),
+              where("phase", "==", numPhase)
+            );
+            let snapshot = await getDocs(q);
+
+            if (snapshot.empty) {
+              q = query(
+                collection(db, "users", uid, "journals"),
+                where("phase", "==", strPhase)
+              );
+              snapshot = await getDocs(q);
+            }
+
+            if (!snapshot.empty) {
+              journalData = snapshot.docs[0].data();
+            } else {
+              const allSnap = await getDocs(collection(db, "users", uid, "journals"));
+              if (!allSnap.empty) {
+                const docsData = allSnap.docs.map((d) => d.data());
+                docsData.sort(
+                  (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+                );
+                journalData = docsData[0];
+              }
+            }
+          }
 
           if (isMounted) {
-            if (!snapshot.empty) {
-              const data = snapshot.docs[0].data();
-
-              if (data.text) {
-                if (data.text.startsWith("E2EE::")) {
-                  // Descriptografa com a chave mestre do UID
-                  const decryptedText = await decryptText(data.text, uid);
-                  setFetchedJournal(decryptedText);
-                } else {
-                  setFetchedJournal(data.text);
-                }
-              } else {
-                setFetchedJournal("");
-              }
+            if (journalData && journalData.text) {
+              const decryptedText = await decryptText(journalData.text, uid);
+              setFetchedJournal(decryptedText);
             } else {
               setFetchedJournal("");
             }
@@ -196,26 +223,26 @@ export default function MissionExecutionScreen({
     return () => {
       isMounted = false;
     };
-  }, [isReviewMode, mission, userLanguage]);
+  }, [isReviewMode, mission, userLanguage, isGold]);
 
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.05,
+        Animated.timing(ringPulseAnim, {
+          toValue: 1.12,
           duration: 1000,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
-        Animated.timing(pulseAnim, {
+        Animated.timing(ringPulseAnim, {
           toValue: 1,
           duration: 1000,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
-      ]),
+      ])
     ).start();
-  }, [pulseAnim]);
+  }, [ringPulseAnim]);
 
   const goToStep = async (nextStep: number) => {
     if (currentStep === nextStep) return;
@@ -238,14 +265,14 @@ export default function MissionExecutionScreen({
         useNativeDriver: false,
       }).start();
 
-      if (!isReviewMode) {
+      if (!isReviewMode && !isGold) {
         const userId = auth.currentUser?.uid;
         if (userId) {
           setDoc(
             doc(db, "users", userId),
             { currentTaskStep: nextStep },
-            { merge: true },
-          ).catch((e) => console.log("Erro ao salvar state da task", e));
+            { merge: true }
+          ).catch(() => {});
         }
       }
 
@@ -272,7 +299,7 @@ export default function MissionExecutionScreen({
 
   const handleFinish = async () => {
     if (isFinishing) return;
-    triggerHaptic("success");
+    triggerHaptic("heavy");
     setIsFinishing(true);
 
     try {
@@ -281,20 +308,26 @@ export default function MissionExecutionScreen({
 
       if (uid && journalEntry.trim().length > 0) {
         finalJournalToSave = await encryptText(journalEntry, uid);
+
+        await logAuditEvent(
+          uid,
+          "JOURNAL_ENTRY_CREATED",
+          `Reflexão salva e protegida com criptografia E2EE (Fase/Dia: ${mission.id || currentDayOrPhase})`,
+          userLanguage
+        );
       }
 
       if (uid) {
         await logAuditEvent(
           uid,
           "ANAMNESE_COMPLETED",
-          `Missão concluída - ID: ${mission.id || mission.phase || "m1"}`,
+          `Missão concluída - ID: ${mission.id || currentDayOrPhase}`,
           userLanguage
         );
       }
 
       await onComplete(finalJournalToSave);
     } catch (e) {
-      console.error("Erro ao finalizar missão:", e);
       await onComplete(journalEntry);
     } finally {
       setIsFinishing(false);
@@ -308,8 +341,6 @@ export default function MissionExecutionScreen({
       </View>
     );
   }
-
-  const isGold = mission?.isGoldChallenge;
 
   if (isReviewMode) {
     return (
@@ -347,7 +378,7 @@ export default function MissionExecutionScreen({
                 {mission.title ||
                   (isGold
                     ? t("gold_challenge_title_default", userLanguage) || "Desafio de Ouro"
-                    : t("mission_day_title_default", userLanguage, { day: mission.day || mission.phase }) || "Missão")}
+                    : t("mission_day_title_default", userLanguage, { day: currentDayOrPhase }) || "Missão")}
               </Text>
               <Text style={{ fontSize: 13, color: isGold ? "#EAB64A" : "#67D4A8", fontFamily: "Montserrat_700Bold" }}>
                 {isGold
@@ -379,10 +410,10 @@ export default function MissionExecutionScreen({
 
           <View style={styles.card}>
             <Text style={styles.cardTitle}>
-              {t("journal_section_title", userLanguage) || "Sua Reflexão"}
+              📖 {t("journal_section_title", userLanguage) || "Seu Diário (Opcional)"}
             </Text>
             <Text style={styles.cardSubtitle}>
-              {t("journal_section_sub", userLanguage) || "Registro do Diário"}
+              {t("journal_section_sub", userLanguage) || "Sua reflexão e sentimentos salvos para revisitar depois."}
             </Text>
 
             {loadingJournal ? (
@@ -400,7 +431,7 @@ export default function MissionExecutionScreen({
                 >
                   {fetchedJournal
                     ? fetchedJournal
-                    : t("no_reflection_recorded_msg", userLanguage) || "Nenhuma reflexão registrada."}
+                    : t("no_reflection_recorded_msg", userLanguage) || "Nenhuma reflexão registrada neste dia."}
                 </Text>
               </View>
             )}
@@ -417,275 +448,291 @@ export default function MissionExecutionScreen({
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.closeBtn}
-          onPress={() => {
-            triggerHaptic("light");
-            onClose();
-          }}
-          hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-        >
-          <FontAwesome5 name="times" size={20} color="#202D3A" />
-        </TouchableOpacity>
-
-        <View style={styles.trailContainer}>
-          <View style={styles.trailLineBg}>
-            <Animated.View
-              style={[
-                styles.trailLineFill,
-                { width: progressBarWidth },
-                isGold && { backgroundColor: "#EAB64A" },
-              ]}
-            />
-          </View>
-
-          <View style={styles.trailNodes}>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => goToStep(1)}
-              style={[
-                styles.node,
-                currentStep >= 1
-                  ? isGold
-                    ? { backgroundColor: "#EAB64A", borderColor: "#FFF" }
-                    : styles.nodeActive
-                  : styles.nodeInactive,
-              ]}
-            >
-              <FontAwesome5
-                name={isGold ? "infinity" : "lightbulb"}
-                solid
-                size={14}
-                color={currentStep >= 1 ? (isGold ? "#202D3A" : "#FFF") : "#60646C"}
-              />
-            </TouchableOpacity>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => goToStep(2)}
-              style={[
-                styles.node,
-                currentStep >= 2
-                  ? isGold
-                    ? { backgroundColor: "#EAB64A", borderColor: "#FFF" }
-                    : styles.nodeActive
-                  : styles.nodeInactive,
-              ]}
-            >
-              <FontAwesome5
-                name="hands-helping"
-                size={12}
-                color={currentStep >= 2 ? (isGold ? "#202D3A" : "#FFF") : "#60646C"}
-              />
-            </TouchableOpacity>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => goToStep(3)}
-              style={[
-                styles.node,
-                currentStep === 3 ? styles.nodeComplete : styles.nodeInactive,
-              ]}
-            >
-              <FontAwesome5 name="check" size={14} color={currentStep === 3 ? "#FFF" : "#60646C"} />
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1 }}
       >
-        <Animated.View
-          style={{
-            flex: 1,
-            opacity: fadeAnim,
-            transform: [{ translateY: slideAnim }],
-          }}
-        >
-          {/* PASSO 1: CONCEITO */}
-          {currentStep === 1 && (
-            <View style={styles.stepContainer}>
-              <View style={[styles.stepBadge, isGold && { backgroundColor: "#FFF9E6" }]}>
-                <Text style={[styles.stepBadgeText, isGold && { color: "#EAB64A" }]}>
-                  {isGold
-                    ? t("step_badge_gold", userLanguage) || "DESAFIO DE OURO"
-                    : t("step_badge_1", userLanguage) || "PASSO 1 DE 3"}
-                </Text>
-              </View>
-              <Text style={styles.titleText}>
-                {isGold ? mission.title : t("concept_section_title", userLanguage) || "Conceito"}
-              </Text>
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.closeBtn}
+            onPress={() => {
+              triggerHaptic("light");
+              onClose();
+            }}
+            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+          >
+            <FontAwesome5 name="times" size={20} color="#202D3A" />
+          </TouchableOpacity>
 
-              <View style={[styles.contentCard, isGold && { borderColor: "#EAB64A", backgroundColor: "#FFF9E6" }]}>
-                <FontAwesome5
-                  name={isGold ? "crown" : "quote-left"}
-                  size={24}
-                  color={isGold ? "#EAB64A" : "#D1D9E0"}
-                  style={{ marginBottom: 15 }}
-                />
-                <Text style={styles.contentText}>{conceptText}</Text>
-              </View>
+          <View style={styles.trailContainer}>
+            <View style={styles.trailLineBg}>
+              <Animated.View
+                style={[
+                  styles.trailLineFill,
+                  { width: progressBarWidth },
+                  isGold && { backgroundColor: "#EAB64A" },
+                ]}
+              />
+            </View>
 
+            <View style={styles.trailNodes}>
               <TouchableOpacity
-                style={[styles.primaryBtn, isGold && { backgroundColor: "#EAB64A", shadowColor: "#EAB64A" }]}
+                activeOpacity={0.8}
+                onPress={() => goToStep(1)}
+                style={[
+                  styles.node,
+                  currentStep >= 1
+                    ? isGold
+                      ? { backgroundColor: "#EAB64A", borderColor: "#FFF" }
+                      : styles.nodeActive
+                    : styles.nodeInactive,
+                ]}
+              >
+                <FontAwesome5
+                  name={isGold ? "infinity" : "lightbulb"}
+                  solid
+                  size={14}
+                  color={currentStep >= 1 ? (isGold ? "#202D3A" : "#FFF") : "#60646C"}
+                />
+              </TouchableOpacity>
+              <TouchableOpacity
                 activeOpacity={0.8}
                 onPress={() => goToStep(2)}
+                style={[
+                  styles.node,
+                  currentStep >= 2
+                    ? isGold
+                      ? { backgroundColor: "#EAB64A", borderColor: "#FFF" }
+                      : styles.nodeActive
+                    : styles.nodeInactive,
+                ]}
               >
-                <Text style={[styles.primaryBtnText, isGold && { color: "#202D3A" }]}>
-                  {t("btn_advance_to_action", userLanguage) || "AVANÇAR PARA AÇÃO"}
-                </Text>
-                <FontAwesome5 name="arrow-right" size={16} color={isGold ? "#202D3A" : "#FFF"} />
+                <FontAwesome5
+                  name="hands-helping"
+                  size={12}
+                  color={currentStep >= 2 ? (isGold ? "#202D3A" : "#FFF") : "#60646C"}
+                />
+              </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => goToStep(3)}
+                style={[
+                  styles.node,
+                  currentStep === 3 ? styles.nodeComplete : styles.nodeInactive,
+                ]}
+              >
+                <FontAwesome5 name="check" size={14} color={currentStep === 3 ? "#FFF" : "#60646C"} />
               </TouchableOpacity>
             </View>
-          )}
+          </View>
+        </View>
 
-          {/* PASSO 2: AÇÃO PRÁTICA */}
-          {currentStep === 2 && (
-            <View style={styles.stepContainer}>
-              <View style={[styles.stepBadge, isGold && { backgroundColor: "#FFF9E6" }]}>
-                <Text style={[styles.stepBadgeText, isGold && { color: "#EAB64A" }]}>
-                  {t("step_badge_2", userLanguage) || "PASSO 2 DE 3"}
-                </Text>
-              </View>
-
-              <Text style={styles.titleText}>
-                {t("action_section_title", userLanguage) || "Ação Prática"}
-              </Text>
-
-              <View style={[styles.contentCard, { borderColor: "#EAB64A", backgroundColor: "#FFF9E6" }]}>
-                <FontAwesome5 name="bolt" size={24} color="#EAB64A" style={{ marginBottom: 15 }} />
-                <Text
-                  style={[
-                    styles.contentText,
-                    {
-                      color: "#202D3A",
-                      fontSize: 18,
-                      lineHeight: 26,
-                      textAlign: "center",
-                      fontFamily: "Montserrat_600SemiBold",
-                    },
-                  ]}
-                >
-                  {actionText}
-                </Text>
-              </View>
-
-              {/* BANNER EXPLICATIVO DA SEMANA 1 */}
-              {currentWeek === 1 && (
-                <View style={styles.guideBanner}>
-                  <FontAwesome5 name="info-circle" size={15} color="#202D3A" style={{ marginRight: 8 }} />
-                  <Text style={styles.guideText}>
-                    <Text style={{ color: "#27AE60", fontFamily: "Montserrat_700Bold" }}>
-                      ✓ {t("guide_green_label", userLanguage) || "Verde:"}
-                    </Text>{" "}
-                    {t("guide_green_desc", userLanguage) || "Você já fez a tarefa e quer registrar."}
-                    {"\n"}
-                    <Text style={{ color: "#E67E22", fontFamily: "Montserrat_700Bold" }}>
-                      ⏰ {t("guide_orange_label", userLanguage) || "Laranja:"}
-                    </Text>{" "}
-                    {t("guide_orange_desc", userLanguage) || "Precisamos fazer ao longo do dia."}
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <Animated.View
+            style={{
+              flex: 1,
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            }}
+          >
+            {/* PASSO 1: CONCEITO */}
+            {currentStep === 1 && (
+              <View style={styles.stepContainer}>
+                <View style={[styles.stepBadge, isGold && { backgroundColor: "#FFF9E6" }]}>
+                  <Text style={[styles.stepBadgeText, isGold && { color: "#EAB64A" }]}>
+                    {isGold
+                      ? t("step_badge_gold", userLanguage) || "DESAFIO DE OURO"
+                      : t("step_badge_1", userLanguage) || "PASSO 1 DE 3"}
                   </Text>
                 </View>
-              )}
-
-              {/* BOTÕES CIRCULARES */}
-              <View style={styles.actionButtonsRow}>
-                <TouchableOpacity
-                  style={[styles.circleBtn, styles.circleBtnCheck]}
-                  activeOpacity={0.8}
-                  onPress={() => goToStep(3)}
-                >
-                  <FontAwesome5 name="check" size={28} color="#FFF" />
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.circleBtn, styles.circleBtnClock]}
-                  activeOpacity={0.8}
-                  onPress={handlePause}
-                >
-                  <FontAwesome5 name="clock" size={28} color="#FFF" />
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
-
-          {/* PASSO 3: CONCLUSÃO */}
-          {currentStep === 3 && (
-            <View style={styles.stepContainer}>
-              <View style={[styles.stepBadge, isGold && { backgroundColor: "#FFF9E6" }]}>
-                <Text style={[styles.stepBadgeText, isGold && { color: "#EAB64A" }]}>
-                  {t("step_badge_3", userLanguage) || "PASSO 3 DE 3"}
+                <Text style={styles.titleText}>
+                  {isGold ? mission.title : t("concept_section_title", userLanguage) || "Conceito"}
                 </Text>
-              </View>
-              <Text style={styles.titleText}>
-                {t("conclusion_title", userLanguage) || "Conclusão"}
-              </Text>
 
-              <Text style={styles.subText}>
-                {isGold
-                  ? t("conclusion_sub_gold", userLanguage) || "Registre o que aprenderam com este desafio."
-                  : t("conclusion_sub_default", userLanguage) || "Escreva uma breve reflexão sobre como foi realizar a tarefa."}
-              </Text>
-
-              <View style={styles.journalContainer}>
-                <TextInput
-                  style={styles.journalInput}
-                  placeholder={t("placeholder_journal_entry", userLanguage) || "Opcional: Deixe sua reflexão..."}
-                  placeholderTextColor="#AFAFAF"
-                  multiline
-                  textAlignVertical="top"
-                  value={journalEntry}
-                  onChangeText={setJournalEntry}
-                  editable={!isFinishing}
-                />
-                <FontAwesome5 name="book-open" size={18} color="#D1D9E0" style={styles.journalIcon} />
-              </View>
-
-              <View style={styles.bigCheckContainer}>
-                <FontAwesome5 name="heart" solid size={20} color="#EAB64A" style={styles.floatingHeartIcon} />
-                <View style={styles.floatingFireIcon}>
-                  <FontAwesome5 name={isGold ? "infinity" : "fire"} solid size={16} color="#FFF" />
+                <View style={[styles.contentCard, isGold && { borderColor: "#EAB64A", backgroundColor: "#FFF9E6" }]}>
+                  <FontAwesome5
+                    name={isGold ? "crown" : "quote-left"}
+                    size={24}
+                    color={isGold ? "#EAB64A" : "#D1D9E0"}
+                    style={{ marginBottom: 15 }}
+                  />
+                  <Text style={styles.contentText}>{conceptText}</Text>
                 </View>
 
-                <Animated.View
-                  style={[
-                    styles.outerRing,
-                    { transform: [{ scale: pulseAnim }] },
-                    isGold && { borderColor: "#EAB64A" },
-                  ]}
+                <TouchableOpacity
+                  style={[styles.primaryBtn, isGold && { backgroundColor: "#EAB64A", shadowColor: "#EAB64A" }]}
+                  activeOpacity={0.8}
+                  onPress={() => goToStep(2)}
                 >
-                  <View style={styles.innerRing}>
+                  <Text style={[styles.primaryBtnText, isGold && { color: "#202D3A" }]}>
+                    {t("btn_advance_to_action", userLanguage) || "AVANÇAR PARA AÇÃO"}
+                  </Text>
+                  <FontAwesome5 name="arrow-right" size={16} color={isGold ? "#202D3A" : "#FFF"} />
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* PASSO 2: AÇÃO PRÁTICA */}
+            {currentStep === 2 && (
+              <View style={styles.stepContainer}>
+                <View style={[styles.stepBadge, isGold && { backgroundColor: "#FFF9E6" }]}>
+                  <Text style={[styles.stepBadgeText, isGold && { color: "#EAB64A" }]}>
+                    {t("step_badge_2", userLanguage) || "PASSO 2 DE 3"}
+                  </Text>
+                </View>
+
+                <Text style={styles.titleText}>
+                  {t("action_section_title", userLanguage) || "Ação Prática"}
+                </Text>
+
+                <View style={[styles.contentCard, { borderColor: "#EAB64A", backgroundColor: "#FFF9E6" }]}>
+                  <FontAwesome5 name="bolt" size={24} color="#EAB64A" style={{ marginBottom: 15 }} />
+                  <Text
+                    style={[
+                      styles.contentText,
+                      {
+                        color: "#202D3A",
+                        fontSize: 18,
+                        lineHeight: 26,
+                        textAlign: "center",
+                        fontFamily: "Montserrat_600SemiBold",
+                      },
+                    ]}
+                  >
+                    {actionText}
+                  </Text>
+                </View>
+
+                <View style={styles.actionButtonsRow}>
+                  <TouchableOpacity
+                    style={[styles.circleBtn, styles.circleBtnCheck]}
+                    activeOpacity={0.8}
+                    onPress={() => goToStep(3)}
+                  >
+                    <FontAwesome5 name="check" size={28} color="#FFF" />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.circleBtn, styles.circleBtnClock]}
+                    activeOpacity={0.8}
+                    onPress={handlePause}
+                  >
+                    <FontAwesome5 name="clock" size={28} color="#FFF" />
+                  </TouchableOpacity>
+                </View>
+
+                {/* 💡 CAIXA DE GUIA EMBAIXO DOS BOTOES COM BOTAO DE FECHAR */}
+                {currentDayOrPhase <= 3 && !isGold && showGuideBox && (
+                  <View style={styles.guideBannerFooter}>
                     <TouchableOpacity
-                      style={[
-                        styles.bigCheckButton,
-                        isGold && { backgroundColor: "#EAB64A", shadowColor: "#EAB64A" },
-                        isFinishing && { opacity: 0.7 },
-                      ]}
-                      activeOpacity={0.8}
+                      style={styles.guideCloseBtn}
+                      onPress={() => setShowGuideBox(false)}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <FontAwesome5 name="times" size={14} color="#AFAFAF" />
+                    </TouchableOpacity>
+
+                    <View style={{ flexDirection: "row", alignItems: "flex-start", flex: 1 }}>
+                      <FontAwesome5 name="info-circle" size={16} color="#202D3A" style={{ marginRight: 10, marginTop: 2 }} />
+                      <Text style={styles.guideText}>
+                        <Text style={{ color: "#27AE60", fontFamily: "Montserrat_700Bold" }}>
+                          ✓ {t("guide_green_label", userLanguage) || "Verde:"}
+                        </Text>{" "}
+                        {t("guide_green_desc", userLanguage) || "Você já fez a tarefa e quer registrar."}
+                        {"\n"}
+                        <Text style={{ color: "#E67E22", fontFamily: "Montserrat_700Bold" }}>
+                          ⏰ {t("guide_orange_label", userLanguage) || "Laranja:"}
+                        </Text>{" "}
+                        {t("guide_orange_desc", userLanguage) || "Precisamos fazer ao longo do dia."}
+                      </Text>
+                    </View>
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* PASSO 3: CONCLUSÃO (BOTÃO REDONDO 3D) */}
+            {currentStep === 3 && (
+              <View style={styles.stepContainer}>
+                <View style={[styles.stepBadge, isGold && { backgroundColor: "#FFF9E6" }]}>
+                  <Text style={[styles.stepBadgeText, isGold && { color: "#EAB64A" }]}>
+                    {t("step_badge_3", userLanguage) || "PASSO 3 DE 3"}
+                  </Text>
+                </View>
+
+                <Text style={styles.titleText}>
+                  {t("conclusion_title", userLanguage) || "Conclusão"}
+                </Text>
+
+                <Text style={styles.subText}>
+                  {isGold
+                    ? t("conclusion_sub_gold", userLanguage) || "Registre o que aprenderam com este desafio."
+                    : t("conclusion_sub_default", userLanguage) || "O elo de vocês foi fortalecido. Que tal registrar no diário como foi a experiência?"}
+                </Text>
+
+                <View style={styles.journalContainer}>
+                  <TextInput
+                    style={styles.journalInput}
+                    placeholder={t("placeholder_journal_entry", userLanguage) || "Opcional: Deixe sua reflexão..."}
+                    placeholderTextColor="#AFAFAF"
+                    multiline
+                    textAlignVertical="top"
+                    value={journalEntry}
+                    onChangeText={setJournalEntry}
+                    editable={!isFinishing}
+                  />
+                  <FontAwesome5 name="book-open" size={18} color="#D1D9E0" style={styles.journalIcon} />
+                </View>
+
+                {/* 🏆 BOTÃO 3D CIRCULAR DE VITÓRIA / CONQUISTA */}
+                <View style={styles.victoryButtonSection}>
+                  <Animated.View
+                    style={[
+                      styles.victoryOuterRing,
+                      { transform: [{ scale: ringPulseAnim }] },
+                    ]}
+                  />
+
+                  <View style={styles.victory3DBase}>
+                    <Pressable
                       onPress={handleFinish}
                       disabled={isFinishing}
+                      style={({ pressed }) => [
+                        styles.victory3DFace,
+                        isGold && styles.victory3DFaceGold,
+                        { transform: [{ translateY: pressed ? 0 : -6 }] },
+                        isFinishing && { opacity: 0.8 },
+                      ]}
                     >
                       {isFinishing ? (
-                        <ActivityIndicator size="large" color={isGold ? "#202D3A" : "#FFF"} />
+                        <ActivityIndicator size="large" color="#202D3A" />
                       ) : (
-                        <FontAwesome5 name="check" size={40} color={isGold ? "#202D3A" : "#FFF"} />
+                        <FontAwesome5
+                          name={isGold ? "trophy" : "check"}
+                          size={46}
+                          color="#202D3A"
+                        />
                       )}
-                    </TouchableOpacity>
+                    </Pressable>
                   </View>
-                </Animated.View>
-              </View>
 
-              <Text style={styles.bigCheckLabel}>
-                {isFinishing
-                  ? t("btn_completing_label", userLanguage) || "FINALIZANDO..."
-                  : t("btn_mark_accomplished_label", userLanguage) || "TOQUE PARA CONCLUIR"}
-              </Text>
-            </View>
-          )}
-        </Animated.View>
-      </ScrollView>
+                  <Text style={styles.victoryButtonTextLabel}>
+                    {isFinishing
+                      ? t("btn_completing_label", userLanguage) || "REGISTRANDO..."
+                      : isGold
+                      ? t("btn_complete_gold_label", userLanguage) || "CONCLUIR DESAFIO DE OURO"
+                      : t("btn_mark_accomplished_label", userLanguage) || "CONCLUIR CONQUISTA DO DIA"}
+                  </Text>
+                </View>
+              </View>
+            )}
+          </Animated.View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -818,7 +865,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     paddingHorizontal: 10,
   },
-  journalContainer: { width: "100%", position: "relative", marginBottom: 30 },
+  journalContainer: { width: "100%", position: "relative", marginBottom: 25 },
   journalInput: {
     backgroundColor: "#FFF",
     width: "100%",
@@ -859,35 +906,13 @@ const styles = StyleSheet.create({
     lineHeight: 26,
     fontFamily: "Montserrat_400Regular",
   },
-  guideBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#FFF",
-    borderRadius: 16,
-    padding: 14,
-    marginBottom: 25,
-    borderWidth: 1,
-    borderColor: "#D1D9E0",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  guideText: {
-    fontSize: 13,
-    color: "#60646C",
-    fontFamily: "Montserrat_400Regular",
-    lineHeight: 20,
-    flex: 1,
-  },
   actionButtonsRow: {
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
     gap: 36,
     marginTop: 5,
-    marginBottom: 20,
+    marginBottom: 25,
   },
   circleBtn: {
     width: 76,
@@ -906,6 +931,37 @@ const styles = StyleSheet.create({
   },
   circleBtnClock: {
     backgroundColor: "#E67E22",
+  },
+  guideBannerFooter: {
+    width: "100%",
+    backgroundColor: "#FFF",
+    borderRadius: 16,
+    padding: 16,
+    marginTop: 10,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: "#D1D9E0",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+    position: "relative",
+  },
+  guideCloseBtn: {
+    position: "absolute",
+    top: 10,
+    right: 12,
+    zIndex: 10,
+    padding: 4,
+  },
+  guideText: {
+    fontSize: 13,
+    color: "#60646C",
+    fontFamily: "Montserrat_400Regular",
+    lineHeight: 20,
+    flex: 1,
+    paddingRight: 15,
   },
   primaryBtn: {
     width: "100%",
@@ -927,70 +983,56 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: "Montserrat_700Bold",
   },
-  bigCheckContainer: {
+  victoryButtonSection: {
     alignItems: "center",
     justifyContent: "center",
-    marginVertical: 10,
+    marginVertical: 15,
     position: "relative",
+    width: "100%",
   },
-  floatingHeartIcon: { position: "absolute", top: -25, zIndex: 10 },
-  floatingFireIcon: {
+  victoryOuterRing: {
     position: "absolute",
-    left: 10,
-    top: 0,
-    backgroundColor: "#EAB64A",
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 20,
-    borderWidth: 2,
-    borderColor: "#FFF",
-  },
-  outerRing: {
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    borderWidth: 6,
-    borderColor: "#EAB64A",
-    borderLeftColor: "#D1D9E0",
-    borderTopColor: "#D1D9E0",
-    justifyContent: "center",
-    alignItems: "center",
-    transform: [{ rotate: "45deg" }],
-  },
-  innerRing: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
+    width: 136,
+    height: 136,
+    borderRadius: 68,
     borderWidth: 4,
     borderColor: "#67D4A8",
-    borderRightColor: "#D1D9E0",
-    justifyContent: "center",
-    alignItems: "center",
-    transform: [{ rotate: "-45deg" }],
+    top: -8,
   },
-  bigCheckButton: {
-    width: 110,
-    height: 110,
-    borderRadius: 55,
-    backgroundColor: "#202D3A",
+  victory3DBase: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: "#C99632",
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#202D3A",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.5,
-    shadowRadius: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
     elevation: 8,
   },
-  bigCheckLabel: {
-    marginTop: 15,
-    fontSize: 14,
+  victory3DFace: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: "#EAB64A",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 4,
+    borderColor: "#FFF",
+  },
+  victory3DFaceGold: {
+    backgroundColor: "#FFD700",
+  },
+  victoryButtonTextLabel: {
+    marginTop: 18,
+    fontSize: 13,
     fontFamily: "Montserrat_900Black",
-    color: "#60646C",
-    letterSpacing: 1.5,
+    color: "#202D3A",
+    letterSpacing: 1.2,
     textTransform: "uppercase",
+    textAlign: "center",
   },
   missionHeaderCard: {
     flexDirection: "row",
