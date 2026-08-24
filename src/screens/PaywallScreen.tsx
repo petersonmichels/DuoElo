@@ -47,12 +47,14 @@ export default function PaywallScreen({ navigation }: any) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    let isMounted = true;
+
     const fetchUserData = async () => {
       const currentUid = auth.currentUser?.uid;
       if (currentUid) {
         try {
           const userSnap = await getDoc(doc(db, "users", currentUid));
-          if (userSnap.exists()) {
+          if (isMounted && userSnap.exists()) {
             const data = userSnap.data();
             if (data.language) {
               setUserLang(data.language);
@@ -71,18 +73,19 @@ export default function PaywallScreen({ navigation }: any) {
 
     const fetchOfferings = async () => {
       try {
-        setIsLoadingOfferings(true);
+        if (isMounted) setIsLoadingOfferings(true);
         const offerings = await Purchases.getOfferings();
         if (
+          isMounted &&
           offerings?.current &&
           offerings.current.availablePackages.length > 0
         ) {
           setAvailablePackages(offerings.current.availablePackages);
         }
       } catch (e: any) {
-        setAvailablePackages([]);
+        if (isMounted) setAvailablePackages([]);
       } finally {
-        setIsLoadingOfferings(false);
+        if (isMounted) setIsLoadingOfferings(false);
       }
     };
 
@@ -101,6 +104,10 @@ export default function PaywallScreen({ navigation }: any) {
         useNativeDriver: true,
       }),
     ]).start();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // 🎯 MAPEAMENTO CIRÚRGICO COM BASE NOS PRODUTOS DO REVENUECAT
@@ -194,11 +201,11 @@ export default function PaywallScreen({ navigation }: any) {
 
       if (!currentUid) {
         Alert.alert(
-          t("session_expired_title", userLang),
-          t("session_expired_sub_msg", userLang),
+          t("session_expired_title", userLang) || "Sessão Expirada",
+          t("session_expired_sub_msg", userLang) || "Por favor, faça login novamente.",
           [
             {
-              text: t("btn_go_to_login", userLang),
+              text: t("btn_go_to_login", userLang) || "Ir para Login",
               onPress: handleForceLogout,
             },
           ],
@@ -263,22 +270,23 @@ export default function PaywallScreen({ navigation }: any) {
       await logAuditEvent(
         currentUid,
         "SUBSCRIPTION_ACTIVATED",
-        `Assinatura ativada no plano ${planCategory.toUpperCase()} - ciclo: ${selectedPlan}`
+        `Assinatura ativada no plano ${planCategory.toUpperCase()} - ciclo: ${selectedPlan}`,
+        userLang
       );
 
       Alert.alert(
-        t("sub_confirmed_title", userLang),
+        t("sub_confirmed_title", userLang) || "Assinatura Confirmada!",
         t("sub_confirmed_msg", userLang, {
           category: planCategory === "duo" ? "Duo" : "Solo",
           plan: selectedPlan,
           partnerBonus:
             hasPartner && planCategory === "duo"
-              ? t("sub_confirmed_partner_bonus", userLang)
+              ? t("sub_confirmed_partner_bonus", userLang) || "Seu parceiro também recebeu acesso!"
               : "",
-        }),
+        }) || "Sua jornada agora está totalmente liberada.",
         [
           {
-            text: t("btn_access_app", userLang),
+            text: t("btn_access_app", userLang) || "Acessar o App",
             onPress: () => {
               navigation.reset({
                 index: 0,
@@ -295,7 +303,10 @@ export default function PaywallScreen({ navigation }: any) {
       );
     } catch (error: any) {
       if (!error.userCancelled) {
-        Alert.alert(t("sub_error_title", userLang), t("sub_error_msg", userLang));
+        Alert.alert(
+          t("sub_error_title", userLang) || "Erro na Assinatura",
+          t("sub_error_msg", userLang) || "Não foi possível concluir o pagamento."
+        );
       }
     } finally {
       setIsProcessing(false);
@@ -336,16 +347,17 @@ export default function PaywallScreen({ navigation }: any) {
           await logAuditEvent(
             currentUid,
             "PURCHASE_RESTORED",
-            "Restauração de assinatura processada com sucesso"
+            "Restauração de assinatura processada com sucesso",
+            userLang
           );
         }
 
         Alert.alert(
-          t("sub_restored_title", userLang),
-          t("sub_restored_msg", userLang),
+          t("sub_restored_title", userLang) || "Compras Restauradas",
+          t("sub_restored_msg", userLang) || "Sua assinatura ativa foi restaurada com sucesso.",
           [
             {
-              text: t("btn_go_to_start", userLang),
+              text: t("btn_go_to_start", userLang) || "Ir para Início",
               onPress: () =>
                 navigation.reset({
                   index: 0,
@@ -356,14 +368,14 @@ export default function PaywallScreen({ navigation }: any) {
         );
       } else {
         Alert.alert(
-          t("no_active_sub_title", userLang),
-          t("no_active_sub_msg", userLang),
+          t("no_active_sub_title", userLang) || "Nenhuma Assinatura Ativa",
+          t("no_active_sub_msg", userLang) || "Não encontramos assinaturas vinculadas a esta conta de loja.",
         );
       }
     } catch (error) {
       Alert.alert(
-        t("error_title", userLang),
-        t("restore_purchases_error_msg", userLang),
+        t("error_title", userLang) || "Erro",
+        t("restore_purchases_error_msg", userLang) || "Erro ao restaurar compras.",
       );
     } finally {
       setIsProcessing(false);
@@ -373,8 +385,8 @@ export default function PaywallScreen({ navigation }: any) {
   const openUrl = (url: string) => {
     Linking.openURL(url).catch(() =>
       Alert.alert(
-        t("error_title", userLang),
-        t("cannot_open_page_msg", userLang),
+        t("error_title", userLang) || "Erro",
+        t("cannot_open_page_msg", userLang) || "Não foi possível abrir o link.",
       ),
     );
   };
@@ -382,81 +394,81 @@ export default function PaywallScreen({ navigation }: any) {
   const featuresDuo = [
     {
       icon: "users",
-      title: t("feat_duo_1_title", userLang),
-      desc: t("feat_duo_1_desc", userLang),
+      title: t("feat_duo_1_title", userLang) || "Acesso para o Casal",
+      desc: t("feat_duo_1_desc", userLang) || "Apenas uma assinatura libera ambos os perfis.",
     },
     {
       icon: "map-marked-alt",
-      title: t("feat_duo_2_title", userLang),
-      desc: t("feat_duo_2_desc", userLang),
+      title: t("feat_duo_2_title", userLang) || "Jornada de 90 Dias",
+      desc: t("feat_duo_2_desc", userLang) || "Tarefas diárias dinâmicas e conectadas.",
     },
     {
       icon: "heart",
-      title: t("feat_duo_3_title", userLang),
-      desc: t("feat_duo_3_desc", userLang),
+      title: t("feat_duo_3_title", userLang) || "Loja do Amor & Desafios",
+      desc: t("feat_duo_3_desc", userLang) || "Mimos semanais e desafios de ouro.",
     },
   ];
 
   const featuresIndividual = [
     {
       icon: "user",
-      title: t("feat_solo_1_title", userLang),
-      desc: t("feat_solo_1_desc", userLang),
+      title: t("feat_solo_1_title", userLang) || "Jornada Individual",
+      desc: t("feat_solo_1_desc", userLang) || "Desenvolva sua melhor versão na relação.",
     },
     {
       icon: "map-marked-alt",
-      title: t("feat_solo_2_title", userLang),
-      desc: t("feat_solo_2_desc", userLang),
+      title: t("feat_solo_2_title", userLang) || "Mapeamento Completo",
+      desc: t("feat_solo_2_desc", userLang) || "Acesso à bússola e missões de evolução.",
     },
   ];
 
   const duoPlans = [
     {
       id: "mensal",
-      name: t("plan_duo_monthly_name", userLang),
-      desc: t("plan_duo_monthly_desc", userLang),
+      name: t("plan_duo_monthly_name", userLang) || "Plano Mensal",
+      desc: t("plan_duo_monthly_desc", userLang) || "Cobrança mensal para 2 pessoas",
       price: "19,90",
-      period: t("period_per_month", userLang),
+      period: t("period_per_month", userLang) || "/mês",
     },
     {
       id: "trimestral",
-      name: t("plan_duo_quarterly_name", userLang),
-      desc: t("plan_duo_quarterly_desc", userLang),
+      name: t("plan_duo_quarterly_name", userLang) || "Plano Trimestral",
+      desc: t("plan_duo_quarterly_desc", userLang) || "Cobrança a cada 3 meses para o casal",
       price: "49,90",
-      period: t("period_per_quarter", userLang),
-      highlight: t("highlight_recommended_couple", userLang),
+      period: t("period_per_quarter", userLang) || "/trimestre",
+      highlight: t("highlight_recommended_couple", userLang) || "MAIS POPULAR PARA CASAIS",
     },
     {
       id: "anual",
-      name: t("plan_duo_annual_name", userLang),
-      desc: t("plan_duo_annual_desc", userLang),
+      name: t("plan_duo_annual_name", userLang) || "Plano Anual",
+      desc: t("plan_duo_annual_desc", userLang) || "Economia máxima anual para 2 pessoas",
       price: "179,90",
-      period: t("period_per_year", userLang),
+      period: t("period_per_year", userLang) || "/ano",
     },
   ];
 
   const individualPlans = [
     {
       id: "mensal",
-      name: t("plan_solo_monthly_name", userLang),
-      desc: t("plan_solo_monthly_desc", userLang),
+      name: t("plan_solo_monthly_name", userLang) || "Plano Mensal",
+      desc: t("plan_solo_monthly_desc", userLang) || "Cobrança mensal individual",
       price: "14,90",
-      period: t("period_per_month", userLang),
+      period: t("period_per_month", userLang) || "/mês",
     },
     {
       id: "trimestral",
-      name: t("plan_solo_quarterly_name", userLang),
-      desc: t("plan_solo_quarterly_desc", userLang),
+      name: t("plan_solo_quarterly_name", userLang) || "Plano Trimestral",
+      desc: t("plan_solo_quarterly_desc", userLang) || "Cobrança trimestral individual",
       price: "39,90",
-      period: t("period_per_quarter", userLang),
-      highlight: t("highlight_best_value_solo", userLang),
+      period: t("period_per_quarter", userLang) || "/trimestre",
+      highlight: t("highlight_best_value_solo", userLang) || "RECOMENDADO SOLO",
     },
     {
       id: "anual",
-      name: t("plan_solo_annual_name", userLang),
-      desc: t("plan_solo_annual_desc", userLang),
+      name: t("plan_solo_annual_name", userLang) || "Plano Anual",
+      desc: t("plan_solo_annual_desc", userLang) || "Acesso individual por 1 ano",
       price: "129,90",
-      period: t("period_per_year", userLang),
+      period: t("period_per_year", userLang) || "/ano",
     },
   ];
 
@@ -505,9 +517,11 @@ export default function PaywallScreen({ navigation }: any) {
           </View>
 
           <Text style={styles.heroTitle}>
-            {t("paywall_hero_title", userLang)}
+            {t("paywall_hero_title", userLang) || "Desbloqueie o Seu Elo"}
           </Text>
-          <Text style={styles.heroSub}>{t("paywall_hero_sub", userLang)}</Text>
+          <Text style={styles.heroSub}>
+            {t("paywall_hero_sub", userLang) || "Escolha o melhor plano para transformar o seu relacionamento."}
+          </Text>
 
           {!hasPartner && (
             <View style={styles.categoryToggleContainer}>
@@ -529,7 +543,7 @@ export default function PaywallScreen({ navigation }: any) {
                     planCategory === "duo" && styles.categoryToggleTextActive,
                   ]}
                 >
-                  {t("toggle_couple_duo", userLang)}
+                  {t("toggle_couple_duo", userLang) || "Para o Casal"}
                 </Text>
               </TouchableOpacity>
 
@@ -553,7 +567,7 @@ export default function PaywallScreen({ navigation }: any) {
                       styles.categoryToggleTextActive,
                   ]}
                 >
-                  {t("toggle_individual_solo", userLang)}
+                  {t("toggle_individual_solo", userLang) || "Individual"}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -563,7 +577,7 @@ export default function PaywallScreen({ navigation }: any) {
             <View style={styles.partnerNoticeBox}>
               <FontAwesome5 name="heart" solid size={16} color="#67D4A8" />
               <Text style={styles.partnerNoticeText}>
-                {t("partner_connected_notice", userLang)}
+                {t("partner_connected_notice", userLang) || "Seu plano Duo ativará o acesso para você e seu parceiro!"}
               </Text>
             </View>
           )}
@@ -630,19 +644,19 @@ export default function PaywallScreen({ navigation }: any) {
             <View style={styles.guaranteeHeader}>
               <FontAwesome5 name="shield-alt" size={16} color="#67D4A8" />
               <Text style={styles.guaranteeTitle}>
-                {t("time_protected_title", userLang)}
+                {t("time_protected_title", userLang) || "Sua Jornada Protegida"}
               </Text>
             </View>
             <Text style={styles.priceSub}>
-              {t("journey_starts_text_part1", userLang)}{" "}
+              {t("journey_starts_text_part1", userLang) || "Acesso completo a todas as tarefas,"}{" "}
               <Text
                 style={{ fontFamily: "Montserrat_700Bold", color: "#202D3A" }}
               >
-                {t("journey_starts_text_highlight", userLang)}
+                {t("journey_starts_text_highlight", userLang) || "diário criptografado"}
               </Text>{" "}
               {planCategory === "duo"
-                ? t("duo_sub_coverage_desc", userLang)
-                : t("solo_upgrade_desc", userLang)}
+                ? t("duo_sub_coverage_desc", userLang) || "e área de mimos do casal."
+                : t("solo_upgrade_desc", userLang) || "e evolução pessoal."}
             </Text>
           </View>
 
@@ -650,7 +664,7 @@ export default function PaywallScreen({ navigation }: any) {
             <Text style={styles.featuresSectionTitle}>
               {t("what_is_included_title", userLang, {
                 category: planCategory === "duo" ? "Plano Duo" : "Plano Solo",
-              })}
+              }) || `O que está incluso no ${planCategory === "duo" ? "Plano Duo" : "Plano Solo"}:`}
             </Text>
             {activeFeatures.map((feat, index) => (
               <View key={index} style={styles.featureItem}>
@@ -672,7 +686,7 @@ export default function PaywallScreen({ navigation }: any) {
               disabled={isProcessing}
             >
               <Text style={styles.restoreBtnText}>
-                {t("btn_restore_purchases", userLang)}
+                {t("btn_restore_purchases", userLang) || "Restaurar Compras"}
               </Text>
             </TouchableOpacity>
 
@@ -683,7 +697,7 @@ export default function PaywallScreen({ navigation }: any) {
                 }
               >
                 <Text style={styles.legalLinkText}>
-                  {t("terms_of_use_eula", userLang)}
+                  {t("terms_of_use_eula", userLang) || "Termos de Uso (EULA)"}
                 </Text>
               </TouchableOpacity>
               <Text style={styles.legalDivider}>•</Text>
@@ -693,7 +707,7 @@ export default function PaywallScreen({ navigation }: any) {
                 }
               >
                 <Text style={styles.legalLinkText}>
-                  {t("privacy_policy_link", userLang)}
+                  {t("privacy_policy_link", userLang) || "Política de Privacidade"}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -718,18 +732,18 @@ export default function PaywallScreen({ navigation }: any) {
                   category: planCategory === "duo" ? "Duo" : "Solo",
                   period:
                     selectedPlan === "mensal"
-                      ? t("period_monthly_word", userLang)
+                      ? t("period_monthly_word", userLang) || "Mensal"
                       : selectedPlan === "trimestral"
-                        ? t("period_quarterly_word", userLang)
-                        : t("period_annual_word", userLang),
-                })}
+                        ? t("period_quarterly_word", userLang) || "Trimestral"
+                        : t("period_annual_word", userLang) || "Anual",
+                }) || `Assinar ${planCategory === "duo" ? "Duo" : "Solo"} ${selectedPlan}`}
               </Text>
             </>
           )}
         </TouchableOpacity>
         <Text style={styles.guaranteeText}>
           <FontAwesome5 name="lock" size={10} color="#60646C" />{" "}
-          {t("secure_payment_env", userLang)}
+          {t("secure_payment_env", userLang) || "Ambiente de Pagamento 100% Seguro"}
         </Text>
       </View>
     </View>

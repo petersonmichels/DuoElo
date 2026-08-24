@@ -41,7 +41,6 @@ try {
   Haptics = require("expo-haptics");
 } catch (e) {}
 
-// 🎊 PARTÍCULAS DA EXPLOSÃO DE AMOR / MATCH (60 FPS NATIVO)
 const EXPLOSION_COLORS = ["#67D4A8", "#EAB64A", "#202D3A", "#D96C6C", "#FFF"];
 
 const LoveExplosionParticle = ({ index }: { index: number }) => {
@@ -113,20 +112,16 @@ export default function MatchScreen({ navigation }: any) {
   const [isMatching, setIsMatching] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
 
-  // Idioma do usuário
   const userLang = userData?.language || "pt-BR";
 
-  // ESTADOS PARA O MODAL DE CONFIRMAÇÃO DO MATCH
   const [pendingMatchPartner, setPendingMatchPartner] = useState<any>(null);
   const [isMatchConfirmationVisible, setIsMatchConfirmationVisible] = useState(false);
   const [hasMatchExploded, setHasMatchExploded] = useState(false);
 
-  // 💥 CONTROLES DA ANIMAÇÃO DE COLISÃO DO MATCH
   const leftAvatarAnim = useRef(new Animated.Value(-SCREEN_WIDTH * 0.7)).current;
   const rightAvatarAnim = useRef(new Animated.Value(SCREEN_WIDTH * 0.7)).current;
   const centerScaleAnim = useRef(new Animated.Value(1)).current;
 
-  // ESTADO DE ALERTAS PERSONALIZADOS
   const [customAlert, setCustomAlert] = useState({
     visible: false,
     title: "",
@@ -173,32 +168,41 @@ export default function MatchScreen({ navigation }: any) {
       return;
     }
 
-    const unsubscribe = onSnapshot(doc(db, "users", currentUid), (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setUserData(data);
+    const unsubscribe = onSnapshot(
+      doc(db, "users", currentUid),
+      (docSnap) => {
+        if (!auth.currentUser) return;
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setUserData(data);
 
-        if (!data.myInviteCode) {
-          const generatedCode = currentUid.substring(0, 6).toUpperCase();
-          setDoc(
-            doc(db, "users", currentUid),
-            { myInviteCode: generatedCode },
-            { merge: true },
-          ).catch(() => {});
+          if (!data.myInviteCode) {
+            const generatedCode = currentUid.substring(0, 6).toUpperCase();
+            setDoc(
+              doc(db, "users", currentUid),
+              { myInviteCode: generatedCode },
+              { merge: true },
+            ).catch(() => {});
+          }
+        }
+        setLoading(false);
+      },
+      (error) => {
+        if (error.code === "permission-denied") {
+          console.log("[MatchScreen] Listener de usuário encerrado.");
         }
       }
-      setLoading(false);
-    });
+    );
 
     return () => unsubscribe();
   }, [currentUid]);
 
-  // 🔍 HERANÇA AUTOMÁTICA DE ASSINATURA E LEITURA DO PARCEIRO
   useEffect(() => {
     if (userData && userData.partnerId) {
       const unsubscribePartner = onSnapshot(
         doc(db, "users", userData.partnerId),
         async (docSnap) => {
+          if (!auth.currentUser) return;
           if (docSnap.exists()) {
             const pData = docSnap.data();
             setPartnerData(pData);
@@ -212,6 +216,11 @@ export default function MatchScreen({ navigation }: any) {
             }
           }
         },
+        (error) => {
+          if (error.code === "permission-denied") {
+            console.log("[MatchScreen] Listener de parceiro encerrado.");
+          }
+        }
       );
       return () => unsubscribePartner();
     } else {
@@ -219,7 +228,6 @@ export default function MatchScreen({ navigation }: any) {
     }
   }, [userData?.partnerId, userData?.isPremium, currentUid]);
 
-  // 🚀 DISPARO DA ANIMAÇÃO AO ABRIR O MODAL DE CONFIRMAÇÃO DO PARCEIRO
   useEffect(() => {
     if (isMatchConfirmationVisible) {
       setHasMatchExploded(false);
@@ -265,8 +273,8 @@ export default function MatchScreen({ navigation }: any) {
     if (codeToCopy) {
       await Clipboard.setStringAsync(codeToCopy);
       showCustomAlert(
-        t("code_copied_title", userLang),
-        t("code_copied_msg", userLang),
+        t("code_copied_title", userLang) || "Código Copiado!",
+        t("code_copied_msg", userLang) || "Seu código de convite foi copiado.",
         "copy",
         "#67D4A8",
       );
@@ -288,8 +296,8 @@ export default function MatchScreen({ navigation }: any) {
       }
     } catch (error) {
       showCustomAlert(
-        t("whatsapp_error_title", userLang),
-        t("whatsapp_error_msg", userLang),
+        t("whatsapp_error_title", userLang) || "Erro WhatsApp",
+        t("whatsapp_error_msg", userLang) || "Não foi possível abrir o WhatsApp.",
         "exclamation-triangle",
         "#EAB64A",
       );
@@ -298,12 +306,12 @@ export default function MatchScreen({ navigation }: any) {
 
   const handleDisconnectPartner = () => {
     Alert.alert(
-      t("disconnect_confirm_title", userLang),
-      t("disconnect_confirm_msg", userLang),
+      t("disconnect_confirm_title", userLang) || "Desconectar Parceiro(a)",
+      t("disconnect_confirm_msg", userLang) || "Deseja realmente desvincular seu relacionamento?",
       [
-        { text: t("modal_cancel", userLang), style: "cancel" },
+        { text: t("modal_cancel", userLang) || "Cancelar", style: "cancel" },
         {
-          text: t("btn_yes_disconnect", userLang),
+          text: t("btn_yes_disconnect", userLang) || "Sim, Desconectar",
           style: "destructive",
           onPress: async () => {
             const partnerUid = userData?.partnerId;
@@ -326,6 +334,8 @@ export default function MatchScreen({ navigation }: any) {
                   myTrail: null,
                   isReadyToStart: false,
                   hasPressedPlay: false,
+                  sentMatchRequestTo: null,
+                  pendingMatchRequest: null,
                 },
                 { merge: true },
               );
@@ -340,21 +350,23 @@ export default function MatchScreen({ navigation }: any) {
                     myTrail: null,
                     isReadyToStart: false,
                     hasPressedPlay: false,
+                    sentMatchRequestTo: null,
+                    pendingMatchRequest: null,
                   },
                   { merge: true },
                 );
               }
 
               showCustomAlert(
-                t("disconnected_title", userLang),
-                t("disconnected_msg", userLang),
+                t("disconnected_title", userLang) || "Desconectado",
+                t("disconnected_msg", userLang) || "Sua conexão foi desfeita com sucesso.",
                 "unlink",
                 "#EAB64A",
               );
             } catch (e) {
               showCustomAlert(
-                t("error_title", userLang),
-                t("disconnect_error_msg", userLang),
+                t("error_title", userLang) || "Erro",
+                t("disconnect_error_msg", userLang) || "Não foi possível desvincular.",
                 "times-circle",
                 "#D96C6C",
               );
@@ -367,13 +379,100 @@ export default function MatchScreen({ navigation }: any) {
     );
   };
 
+  const handleCancelSentInvite = async () => {
+    if (!currentUid || !userData?.sentMatchRequestTo?.toUid) return;
+    const targetUid = userData.sentMatchRequestTo.toUid;
+
+    setIsMatching(true);
+    try {
+      await setDoc(doc(db, "users", currentUid), { sentMatchRequestTo: null }, { merge: true });
+      await setDoc(doc(db, "users", targetUid), { pendingMatchRequest: null }, { merge: true });
+
+      showCustomAlert(
+        "Convite Cancelado",
+        "O convite de conexão enviado foi cancelado.",
+        "info-circle",
+        "#EAB64A"
+      );
+    } catch (e) {
+      showCustomAlert("Erro", "Não foi possível cancelar o convite.", "times-circle", "#D96C6C");
+    } finally {
+      setIsMatching(false);
+    }
+  };
+
+  const handleAcceptReceivedInvite = async () => {
+    if (!currentUid || !userData?.pendingMatchRequest?.fromUid) return;
+    const senderUid = userData.pendingMatchRequest.fromUid;
+
+    setIsMatching(true);
+    try {
+      await setDoc(
+        doc(db, "users", currentUid),
+        {
+          partnerId: senderUid,
+          isSoloMode: false,
+          pendingMatchRequest: null,
+          sentMatchRequestTo: null,
+        },
+        { merge: true }
+      );
+
+      await setDoc(
+        doc(db, "users", senderUid),
+        {
+          partnerId: currentUid,
+          isSoloMode: false,
+          pendingMatchRequest: null,
+          sentMatchRequestTo: null,
+        },
+        { merge: true }
+      );
+
+      await logAuditEvent(
+        currentUid,
+        "PARTNER_LINKED",
+        `Match aceito com o parceiro ID: ${senderUid}`
+      );
+
+      triggerHaptic("success");
+      showCustomAlert(
+        "Elo Conectado! ❤️",
+        "Vocês agora estão vinculados e prontos para iniciar a jornada!",
+        "heart",
+        "#67D4A8"
+      );
+    } catch (e) {
+      showCustomAlert("Erro ao Aceitar", "Falha ao confirmar o vínculo.", "times-circle", "#D96C6C");
+    } finally {
+      setIsMatching(false);
+    }
+  };
+
+  const handleRejectReceivedInvite = async () => {
+    if (!currentUid || !userData?.pendingMatchRequest?.fromUid) return;
+    const senderUid = userData.pendingMatchRequest.fromUid;
+
+    setIsMatching(true);
+    try {
+      await setDoc(doc(db, "users", currentUid), { pendingMatchRequest: null }, { merge: true });
+      await setDoc(doc(db, "users", senderUid), { sentMatchRequestTo: null }, { merge: true });
+
+      showCustomAlert("Convite Recusado", "O convite de conexão foi recusado.", "info-circle", "#202D3A");
+    } catch (e) {
+      showCustomAlert("Erro", "Não foi possível recusar o convite.", "times-circle", "#D96C6C");
+    } finally {
+      setIsMatching(false);
+    }
+  };
+
   const handleLinkPartnerCode = async () => {
     const rawClean = inviteCodeInput.trim().replace(/^@/, "");
 
     if (rawClean.length < 3) {
       showCustomAlert(
-        t("attention_title", userLang),
-        t("invalid_code_or_username_msg", userLang),
+        t("attention_title", userLang) || "Atenção",
+        t("invalid_code_or_username_msg", userLang) || "Digite um código ou nome de usuário válido.",
         "exclamation-triangle",
         "#EAB64A",
       );
@@ -402,8 +501,8 @@ export default function MatchScreen({ navigation }: any) {
 
       if (querySnapshot.empty) {
         showCustomAlert(
-          t("match_not_found_title", userLang),
-          t("match_not_found_msg", userLang),
+          t("match_not_found_title", userLang) || "Não Encontrado",
+          t("match_not_found_msg", userLang) || "Nenhum usuário localizado com esses dados.",
           "search-minus",
           "#EAB64A",
         );
@@ -417,8 +516,8 @@ export default function MatchScreen({ navigation }: any) {
 
       if (partnerId === currentUid) {
         showCustomAlert(
-          t("action_blocked_title", userLang),
-          t("own_code_error_msg", userLang),
+          t("action_blocked_title", userLang) || "Ação Bloqueada",
+          t("own_code_error_msg", userLang) || "Você não pode conectar com seu próprio código.",
           "ban",
           "#D96C6C",
         );
@@ -428,8 +527,8 @@ export default function MatchScreen({ navigation }: any) {
 
       if (partnerDataDb?.partnerId && partnerDataDb.partnerId !== currentUid) {
         showCustomAlert(
-          t("user_busy_title", userLang),
-          t("user_busy_msg", userLang),
+          t("user_busy_title", userLang) || "Usuário Ocupado",
+          t("user_busy_msg", userLang) || "Esta pessoa já possui um parceiro conectado.",
           "user-lock",
           "#EAB64A",
         );
@@ -442,8 +541,8 @@ export default function MatchScreen({ navigation }: any) {
     } catch (error) {
       console.error("Erro ao buscar parceiro:", error);
       showCustomAlert(
-        t("connection_error_title", userLang),
-        t("search_account_error_msg", userLang),
+        t("connection_error_title", userLang) || "Erro de Conexão",
+        t("search_account_error_msg", userLang) || "Erro ao buscar conta.",
         "times-circle",
         "#D96C6C",
       );
@@ -456,78 +555,66 @@ export default function MatchScreen({ navigation }: any) {
     setIsMatchConfirmationVisible(false);
 
     const currentUser = auth.currentUser;
-    if (!currentUser || !pendingMatchPartner) {
-      showCustomAlert(
-        t("session_expired_title", userLang),
-        t("session_expired_msg", userLang),
-        "user-lock",
-        "#D96C6C",
-      );
-      return;
-    }
+    if (!currentUser || !pendingMatchPartner) return;
 
     setIsMatching(true);
 
     try {
-      const codeToLink = pendingMatchPartner.data?.myInviteCode;
-
-      if (!codeToLink) {
-        showCustomAlert(
-          t("code_unavailable_title", userLang),
-          t("code_unavailable_msg", userLang),
-          "exclamation-triangle",
-          "#EAB64A",
-        );
-        setIsMatching(false);
-        return;
-      }
-
-      const userRef = doc(db, "users", currentUser.uid);
+      const myName = userData?.billingFirstName || userData?.displayName || "Seu Amor";
+      const myPhoto = userData?.photoURL || userData?.photoUrl || null;
 
       await setDoc(
-        userRef,
+        doc(db, "users", currentUser.uid),
         {
-          linkedInviteCode: codeToLink,
-          isSoloMode: false,
-          isReadyToStart: false,
-          hasPressedPlay: false,
-          myTrail: null,
+          sentMatchRequestTo: {
+            toUid: pendingMatchPartner.id,
+            toName: pendingMatchPartner.data?.billingFirstName || pendingMatchPartner.data?.displayName || "Seu Amor",
+            requestedAt: new Date().toISOString(),
+          },
         },
-        { merge: true },
+        { merge: true }
       );
+
+      try {
+        await setDoc(
+          doc(db, "users", pendingMatchPartner.id),
+          {
+            pendingMatchRequest: {
+              fromUid: currentUser.uid,
+              fromName: myName,
+              fromPhoto: myPhoto,
+              requestedAt: new Date().toISOString(),
+            },
+          },
+          { merge: true }
+        );
+      } catch (err) {
+        console.log("[MatchScreen] Gravação direta pendente; operando via fallback.");
+      }
 
       await logAuditEvent(
         currentUser.uid,
         "PARTNER_MATCH_REQUESTED",
-        `Solicitação de pareamento enviada para o parceiro ID: ${pendingMatchPartner.id}`
+        `Solicitação de convite enviada para o parceiro ID: ${pendingMatchPartner.id}`
       );
 
       setInviteCodeInput("");
       setPendingMatchPartner(null);
-      setIsMatching(false);
 
       showCustomAlert(
-        t("match_success_title", userLang),
-        t("match_success_msg", userLang),
+        "Convite Enviado! 💌",
+        "Sua solicitação de conexão foi enviada. O vínculo será ativado assim que ela(e) aceitar!",
         "heart",
-        "#67D4A8",
-        () => {
-          navigation.reset({
-            index: 0,
-            routes: [
-              { name: "MainTabs", state: { routes: [{ name: "Home" }] } },
-            ],
-          });
-        },
+        "#67D4A8"
       );
     } catch (error: any) {
-      console.error("Erro ao solicitar o match no Firestore:", error);
       showCustomAlert(
-        t("match_error_title", userLang),
-        t("match_error_msg", userLang),
+        t("match_error_title", userLang) || "Erro no Convite",
+        t("match_error_msg", userLang) || "Falha ao enviar o convite de conexão.",
         "times-circle",
-        "#D96C6C",
+        "#D96C6C"
       );
+    } finally {
       setIsMatching(false);
     }
   };
@@ -584,6 +671,8 @@ export default function MatchScreen({ navigation }: any) {
           : t("mysterious_user", userLang));
 
   const hasPartner = !!userData?.partnerId;
+  const hasSentInvite = !!userData?.sentMatchRequestTo;
+  const hasReceivedInvite = !!userData?.pendingMatchRequest;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -603,7 +692,7 @@ export default function MatchScreen({ navigation }: any) {
             <FontAwesome5 name="times" size={20} color="#202D3A" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>
-            {t("match_header_title", userLang)}
+            {t("match_header_title", userLang) || "Área do Match"}
           </Text>
           <View style={{ width: 40 }} />
         </View>
@@ -630,7 +719,7 @@ export default function MatchScreen({ navigation }: any) {
                   </View>
                   <View style={styles.partnerInfo}>
                     <Text style={styles.partnerLabel}>
-                      {t("connected_with_label", userLang)}
+                      {t("connected_with_label", userLang) || "Conectado com"}
                     </Text>
                     <Text style={styles.partnerName} numberOfLines={1}>
                       {partnerName}
@@ -656,10 +745,70 @@ export default function MatchScreen({ navigation }: any) {
                     <>
                       <FontAwesome5 name="unlink" size={14} color="#D96C6C" />
                       <Text style={styles.disconnectBtnText}>
-                        {t("btn_disconnect_partner", userLang)}
+                        {t("btn_disconnect_partner", userLang) || "Desconectar Parceiro(a)"}
                       </Text>
                     </>
                   )}
+                </TouchableOpacity>
+              </View>
+            ) : hasReceivedInvite ? (
+              /* CARD DE CONVITE RECEBIDO - BOTOES REDONDOS DE AÇÃO RÁPIDA */
+              <View style={[styles.card, { borderColor: "#EAB64A", backgroundColor: "#FFF9E6", alignItems: "center" }]}>
+                <Text style={styles.sectionTitle}>💌 CONVITE RECEBIDO!</Text>
+                <Text style={[styles.cardDesc, { textAlign: "center" }]}>
+                  <Text style={{ fontFamily: "Montserrat_700Bold", color: "#202D3A" }}>
+                    {userData.pendingMatchRequest.fromName}
+                  </Text>{" "}
+                  enviou um convite para iniciarem o elo juntos!
+                </Text>
+
+                <View style={styles.circleButtonsRow}>
+                  {/* BOTAO REDONDO VERDE - CHECK */}
+                  <TouchableOpacity
+                    style={[styles.circleBtn, styles.circleBtnAccept]}
+                    onPress={handleAcceptReceivedInvite}
+                    disabled={isMatching}
+                    activeOpacity={0.8}
+                  >
+                    {isMatching ? (
+                      <ActivityIndicator size="small" color="#FFF" />
+                    ) : (
+                      <FontAwesome5 name="check" size={22} color="#FFF" />
+                    )}
+                  </TouchableOpacity>
+
+                  {/* BOTAO REDONDO VERMELHO - X */}
+                  <TouchableOpacity
+                    style={[styles.circleBtn, styles.circleBtnReject]}
+                    onPress={handleRejectReceivedInvite}
+                    disabled={isMatching}
+                    activeOpacity={0.8}
+                  >
+                    {isMatching ? (
+                      <ActivityIndicator size="small" color="#FFF" />
+                    ) : (
+                      <FontAwesome5 name="times" size={22} color="#FFF" />
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : hasSentInvite ? (
+              <View style={[styles.card, { borderColor: "#EAB64A" }]}>
+                <Text style={styles.sectionTitle}>⏳ CONVITE ENVIADO</Text>
+                <Text style={styles.cardDesc}>
+                  Aguardando{" "}
+                  <Text style={{ fontFamily: "Montserrat_700Bold", color: "#202D3A" }}>
+                    {userData.sentMatchRequestTo.toName}
+                  </Text>{" "}
+                  aceitar seu convite de conexão...
+                </Text>
+
+                <TouchableOpacity
+                  style={[styles.disconnectBtn, { marginTop: 10 }]}
+                  onPress={handleCancelSentInvite}
+                  disabled={isMatching}
+                >
+                  <Text style={styles.disconnectBtnText}>Cancelar Convite Enviado</Text>
                 </TouchableOpacity>
               </View>
             ) : (
@@ -679,25 +828,25 @@ export default function MatchScreen({ navigation }: any) {
                 </View>
                 <View style={styles.partnerInfo}>
                   <Text style={styles.partnerLabel}>
-                    {t("no_connection_label", userLang)}
+                    {t("no_connection_label", userLang) || "Nenhuma Conexão"}
                   </Text>
                   <Text style={[styles.partnerName, { color: "#60646C" }]}>
-                    {t("waiting_match_label", userLang)}
+                    {t("waiting_match_label", userLang) || "Aguardando vínculo..."}
                   </Text>
                 </View>
               </View>
             )}
           </View>
 
-          {/* 2. ENVIAR CONVITE */}
-          {!hasPartner && (
+          {/* 2. ENVIAR CONVITE SEU CÓDIGO */}
+          {!hasPartner && !hasSentInvite && !hasReceivedInvite && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>
-                {t("invite_section_1_title", userLang)}
+                {t("invite_section_1_title", userLang) || "Seu Código de Convite"}
               </Text>
               <View style={styles.card}>
                 <Text style={styles.cardDesc}>
-                  {t("invite_section_1_desc", userLang)}
+                  {t("invite_section_1_desc", userLang) || "Compartilhe este código com seu amor para que ela(e) solicite a conexão."}
                 </Text>
 
                 <TouchableOpacity
@@ -716,7 +865,7 @@ export default function MatchScreen({ navigation }: any) {
                 >
                   <FontAwesome5 name="whatsapp" size={20} color="#FFF" />
                   <Text style={styles.whatsappButtonText}>
-                    {t("btn_invite_whatsapp", userLang)}
+                    {t("btn_invite_whatsapp", userLang) || "Enviar pelo WhatsApp"}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -724,10 +873,10 @@ export default function MatchScreen({ navigation }: any) {
           )}
 
           {/* 3. RECEBER CONVITE / BUSCA POR USERNAME */}
-          {!hasPartner && (
+          {!hasPartner && !hasSentInvite && !hasReceivedInvite && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>
-                {t("invite_section_2_title", userLang)}
+                {t("invite_section_2_title", userLang) || "Conectar via Código do Amor"}
               </Text>
               <View
                 style={[
@@ -736,13 +885,13 @@ export default function MatchScreen({ navigation }: any) {
                 ]}
               >
                 <Text style={styles.cardDesc}>
-                  {t("invite_section_2_desc", userLang)}
+                  {t("invite_section_2_desc", userLang) || "Insira o código de convite ou @username do seu parceiro(a):"}
                 </Text>
 
                 <View style={styles.inputRow}>
                   <TextInput
                     style={styles.input}
-                    placeholder={t("placeholder_code_or_username", userLang)}
+                    placeholder={t("placeholder_code_or_username", userLang) || "CÓDIGO OU @USER"}
                     placeholderTextColor="#AFAFAF"
                     autoCapitalize="none"
                     value={inviteCodeInput}
@@ -760,7 +909,7 @@ export default function MatchScreen({ navigation }: any) {
                       <ActivityIndicator size="small" color="#FFF" />
                     ) : (
                       <Text style={styles.btnActionText}>
-                        {t("btn_connect", userLang)}
+                        {t("btn_connect", userLang) || "Enviar Convite"}
                       </Text>
                     )}
                   </TouchableOpacity>
@@ -771,7 +920,6 @@ export default function MatchScreen({ navigation }: any) {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* 🏆 MODAL DE CONFIRMAÇÃO COM ANIMAÇÃO DE COLISÃO E EXPLOSÃO */}
       <Modal
         visible={isMatchConfirmationVisible}
         transparent
@@ -780,13 +928,12 @@ export default function MatchScreen({ navigation }: any) {
         <View style={styles.modalOverlayCenter}>
           <View style={styles.codeModalCard}>
             <Text style={styles.codeModalTitle}>
-              {t("is_this_person_title", userLang)}
+              {t("is_this_person_title", userLang) || "Enviar Convite para?"}
             </Text>
             <Text style={styles.codeModalSub}>
-              {t("is_this_person_sub", userLang)}
+              {t("is_this_person_sub", userLang) || "Confirme se esta é a pessoa certa:"}
             </Text>
 
-            {/* 💥 ENCONTRO DAS FOTOS NO CENTRO DO MODAL */}
             <View style={styles.avatarsCollisionWrapper}>
               {hasMatchExploded && (
                 <View style={styles.explosionCenterEmitter}>
@@ -796,7 +943,6 @@ export default function MatchScreen({ navigation }: any) {
                 </View>
               )}
 
-              {/* FOTO DO USUÁRIO ATUAL (Vem da Esquerda) */}
               <Animated.View
                 style={[
                   styles.matchAvatarFrame,
@@ -810,7 +956,6 @@ export default function MatchScreen({ navigation }: any) {
                 )}
               </Animated.View>
 
-              {/* FOTO DO PARCEIRO ENCONTRADO (Vem da Direita) */}
               <Animated.View
                 style={[
                   styles.matchAvatarFrame,
@@ -832,7 +977,7 @@ export default function MatchScreen({ navigation }: any) {
               onPress={confirmMatchCode}
             >
               <Text style={styles.linkButtonText}>
-                {t("btn_yes_connect", userLang)}
+                {t("btn_yes_connect", userLang) || "Sim, Enviar Convite"}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -843,14 +988,13 @@ export default function MatchScreen({ navigation }: any) {
               }}
             >
               <Text style={styles.cancelLinkButtonText}>
-                {t("btn_no_wrong_code", userLang)}
+                {t("btn_no_wrong_code", userLang) || "Cancelar"}
               </Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
 
-      {/* MODAL DE ALERTAS CUSTOMIZADOS */}
       <Modal visible={customAlert.visible} transparent animationType="slide">
         <View style={styles.bottomSheetOverlay}>
           <View style={styles.bottomSheetContainer}>
@@ -883,7 +1027,7 @@ export default function MatchScreen({ navigation }: any) {
               }}
             >
               <Text style={styles.bottomSheetButtonPrimaryText}>
-                {t("btn_understand", userLang)}
+                {t("btn_understand", userLang) || "Entendi"}
               </Text>
             </TouchableOpacity>
           </View>
@@ -957,6 +1101,32 @@ const styles = StyleSheet.create({
     color: "#60646C",
     lineHeight: 20,
     marginBottom: 15,
+  },
+
+  circleButtonsRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 24,
+    marginTop: 10,
+  },
+  circleBtn: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 5,
+    elevation: 4,
+  },
+  circleBtnAccept: {
+    backgroundColor: "#67D4A8",
+  },
+  circleBtnReject: {
+    backgroundColor: "#D96C6C",
   },
 
   connectedCardContainer: {
@@ -1071,12 +1241,13 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
+    paddingVertical: 12,
   },
   btnDisabled: { opacity: 0.6 },
   btnActionText: {
     color: "#FFF",
     fontFamily: "Montserrat_900Black",
-    fontSize: 15,
+    fontSize: 14,
   },
 
   modalOverlayCenter: {

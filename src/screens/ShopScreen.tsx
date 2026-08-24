@@ -1,5 +1,5 @@
 import { FontAwesome5 } from "@expo/vector-icons";
-import { doc, increment, onSnapshot, setDoc } from "firebase/firestore";
+import { doc, onSnapshot, setDoc } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -14,28 +14,25 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { auth, db } from "../config/firebase";
 
-// 📦 Importação do banco de dados de presentes
 import {
   GIFTS_DATABASE,
   getGiftIcon,
   getGiftTitle,
 } from "../database/seed/gifts";
 
-// 🌐 Importação do motor de traduções para CRM
 import { t } from "../i18n/translations";
 import { logAuditEvent } from "../services/auditService";
 
-// 📳 Carregamento seguro do Haptics
 let Haptics: any = null;
 try {
   Haptics = require("expo-haptics");
-} catch (e) {
-  console.log("Haptics indisponível neste ambiente.");
-}
+} catch (e) {}
 
-export default function ShopScreen({ userData, partnerData }: any) {
+// Adicionamos a prop `route` para capturar a aba enviada pela tela VIDA
+export default function ShopScreen({ userData, partnerData, navigation, route }: any) {
   const currentUid = auth.currentUser?.uid;
   const partnerUid = userData?.partnerId;
+  const isSoloMode = Boolean(userData?.isSoloMode);
   const userLang = userData?.language || "pt-BR";
 
   const giftsList = GIFTS_DATABASE || [];
@@ -66,10 +63,11 @@ export default function ShopScreen({ userData, partnerData }: any) {
     } catch (e) {}
   };
 
-  // 🟢 ABA ATIVA DA LOJA ("partner" = Desejos do Amor | "my" = Minha Lista)
-  const [activeTab, setActiveTab] = useState<"partner" | "my">("partner");
+  // 🟢 ABA ATIVA DA LOJA (Se Solo, abre na Lista Pessoal por padrão)
+  const [activeTab, setActiveTab] = useState<"partner" | "my">(
+    !partnerUid && isSoloMode ? "my" : "partner"
+  );
 
-  // Estados dos Desejos e Status
   const [myDesires, setMyDesires] = useState<{ [week: number]: string }>({});
   const [partnerDesires, setPartnerDesires] = useState<{
     [week: number]: string;
@@ -93,6 +91,7 @@ export default function ShopScreen({ userData, partnerData }: any) {
 
   const [activeWeekSlot, setActiveWeekSlot] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isBuying, setIsBuying] = useState(false);
 
   const [customAlert, setCustomAlert] = useState({
     visible: false,
@@ -113,40 +112,71 @@ export default function ShopScreen({ userData, partnerData }: any) {
     setCustomAlert({ visible: true, title, message, icon, color });
   };
 
-  // Compatibilidade de saldo Bonds (totalPE ou pointsPE)
-  const currentBonds = userData?.totalPE ?? userData?.pointsPE ?? 0;
+  // Garantia de saldo nunca negativo na leitura local
+  const rawBonds = userData?.totalPE ?? userData?.pointsPE ?? 0;
+  const currentBonds = Math.max(0, rawBonds);
+
   const currentPhase = userData?.currentPhase || 1;
   const unlockedWeeksCount = Math.min(
     13,
     Math.floor((currentPhase - 1) / 7) + 1
   );
 
+  const hasSentInvite = !!userData?.sentMatchRequestTo;
+  const hasReceivedInvite = !!userData?.pendingMatchRequest;
+
+  // 🎯 REDIRECIONAMENTO DE ABA VIA NAVEGAÇÃO (route.params)
+  useEffect(() => {
+    const initialTab = route?.params?.initialTab;
+    if (initialTab === "my" || initialTab === "partner") {
+      setActiveTab(initialTab);
+    }
+  }, [route?.params?.initialTab]);
+
+  useEffect(() => {
+    if (!partnerUid && isSoloMode && !route?.params?.initialTab) {
+      setActiveTab("my");
+    }
+  }, [partnerUid, isSoloMode, route?.params?.initialTab]);
+
   // 1. Leitura em Tempo Real (Perfil Logado)
   useEffect(() => {
-    if (!currentUid) return;
+    if (!currentUid || !auth.currentUser) return;
 
     const unsubscribeMyDesires = onSnapshot(
       doc(db, "users", currentUid, "shop", "desires"),
       (snap) => {
+        if (!auth.currentUser) return;
         if (snap.exists()) setMyDesires(snap.data().list || {});
       },
-      (err) => console.log("Erro ao escutar desejos:", err)
+      (err) => {
+        if (err.code === "permission-denied")
+          console.log("[ShopScreen] Listener de desejos encerrado.");
+      }
     );
 
     const unsubscribeMyPurchases = onSnapshot(
       doc(db, "users", currentUid, "shop", "redemptions"),
       (snap) => {
+        if (!auth.currentUser) return;
         if (snap.exists()) setMyPurchases(snap.data() || {});
       },
-      (err) => console.log("Erro ao escutar compras:", err)
+      (err) => {
+        if (err.code === "permission-denied")
+          console.log("[ShopScreen] Listener de compras encerrado.");
+      }
     );
 
     const unsubscribeMyConfirmations = onSnapshot(
       doc(db, "users", currentUid, "shop", "confirmations"),
       (snap) => {
+        if (!auth.currentUser) return;
         if (snap.exists()) setMyConfirmations(snap.data() || {});
       },
-      (err) => console.log("Erro ao escutar confirmações:", err)
+      (err) => {
+        if (err.code === "permission-denied")
+          console.log("[ShopScreen] Listener de confirmações encerrado.");
+      }
     );
 
     return () => {
@@ -158,30 +188,42 @@ export default function ShopScreen({ userData, partnerData }: any) {
 
   // 2. Leitura em Tempo Real (Perfil do Parceiro)
   useEffect(() => {
-    if (!partnerUid) return;
+    if (!partnerUid || !auth.currentUser) return;
 
     const unsubscribePartnerDesires = onSnapshot(
       doc(db, "users", partnerUid, "shop", "desires"),
       (snap) => {
+        if (!auth.currentUser) return;
         if (snap.exists()) setPartnerDesires(snap.data().list || {});
       },
-      (err) => console.log("Erro ao escutar desejos do parceiro:", err)
+      (err) => {
+        if (err.code === "permission-denied")
+          console.log("[ShopScreen] Listener de desejos do parceiro encerrado.");
+      }
     );
 
     const unsubscribePartnerPurchases = onSnapshot(
       doc(db, "users", partnerUid, "shop", "redemptions"),
       (snap) => {
+        if (!auth.currentUser) return;
         if (snap.exists()) setPartnerPurchases(snap.data() || {});
       },
-      (err) => console.log("Erro ao escutar compras do parceiro:", err)
+      (err) => {
+        if (err.code === "permission-denied")
+          console.log("[ShopScreen] Listener de compras do parceiro encerrado.");
+      }
     );
 
     const unsubscribePartnerConfirmations = onSnapshot(
       doc(db, "users", partnerUid, "shop", "confirmations"),
       (snap) => {
+        if (!auth.currentUser) return;
         if (snap.exists()) setPartnerConfirmations(snap.data() || {});
       },
-      (err) => console.log("Erro ao escutar confirmações do parceiro:", err)
+      (err) => {
+        if (err.code === "permission-denied")
+          console.log("[ShopScreen] Listener de confirmações do parceiro encerrado.");
+      }
     );
 
     return () => {
@@ -191,7 +233,6 @@ export default function ShopScreen({ userData, partnerData }: any) {
     };
   }, [partnerUid]);
 
-  // Ação 1: Salvar ID do Presente no Slot (Protegido contra falhas)
   const handleSelectGift = async (giftId: string) => {
     if (!currentUid || activeWeekSlot === null) return;
 
@@ -225,7 +266,6 @@ export default function ShopScreen({ userData, partnerData }: any) {
       setActiveWeekSlot(null);
       triggerHaptic("success");
     } catch (e: any) {
-      console.error("❌ ERRO AO SALVAR PRESENTE NO FIRESTORE:", e);
       showAlert(
         t("error_title", userLang) || "Erro",
         t("error_save", userLang) || "Não foi possível salvar o presente.",
@@ -238,9 +278,10 @@ export default function ShopScreen({ userData, partnerData }: any) {
     }
   };
 
-  // Ação 2: Comprar presente com Bonds
   const handleBuyGift = async (weekNum: number, giftId: string) => {
     const cost = 150;
+
+    if (isBuying) return;
 
     if (currentBonds < cost) {
       showAlert(
@@ -255,7 +296,12 @@ export default function ShopScreen({ userData, partnerData }: any) {
 
     if (!currentUid || !partnerUid) return;
 
+    setIsBuying(true);
+
     try {
+      // Cálculo seguro: impede saldo negativo no banco de dados
+      const newBalance = Math.max(0, currentBonds - cost);
+
       await setDoc(
         doc(db, "users", currentUid, "shop", "redemptions"),
         {
@@ -268,12 +314,12 @@ export default function ShopScreen({ userData, partnerData }: any) {
         { merge: true }
       );
 
-      // Desconta em ambos os campos para manter sincronizado no perfil
+      // Atualiza o saldo diretamente para o valor absoluto calculado
       await setDoc(
         doc(db, "users", currentUid),
         {
-          totalPE: increment(-cost),
-          pointsPE: increment(-cost),
+          totalPE: newBalance,
+          pointsPE: newBalance,
         },
         { merge: true }
       );
@@ -304,10 +350,11 @@ export default function ShopScreen({ userData, partnerData }: any) {
         "#D96C6C",
         "error"
       );
+    } finally {
+      setIsBuying(false);
     }
   };
 
-  // Ação 3: Marcar como Entregue na Vida Real
   const handleMarkDelivered = async (weekNum: number) => {
     if (!currentUid) return;
     try {
@@ -342,7 +389,6 @@ export default function ShopScreen({ userData, partnerData }: any) {
     }
   };
 
-  // Ação 4: Confirmar Recebimento (Lado de quem ganha)
   const handleConfirmReceived = async (weekNum: number) => {
     if (!currentUid) return;
     try {
@@ -380,7 +426,6 @@ export default function ShopScreen({ userData, partnerData }: any) {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* SALDO DE BONDS */}
       <View style={styles.balanceHeader}>
         <Text style={styles.balanceLabel}>
           {t("available_bonds", userLang) || "SEUS BONDS DISPONÍVEIS"}
@@ -391,7 +436,6 @@ export default function ShopScreen({ userData, partnerData }: any) {
         </View>
       </View>
 
-      {/* 🟢 SELETOR DE ABAS (ORGANIZA A LOJA E ACABA COM A CONFUSÃO VISUAL) */}
       <View style={styles.tabToggleRow}>
         <TouchableOpacity
           style={[styles.toggleTab, activeTab === "partner" && styles.toggleTabActive]}
@@ -421,7 +465,6 @@ export default function ShopScreen({ userData, partnerData }: any) {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* ==================== ABA 1: DESEJOS DO SEU AMOR ==================== */}
         {activeTab === "partner" && (
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionSub}>
@@ -429,12 +472,42 @@ export default function ShopScreen({ userData, partnerData }: any) {
             </Text>
 
             {!partnerUid ? (
-              <View style={styles.emptyCard}>
-                <FontAwesome5 name="user-plus" size={24} color="#AFAFAF" />
-                <Text style={styles.emptyCardText}>
-                  {t("no_match_text", userLang) || "Conecte-se ao seu amor para ver os desejos."}
+              <TouchableOpacity
+                style={styles.emptyCardInteractive}
+                activeOpacity={0.8}
+                onPress={() => {
+                  triggerHaptic("light");
+                  if (navigation && navigation.navigate) navigation.navigate("Match");
+                }}
+              >
+                <View style={styles.emptyCardIconBox}>
+                  <FontAwesome5
+                    name={hasReceivedInvite ? "envelope-open-text" : hasSentInvite ? "hourglass-half" : "user-plus"}
+                    size={24}
+                    color="#67D4A8"
+                  />
+                </View>
+                <Text style={styles.emptyCardTitle}>
+                  {hasReceivedInvite
+                    ? "Convite de Match Recebido!"
+                    : hasSentInvite
+                    ? "Aguardando Confirmação do Match"
+                    : "Conectar Seu Amor"}
                 </Text>
-              </View>
+                <Text style={styles.emptyCardText}>
+                  {hasReceivedInvite
+                    ? "Alguém te enviou um convite de conexão! Toque aqui para aceitar."
+                    : hasSentInvite
+                    ? "Seu convite foi enviado! Toque para ver o status no Match."
+                    : t("no_match_text", userLang) || "Toque aqui para fazer o Match e ver a lista de desejos do seu amor!"}
+                </Text>
+                <View style={styles.btnMatchMini}>
+                  <Text style={styles.btnMatchMiniText}>
+                    {hasReceivedInvite ? "Responder Convite" : hasSentInvite ? "Ver Status do Convite" : "Fazer Match Agora"}
+                  </Text>
+                  <FontAwesome5 name="chevron-right" size={12} color="#FFF" />
+                </View>
+              </TouchableOpacity>
             ) : Object.keys(partnerDesires).length === 0 ? (
               <View style={styles.emptyCard}>
                 <FontAwesome5 name="hourglass-half" size={24} color="#EAB64A" />
@@ -473,25 +546,30 @@ export default function ShopScreen({ userData, partnerData }: any) {
                         </View>
                       </View>
 
-                      {/* BOTÃO DE COMPRAR */}
                       {!status && (
                         <TouchableOpacity
-                          style={[styles.btnBuy, currentBonds < 150 && styles.btnBuyDisabled]}
+                          style={[styles.btnBuy, (currentBonds < 150 || isBuying) && styles.btnBuyDisabled]}
+                          disabled={currentBonds < 150 || isBuying}
                           onPress={() => {
                             triggerHaptic("medium");
                             handleBuyGift(weekNum, giftId);
                           }}
                         >
-                          <FontAwesome5 name="infinity" solid size={11} color="#FFF" style={{ marginRight: 6 }} />
-                          <Text style={styles.btnBuyText}>
-                            {currentBonds >= 150
-                              ? t("btn_buy", userLang) || "COMPRAR (150 BONDS)"
-                              : "SALDO INSUFICIENTE (150 BONDS)"}
-                          </Text>
+                          {isBuying ? (
+                            <ActivityIndicator size="small" color="#FFF" />
+                          ) : (
+                            <>
+                              <FontAwesome5 name="infinity" solid size={11} color="#FFF" style={{ marginRight: 6 }} />
+                              <Text style={styles.btnBuyText}>
+                                {currentBonds >= 150
+                                  ? t("btn_buy", userLang) || "COMPRAR (150 BONDS)"
+                                  : "SALDO INSUFICIENTE (150 BONDS)"}
+                              </Text>
+                            </>
+                          )}
                         </TouchableOpacity>
                       )}
 
-                      {/* STATUS COMPRADO (PRONTO PARA ENTREGAR) */}
                       {status === "bought" && (
                         <TouchableOpacity
                           style={styles.btnDeliverOrange}
@@ -507,7 +585,6 @@ export default function ShopScreen({ userData, partnerData }: any) {
                         </TouchableOpacity>
                       )}
 
-                      {/* STATUS ENTREGUE */}
                       {status === "delivered" && !isConfirmedByPartner && (
                         <View style={styles.statusBadgeWaiting}>
                           <Text style={styles.statusBadgeWaitingText}>
@@ -516,7 +593,6 @@ export default function ShopScreen({ userData, partnerData }: any) {
                         </View>
                       )}
 
-                      {/* STATUS CONFIRMADO */}
                       {isConfirmedByPartner && (
                         <View style={styles.statusBadgeConfirmed}>
                           <Text style={styles.statusBadgeConfirmedText}>
@@ -532,7 +608,6 @@ export default function ShopScreen({ userData, partnerData }: any) {
           </View>
         )}
 
-        {/* ==================== ABA 2: SUA LISTA DE DESEJOS ==================== */}
         {activeTab === "my" && (
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionSub}>
@@ -618,7 +693,6 @@ export default function ShopScreen({ userData, partnerData }: any) {
                       </Text>
                     )}
 
-                    {/* BOTÃO DE CONFIRMAR RECEBIMENTO QUANDO O PARCEIRO ENTREGOU */}
                     {isDeliveredByPartner && !isConfirmedByMe && (
                       <TouchableOpacity
                         style={[styles.btnConfirmGreen, { marginTop: 10 }]}
@@ -649,7 +723,6 @@ export default function ShopScreen({ userData, partnerData }: any) {
         )}
       </ScrollView>
 
-      {/* MODAL DE SELEÇÃO DOS PRESENTES */}
       <Modal visible={activeWeekSlot !== null} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalCardLarge}>
@@ -699,7 +772,6 @@ export default function ShopScreen({ userData, partnerData }: any) {
         </View>
       </Modal>
 
-      {/* MODAL DE ALERTA */}
       <Modal visible={customAlert.visible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalCardAlert}>
@@ -783,11 +855,55 @@ const styles = StyleSheet.create({
     borderColor: "#D1D9E0",
     gap: 8,
   },
+  emptyCardInteractive: {
+    backgroundColor: "#FFF",
+    borderRadius: 20,
+    padding: 24,
+    alignItems: "center",
+    borderWidth: 1.5,
+    borderColor: "#67D4A8",
+    shadowColor: "#67D4A8",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  emptyCardIconBox: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: "#E8F4F1",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  emptyCardTitle: {
+    fontFamily: "Montserrat_900Black",
+    fontSize: 16,
+    color: "#202D3A",
+    marginBottom: 6,
+  },
   emptyCardText: {
-    fontFamily: "Montserrat_600SemiBold",
+    fontFamily: "Montserrat_400Regular",
     fontSize: 13,
     color: "#60646C",
     textAlign: "center",
+    lineHeight: 18,
+    marginBottom: 14,
+  },
+  btnMatchMini: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#202D3A",
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 12,
+    gap: 8,
+  },
+  btnMatchMiniText: {
+    fontFamily: "Montserrat_700Bold",
+    fontSize: 12,
+    color: "#FFF",
   },
   listGap: { gap: 12 },
   card: {

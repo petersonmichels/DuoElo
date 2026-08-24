@@ -1,0 +1,81 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // 🔒 Permite alterar outro usuário APENAS nos campos necessários do Match
+    function isUpdatingMatchData() {
+      return isAuthenticated() && 
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['pendingMatchRequest', 'sentMatchRequestTo', 'partnerId', 'isSoloMode', 'matchStatus']);
+    }
+
+    // 👤 PERFIL DO USUÁRIO & SUBCOLEÇÕES PRIVADAS
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create, delete: if isOwner(userId);
+      // Permite alterar se for o próprio dono OU se for uma solicitação/aceite de Match
+      allow update: if isOwner(userId) || isUpdatingMatchData();
+
+      // 🎁 SUBCOLEÇÕES DA LOJA
+      match /shop/{document=**} {
+        allow read: if isAuthenticated();
+        allow write: if isOwner(userId);
+      }
+
+      // 📔 SUBCOLEÇÃO DE DIÁRIOS
+      match /journals/{journalId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    // 📚 CONTEÚDOS PÚBLICOS E ANAMNESE (Somente Leitura)
+    match /anamnesis/{document=**} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
+    match /questions/{document=**} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
+    match /tasks/{document=**} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
+    match /weeks/{document=**} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
+    match /weekly_challenges/{document=**} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
+    match /catalog/{document=**} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
+    // 🛡️ COLEÇÃO DE AUDITORIA (AUDIT_LOGS)
+    match /audit_logs/{logId} {
+      allow create: if isAuthenticated();
+      allow read, update, delete: if false;
+    }
+
+    // 🛑 BLOQUEIO PADRÃO (Deny All)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

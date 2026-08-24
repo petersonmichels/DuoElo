@@ -32,6 +32,15 @@ export async function completeDailyTask(
   taskId: string,
   pointsPE: number
 ): Promise<GamificationResult> {
+  if (!userId) {
+    return {
+      success: false,
+      earnedPE: 0,
+      newStreak: 0,
+      earnedCoins: 0,
+    };
+  }
+
   try {
     const userRef = doc(db, "users", userId);
     const userSnap = await getDoc(userRef);
@@ -42,6 +51,7 @@ export async function completeDailyTask(
 
     const userData = userSnap.data();
     const lastTaskDate = userData.lastTaskDate;
+    const bypassDailyLock = Boolean(userData.bypassDailyLock);
     let currentStreak = userData.streak || 0;
 
     // --- MATEMÁTICA DO TEMPO (FUSO HORÁRIO LOCAL SEGURO) ---
@@ -53,44 +63,55 @@ export async function completeDailyTask(
     const yesterday = getLocalDateString(yesterdayObj);
 
     // --- LÓGICA DO FOGUINHO (STREAK) ---
-    if (lastTaskDate === today) {
-      // Missão já executada hoje
+    if (lastTaskDate === today && !bypassDailyLock) {
+      // Missão já executada hoje e sem autorização de bypass
       return {
         success: true,
         earnedPE: 0,
         newStreak: currentStreak,
         earnedCoins: 0,
       };
-    } else if (lastTaskDate === yesterday) {
-      // Jogou ontem e hoje: incrementa a racha/streak 🔥
-      currentStreak += 1;
+    } else if (lastTaskDate === yesterday || (lastTaskDate === today && bypassDailyLock)) {
+      // Mantém/Incrementa streak
+      currentStreak += lastTaskDate === today ? 0 : 1;
     } else {
-      // Perdeu mais de 1 dia: reinicia a racha para 1 🧊
+      // Perdeu mais de 1 dia: reinicia a ofensiva para 1 🧊
       currentStreak = 1;
     }
 
-    const earnedCoins = 10; // Valor de Bonds concedidos por tarefa
+    const earnedCoins = pointsPE || 10; // Valor de Bonds concedidos por tarefa
 
     // --- ATUALIZAÇÃO BLINDADA NO FIREBASE ---
     await updateDoc(userRef, {
       completedTasks: arrayUnion(taskId),
       lastTaskDate: today,
+      lastTaskId: taskId,
       streak: currentStreak,
-      totalPE: increment(pointsPE),
+      totalPE: increment(earnedCoins),
+      pointsPE: increment(earnedCoins),
       duoCoins: increment(earnedCoins),
     });
 
     console.log(
-      `✅ Gamificação Registrada! +${pointsPE} PE | Streak: ${currentStreak}`
+      `✅ Gamificação Registrada! +${earnedCoins} Bonds | Streak: ${currentStreak}`
     );
 
     return {
       success: true,
-      earnedPE: pointsPE,
+      earnedPE: earnedCoins,
       newStreak: currentStreak,
       earnedCoins: earnedCoins,
     };
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.code === "permission-denied") {
+      console.log("[GAMIFICATION_SERVICE] Permissão expirada ou sessão encerrada.");
+      return {
+        success: false,
+        earnedPE: 0,
+        newStreak: 0,
+        earnedCoins: 0,
+      };
+    }
     console.error("❌ Erro no Gamification Service:", error);
     throw error;
   }

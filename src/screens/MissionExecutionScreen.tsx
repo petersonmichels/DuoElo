@@ -317,15 +317,6 @@ export default function MissionExecutionScreen({
         );
       }
 
-      if (uid) {
-        await logAuditEvent(
-          uid,
-          "ANAMNESE_COMPLETED",
-          `Missão concluída - ID: ${mission.id || currentDayOrPhase}`,
-          userLanguage
-        );
-      }
-
       await onComplete(finalJournalToSave);
     } catch (e) {
       await onComplete(journalEntry);

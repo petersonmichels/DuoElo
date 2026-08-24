@@ -1,8 +1,12 @@
+import Constants, { ExecutionEnvironment } from "expo-constants";
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import { t } from "../i18n/translations";
 
-// Configura como a notificação se comporta com o app aberto em primeiro plano (compatível com a tipagem da SDK do Expo)
+const isExpoGo =
+  Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+
+// Configura como a notificação se comporta com o app aberto em primeiro plano
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -50,19 +54,25 @@ export async function scheduleDailyReminder(
     // 2. Cancelar agendamentos anteriores para evitar duplicidade
     await Notifications.cancelAllScheduledNotificationsAsync();
 
+    // Título e Corpo Traduzidos
+    const pushTitle =
+      t("daily_reminder_push_title", userLang) || "✨ DuoElo - Hora do Casal!";
+    const pushBody =
+      t("daily_reminder_push_body", userLang) ||
+      "Sua missão diária e reflexão do casal já estão disponíveis. Venha fortalecer seu elo hoje!";
+
     // 3. Agendar notificação diária recorrente
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: "✨ DuoElo - Hora do Casal!",
-        body:
-          t("daily_reminder_push_body", userLang) ||
-          "Sua missão diária e reflexão do casal já estão disponíveis. Venha fortalecer seu elo hoje!",
+        title: pushTitle,
+        body: pushBody,
         sound: true,
       },
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.DAILY,
         hour,
         minute,
+        channelId: "daily-reminders",
       },
     });
 

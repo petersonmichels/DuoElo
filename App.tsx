@@ -1,15 +1,16 @@
+import "react-native-gesture-handler";
+import "react-native-get-random-values";
+
 import { NavigationContainer } from "@react-navigation/native";
 import * as SplashScreen from "expo-splash-screen";
 import { useCallback, useEffect } from "react";
 import { ActivityIndicator, LogBox, Platform, View } from "react-native";
-import "react-native-gesture-handler";
-import "react-native-get-random-values";
 import Purchases from "react-native-purchases";
 import { enableScreens } from "react-native-screens";
 
 import AppNavigator from "./src/navigation/AppNavigator";
 
-// 🚀 ATIVA O SUPORTE A TELAS NATIVAS DE ALTA PERFORMANCE (EXPO SDK 57)
+// 🚀 ATIVA O SUPORTE A TELAS NATIVAS DE ALTA PERFORMANCE
 enableScreens(true);
 
 // 🛡️ IMPEDE O AUTO-HIDE DA SPLASH SCREEN ATÉ O CARREGAMENTO TOTAL DE RECURSOS
@@ -46,6 +47,9 @@ export default function App() {
     let isMounted = true;
 
     const setupRevenueCat = async () => {
+      // O SDK de compras nativas do RevenueCat só é executado no Android e iOS
+      if (Platform.OS === "web") return;
+
       try {
         const isAlreadyConfigured = await Purchases.isConfigured();
         if (isAlreadyConfigured || !isMounted) return;
@@ -56,14 +60,16 @@ export default function App() {
         }
 
         const apiKey = Platform.select({
-          ios: process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY || "appl_SUA_CHAVE_IOS_AQUI",
-          android: process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY || "goog_bYcEfvvHdSDOOPlWDlhsnYxJJov",
+          ios: process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY,
+          android: process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY,
         });
 
-        if (apiKey && !apiKey.includes("AQUI")) {
+        if (apiKey && apiKey.trim().length > 0) {
           Purchases.configure({ apiKey });
         } else if (__DEV__) {
-          console.warn("[REVENUECAT_WARNING] Chave do RevenueCat para iOS não configurada.");
+          console.warn(
+            "[REVENUECAT_WARNING] Chave do RevenueCat não encontrada nas variáveis de ambiente (.env)."
+          );
         }
       } catch (error) {
         console.error("[REVENUECAT_ERROR] Erro na inicialização das compras:", error);

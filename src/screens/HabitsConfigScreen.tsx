@@ -54,17 +54,29 @@ export default function HabitsConfigScreen({ navigation }: any) {
 
   useEffect(() => {
     const currentUid = auth.currentUser?.uid;
-    if (!currentUid) return;
-
-    const unsubscribe = onSnapshot(doc(db, "users", currentUid), (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setUserData(data);
-        if (data.activeHabits) setActiveHabits(data.activeHabits);
-        if (data.customHabits) setCustomHabits(data.customHabits);
-      }
+    if (!currentUid) {
       setLoading(false);
-    });
+      return;
+    }
+
+    const unsubscribe = onSnapshot(
+      doc(db, "users", currentUid),
+      (docSnap) => {
+        if (!auth.currentUser) return;
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setUserData(data);
+          if (data.activeHabits) setActiveHabits(data.activeHabits);
+          if (data.customHabits) setCustomHabits(data.customHabits);
+        }
+        setLoading(false);
+      },
+      (error) => {
+        if (error.code === "permission-denied") {
+          console.log("[HabitsConfigScreen] Listener de hábitos encerrado.");
+        }
+      }
+    );
 
     return () => unsubscribe();
   }, []);
@@ -124,7 +136,7 @@ export default function HabitsConfigScreen({ navigation }: any) {
   const handleRemoveCustomHabit = (habitId: string) => {
     Alert.alert(
       t("attention_title", userLang) || "Atenção",
-      "Deseja realmente excluir este hábito personalizado?",
+      t("confirm_delete_custom_habit_msg", userLang) || "Deseja realmente excluir este hábito personalizado?",
       [
         { text: t("modal_cancel", userLang) || "Cancelar", style: "cancel" },
         {
@@ -167,21 +179,25 @@ export default function HabitsConfigScreen({ navigation }: any) {
           <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
             <FontAwesome5 name="chevron-left" size={20} color="#202D3A" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>{t("habits_config_header_title", userLang)}</Text>
+          <Text style={styles.headerTitle}>{t("habits_config_header_title", userLang) || "Gerenciar Hábitos"}</Text>
           <View style={{ width: 40 }} />
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <Text style={styles.sectionDesc}>{t("habits_config_desc", userLang)}</Text>
+          <Text style={styles.sectionDesc}>
+            {t("habits_config_desc", userLang) || "Ative os hábitos que farão parte do seu feed VIDA e pontuarão no Elo."}
+          </Text>
 
           {/* CONTAINER DE CRIAÇÃO DO HÁBITO + SELETOR DE FREQUÊNCIA */}
           <View style={styles.createBox}>
-            <Text style={styles.subGroupTitle}>{t("create_custom_habit_label", userLang)}</Text>
+            <Text style={styles.subGroupTitle}>
+              {t("create_custom_habit_label", userLang) || "Criar Hábito Personalizado"}
+            </Text>
             
             <View style={styles.createHabitRow}>
               <TextInput
                 style={styles.createHabitInput}
-                placeholder={t("placeholder_custom_habit", userLang)}
+                placeholder={t("placeholder_custom_habit", userLang) || "Ex: Ler 5 páginas..."}
                 placeholderTextColor="#AFAFAF"
                 value={newHabitTitle}
                 onChangeText={setNewHabitTitle}
@@ -213,7 +229,7 @@ export default function HabitsConfigScreen({ navigation }: any) {
                     selectedFrequency === "daily" && styles.frequencyButtonTextActive,
                   ]}
                 >
-                  {t("frequency_daily", userLang).toUpperCase()}
+                  {(t("frequency_daily", userLang) || "Diário").toUpperCase()}
                 </Text>
               </TouchableOpacity>
 
@@ -236,7 +252,7 @@ export default function HabitsConfigScreen({ navigation }: any) {
                     selectedFrequency === "weekly" && styles.frequencyButtonTextActive,
                   ]}
                 >
-                  {t("frequency_weekly", userLang).toUpperCase()}
+                  {(t("frequency_weekly", userLang) || "Semanal").toUpperCase()}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -245,7 +261,9 @@ export default function HabitsConfigScreen({ navigation }: any) {
           {/* MEUS HÁBITOS PERSONALIZADOS */}
           {customHabits.length > 0 && (
             <View style={styles.section}>
-              <Text style={styles.subGroupTitle}>{t("your_custom_habits_label", userLang)}</Text>
+              <Text style={styles.subGroupTitle}>
+                {t("your_custom_habits_label", userLang) || "Seus Hábitos Personalizados"}
+              </Text>
               {customHabits.map((c) => {
                 const isSelected = activeHabits.includes(c.id);
                 return (
@@ -262,7 +280,7 @@ export default function HabitsConfigScreen({ navigation }: any) {
                     <View style={{ flex: 1 }}>
                       <Text style={styles.customHabitTitle}>{c.title}</Text>
                       <Text style={styles.customHabitSub}>
-                        5 BONDS • {c.frequency === "weekly" ? t("frequency_weekly", userLang) : t("frequency_daily", userLang)}
+                        5 BONDS • {c.frequency === "weekly" ? (t("frequency_weekly", userLang) || "Semanal") : (t("frequency_daily", userLang) || "Diário")}
                       </Text>
                     </View>
 
@@ -287,7 +305,9 @@ export default function HabitsConfigScreen({ navigation }: any) {
 
           {/* CATÁLOGO SUGERIDO (HÁBITOS ATÔMICOS) */}
           <View style={styles.section}>
-            <Text style={styles.subGroupTitle}>{t("atomic_catalog_label", userLang)}</Text>
+            <Text style={styles.subGroupTitle}>
+              {t("atomic_catalog_label", userLang) || "Catálogo Sugerido"}
+            </Text>
             {ATOMIC_HABITS_CATALOG.map((habit) => {
               const isSelected = activeHabits.includes(habit.id);
               return (
@@ -303,8 +323,8 @@ export default function HabitsConfigScreen({ navigation }: any) {
                     style={{ marginRight: 15 }}
                   />
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.habitSelectTitle}>{t(habit.titleKey, userLang)}</Text>
-                    <Text style={styles.habitSelectSub}>{t(habit.subKey, userLang)}</Text>
+                    <Text style={styles.habitSelectTitle}>{t(habit.titleKey, userLang) || habit.id}</Text>
+                    <Text style={styles.habitSelectSub}>{t(habit.subKey, userLang) || ""}</Text>
                   </View>
                   <View style={[styles.checkboxCircle, isSelected && styles.checkboxCircleActive]}>
                     {isSelected && <FontAwesome5 name="check" size={10} color="#FFF" />}

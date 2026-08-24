@@ -135,12 +135,14 @@ export default function MissionRewardScreen({ navigation, route }: any) {
   };
 
   useEffect(() => {
+    let isMounted = true;
+
     const fetchUserData = async () => {
       const uid = auth.currentUser?.uid;
       if (uid) {
         try {
           const userSnap = await getDoc(doc(db, "users", uid));
-          if (userSnap.exists()) {
+          if (isMounted && userSnap.exists()) {
             const data = userSnap.data();
             setUserData(data);
             if (data.language) {
@@ -149,7 +151,7 @@ export default function MissionRewardScreen({ navigation, route }: any) {
 
             if (data.partnerId) {
               const pSnap = await getDoc(doc(db, "users", data.partnerId));
-              if (pSnap.exists()) {
+              if (isMounted && pSnap.exists()) {
                 setPartnerData(pSnap.data());
               }
             }
@@ -185,22 +187,23 @@ export default function MissionRewardScreen({ navigation, route }: any) {
         useNativeDriver: true,
       }),
     ]).start(() => {
-      // 💥 CHOQUE NO CENTRO + VIBRAÇÃO FÍSICA + EXPLOSÃO VISUAL
-      setHasExploded(true);
-      triggerHaptic("heavy");
+      if (isMounted) {
+        setHasExploded(true);
+        triggerHaptic("heavy");
 
-      Animated.sequence([
-        Animated.timing(centerScaleAnim, {
-          toValue: 1.3,
-          duration: 120,
-          useNativeDriver: true,
-        }),
-        Animated.timing(centerScaleAnim, {
-          toValue: 1,
-          duration: 180,
-          useNativeDriver: true,
-        }),
-      ]).start();
+        Animated.sequence([
+          Animated.timing(centerScaleAnim, {
+            toValue: 1.3,
+            duration: 120,
+            useNativeDriver: true,
+          }),
+          Animated.timing(centerScaleAnim, {
+            toValue: 1,
+            duration: 180,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      }
     });
 
     // Entradas suaves de tela
@@ -218,37 +221,42 @@ export default function MissionRewardScreen({ navigation, route }: any) {
       }),
     ]).start();
 
-    // Animação escalonada das barras de progresso (Gamificação)
+    // Animação escalonada das barras de progresso
     const timeout = setTimeout(() => {
-      Animated.stagger(250, [
-        Animated.timing(bar1Anim, {
-          toValue: 100,
-          duration: 700,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: false,
-        }),
-        Animated.timing(bar2Anim, {
-          toValue: 100,
-          duration: 700,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: false,
-        }),
-        Animated.timing(bar3Anim, {
-          toValue: cupidPercentage,
-          duration: 700,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: false,
-        }),
-        Animated.spring(popAnim, {
-          toValue: 1,
-          friction: 4,
-          tension: 50,
-          useNativeDriver: true,
-        }),
-      ]).start();
+      if (isMounted) {
+        Animated.stagger(250, [
+          Animated.timing(bar1Anim, {
+            toValue: 100,
+            duration: 700,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: false,
+          }),
+          Animated.timing(bar2Anim, {
+            toValue: 100,
+            duration: 700,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: false,
+          }),
+          Animated.timing(bar3Anim, {
+            toValue: cupidPercentage,
+            duration: 700,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: false,
+          }),
+          Animated.spring(popAnim, {
+            toValue: 1,
+            friction: 4,
+            tension: 50,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      }
     }, 400);
 
-    return () => clearTimeout(timeout);
+    return () => {
+      isMounted = false;
+      clearTimeout(timeout);
+    };
   }, [cupidPercentage]);
 
   const bar1Width = bar1Anim.interpolate({
@@ -347,7 +355,7 @@ export default function MissionRewardScreen({ navigation, route }: any) {
             {/* MISSÃO DIÁRIA */}
             <View style={styles.missionItem}>
               <Text style={styles.missionLabel}>
-                {t("daily_mission_completed_label", userLang)}
+                {t("daily_mission_completed_label", userLang) || "Missão Diária Concluída"}
               </Text>
               <View style={styles.progressRow}>
                 <View style={styles.progressBarBg}>
@@ -377,7 +385,7 @@ export default function MissionRewardScreen({ navigation, route }: any) {
             {/* OFENSIVA / STREAK */}
             <View style={styles.missionItem}>
               <Text style={styles.missionLabel}>
-                {t("streak_maintained_label", userLang)}
+                {t("streak_maintained_label", userLang) || "Ofensiva Mantida"}
               </Text>
               <View style={styles.progressRow}>
                 <View style={styles.progressBarBg}>
@@ -408,13 +416,13 @@ export default function MissionRewardScreen({ navigation, route }: any) {
             <View style={styles.missionItem}>
               <Text style={styles.missionLabel}>
                 {isCupidAwake
-                  ? t("cupid_awake_title", userLang)
-                  : t("cupid_asleep_title", userLang)}
+                  ? t("cupid_awake_title", userLang) || "Cupido Desperto!"
+                  : t("cupid_asleep_title", userLang) || "Energia do Cupido"}
                 {"\n"}
                 <Text style={styles.missionSubLabel}>
                   {isCupidAwake
-                    ? t("cupid_awake_sub", userLang)
-                    : t("cupid_asleep_sub", userLang)}
+                    ? t("cupid_awake_sub", userLang) || "Vocês liberaram o bônus da semana!"
+                    : t("cupid_asleep_sub", userLang) || "Realizem missões para acordar o Cupido"}
                 </Text>
               </Text>
               <View style={styles.progressRow}>
@@ -453,13 +461,13 @@ export default function MissionRewardScreen({ navigation, route }: any) {
           <View style={[styles.card, styles.badgeCard]}>
             <View style={{ flex: 1 }}>
               <Text style={styles.badgeTitle}>
-                {t("journey_90_days_title", userLang)}
+                {t("journey_90_days_title", userLang) || "Jornada de 90 Dias"}
               </Text>
               <Text style={styles.badgeProgressText}>
                 {t("day_counter_text", userLang, {
                   day: currentDay90,
                   total: 90,
-                })}
+                }) || `Dia ${currentDay90} de 90 Concluído`}
               </Text>
             </View>
             <Animated.View
@@ -479,7 +487,7 @@ export default function MissionRewardScreen({ navigation, route }: any) {
           onPress={handleContinue}
         >
           <Text style={styles.continueBtnText}>
-            {t("btn_continue_label", userLang)}
+            {t("btn_continue_label", userLang) || "CONTINUAR"}
           </Text>
         </TouchableOpacity>
       </View>
@@ -535,7 +543,7 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 5,
     zIndex: 10,
-    marginHorizontal: -8, // Encontro perfeito com sobreposição suave
+    marginHorizontal: -8,
   },
   logoFrameSolo: {
     borderColor: "#202D3A",

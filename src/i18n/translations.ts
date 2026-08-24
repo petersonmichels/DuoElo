@@ -58,7 +58,31 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     weak_password_msg:
       "A senha deve ter no mínimo 8 caracteres, incluindo letras maiúsculas, minúsculas, números e caracteres especiais.",
 
-    // Modal de PIN
+    // 🔑 Modal de PIN / MasterPasswordModal
+    checking_security_msg: "Verificando segurança...",
+    pin_modal_title_unlock: "🔒 PIN ou Rosto",
+    pin_modal_title_create: "🔑 Criar PIN de Segurança",
+    pin_modal_sub_unlock: "Use o Reconhecimento Facial ou informe seu PIN.",
+    pin_modal_sub_create:
+      "Crie um PIN de Segurança de 4 dígitos para proteger suas informações.",
+    placeholder_enter_pin: "Digite seu PIN",
+    placeholder_create_pin: "Crie um PIN (mín. 4 dígitos)",
+    placeholder_confirm_pin: "Confirme seu PIN",
+    btn_confirm_pin: "Confirmar PIN",
+    btn_register_pin: "Cadastrar PIN",
+    btn_unlock_biometrics: "Desbloquear com Rosto / Biometria",
+    btn_forgot_pin: "Esqueci meu PIN",
+    biometric_error_msg: "Não foi possível autenticar com o Rosto/Biometria.",
+    pin_min_length_msg: "O PIN de Segurança deve ter no mínimo 4 dígitos.",
+    pin_incorrect_msg: "PIN de Segurança incorreto. Tente novamente.",
+    pins_dont_match_msg: "Os PINs digitados não coincidem.",
+    pin_process_error_msg: "Erro ao processar PIN de Segurança.",
+    reset_pin_title: "Redefinir PIN de Segurança",
+    reset_pin_msg:
+      "Para cadastrar um novo PIN, será necessário realizar o login novamente com sua conta por motivos de segurança. Deseja continuar?",
+    btn_reset_logout: "Redefinir e Sair",
+
+    // Aliases legados do PIN
     pin_modal_title: "PIN de Segurança",
     pin_enter_msg: "Digite seu PIN de Segurança para desbloquear seu acesso.",
     pin_create_msg:
@@ -761,8 +785,34 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     weak_password_title: "Palavra-passe Fraca",
     weak_password_msg:
       "A palavra-passe deve ter no mínimo 8 caracteres, incluindo letras maiúsculas, minúsculas, números e caracteres especiais.",
+
+    checking_security_msg: "A verificar segurança...",
+    pin_modal_title_unlock: "🔒 PIN ou Rosto",
+    pin_modal_title_create: "🔑 Criar PIN de Segurança",
+    pin_modal_sub_unlock:
+      "Use o Reconhecimento Facial ou introduza o seu PIN.",
+    pin_modal_sub_create:
+      "Crie um PIN de Segurança de 4 dígitos para proteger as suas informações.",
+    placeholder_enter_pin: "Introduza o seu PIN",
+    placeholder_create_pin: "Crie um PIN (mín. 4 dígitos)",
+    placeholder_confirm_pin: "Confirme o seu PIN",
+    btn_confirm_pin: "Confirmar PIN",
+    btn_register_pin: "Registar PIN",
+    btn_unlock_biometrics: "Desbloquear com Rosto / Biometria",
+    btn_forgot_pin: "Esqueci-me do meu PIN",
+    biometric_error_msg: "Não foi possível autenticar com o Rosto/Biometria.",
+    pin_min_length_msg: "O PIN de Segurança deve ter no mínimo 4 dígitos.",
+    pin_incorrect_msg: "PIN de Segurança incorreto. Tente novamente.",
+    pins_dont_match_msg: "Os PINs introduzidos não coincidem.",
+    pin_process_error_msg: "Erro ao processar PIN de Segurança.",
+    reset_pin_title: "Redefinir PIN de Segurança",
+    reset_pin_msg:
+      "Para registar um novo PIN, será necessário efetuar login novamente com a sua conta por razões de segurança. Deseja continuar?",
+    btn_reset_logout: "Redefinir e Sair",
+
     pin_modal_title: "PIN de Segurança",
-    pin_enter_msg: "Introduza o seu PIN de Segurança para desbloquear o acesso.",
+    pin_enter_msg:
+      "Introduza o seu PIN de Segurança para desbloquear o acesso.",
     pin_create_msg:
       "Crie um PIN de Segurança de 4 dígitos para proteger as suas informações.",
     pin_placeholder_enter: "Introduza o seu PIN",
@@ -777,6 +827,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     pin_err_short_msg: "O PIN de Segurança deve conter pelo menos 4 dígitos.",
     pin_err_mismatch_title: "Os PINs Não Coincidem",
     pin_err_mismatch_msg: "O PIN e a confirmação devem ser idênticos.",
+
     tab_match: "Match",
     tab_shop: "Loja",
     tab_profile: "Perfil",
@@ -1001,8 +1052,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     disconnected_title: "Desconectado",
     disconnected_msg:
       "A ligação foi desfeita! A sua evolução individual permanece guardada.",
-    disconnect_error_msg:
-      "Não foi possível desfazer a ligação neste momento.",
+    disconnect_error_msg: "Não foi possível desfazer a ligação neste momento.",
     invalid_code_or_username_msg: "Escreva um código ou @username válido.",
     match_not_found_title: "Match Não Encontrado",
     match_not_found_msg:
@@ -1051,8 +1101,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     invite_header_sub_0:
       "A jornada DuoElo foi desenhada para ser vivida a dois.",
     invite_header_title_1: "Estão quase lá!",
-    invite_header_sub_1:
-      "Peça ao seu parceiro para introduzir o código na app.",
+    invite_header_sub_1: "Peça ao seu parceiro para introduzir o código na app.",
     invite_header_title_2: "Estão Ligados!",
     invite_header_sub_2:
       "Os elos foram unidos. Preparem-se para fortalecer a relação.",
@@ -1109,7 +1158,8 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     start_authorized_msg:
       "O algoritmo sincronizou as tarefas. A trilha oficial de 90 dias está disponível!",
     push_green_light_title: "Sinal Verde Dado! 🚦",
-    push_green_light_body: "O seu amor já deu o Play para a Jornada. Falta você!",
+    push_green_light_body:
+      "O seu amor já deu o Play para a Jornada. Falta você!",
     green_light_given_title: "Sinal Verde Dado! 🚦",
     green_light_given_msg:
       "A aguardar que o seu parceiro ({{name}}) prima Play!",
@@ -1171,7 +1221,8 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     diagnostic_completed: "Diagnóstico Concluído ✓",
     discover_temp_sub: "Descubram a temperatura da relação",
     match_completed_title: "Match Concluído ✅",
-    match_completed_msg: "A sua opção foi registada. Siga para o botão Play!",
+    match_completed_msg:
+      "A sua opção foi registada. Siga para o botão Play!",
     btn_manage_match: "Gerir Match",
     match_completed_label: "Match Concluído",
     make_match_label: "Fazer Match",
@@ -1298,7 +1349,8 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     camera_permission_msg:
       "Precisa de permitir o acesso à câmara para tirar fotografias.",
     btn_choose_gallery: "Escolher da Galeria",
-    gallery_permission_msg: "Precisa de permitir o acesso à galeria de imagens.",
+    gallery_permission_msg:
+      "Precisa de permitir o acesso à galeria de imagens.",
     switch_google_account_title: "Mudar de Conta Google",
     switch_google_account_msg:
       "Deseja desligar a conta Google atual para escolher outro e-mail?",
@@ -1354,7 +1406,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     audit_account_deleted:
       "Pedido de eliminação total da conta via ProfileScreen. Parceiro dissociado: {{partner}}",
     audit_anamnese_skipped:
-      "Anamnese pulada: Perfil padrão ativado pelo usuário",
+      "Anamnèse pulada: Perfil padrão ativado pelo usuário",
     audit_anamnese_completed: "Anamnese concluída e encriptada com sucesso",
     audit_partner_linked: "Parceiro vinculado com sucesso via convite",
     audit_partner_match_request:
@@ -1409,25 +1461,45 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     pwd_req_number: "• At least 1 number",
     pwd_req_special: "• At least 1 special character (@, #, $, %, etc.)",
     security_req_title: "Security Requirements",
-    weak_password_fallback: "Set a strong password to keep your data private.",
+    weak_password_fallback:
+      "Set a strong password to keep your data private.",
     weak_password_title: "Weak Password",
     weak_password_msg:
       "Password must be at least 8 characters long, including uppercase, lowercase, numbers, and special characters.",
+
+    checking_security_msg: "Checking security...",
+    pin_modal_title_unlock: "🔒 PIN or Face ID",
+    pin_modal_title_create: "🔑 Create Security PIN",
+    pin_modal_sub_unlock: "Use Face Recognition or enter your PIN.",
+    pin_modal_sub_create:
+      "Create a 4-digit Security PIN to protect your information.",
+    placeholder_enter_pin: "Enter your PIN",
+    placeholder_create_pin: "Create a PIN (min 4 digits)",
+    placeholder_confirm_pin: "Confirm your PIN",
+    btn_confirm_pin: "Confirm PIN",
+    btn_register_pin: "Save PIN",
+    btn_unlock_biometrics: "Unlock with Face ID / Biometrics",
+    btn_forgot_pin: "Forgot my PIN",
+    biometric_error_msg: "Unable to authenticate with Face ID/Biometrics.",
+    pin_min_length_msg: "The Security PIN must be at least 4 digits.",
+    pin_incorrect_msg: "Incorrect Security PIN. Please try again.",
+    pins_dont_match_msg: "The entered PINs do not match.",
+    pin_process_error_msg: "Error processing Security PIN.",
+    reset_pin_title: "Reset Security PIN",
+    reset_pin_msg:
+      "To set up a new PIN, you will need to sign in again for security reasons. Do you want to continue?",
+    btn_reset_logout: "Reset and Sign Out",
+
     pin_modal_title: "Security PIN",
     pin_enter_msg: "Enter your Security PIN to unlock access.",
-    pin_create_msg: "Create a 4-digit Security PIN to protect your information.",
+    pin_create_msg:
+      "Create a 4-digit Security PIN to protect your information.",
     pin_placeholder_enter: "Enter your PIN",
     pin_placeholder_create: "Create a PIN (min. 4 digits)",
     pin_placeholder_confirm: "Confirm your PIN",
     pin_btn_confirm: "Confirm PIN",
     pin_btn_create: "Register PIN",
-    pin_err_incorrect_title: "Incorrect PIN",
-    pin_err_incorrect_msg:
-      "The entered Security PIN is incorrect. Please try again.",
-    pin_err_short_title: "PIN Too Short",
-    pin_err_short_msg: "The Security PIN must be at least 4 digits long.",
-    pin_err_mismatch_title: "PINs Do Not Match",
-    pin_err_mismatch_msg: "The PIN and confirmation must be identical.",
+
     tab_match: "Match",
     tab_shop: "Shop",
     tab_profile: "Profile",
@@ -1501,7 +1573,8 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     account_created_msg:
       "Success! Log in with your new account to start your journey.",
     btn_login_now: "LOG IN",
-    fill_required_fields_msg: "Please fill in all required fields to continue.",
+    fill_required_fields_msg:
+      "Please fill in all required fields to continue.",
     short_username_title: "Username Too Short",
     short_username_msg: "Your username must be at least 3 characters long.",
     short_password_title: "Password Too Short",
@@ -1548,7 +1621,8 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     waiting_partner_confirm: "⏳ Delivered! Waiting for {{name}} to confirm",
     delivered_confirmed_partner: "✓ Delivered & Confirmed by {{name}} ❤️",
     my_gifts_title: "✨ Your Gift Wishlist (13 Weeks)",
-    my_gifts_sub: "Choose what you'd like to receive for each unlocked week:",
+    my_gifts_sub:
+      "Choose what you'd like to receive for each unlocked week:",
     status_locked: "Locked",
     status_bought_by_partner: "Purchased by your love",
     choose_weekly_gift: "Choose Gift for This Week",
@@ -1624,7 +1698,8 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     risk_box_text_part1:
       "Based on relationship behavioral data, your current state indicates a",
     risk_box_text_highlight: "{{risk}}% risk of growing apart",
-    risk_box_text_part2: "over time if communication isn't actively nurtured.",
+    risk_box_text_part2:
+      "over time if communication isn't actively nurtured.",
     hope_box_part1: "Based on your mapping, we structured the",
     hope_box_highlight: "90-Day Journey",
     hope_box_part2: "tailored to protect your relationship.",
@@ -2066,6 +2141,30 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     weak_password_title: "Contraseña Débil",
     weak_password_msg:
       "La contraseña debe tener al menos 8 caracteres, incluyendo mayúsculas, minúsculas, números y caracteres especiales.",
+
+    checking_security_msg: "Verificando seguridad...",
+    pin_modal_title_unlock: "🔒 PIN o Rostro",
+    pin_modal_title_create: "🔑 Crear PIN de Seguridad",
+    pin_modal_sub_unlock: "Use el Reconocimiento Facial o ingrese su PIN.",
+    pin_modal_sub_create:
+      "Cree un PIN de seguridad de 4 dígitos para proteger su información.",
+    placeholder_enter_pin: "Ingrese su PIN",
+    placeholder_create_pin: "Cree un PIN (mín. 4 dígitos)",
+    placeholder_confirm_pin: "Confirme su PIN",
+    btn_confirm_pin: "Confirmar PIN",
+    btn_register_pin: "Registrar PIN",
+    btn_unlock_biometrics: "Desbloquear con Rostro / Biometría",
+    btn_forgot_pin: "Olvidé mi PIN",
+    biometric_error_msg: "No se pudo autenticar con Rostro/Biometría.",
+    pin_min_length_msg: "El PIN de Seguridad debe tener al menos 4 dígitos.",
+    pin_incorrect_msg: "PIN de Seguridad incorrecto. Inténtelo de nuevo.",
+    pins_dont_match_msg: "Los PINs ingresados no coinciden.",
+    pin_process_error_msg: "Error al procesar el PIN de Seguridad.",
+    reset_pin_title: "Restablecer PIN de Seguridad",
+    reset_pin_msg:
+      "Para registrar un nuevo PIN, deberá volver a iniciar sesión por motivos de seguridad. ¿Desea continuar?",
+    btn_reset_logout: "Restablecer y Salir",
+
     pin_modal_title: "PIN de Seguridad",
     pin_enter_msg: "Ingrese su PIN de Seguridad para desbloquear el acceso.",
     pin_create_msg:
@@ -2075,13 +2174,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     pin_placeholder_confirm: "Confirme su PIN",
     pin_btn_confirm: "Confirmar PIN",
     pin_btn_create: "Registrar PIN",
-    pin_err_incorrect_title: "PIN Incorrecto",
-    pin_err_incorrect_msg:
-      "El PIN de Seguridad ingresado es incorrecto. Inténtelo de nuevo.",
-    pin_err_short_title: "PIN Demasiado Corto",
-    pin_err_short_msg: "El PIN de Seguridad debe tener al menos 4 dígitos.",
-    pin_err_mismatch_title: "Los PIN no Coinciden",
-    pin_err_mismatch_msg: "El PIN y la confirmación deben ser idénticos.",
+
     tab_match: "Match",
     tab_shop: "Tienda",
     tab_profile: "Perfil",
@@ -2652,7 +2745,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     sub_legal_title: "Suscripción y Legales",
     menu_manage_sub: "Gestionar Suscripción",
     account_settings_title: "Configuración de la Cuenta",
-    bypass_lock_label: "Ignorar Bloqueo Diario",
+    bypass_lock_label: "Ignorar Bloqueio Diario",
     bypass_lock_desc: "Permite realizar múltiples tareas en un mismo día",
     switch_google_account_menu: "Cambiar Cuenta de Google",
     switch_google_account_desc:
@@ -2684,7 +2777,8 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
 
   fr: {
     life_habits_section_title: "HABITUDE DE VIE",
-    menu_configure_habits: "Configurer les Habitudes Quotidiennes et Hebdomadaires",
+    menu_configure_habits:
+      "Configurer les Habitudes Quotidiennes et Hebdomadaires",
     menu_configure_habits_sub: "Personnalisez vos objectifs dans le flux VIDA",
     habits_config_header_title: "Habitudes de la VIDA",
     habits_config_desc:
@@ -2730,6 +2824,33 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     weak_password_title: "Mot de passe faible",
     weak_password_msg:
       "Le mot de passe doit contenir au moins 8 caractères, dont des majuscules, minuscules, chiffres et caractères spéciaux.",
+
+    checking_security_msg: "Vérification de la sécurité...",
+    pin_modal_title_unlock: "🔒 PIN ou Visage",
+    pin_modal_title_create: "🔑 Créer un PIN de Sécurité",
+    pin_modal_sub_unlock:
+      "Utilisez la reconnaissance faciale ou saisissez votre code PIN.",
+    pin_modal_sub_create:
+      "Créez un code PIN de sécurité à 4 chiffres pour protéger vos informations.",
+    placeholder_enter_pin: "Saisissez votre PIN",
+    placeholder_create_pin: "Créer un PIN (min. 4 chiffres)",
+    placeholder_confirm_pin: "Confirmez votre PIN",
+    btn_confirm_pin: "Confirmer le PIN",
+    btn_register_pin: "Enregistrer le PIN",
+    btn_unlock_biometrics: "Déverrouiller avec Visage / Biométrie",
+    btn_forgot_pin: "Code PIN oublié",
+    biometric_error_msg:
+      "Impossible de s'authentifier avec le Visage/Biométrie.",
+    pin_min_length_msg:
+      "Le PIN de sécurité doit comporter au moins 4 chiffres.",
+    pin_incorrect_msg: "PIN de sécurité incorrect. Veuillez réessayer.",
+    pins_dont_match_msg: "Les codes PIN saisis ne correspondent pas.",
+    pin_process_error_msg: "Erreur lors du traitement du PIN de sécurité.",
+    reset_pin_title: "Réinitialiser le PIN de sécurité",
+    reset_pin_msg:
+      "Pour configurer un nouveau PIN, vous devrez vous reconnecter pour des raisons de sécurité. Voulez-vous continuer?",
+    btn_reset_logout: "Réinitialiser et se déconnecter",
+
     pin_modal_title: "PIN de Sécurité",
     pin_enter_msg:
       "Entrez votre code PIN de Sécurité pour déverrouiller l'accès.",
@@ -2740,15 +2861,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     pin_placeholder_confirm: "Confirmez votre PIN",
     pin_btn_confirm: "Confirmer le PIN",
     pin_btn_create: "Enregistrer le PIN",
-    pin_err_incorrect_title: "PIN Incorrect",
-    pin_err_incorrect_msg:
-      "Le code PIN de Sécurité saisi est incorrect. Veuillez réessayer.",
-    pin_err_short_title: "PIN Trop Court",
-    pin_err_short_msg:
-      "Le code PIN de Sécurité doit contenir au moins 4 chiffres.",
-    pin_err_mismatch_title: "Les codes PIN ne correspondent pas",
-    pin_err_mismatch_msg:
-      "Le code PIN et sa confirmation doivent être identiques.",
+
     tab_match: "Match",
     tab_shop: "Boutique",
     tab_profile: "Profil",
@@ -2985,7 +3098,8 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     no_notifications_msg: "Aucune nouvelle notification pour le moment.",
     btn_nudge_partner: "Faire un Signe",
     generating_journey_title: "Génération du Parcours...",
-    generating_journey_sub: "Analyse de vos données en cours. Préparez-vous !",
+    generating_journey_sub:
+      "Analyse de vos données en cours. Préparez-vous !",
     delete_account_title: "Supprimer le Compte Définitivement ?",
     delete_account_msg:
       "Ceci effacera définitivement votre évaluation, votre statut premium et réinitialisera tout.",
@@ -3168,7 +3282,8 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
 
   de: {
     life_habits_section_title: "LEBEN SGEWOHNHEITEN",
-    menu_configure_habits: "Tägliche und wöchentliche Gewohnheiten konfigurieren",
+    menu_configure_habits:
+      "Tägliche und wöchentliche Gewohnheiten konfigurieren",
     menu_configure_habits_sub: "Passen Sie Ihre Ziele im VIDA-Feed an",
     habits_config_header_title: "VIDA Gewohnheiten",
     habits_config_desc:
@@ -3214,6 +3329,34 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     weak_password_title: "Schwaches Passwort",
     weak_password_msg:
       "Das Passwort muss mindestens 8 Zeichen lang sein und Großbuchstaben, Kleinbuchstaben, Zahlen und Sonderzeichen enthalten.",
+
+    checking_security_msg: "Sicherheit wird überprüft...",
+    pin_modal_title_unlock: "🔒 PIN oder Gesicht",
+    pin_modal_title_create: "🔑 Sicherheits-PIN erstellen",
+    pin_modal_sub_unlock:
+      "Nutzen Sie die Gesichtserkennung oder geben Sie Ihre PIN ein.",
+    pin_modal_sub_create:
+      "Erstellen Sie eine 4-stellige Sicherheits-PIN, um Ihre Daten zu schützen.",
+    placeholder_enter_pin: "PIN eingeben",
+    placeholder_create_pin: "PIN erstellen (mind. 4 Ziffern)",
+    placeholder_confirm_pin: "PIN bestätigen",
+    btn_confirm_pin: "PIN bestätigen",
+    btn_register_pin: "PIN speichern",
+    btn_unlock_biometrics: "Mit Gesicht / Biometrie entsperren",
+    btn_forgot_pin: "PIN vergessen",
+    biometric_error_msg:
+      "Authentifizierung mit Gesicht/Biometrie fehlgeschlagen.",
+    pin_min_length_msg:
+      "Die Sicherheits-PIN muss mindestens 4 Ziffern lang sein.",
+    pin_incorrect_msg:
+      "Falsche Sicherheits-PIN. Bitte versuchen Sie es erneut.",
+    pins_dont_match_msg: "Die eingegebenen PINs stimmen nicht überein.",
+    pin_process_error_msg: "Fehler beim Verarbeiten der Sicherheits-PIN.",
+    reset_pin_title: "Sicherheits-PIN zurücksetzen",
+    reset_pin_msg:
+      "Um eine neue PIN einzurichten, müssen Sie sich aus Sicherheitsgründen erneut anmelden. Möchten Sie fortfahren?",
+    btn_reset_logout: "Zurücksetzen und Abmelden",
+
     pin_modal_title: "Sicherheits-PIN",
     pin_enter_msg:
       "Geben Sie Ihre Sicherheits-PIN ein, um den Zugriff freizuschalten.",
@@ -3224,19 +3367,13 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     pin_placeholder_confirm: "PIN bestätigen",
     pin_btn_confirm: "PIN bestätigen",
     pin_btn_create: "PIN registrieren",
-    pin_err_incorrect_title: "Falsche PIN",
-    pin_err_incorrect_msg:
-      "Die eingegebene Sicherheits-PIN ist falsch. Bitte versuchen Sie es erneut.",
-    pin_err_short_title: "PIN zu kurz",
-    pin_err_short_msg: "Die Sicherheits-PIN muss mindestens 4 Ziffern lang sein.",
-    pin_err_mismatch_title: "PINs stimmen nicht überein",
-    pin_err_mismatch_msg:
-      "Die PIN und die Bestätigung müssen identisch sein.",
+
     tab_match: "Match",
     tab_shop: "Shop",
     tab_profile: "Profil",
     guide_green_label: "Grün:",
-    guide_green_desc: "Du hast die Aufgabe erledigt und möchtest sie eintragen.",
+    guide_green_desc:
+      "Du hast die Aufgabe erledigt und möchtest sie eintragen.",
     guide_orange_label: "Orange:",
     guide_orange_desc: "Im Laufe des Tages gemeinsam erledigen.",
     week_theme_1: "Kommunikation & Harmonie",
@@ -3308,7 +3445,8 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     btn_login_now: "ANMELDEN",
     fill_required_fields_msg: "Bitte füllen Sie alle Pflichtfelder aus.",
     short_username_title: "Benutzername zu kurz",
-    short_username_msg: "Der Benutzername muss mindestens 3 Zeichen lang sein.",
+    short_username_msg:
+      "Der Benutzername muss mindestens 3 Zeichen lang sein.",
     short_password_title: "Passwort zu kurz",
     short_password_msg: "Das Passwort muss mindestens 6 Zeichen lang sein.",
     username_unavailable_title: "Benutzername vergeben",
@@ -3876,8 +4014,35 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     weak_password_title: "パスワードが弱いです",
     weak_password_msg:
       "パスワードは、大文字、小文字、数字、特殊文字を含む8文字以上である必要があります。",
+
+    checking_security_msg: "セキュリティを確認中...",
+    pin_modal_title_unlock: "🔒 PINまたは顔認証",
+    pin_modal_title_create: "🔑 セキュリティPINの作成",
+    pin_modal_sub_unlock: "顔認証を使用するか、PINを入力してください。",
+    pin_modal_sub_create:
+      "情報を保護するために4桁のセキュリティPINを作成してください。",
+    placeholder_enter_pin: "PINを入力",
+    placeholder_create_pin: "PINを作成（4桁以上）",
+    placeholder_confirm_pin: "PINを再入力",
+    btn_confirm_pin: "PINを確認",
+    btn_register_pin: "PINを登録",
+    btn_unlock_biometrics: "顔認証 / 生体認証で解除",
+    btn_forgot_pin: "PINをお忘れの方",
+    biometric_error_msg: "顔認証/生体認証で認証できませんでした。",
+    pin_min_length_msg: "セキュリティPINは4桁以上である必要があります。",
+    pin_incorrect_msg:
+      "セキュリティPINが違います。もう一度お試しください。",
+    pins_dont_match_msg: "入力されたPINが一致しません。",
+    pin_process_error_msg:
+      "セキュリティPINの処理中にエラーが発生しました。",
+    reset_pin_title: "セキュリティPINの再設定",
+    reset_pin_msg:
+      "新しいPINを設定するには、セキュリティ上の理由から再ログインが必要です。続行しますか？",
+    btn_reset_logout: "リセットしてログアウト",
+
     pin_modal_title: "セキュリティPIN",
-    pin_enter_msg: "アクセスを解除するにはセキュリティPINを入力してください。",
+    pin_enter_msg:
+      "アクセスを解除するにはセキュリティPINを入力してください。",
     pin_create_msg:
       "情報を保護するために4桁のセキュリティPINを作成してください。",
     pin_placeholder_enter: "PINを入力",
@@ -3885,13 +4050,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     pin_placeholder_confirm: "PINを再確認",
     pin_btn_confirm: "PINを確認",
     pin_btn_create: "PINを登録",
-    pin_err_incorrect_title: "PINが正しくありません",
-    pin_err_incorrect_msg:
-      "入力されたセキュリティPINが正しくありません。再試行してください。",
-    pin_err_short_title: "PINが短すぎます",
-    pin_err_short_msg: "セキュリティPINは4桁以上である必要があります。",
-    pin_err_mismatch_title: "PINが一致しません",
-    pin_err_mismatch_msg: "PINと確認用PINは一致する必要があります。",
+
     tab_match: "マッチ",
     tab_shop: "ショップ",
     tab_profile: "プロフィール",
@@ -3952,140 +4111,11 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     toggle_create_account_link: "アカウント作成",
     toggle_login_link: "ログイン",
     forgot_pwd_empty_title: "メールアドレスを入力",
-    forgot_pwd_empty_msg:
-      "パスワード再設定リンクを送信するため、上の入力欄にメールアドレスを入力してください。",
-    forgot_pwd_success_title: "メールを送信しました 📩",
-    forgot_pwd_success_msg:
-      "「{{email}}」に再設定手順を送信しました。受信トレイと迷惑メールフォルダをご確認ください。",
-    forgot_pwd_error_default: "再設定メールを送信できませんでした。",
-    forgot_pwd_error_not_found:
-      "このメールアドレスに該当するアカウントが見つかりません。",
-    forgot_pwd_error_invalid_email: "メールアドレスの形式が正しくありません。",
-    forgot_pwd_error_title: "送信失敗",
-    account_created_title: "アカウント作成完了 🎉",
-    account_created_msg:
-      "成功しました。新しいアカウントでログインして旅を始めましょう。",
-    btn_login_now: "ログイン",
-    fill_required_fields_msg:
-      "続行するにはすべての必須項目を入力してください。",
-    short_username_title: "ユーザー名が短すぎます",
-    short_username_msg: "ユーザー名は3文字以上である必要があります。",
-    short_password_title: "パスワードが短すぎます",
-    short_password_msg: "パスワードは6文字以上である必要があります。",
-    username_unavailable_title: "ユーザー名が使用されています",
-    username_unavailable_msg:
-      "この @username は既に使われています。別のものを選択してください。",
-    email_in_use_title: "登録済みのメールアドレス 👋",
-    email_in_use_msg:
-      "このメールアドレスは既に登録されています。ログインタブに切り替えてログインしてください。",
-    btn_go_to_login: "ログイン画面へ",
-    account_not_found_title: "アカウントが見つかりません 🧐",
-    account_not_found_msg:
-      "「{{email}}」のアカウントが見つからないか、パスワードが間違っています。\n\n新しく作成しますか？",
-    btn_create_account: "アカウントを作成",
-    btn_try_again: "もう一度試す",
-    signup_error_title: "登録エラー",
-    signup_error_msg: "入力情報をご確認の上、もう一度お試しください。",
-    temp_block_title: "一時的なロック",
-    temp_block_msg:
-      "失敗が多すぎます。しばらく時間を置いてから再試行してください。",
-    invalid_email_title: "無効なメールアドレス",
-    invalid_email_msg: "有効なメールアドレスの形式で入力してください。",
-    auth_error_default_msg: "認証エラーが発生しました。接続をご確認ください。",
-    dev_mode_title: "開発モード 🛠️",
-    dev_mode_msg:
-      "Googleログインにはネイティブビルドが必要です。テストにはメール/パスワードをご利用ください。",
-    login_canceled_title: "ログインキャンセル",
-    login_canceled_msg: "Googleログインを完了できませんでした。",
-    ios_only_title: "iOS専用",
-    ios_only_msg:
-      "AppleログインはiOS端末のみ対応しています。AndroidではGoogleログインをご利用ください。",
-    apple_login_error_title: "ログインエラー",
-    apple_login_error_msg: "Appleログインを完了できませんでした。",
-    available_bonds: "利用可能なBONDS",
-    partner_desires_title: "🎁 {{name}}の欲しいもの",
-    partner_desires_sub: "{{name}}が喜びそうなプレゼントを贈りましょう",
-    no_match_text: "パートナーとマッチして欲しいものを確認しましょう。",
-    partner_no_gifts: "{{name}}はまだプレゼントを選択していません。",
-    week_tag: "第 {{week}} 週",
-    btn_buy: "購入する (150 BONDS)",
-    btn_mark_delivered: "現実で渡したとしてマーク",
-    waiting_partner_confirm: "⏳ 渡し済み。 {{name}}の確認待ちです",
-    delivered_confirmed_partner: "✓ {{name}}が受け取りを確認しました ❤️",
-    my_gifts_title: "✨ あなたの欲しいものリスト (13週間)",
-    my_gifts_sub: "解放された週ごとに受け取りたいものを選んでください：",
-    status_locked: "ロック中",
-    status_bought_by_partner: "パートナーが購入済み",
-    choose_weekly_gift: "今週のプレゼントを選ぶ",
-    unlocks_at_week: "ホームで第 {{week}} 週に達すると解放",
-    btn_confirm_received: "現実で受け取ったことを確認 ❤️",
-    received_confirmed_with_love: "✓ 愛を込めて受け取り確認済み",
-    modal_select_title: "第 {{week}} 週のプレゼント",
-    modal_select_sub: "{{name}}から何を受け取りたいですか？",
-    insufficient_bonds_title: "Bondsが不足しています 🔒",
-    insufficient_bonds_msg:
-      "購入には 150 Bondsが必要です。ホームでデイリークエストを完了しましょう。",
-    gift_bought_title: "プレゼントを購入しました 🎁",
-    gift_bought_msg:
-      "「{{gift}}」を購入しました。現実で渡したら「渡し済み」をタップ。",
-    gift_locked_title: "プレゼントはロックされています 🔒",
-    gift_locked_msg: "パートナーが既に購入または配送しました。変更できません。",
-    delivered_success_title: "渡し済みとしてマークしました 💖",
-    delivered_success_msg: "アプリでのパートナーの受け取り確認を待っています。",
-    confirmed_success_title: "完了しました ❤️",
-    confirmed_success_msg: "今日もふたりの絆がさらに深まりました。",
-    error_save: "保存できませんでした。",
-    error_register: "登録できませんでした。",
-    loading_info_text: "情報を読み込み中...",
-    connection_axis: "絆の軸",
-    question_not_found: "質問が見つかりません",
-    option_default: "選択肢",
-    default_pillar_name: "調和とコミュニケーション",
-    skip_anamnesis_title: "標準プロファイルで進めますか 💍",
-    skip_anamnesis_msg:
-      "すぐに利用を開始できるよう、診断は標準パラメーターで設定されます。\n\nプロファイルからいつでもカスタマイズできます。",
-    btn_answer_assessment: "診断を受ける",
-    btn_use_default_profile: "標準プロファイルを使用",
-    loading_step_1: "ふたりの絆の軸をマッピング中...",
-    loading_step_2: "存在感と傾聴のダイナミクスを分析中...",
-    loading_step_3: "DuoElo調和インデックスを計算中...",
-    loading_step_4: "旅の優先度マップを生成中...",
-    compass_prompt_title: "ふたりの関係のコンパス 💍",
-    compass_prompt_msg:
-      "おふたりだけの旅を創るため、まず調和度をマッピングすることが重要です。\n\n2分未満で完了し、必要なデイリークエストが届きます。\n\n今すぐ回答しますか。それとも標準設定で進めますか。",
-    btn_answer_assessment_now: "今すぐ診断を受ける",
-    btn_start_default_profile: "標準プロファイルで開始",
-    solo_mode_alert_title: "ふたりならもっと楽しい ❤️",
-    solo_mode_alert_msg:
-      "DuoEloはふたりで絆を育むために作られました。\n\nPlayを押す前にパートナーを招待しませんか。",
-    btn_send_partner_invite: "パートナーに招待状を送る",
-    btn_continue_solo_for_now: "今はソロモードで続ける",
-    journey_locked_title: "ジャーニー進行中・ロック 🔐",
-    journey_locked_msg:
-      "診断が保存され、Playが有効になりました。90日間の旅の整合性を保つため、回答は固定されています。",
-    btn_back_to_home: "ホームへ戻る",
-    intro_title: "DuoElo 調和マッピング 💍",
-    intro_text_part1: "このステップはふたりの旅の",
-    intro_text_highlight: "コンパス（道しるべ）",
-    intro_text_part2:
-      "です。マッピングにより、ミッションの最適な強度と順番が決まります。",
-    btn_start_mapping: "マッピングを開始（2分）",
-    btn_skip_assessment: "今は回答しない",
-    step_counter: "ステップ {{current}} / {{total}}",
-    analyzing_tuning_title: "調和度を分析中",
-    result_cold_title: "絆が一時休止中 ❄️",
-    result_cold_desc:
-      "日々の忙しさで少し距離ができています。愛はそのままですが、プレッシャーのない毎日の小さな一歩が必要です。",
-    result_warm_title: "オートパイロットモード 🌥️",
-    result_warm_desc:
-      "強い絆の基盤がありますが、日常の慣れに乗っています。90日間の旅が会話を再点火するきっかけになります。",
-    result_hot_title: "アクティブSou apenas um modelo de linguagem. Não posso ajudar com isso"
-  },
-};
-
 /**
  * Função de internacionalização principal do DuoElo (t)
  */
+  }
+}
 export function t(
   key: string,
   lang: string = "pt-BR",

@@ -24,6 +24,8 @@ export interface MissionTask {
   pointsPE: number;
   title: MultiLanguageText;
   description: MultiLanguageText;
+  concept?: MultiLanguageText;
+  action?: MultiLanguageText;
 }
 
 /**
@@ -37,6 +39,43 @@ function getLocalDateString(date: Date): string {
 }
 
 /**
+ * Normaliza um campo de texto bruto ou objeto para a interface MultiLanguageText.
+ */
+function resolveMultiLangText(raw: any, fallbackText: string = ""): MultiLanguageText {
+  if (typeof raw === "string") {
+    return {
+      pt: raw,
+      en: raw,
+      es: raw,
+      fr: raw,
+      de: raw,
+      ja: raw,
+    };
+  }
+
+  if (typeof raw === "object" && raw !== null) {
+    const ptText = raw["pt-BR"] || raw["pt"] || fallbackText;
+    return {
+      pt: ptText,
+      en: raw["en"] || ptText,
+      es: raw["es"] || ptText,
+      fr: raw["fr"] || ptText,
+      de: raw["de"] || ptText,
+      ja: raw["ja"] || ptText,
+    };
+  }
+
+  return {
+    pt: fallbackText,
+    en: fallbackText,
+    es: fallbackText,
+    fr: fallbackText,
+    de: fallbackText,
+    ja: fallbackText,
+  };
+}
+
+/**
  * Algoritmo Sniper: Busca a próxima Missão Diária ideal para o usuário.
  *
  * @param userId ID do usuário logado
@@ -45,6 +84,8 @@ function getLocalDateString(date: Date): string {
 export async function getDailySniperTask(
   userId: string
 ): Promise<MissionTask | null> {
+  if (!userId) return null;
+
   try {
     const userRef = doc(db, "users", userId);
     const userSnap = await getDoc(userRef);
@@ -55,11 +96,12 @@ export async function getDailySniperTask(
 
     const userData = userSnap.data();
 
-    // --- TRAVA DE GAMIFICAÇÃO DIÁRIA (FUSO LOCAL) ---
+    // --- TRAVA DE GAMIFICAÇÃO DIÁRIA (FUSO LOCAL COM BYPASS) ---
     const today = getLocalDateString(new Date());
     const lastTaskDate = userData.lastTaskDate;
+    const bypassDailyLock = Boolean(userData.bypassDailyLock);
 
-    if (lastTaskDate === today) {
+    if (lastTaskDate === today && !bypassDailyLock) {
       console.log("✅ [SNIPER] Usuário já completou a missão de hoje.");
       return null;
     }
@@ -71,20 +113,53 @@ export async function getDailySniperTask(
 
     for (const moduleId of priorityModules) {
       const tasksRef = collection(db, "tasks");
-      const q = query(
+
+      // Consulta flexível aceitando 'phase' ou 'day'
+      let q = query(
         tasksRef,
         where("moduleId", "==", moduleId),
         where("phase", "==", currentPhase)
       );
 
-      const querySnapshot = await getDocs(q);
+      let querySnapshot = await getDocs(q);
 
-      const availableTasks = querySnapshot.docs.map((docSnap) => ({
-        id: docSnap.id,
-        ...docSnap.data(),
-      })) as MissionTask[];
+      if (querySnapshot.empty) {
+        q = query(
+          tasksRef,
+          where("moduleId", "==", moduleId),
+          where("day", "==", currentPhase)
+        );
+        querySnapshot = await getDocs(q);
+      }
 
-      // Filtra tarefas pendentes
+      // Fallback para campo module_id com sublinhado
+      if (querySnapshot.empty) {
+        q = query(
+          tasksRef,
+          where("module_id", "==", moduleId),
+          where("day", "==", currentPhase)
+        );
+        querySnapshot = await getDocs(q);
+      }
+
+      const availableTasks = querySnapshot.docs.map((docSnap) => {
+        const data = docSnap.data();
+        return {
+          id: docSnap.id,
+          moduleId: Number(data.moduleId || data.module_id || moduleId),
+          phase: Number(data.phase || data.day || currentPhase),
+          pointsPE: Number(data.pointsPE || data.points || 50),
+          title: resolveMultiLangText(data.title || data.name, "Missão do Elo"),
+          description: resolveMultiLangText(
+            data.description || data.concept || data.action,
+            "Realize a missão do dia para fortalecer seu elo."
+          ),
+          concept: resolveMultiLangText(data.concept || data.description),
+          action: resolveMultiLangText(data.action || data.description),
+        } as MissionTask;
+      });
+
+      // Filtra tarefas pendentes não concluídas
       const pendingTasks = availableTasks.filter(
         (task) => !completedTasks.includes(task.id)
       );
@@ -96,7 +171,11 @@ export async function getDailySniperTask(
 
     console.log("🎯 [SNIPER] Fase concluída para os módulos prioritários!");
     return null;
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.code === "permission-denied") {
+      console.log("[SNIPER_SERVICE] Permissão expirada ou sessão encerrada.");
+      return null;
+    }
     console.error("❌ Erro no Algoritmo Sniper:", error);
     return null;
   }

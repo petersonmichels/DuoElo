@@ -41,7 +41,7 @@ function decodeBase64(input: string): string {
 }
 
 export function isStrongPassword(password: string, userLang = "pt-BR"): { isValid: boolean; message?: string } {
-  const fullInstructions = `${t("pwd_req_header", userLang)}\n\n${t("pwd_req_min_len", userLang)}\n${t("pwd_req_upper", userLang)}\n${t("pwd_req_lower", userLang)}\n${t("pwd_req_number", userLang)}\n${t("pwd_req_special", userLang)}`;
+  const fullInstructions = `${t("pwd_req_header", userLang) || "Requisitos de Senha:"}\n\n${t("pwd_req_min_len", userLang) || "• Mínimo de 8 caracteres"}\n${t("pwd_req_upper", userLang) || "• Pelo menos uma letra maiúscula"}\n${t("pwd_req_lower", userLang) || "• Pelo menos uma letra minúscula"}\n${t("pwd_req_number", userLang) || "• Pelo menos um número"}\n${t("pwd_req_special", userLang) || "• Pelo menos um caractere especial (!@#$%^&*)"}`;
 
   if (!password || password.length < 8) return { isValid: false, message: fullInstructions };
 
@@ -179,9 +179,15 @@ export async function encryptText(text: string, userUid?: string): Promise<strin
 
   try {
     const keyHash = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, uid + "duoelo_secret_salt");
-    const utf8Text = unescape(encodeURIComponent(text));
-    let encrypted = "";
     
+    let utf8Text = text;
+    try {
+      utf8Text = unescape(encodeURIComponent(text));
+    } catch (e) {
+      utf8Text = text;
+    }
+
+    let encrypted = "";
     for (let i = 0; i < utf8Text.length; i++) {
       const charCode = utf8Text.charCodeAt(i);
       const keyChar = keyHash.charCodeAt(i % keyHash.length);

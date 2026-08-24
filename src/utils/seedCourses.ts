@@ -1,12 +1,20 @@
-import { doc, setDoc } from "firebase/firestore";
-import { db } from "../config/firebase"; // Ajuste o caminho se o seu arquivo firebase.ts estiver em outra pasta
+import { doc, serverTimestamp, setDoc } from "firebase/firestore";
+import { db } from "../config/firebase"; // 👈 Ajustado de '../../' para '../'
 
-export async function createDefaultCourses() {
-  const courses = [
+export interface CourseSeedPayload {
+  id: string;
+  titleKey: string;
+  moduleIds: number[];
+  icon: string;
+  createdAt?: any;
+}
+
+export async function createDefaultCourses(): Promise<boolean> {
+  const courses: CourseSeedPayload[] = [
     {
       id: "trilha_semaforo",
       titleKey: "course.main.title",
-      moduleIds: [1, 2, 3, 4, 5, 6, 7, 8, 9], // A jornada completa
+      moduleIds: [1, 2, 3, 4, 5, 6, 7, 8, 9], // A jornada completa dos 9 Módulos Clínicos
       icon: "flag-checkered",
     },
     {
@@ -25,11 +33,23 @@ export async function createDefaultCourses() {
 
   try {
     for (const course of courses) {
-      // Cria a coleção 'courses' e salva cada curso lá dentro
-      await setDoc(doc(db, "courses", course.id), course);
+      await setDoc(
+        doc(db, "courses", course.id),
+        {
+          ...course,
+          createdAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
     }
-    console.log("✅ Cursos criados com sucesso no Firebase!");
-  } catch (error) {
-    console.error("❌ Erro ao criar cursos: ", error);
+    console.log("✅ [SEED] Cursos criados/atualizados com sucesso no Firebase!");
+    return true;
+  } catch (error: any) {
+    if (error?.code === "permission-denied") {
+      console.log("[SEED] Permissão encerrada ao criar cursos (sessão inativa).");
+    } else {
+      console.error("❌ Erro ao criar cursos no Firebase: ", error);
+    }
+    return false;
   }
 }

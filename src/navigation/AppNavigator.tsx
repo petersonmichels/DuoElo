@@ -27,7 +27,7 @@ import ShopScreen from "../screens/ShopScreen";
 import VidaScreen from "../screens/VidaScreen";
 
 export type RootStackParamList = {
-  MainTabs: undefined;
+  MainTabs: { screen?: string } | undefined;
   AnamneseScreen: undefined;
   PaywallScreen: undefined;
   MissionReward: undefined;
@@ -44,79 +44,97 @@ const PulsingVidaIcon = ({ color, uid }: { color: string; uid: string | undefine
   const [hasPending, setHasPending] = useState(false);
 
   useEffect(() => {
-    if (!uid) return;
+    if (!uid || !auth.currentUser) return;
     const todayStr = new Date().toISOString().split("T")[0];
 
-    const unsubscribeUser = onSnapshot(doc(db, "users", uid), (snap) => {
-      if (snap.exists()) {
-        const data = snap.data();
-        const partnerUid = data.partnerId;
+    const unsubscribeUser = onSnapshot(
+      doc(db, "users", uid),
+      (snap) => {
+        if (!auth.currentUser) return;
+        if (snap.exists()) {
+          const data = snap.data();
+          const partnerUid = data.partnerId;
 
-        // Onboarding e Dados Cadastrais
-        const noPhoto = !data.photoURL && !data.photoUrl;
-        const noPartner = !partnerUid && !data.isSoloMode;
+          // Onboarding e Dados Cadastrais
+          const noPhoto = !data.photoURL && !data.photoUrl;
+          const noPartner = !partnerUid && !data.isSoloMode;
 
-        const hasName = !!(data.billingFirstName || data.firstName || data.displayName);
-        const hasPhone = !!(data.billingPhone || data.phone || data.phoneNumber);
-        const hasCompleteProfileData = hasName && hasPhone;
+          const hasName = !!(data.billingFirstName || data.firstName || data.displayName);
+          const hasPhone = !!(data.billingPhone || data.phone || data.phoneNumber);
+          const hasCompleteProfileData = hasName && hasPhone;
 
-        const isJourneyStarted =
-          !!data.isSoloMode ||
-          !!data.isJourneyStarted ||
-          !!data.anamneseCompleted ||
-          !!data.anamneseSkipped ||
-          !!data.lastTaskDate ||
-          (data.currentPhase && data.currentPhase > 0);
+          const isJourneyStarted =
+            !!data.isSoloMode ||
+            !!data.isJourneyStarted ||
+            !!data.anamneseCompleted ||
+            !!data.anamneseSkipped ||
+            !!data.lastTaskDate ||
+            (data.currentPhase && data.currentPhase > 0);
 
-        // Checagem rigorosa da missão do dia
-        const isMissionDoneToday =
-          data.lastTaskDate === todayStr ||
-          data.isDailyTaskCompleted === true ||
-          data.dailyTaskDone === true ||
-          data.isTaskPending === false;
+          // Checagem rigorosa da missão do dia
+          const isMissionDoneToday =
+            data.lastTaskDate === todayStr ||
+            data.isDailyTaskCompleted === true ||
+            data.dailyTaskDone === true ||
+            data.isTaskPending === false;
 
-        const habitsNotDone =
-          data.habitsCompletedDate !== todayStr ||
-          (data.completedHabitsToday || []).length === 0;
+          const habitsNotDone =
+            data.habitsCompletedDate !== todayStr ||
+            (data.completedHabitsToday || []).length === 0;
 
-        // Subcoleção de Compras
-        const unSubRedemptions = onSnapshot(
-          doc(db, "users", uid, "shop", "redemptions"),
-          (redemptionSnap) => {
-            const myPurchases = redemptionSnap.exists() ? redemptionSnap.data() : {};
-            const hasGiftToDeliver = Object.entries(myPurchases).some(
-              ([_, value]: [string, any]) => value?.status === "bought"
-            );
+          // Subcoleção de Compras
+          const unSubRedemptions = onSnapshot(
+            doc(db, "users", uid, "shop", "redemptions"),
+            (redemptionSnap) => {
+              if (!auth.currentUser) return;
+              const myPurchases = redemptionSnap.exists() ? redemptionSnap.data() : {};
+              const hasGiftToDeliver = Object.entries(myPurchases).some(
+                ([_, value]: [string, any]) => value?.status === "bought"
+              );
 
-            // Subcoleção de Desejos
-            const unSubDesires = onSnapshot(
-              doc(db, "users", uid, "shop", "desires"),
-              (desiresSnap) => {
-                const currentPhase = data.currentPhase || 1;
-                const currentWeek = Math.min(13, Math.floor((currentPhase - 1) / 7) + 1);
-                const myDesires = desiresSnap.exists() ? desiresSnap.data().list || {} : {};
-                const hasSelectedMyCurrentWeekGift = !!myDesires[currentWeek];
+              // Subcoleção de Desejos
+              const unSubDesires = onSnapshot(
+                doc(db, "users", uid, "shop", "desires"),
+                (desiresSnap) => {
+                  if (!auth.currentUser) return;
+                  const currentPhase = data.currentPhase || 1;
+                  const currentWeek = Math.min(13, Math.floor((currentPhase - 1) / 7) + 1);
+                  const myDesires = desiresSnap.exists() ? desiresSnap.data().list || {} : {};
+                  const hasSelectedMyCurrentWeekGift = !!myDesires[currentWeek];
 
-                setHasPending(
-                  noPhoto ||
-                  !hasCompleteProfileData ||
-                  noPartner ||
-                  !isJourneyStarted ||
-                  !isMissionDoneToday ||
-                  !hasSelectedMyCurrentWeekGift ||
-                  hasGiftToDeliver ||
-                  habitsNotDone
-                );
-              }
-            );
+                  setHasPending(
+                    noPhoto ||
+                    !hasCompleteProfileData ||
+                    noPartner ||
+                    !isJourneyStarted ||
+                    !isMissionDoneToday ||
+                    !hasSelectedMyCurrentWeekGift ||
+                    hasGiftToDeliver ||
+                    habitsNotDone
+                  );
+                },
+                (err) => {
+                  if (err.code === "permission-denied")
+                    console.log("[AppNavigator] Listener de desejos encerrado.");
+                }
+              );
 
-            return () => unSubDesires();
-          }
-        );
+              return () => unSubDesires();
+            },
+            (err) => {
+              if (err.code === "permission-denied")
+                console.log("[AppNavigator] Listener de compras encerrado.");
+            }
+          );
 
-        return () => unSubRedemptions();
+          return () => unSubRedemptions();
+        }
+      },
+      (err) => {
+        if (err.code === "permission-denied")
+          console.log("[AppNavigator] Listener de usuário encerrado.");
       }
-    });
+    );
 
     return () => unsubscribeUser();
   }, [uid]);
@@ -159,15 +177,23 @@ function ShopScreenWrapper(props: any) {
   const currentUid = auth.currentUser?.uid;
 
   useEffect(() => {
-    if (!currentUid) return;
+    if (!currentUid || !auth.currentUser) return;
     let unsubscribeUser: () => void;
 
     const timer = setTimeout(() => {
-      unsubscribeUser = onSnapshot(doc(db, "users", currentUid), (docSnap) => {
-        if (docSnap.exists()) {
-          setUserData(docSnap.data());
+      unsubscribeUser = onSnapshot(
+        doc(db, "users", currentUid),
+        (docSnap) => {
+          if (!auth.currentUser) return;
+          if (docSnap.exists()) {
+            setUserData(docSnap.data());
+          }
+        },
+        (err) => {
+          if (err.code === "permission-denied")
+            console.log("[AppNavigator] Listener Wrapper encerrado.");
         }
-      });
+      );
     }, 50);
 
     return () => {
@@ -177,7 +203,7 @@ function ShopScreenWrapper(props: any) {
   }, [currentUid]);
 
   useEffect(() => {
-    if (!userData?.partnerId) {
+    if (!userData?.partnerId || !auth.currentUser) {
       setPartnerData(null);
       return;
     }
@@ -187,9 +213,14 @@ function ShopScreenWrapper(props: any) {
       unsubscribePartner = onSnapshot(
         doc(db, "users", userData.partnerId),
         (docSnap) => {
+          if (!auth.currentUser) return;
           if (docSnap.exists()) {
             setPartnerData(docSnap.data());
           }
+        },
+        (err) => {
+          if (err.code === "permission-denied")
+            console.log("[AppNavigator] Listener Parceiro Wrapper encerrado.");
         }
       );
     }, 50);
@@ -210,18 +241,26 @@ function MainTabs() {
   const currentUid = auth.currentUser?.uid;
 
   useEffect(() => {
-    if (!currentUid) return;
+    if (!currentUid || !auth.currentUser) return;
     let unsubscribe: () => void;
 
     const timer = setTimeout(() => {
-      unsubscribe = onSnapshot(doc(db, "users", currentUid), (docSnap) => {
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          if (data?.language) {
-            setUserLang(data.language);
+      unsubscribe = onSnapshot(
+        doc(db, "users", currentUid),
+        (docSnap) => {
+          if (!auth.currentUser) return;
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            if (data?.language) {
+              setUserLang(data.language);
+            }
           }
+        },
+        (err) => {
+          if (err.code === "permission-denied")
+            console.log("[AppNavigator] Listener Idioma encerrado.");
         }
-      });
+      );
     }, 50);
 
     return () => {
@@ -272,7 +311,7 @@ function MainTabs() {
         name="Match"
         component={MatchScreen}
         options={{
-          tabBarLabel: t("tab_match", userLang),
+          tabBarLabel: t("tab_match", userLang) || "Match",
           tabBarIcon: ({ color }) => (
             <FontAwesome5 name="user-friends" size={18} color={color} />
           ),
@@ -305,7 +344,7 @@ function MainTabs() {
         name="Loja"
         component={ShopScreenWrapper}
         options={{
-          tabBarLabel: t("tab_shop", userLang),
+          tabBarLabel: t("tab_shop", userLang) || "Loja",
           tabBarIcon: ({ color }) => (
             <FontAwesome5 name="shopping-bag" size={20} color={color} />
           ),
@@ -316,7 +355,7 @@ function MainTabs() {
         name="Perfil"
         component={ProfileScreen}
         options={{
-          tabBarLabel: t("tab_profile", userLang),
+          tabBarLabel: t("tab_profile", userLang) || "Perfil",
           tabBarIcon: ({ color }) => (
             <FontAwesome5 name="user-alt" size={20} color={color} />
           ),

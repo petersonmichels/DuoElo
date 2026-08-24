@@ -49,18 +49,27 @@ export default function InvitePartnerScreen({ navigation }: any) {
       { merge: true },
     ).catch(() => {});
 
-    // Escutador em tempo real: se o parceiro se conectar, avança para o passo 2 automaticamente!
-    const unsubscribe = onSnapshot(doc(db, "users", currentUid), (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        if (data.language) {
-          setUserLang(data.language);
+    // Escutador em tempo real: desabilita graciosamente em caso de logout
+    const unsubscribe = onSnapshot(
+      doc(db, "users", currentUid),
+      (docSnap) => {
+        if (!auth.currentUser) return;
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data.language) {
+            setUserLang(data.language);
+          }
+          if (data.partnerId) {
+            setConnectionStep(2);
+          }
         }
-        if (data.partnerId) {
-          setConnectionStep(2);
+      },
+      (error) => {
+        if (error.code === "permission-denied") {
+          console.log("[InvitePartnerScreen] Listener de convite encerrado.");
         }
       }
-    });
+    );
 
     return () => unsubscribe();
   }, []);
@@ -89,9 +98,10 @@ export default function InvitePartnerScreen({ navigation }: any) {
   // AÇÃO PRINCIPAL COM O WHATSAPP E NAVEGAÇÃO INTELIGENTE
   const handleMainAction = async () => {
     if (connectionStep === 0) {
-      const message = t("invite_whatsapp_message", userLang, {
-        code: myInviteCode,
-      }) || "";
+      const message =
+        t("invite_whatsapp_message", userLang, {
+          code: myInviteCode,
+        }) || `Olá! Baixe o DuoElo para conectarmos nosso elo. Use meu código de convite: ${myInviteCode}`;
       const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
 
       try {
@@ -101,8 +111,8 @@ export default function InvitePartnerScreen({ navigation }: any) {
           setConnectionStep(1);
         } else {
           Alert.alert(
-            t("whatsapp_not_found_title", userLang) || "",
-            t("whatsapp_not_found_msg", userLang) || "",
+            t("whatsapp_not_found_title", userLang) || "WhatsApp não Encontrado",
+            t("whatsapp_not_found_msg", userLang) || "Compartilhe seu código manualmente com seu amor.",
           );
           setConnectionStep(1);
         }
@@ -111,8 +121,8 @@ export default function InvitePartnerScreen({ navigation }: any) {
       }
     } else if (connectionStep === 1) {
       Alert.alert(
-        t("waiting_partner_alert_title", userLang) || "",
-        t("waiting_partner_alert_msg", userLang) || "",
+        t("waiting_partner_alert_title", userLang) || "Aguardando Seu Amor",
+        t("waiting_partner_alert_msg", userLang) || "Assim que seu parceiro aceitar o convite, vocês estarão conectados!",
       );
     } else if (connectionStep === 2) {
       // 🔒 ROTEAMENTO INTELIGENTE PÓS-MATCH
@@ -169,18 +179,18 @@ export default function InvitePartnerScreen({ navigation }: any) {
     switch (connectionStep) {
       case 0:
         return {
-          title: t("invite_header_title_0", userLang) || "",
-          sub: t("invite_header_sub_0", userLang) || "",
+          title: t("invite_header_title_0", userLang) || "Conectar Seu Amor",
+          sub: t("invite_header_sub_0", userLang) || "Envie o convite para iniciarem o Elo juntos.",
         };
       case 1:
         return {
-          title: t("invite_header_title_1", userLang) || "",
-          sub: t("invite_header_sub_1", userLang) || "",
+          title: t("invite_header_title_1", userLang) || "Convite Enviado!",
+          sub: t("invite_header_sub_1", userLang) || "Aguardando seu amor aceitar a conexão...",
         };
       case 2:
         return {
-          title: t("invite_header_title_2", userLang) || "",
-          sub: t("invite_header_sub_2", userLang) || "",
+          title: t("invite_header_title_2", userLang) || "Elo Conectado! ❤️",
+          sub: t("invite_header_sub_2", userLang) || "Vocês agora estão vinculados na jornada.",
         };
       default:
         return { title: "", sub: "" };
@@ -272,8 +282,8 @@ export default function InvitePartnerScreen({ navigation }: any) {
                 ]}
               >
                 {connectionStep >= 1
-                  ? t("workflow_step_1_done", userLang)
-                  : t("workflow_step_1_active", userLang)}
+                  ? t("workflow_step_1_done", userLang) || "Convite enviado"
+                  : t("workflow_step_1_active", userLang) || "Enviar convite"}
               </Text>
             </View>
           </View>
@@ -318,8 +328,8 @@ export default function InvitePartnerScreen({ navigation }: any) {
                 ]}
               >
                 {connectionStep >= 2
-                  ? t("workflow_step_2_done", userLang)
-                  : t("workflow_step_2_waiting", userLang)}
+                  ? t("workflow_step_2_done", userLang) || "Convite aceito"
+                  : t("workflow_step_2_waiting", userLang) || "Aguardando aceite do amor"}
               </Text>
             </View>
           </View>
@@ -349,7 +359,7 @@ export default function InvitePartnerScreen({ navigation }: any) {
                     : styles.stepTextInactive,
                 ]}
               >
-                {t("workflow_step_3_title", userLang)}
+                {t("workflow_step_3_title", userLang) || "Elo Estabelecido"}
               </Text>
             </View>
           </View>
@@ -359,7 +369,7 @@ export default function InvitePartnerScreen({ navigation }: any) {
         <View style={styles.actionSection}>
           {connectionStep === 0 && (
             <View style={styles.codeContainer}>
-              <Text style={styles.codeLabel}>{t("code_generator_label", userLang)}</Text>
+              <Text style={styles.codeLabel}>{t("code_generator_label", userLang) || "Seu Código de Convite"}</Text>
               <Text style={styles.codeValue}>{myInviteCode}</Text>
             </View>
           )}
@@ -378,10 +388,10 @@ export default function InvitePartnerScreen({ navigation }: any) {
             )}
             <Text style={styles.mainButtonText}>
               {connectionStep === 0
-                ? t("btn_invite_whatsapp", userLang)
+                ? t("btn_invite_whatsapp", userLang) || "Enviar pelo WhatsApp"
                 : connectionStep === 1
-                  ? t("btn_update_status", userLang)
-                  : t("btn_start_trail_together", userLang)}
+                  ? t("btn_update_status", userLang) || "Verificar Status"
+                  : t("btn_start_trail_together", userLang) || "Iniciar Trilha do Casal"}
             </Text>
           </TouchableOpacity>
 
@@ -389,17 +399,17 @@ export default function InvitePartnerScreen({ navigation }: any) {
             <TouchableOpacity
               style={styles.secondaryButton}
               activeOpacity={0.6}
-              onPress={() => navigation.navigate("MatchScreen")}
+              onPress={() => navigation.navigate("Match")}
             >
               <Text style={styles.secondaryButtonText}>
-                {t("btn_already_have_code", userLang)}
+                {t("btn_already_have_code", userLang) || "Inserir Código ou Username do Parceiro"}
               </Text>
             </TouchableOpacity>
           )}
 
           {connectionStep === 2 && (
             <Text style={styles.welcomeText}>
-              {t("welcome_duoelo_msg", userLang)}
+              {t("welcome_duoelo_msg", userLang) || "Sejam bem-vindos ao DuoElo! ❤️"}
             </Text>
           )}
         </View>

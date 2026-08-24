@@ -64,7 +64,7 @@ export default function AnamneseScreen({ navigation, route }: any) {
 
   const [userLang, setUserLang] = useState("pt-BR");
   const [loadingMsg, setLoadingMsg] = useState(
-    t("anamnesis_loading_start", userLang),
+    t("anamnesis_loading_start", userLang)
   );
 
   const [isLangModalVisible, setIsLangModalVisible] = useState(false);
@@ -93,7 +93,7 @@ export default function AnamneseScreen({ navigation, route }: any) {
     confirmText = "",
     onConfirm: any = null,
     secondaryText = "",
-    onSecondary: any = null,
+    onSecondary: any = null
   ) => {
     setCustomAlert({
       visible: true,
@@ -129,7 +129,7 @@ export default function AnamneseScreen({ navigation, route }: any) {
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
-      ]),
+      ])
     ).start();
   }, [pulseAnim]);
 
@@ -147,7 +147,7 @@ export default function AnamneseScreen({ navigation, route }: any) {
 
             if (!hasActivePremium && data.partnerId) {
               const partnerSnap = await getDoc(
-                doc(db, "users", data.partnerId),
+                doc(db, "users", data.partnerId)
               );
               if (partnerSnap.exists()) {
                 const partnerData = partnerSnap.data();
@@ -156,7 +156,7 @@ export default function AnamneseScreen({ navigation, route }: any) {
                   await setDoc(
                     doc(db, "users", user.uid),
                     { isPremium: true, isPartnerPremium: true },
-                    { merge: true },
+                    { merge: true }
                   );
                 }
               }
@@ -193,14 +193,14 @@ export default function AnamneseScreen({ navigation, route }: any) {
     try {
       let q = query(
         collection(db, "anamnesis"),
-        where("language", "==", langToFetch),
+        where("language", "==", langToFetch)
       );
       let qSnap = await getDocs(q);
 
       if (qSnap.empty) {
         q = query(
           collection(db, "anamnesis"),
-          where("language", "==", "pt-BR"),
+          where("language", "==", "pt-BR")
         );
         qSnap = await getDocs(q);
       }
@@ -269,7 +269,7 @@ export default function AnamneseScreen({ navigation, route }: any) {
       await setDoc(
         doc(db, "users", userId),
         { language: langCode },
-        { merge: true },
+        { merge: true }
       );
     }
 
@@ -280,13 +280,13 @@ export default function AnamneseScreen({ navigation, route }: any) {
 
   const handleSkipAnamnesis = () => {
     showCustomAlert(
-      t("skip_anamnesis_title", userLang),
-      t("skip_anamnesis_msg", userLang),
+      t("skip_anamnesis_title", userLang) || "Pular Anamnese",
+      t("skip_anamnesis_msg", userLang) || "Deseja usar o perfil de sintonia padrão?",
       "compass",
       "#EAB64A",
-      t("btn_answer_assessment", userLang),
+      t("btn_answer_assessment", userLang) || "Fazer Avaliação",
       null,
-      t("btn_use_default_profile", userLang),
+      t("btn_use_default_profile", userLang) || "Usar Padrão",
       async () => {
         const userId = auth.currentUser?.uid;
         if (userId) {
@@ -300,10 +300,9 @@ export default function AnamneseScreen({ navigation, route }: any) {
                 profileType: "standard_default",
                 anamnesisSkippedAt: new Date().toISOString(),
               },
-              { merge: true },
+              { merge: true }
             );
 
-            // 📜 REGISTRO DE AUDITORIA DE SEGURANÇA (ANAMNESE PULADA)
             await logAuditEvent(
               userId,
               "ANAMNESE_SKIPPED",
@@ -312,7 +311,7 @@ export default function AnamneseScreen({ navigation, route }: any) {
             );
 
             if (isGuestOrHasPartner) {
-              navigation.navigate("MatchScreen");
+              navigation.navigate("Match");
             } else {
               navigation.navigate("MainTabs", { screen: "Home" });
             }
@@ -322,7 +321,7 @@ export default function AnamneseScreen({ navigation, route }: any) {
             setIsSkipping(false);
           }
         }
-      },
+      }
     );
   };
 
@@ -587,7 +586,6 @@ export default function AnamneseScreen({ navigation, route }: any) {
         .slice(0, 3)
         .map((p) => p.name);
 
-      // 🔐 CRIPTOGRAFIA ZERO-KNOWLEDGE (AES-256)
       const secretKey = userId;
       const encryptedTags = await encryptText(JSON.stringify(diagnosticTags), secretKey);
       const encryptedScores = await encryptText(JSON.stringify(priorityPillars), secretKey);
@@ -606,7 +604,6 @@ export default function AnamneseScreen({ navigation, route }: any) {
 
       await setDoc(doc(db, "users", userId), payloadToSave, { merge: true });
 
-      // 📜 REGISTRO DE AUDITORIA DE SEGURANÇA (ANAMNESE CONCLUÍDA)
       await logAuditEvent(
         userId,
         "ANAMNESE_COMPLETED",
@@ -635,7 +632,7 @@ export default function AnamneseScreen({ navigation, route }: any) {
             anamnesisLocked: true,
             playPressedAt: new Date().toISOString(),
           },
-          { merge: true },
+          { merge: true }
         );
       }
       navigation.navigate("MainTabs", { screen: "Home" });
@@ -652,32 +649,32 @@ export default function AnamneseScreen({ navigation, route }: any) {
       selectedAnswers.length === 0
     ) {
       showCustomAlert(
-        t("compass_prompt_title", userLang),
-        t("compass_prompt_msg", userLang),
+        t("compass_prompt_title", userLang) || "Diagnóstico Pendente",
+        t("compass_prompt_msg", userLang) || "Responda à Anamnese para personalizar sua jornada.",
         "heartbeat",
         "#202D3A",
-        t("btn_answer_assessment_now", userLang),
+        t("btn_answer_assessment_now", userLang) || "Responder Agora",
         () => setScreenState("questions"),
-        t("btn_start_default_profile", userLang),
+        t("btn_start_default_profile", userLang) || "Usar Padrão",
         async () => {
           await handleSaveAndSkip();
-        },
+        }
       );
       return;
     }
 
     if (!currentUserData?.partnerId) {
       showCustomAlert(
-        t("solo_mode_alert_title", userLang),
-        t("solo_mode_alert_msg", userLang),
+        t("solo_mode_alert_title", userLang) || "Modo Solo Ativo",
+        t("solo_mode_alert_msg", userLang) || "Você pode conectar seu amor agora ou continuar solo.",
         "user-friends",
         "#EAB64A",
-        t("btn_send_partner_invite", userLang),
-        () => navigation.navigate("InvitePartnerScreen"),
-        t("btn_continue_solo_for_now", userLang),
+        t("btn_send_partner_invite", userLang) || "Conectar Parceiro",
+        () => navigation.navigate("Match"),
+        t("btn_continue_solo_for_now", userLang) || "Continuar Solo",
         async () => {
           await executePlayAction();
-        },
+        }
       );
       return;
     }
@@ -717,7 +714,7 @@ export default function AnamneseScreen({ navigation, route }: any) {
             fontFamily: "Montserrat_700Bold",
           }}
         >
-          {t("loading_info_text", userLang)}
+          {t("loading_info_text", userLang) || "Carregando diagnóstico..."}
         </Text>
       </SafeAreaView>
     );
@@ -737,9 +734,11 @@ export default function AnamneseScreen({ navigation, route }: any) {
         <FontAwesome5 name="lock" size={50} color="#2C3E50" />
       </Animated.View>
       <Text style={styles.introTitle}>
-        {t("journey_locked_title", userLang)}
+        {t("journey_locked_title", userLang) || "Jornada em Andamento"}
       </Text>
-      <Text style={styles.introText}>{t("journey_locked_msg", userLang)}</Text>
+      <Text style={styles.introText}>
+        {t("journey_locked_msg", userLang) || "Sua Anamnese já foi registrada e está calibrando suas tarefas."}
+      </Text>
 
       <TouchableOpacity
         style={[styles.primaryBtn, { paddingHorizontal: 40, marginBottom: 12 }]}
@@ -748,7 +747,7 @@ export default function AnamneseScreen({ navigation, route }: any) {
       >
         <FontAwesome5 name="home" size={16} color="#FFF" />
         <Text style={styles.primaryBtnText}>
-          {t("btn_back_to_home", userLang)}
+          {t("btn_back_to_home", userLang) || "Ir para a Home"}
         </Text>
       </TouchableOpacity>
     </View>
@@ -777,13 +776,15 @@ export default function AnamneseScreen({ navigation, route }: any) {
         <FontAwesome5 name="heartbeat" size={70} color="#67D4A8" />
       </Animated.View>
 
-      <Text style={styles.introTitle}>{t("intro_title", userLang)}</Text>
+      <Text style={styles.introTitle}>
+        {t("intro_title", userLang) || "Diagnóstico do Elo"}
+      </Text>
       <Text style={styles.introText}>
-        {t("intro_text_part1", userLang)}{" "}
+        {t("intro_text_part1", userLang) || "Descubra a temperatura da sua relação e receba"}{" "}
         <Text style={{ fontFamily: "Montserrat_700Bold", color: "#EAB64A" }}>
-          {t("intro_text_highlight", userLang)}
+          {t("intro_text_highlight", userLang) || "missões personalizadas"}
         </Text>
-        {t("intro_text_part2", userLang)}
+        {t("intro_text_part2", userLang) || " para fortalecer seu elo diariamente."}
       </Text>
 
       <Animated.View
@@ -796,7 +797,7 @@ export default function AnamneseScreen({ navigation, route }: any) {
           disabled={questionsBank.length === 0}
         >
           <Text style={styles.primaryBtnText}>
-            {t("btn_start_mapping", userLang)}
+            {t("btn_start_mapping", userLang) || "Iniciar Mapeamento"}
           </Text>
           <FontAwesome5 name="arrow-right" size={18} color="#FFF" />
         </TouchableOpacity>
@@ -808,7 +809,7 @@ export default function AnamneseScreen({ navigation, route }: any) {
         onPress={handleSkipAnamnesis}
       >
         <Text style={styles.skipBtnText}>
-          {t("btn_skip_assessment", userLang)}
+          {t("btn_skip_assessment", userLang) || "Pular por enquanto"}
         </Text>
       </TouchableOpacity>
     </View>
@@ -847,7 +848,7 @@ export default function AnamneseScreen({ navigation, route }: any) {
               {t("step_counter", userLang, {
                 current: currentIndex + 1,
                 total: questionsBank.length,
-              })}
+              }) || `${currentIndex + 1} de ${questionsBank.length}`}
             </Text>
           </View>
 
@@ -967,7 +968,7 @@ export default function AnamneseScreen({ navigation, route }: any) {
           </View>
         </Animated.View>
         <Text style={styles.calcTitle}>
-          {t("analyzing_tuning_title", userLang)}
+          {t("analyzing_tuning_title", userLang) || "Mapeando Diagnóstico..."}
         </Text>
 
         <View style={styles.loadingBarContainer}>
@@ -985,16 +986,16 @@ export default function AnamneseScreen({ navigation, route }: any) {
     let tempColor = "";
 
     if (finalTemperature < 40) {
-      resultTitle = t("result_cold_title", userLang);
-      resultDesc = t("result_cold_desc", userLang);
+      resultTitle = t("result_cold_title", userLang) || "Frio";
+      resultDesc = t("result_cold_desc", userLang) || "Sua relação precisa de cuidado e foco imediato.";
       tempColor = "#2C3E50";
     } else if (finalTemperature < 75) {
-      resultTitle = t("result_warm_title", userLang);
-      resultDesc = t("result_warm_desc", userLang);
+      resultTitle = t("result_warm_title", userLang) || "Morno";
+      resultDesc = t("result_warm_desc", userLang) || "Bom equilíbrio, com ótimo potencial para evolução.";
       tempColor = "#EAB64A";
     } else {
-      resultTitle = t("result_hot_title", userLang);
-      resultDesc = t("result_hot_desc", userLang);
+      resultTitle = t("result_hot_title", userLang) || "Em Sintonia";
+      resultDesc = t("result_hot_desc", userLang) || "Excelente conexão e sintonia mútua!";
       tempColor = "#67D4A8";
     }
 
@@ -1006,7 +1007,7 @@ export default function AnamneseScreen({ navigation, route }: any) {
     return (
       <View style={styles.resultContainer}>
         <Text style={styles.resultHeader}>
-          {t("tuning_index_header", userLang)}
+          {t("tuning_index_header", userLang) || "ÍNDICE DE SINTONIA"}
         </Text>
 
         <View style={styles.thermometerWrapper}>
@@ -1035,35 +1036,33 @@ export default function AnamneseScreen({ navigation, route }: any) {
           <View style={styles.riskHeader}>
             <FontAwesome5 name="chart-line" size={16} color={tempColor} />
             <Text style={[styles.riskTitle, { color: tempColor }]}>
-              {t("risk_box_title", userLang, { risk: finalRisk })}
+              {t("risk_box_title", userLang, { risk: finalRisk }) || `Nível de Ruído: ${finalRisk}%`}
             </Text>
           </View>
           <Text style={styles.riskText}>
-            {t("risk_box_text_part1", userLang)}{" "}
+            {t("risk_box_text_part1", userLang) || "O diagnóstico apontou"}{" "}
             <Text style={{ fontFamily: "Montserrat_700Bold" }}>
-              {t("risk_box_text_highlight", userLang, { risk: finalRisk })}
+              {t("risk_box_text_highlight", userLang, { risk: finalRisk }) || `${finalRisk}% de oportunidade`}
             </Text>{" "}
-            {t("risk_box_text_part2", userLang)}
+            {t("risk_box_text_part2", userLang) || "para fortalecer os pilares do seu relacionamento."}
           </Text>
         </View>
 
         <View style={styles.hopeBox}>
           <FontAwesome5 name="seedling" size={22} color="#202D3A" />
           <Text style={styles.hopeText}>
-            {t("hope_box_part1", userLang)}{" "}
-            <Text
-              style={{ fontFamily: "Montserrat_700Bold", color: "#202D3A" }}
-            >
-              {t("hope_box_highlight", userLang)}
+            {t("hope_box_part1", userLang) || "Pequenas atitudes diárias geram"}{" "}
+            <Text style={{ fontFamily: "Montserrat_700Bold", color: "#202D3A" }}>
+              {t("hope_box_highlight", userLang) || "grandes transformações"}
             </Text>{" "}
-            {t("hope_box_part2", userLang)}
+            {t("hope_box_part2", userLang) || "no seu Elo."}
           </Text>
         </View>
 
         {isPremium ? (
           <View style={styles.impulseBuyBox}>
             <Text style={styles.impulseBuyPriceText}>
-              {t("access_unlocked_label", userLang)}{" "}
+              {t("access_unlocked_label", userLang) || "Acesso Premium Ativo"}{" "}
               <Text style={[styles.priceHighlight, { color: "#67D4A8" }]}>
                 ✓
               </Text>
@@ -1080,7 +1079,7 @@ export default function AnamneseScreen({ navigation, route }: any) {
                 <>
                   <FontAwesome5 name="play" size={18} color="#FFF" />
                   <Text style={styles.paywallBtnText}>
-                    {t("btn_start_journey_now", userLang)}
+                    {t("btn_start_journey_now", userLang) || "Iniciar Jornada Agora"}
                   </Text>
                 </>
               )}
@@ -1089,7 +1088,7 @@ export default function AnamneseScreen({ navigation, route }: any) {
         ) : (
           <View style={styles.impulseBuyBox}>
             <Text style={styles.impulseBuyPriceText}>
-              {t("unlock_rescue_trail", userLang)}
+              {t("unlock_rescue_trail", userLang) || "Desbloqueie sua Jornada Completa"}
             </Text>
             <TouchableOpacity
               style={[styles.paywallBtn, { backgroundColor: "#EAB64A" }]}
@@ -1103,7 +1102,7 @@ export default function AnamneseScreen({ navigation, route }: any) {
                 <>
                   <FontAwesome5 name="shield-alt" size={18} color="#202D3A" />
                   <Text style={[styles.paywallBtnText, { color: "#202D3A" }]}>
-                    {t("btn_unlock_my_journey", userLang)}
+                    {t("btn_unlock_my_journey", userLang) || "Ver Planos do Elo"}
                   </Text>
                 </>
               )}
@@ -1121,7 +1120,7 @@ export default function AnamneseScreen({ navigation, route }: any) {
               <ActivityIndicator size="small" color="#60646C" />
             ) : (
               <Text style={styles.skipLinkText}>
-                {t("btn_postpone_rescue", userLang)}
+                {t("btn_postpone_rescue", userLang) || "Continuar no Plano Gratuito"}
               </Text>
             )}
           </TouchableOpacity>

@@ -27,7 +27,8 @@
       "allowBackup": false,
       "permissions": [
         "android.permission.USE_BIOMETRIC",
-        "android.permission.USE_FINGERPRINT"
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.POST_NOTIFICATIONS"
       ]
     },
     "web": {
@@ -37,6 +38,12 @@
       "expo-apple-authentication",
       "expo-image",
       "expo-font",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "O DuoElo utiliza o Face ID para desbloquear sua chave mestre e proteger seu Diário do Casal."
+        }
+      ],
       [
         "expo-splash-screen",
         {

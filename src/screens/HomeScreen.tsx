@@ -36,7 +36,7 @@ import { t } from "../i18n/translations";
 import { scheduleDailyReminder } from "../services/notificationService";
 import {
   isSessionUnlocked,
-  lockSession
+  lockSession,
 } from "../services/securityService";
 import MissionExecutionScreen from "./MissionExecutionScreen";
 
@@ -422,7 +422,6 @@ export default function HomeScreen({ navigation }: any) {
     ).start();
   }, [logoPulseAnim]);
 
-  // 🔒 BLOQUEIO RÍGIDO AO MINIMIZAR O APLICATIVO
   useEffect(() => {
     const handleAppStateChange = async (nextAppState: string) => {
       if (nextAppState === "background" || nextAppState === "inactive") {
@@ -441,10 +440,12 @@ export default function HomeScreen({ navigation }: any) {
     return () => unsubscribeAuth();
   }, []);
 
+  // 🟢 ESCUTA DE USUÁRIO COM SILENCIAMENTO NO LOGOUT
   useEffect(() => {
     if (!currentUid) {
       setUserData(null);
       setPartnerData(null);
+      setLoading(false);
       return;
     }
 
@@ -452,7 +453,7 @@ export default function HomeScreen({ navigation }: any) {
 
     const timer = setTimeout(() => {
       registerForPushNotificationsAsync().then(async (token: string | null) => {
-        if (token) {
+        if (token && auth.currentUser) {
           try {
             await setDoc(
               doc(db, "users", currentUid),
@@ -466,6 +467,7 @@ export default function HomeScreen({ navigation }: any) {
       unsubscribeUser = onSnapshot(
         doc(db, "users", currentUid),
         (docSnap) => {
+          if (!auth.currentUser) return;
           if (docSnap.exists()) {
             const data = docSnap.data();
             setUserData(data);
@@ -475,6 +477,11 @@ export default function HomeScreen({ navigation }: any) {
             }
           }
           setLoading(false);
+        },
+        (error) => {
+          if (error.code === "permission-denied") {
+            console.log("[HomeScreen] Listener de usuário encerrado.");
+          }
         }
       );
     }, 50);
@@ -496,8 +503,9 @@ export default function HomeScreen({ navigation }: any) {
     }
   }, [currentUid, userData]);
 
+  // 🟢 ESCUTA DO PARCEIRO COM SILENCIAMENTO NO LOGOUT
   useEffect(() => {
-    if (!userData?.partnerId) {
+    if (!userData?.partnerId || !auth.currentUser) {
       setPartnerData(null);
       return;
     }
@@ -507,7 +515,13 @@ export default function HomeScreen({ navigation }: any) {
       unsubscribePartner = onSnapshot(
         doc(db, "users", userData.partnerId),
         (docSnap) => {
+          if (!auth.currentUser) return;
           if (docSnap.exists()) setPartnerData(docSnap.data());
+        },
+        (error) => {
+          if (error.code === "permission-denied") {
+            console.log("[HomeScreen] Listener de parceiro encerrado.");
+          }
         }
       );
     }, 50);
@@ -598,15 +612,11 @@ export default function HomeScreen({ navigation }: any) {
   const hasCompletedAnamnesis = Boolean(userData?.hasCompletedAnamnesis);
   const partnerCompletedAnamnesis = Boolean(partnerData?.hasCompletedAnamnesis);
 
-  // 🎯 VALIDAÇÃO CIRÚRGICA DE ACESSO PREMIUM (SOLO VS DUO)
   const myIsPremium = Boolean(userData?.isPremium);
 
   const partnerIsPremium = Boolean(partnerData?.isPremium);
   const partnerPlanType = partnerData?.planType || (partnerData?.activeProductId?.includes("_duo_") ? "duo" : "solo");
 
-  // Acesso liberado se:
-  // 1. O próprio usuário tem uma assinatura ativa (Solo ou Duo)
-  // 2. OU o parceiro dele tem uma assinatura ativa especificamente do tipo DUO
   const isPremium =
     myIsPremium || (partnerIsPremium && partnerPlanType === "duo");
 
@@ -627,7 +637,6 @@ export default function HomeScreen({ navigation }: any) {
     (iAmReady || partnerIsReady) &&
     (isSoloMode || !hasPartner || partnerCompletedAnamnesis || partnerIsReady);
 
-  // 🎯 CÁLCULO DO NÓ ATIVO DA TAREFA ATUAL DA JORNADA
   const getTargetStepIndex = () => {
     return nextAvailableStep;
   };
@@ -672,7 +681,6 @@ export default function HomeScreen({ navigation }: any) {
     performScroll();
   };
 
-  // 🔄 RE-SCROLL AUTOMÁTICO SEGURO AO VOLTAR DE UMA MISSÃO/TELA
   useEffect(() => {
     const unsubscribe = navigation.addListener("focus", () => {
       setTimeout(() => scrollToActiveNode(true), 250);
@@ -716,7 +724,8 @@ export default function HomeScreen({ navigation }: any) {
   const pName =
     getFirstName(partnerData) ||
     partnerData?.email?.split("@")[0] ||
-    t("partner_default_name", userLang);
+    t("partner_default_name", userLang) ||
+    "Seu Amor";
 
   const generateTrailMatrix = async (
     uid: string,
@@ -794,8 +803,8 @@ export default function HomeScreen({ navigation }: any) {
       setIsGeneratingJourney(false);
       triggerHaptic("success");
       showCustomAlert(
-        t("solo_journey_generated_title", userLang),
-        t("solo_journey_generated_msg", userLang),
+        t("solo_journey_generated_title", userLang) || "Jornada Gerada!",
+        t("solo_journey_generated_msg", userLang) || "Sua jornada solo foi configurada com sucesso.",
         "check-circle",
         "#67D4A8"
       );
@@ -847,15 +856,15 @@ export default function HomeScreen({ navigation }: any) {
         if (partnerData?.pushToken) {
           sendPushNotificationDirectly(
             partnerData.pushToken,
-            t("push_journey_unlocked_title", userLang),
-            t("push_journey_unlocked_body", userLang)
+            t("push_journey_unlocked_title", userLang) || "Jornada Desbloqueada!",
+            t("push_journey_unlocked_body", userLang) || "Sua jornada a dois começou!"
           );
         }
 
         triggerHaptic("success");
         showCustomAlert(
-          t("start_authorized_title", userLang),
-          t("start_authorized_msg", userLang),
+          t("start_authorized_title", userLang) || "Jornada Iniciada!",
+          t("start_authorized_msg", userLang) || "O elo foi firmado com sucesso!",
           "flag-checkered",
           "#67D4A8"
         );
@@ -873,23 +882,23 @@ export default function HomeScreen({ navigation }: any) {
         if (partnerData?.pushToken) {
           sendPushNotificationDirectly(
             partnerData.pushToken,
-            t("push_green_light_title", userLang),
-            t("push_green_light_body", userLang)
+            t("push_green_light_title", userLang) || "Sinal Verde Dado!",
+            t("push_green_light_body", userLang) || "Seu amor deu play na jornada!"
           );
         }
 
         triggerHaptic("medium");
         showCustomAlert(
-          t("green_light_given_title", userLang),
-          t("green_light_given_msg", userLang, { name: pName }),
+          t("green_light_given_title", userLang) || "Sinal Verde Dado",
+          t("green_light_given_msg", userLang, { name: pName }) || `Aguardando ${pName} para dar o play juntos.`,
           "hourglass-half",
           "#EAB64A"
         );
       }
     } catch (e) {
       showCustomAlert(
-        t("error_title", userLang),
-        t("error_try_again", userLang),
+        t("error_title", userLang) || "Erro",
+        t("error_try_again", userLang) || "Erro ao iniciar. Tente novamente.",
         "times-circle",
         "#D96C6C"
       );
@@ -903,13 +912,13 @@ export default function HomeScreen({ navigation }: any) {
 
     if (!isPremium) {
       showCustomAlert(
-        t("plan_required_title", userLang),
-        t("plan_required_msg", userLang),
+        t("plan_required_title", userLang) || "Plano Necessário",
+        t("plan_required_msg", userLang) || "Assine para desbloquear sua jornada completa.",
         "lock",
         "#EAB64A",
-        t("btn_see_plans", userLang),
+        t("btn_see_plans", userLang) || "Ver Planos",
         () => navigation.navigate("PaywallScreen"),
-        t("btn_not_now", userLang),
+        t("btn_not_now", userLang) || "Agora Não",
         () => {}
       );
       return;
@@ -917,13 +926,13 @@ export default function HomeScreen({ navigation }: any) {
 
     if (!hasCompletedAnamnesis) {
       showCustomAlert(
-        t("relationship_compass_title", userLang),
-        t("relationship_compass_msg", userLang),
+        t("relationship_compass_title", userLang) || "Bússola do Relacionamento",
+        t("relationship_compass_msg", userLang) || "Responda à Anamnese antes de dar o Play.",
         "heartbeat",
         "#202D3A",
-        t("btn_answer_mapping", userLang),
+        t("btn_answer_mapping", userLang) || "Responder",
         () => navigation.navigate("AnamneseScreen"),
-        t("btn_use_default_profile", userLang),
+        t("btn_use_default_profile", userLang) || "Usar Padrão",
         async () => {
           if (!currentUid) return;
 
@@ -940,11 +949,11 @@ export default function HomeScreen({ navigation }: any) {
               if (!partnerCompletedAnamnesis) {
                 setIsGeneratingJourney(false);
                 showCustomAlert(
-                  t("waiting_partner_title", userLang),
-                  t("waiting_partner_msg", userLang),
+                  t("waiting_partner_title", userLang) || "Aguardando Parceiro",
+                  t("waiting_partner_msg", userLang) || "Aguardando seu amor responder ao diagnóstico.",
                   "hourglass-half",
                   "#EAB64A",
-                  t("btn_understand", userLang)
+                  t("btn_understand", userLang) || "Entendi"
                 );
                 return;
               }
@@ -962,8 +971,8 @@ export default function HomeScreen({ navigation }: any) {
           } catch (error) {
             setIsGeneratingJourney(false);
             showCustomAlert(
-              t("connection_error_title", userLang),
-              t("connection_error_msg", userLang),
+              t("connection_error_title", userLang) || "Erro de Conexão",
+              t("connection_error_msg", userLang) || "Não foi possível conectar ao servidor.",
               "times-circle",
               "#D96C6C"
             );
@@ -976,11 +985,11 @@ export default function HomeScreen({ navigation }: any) {
     if (hasPartner) {
       if (!partnerCompletedAnamnesis) {
         showCustomAlert(
-          t("waiting_partner_title", userLang),
-          t("waiting_partner_msg", userLang),
+          t("waiting_partner_title", userLang) || "Aguardando Parceiro",
+          t("waiting_partner_msg", userLang) || "Aguardando seu amor responder ao diagnóstico.",
           "hourglass-half",
           "#EAB64A",
-          t("btn_understand", userLang)
+          t("btn_understand", userLang) || "Entendi"
         );
         return;
       }
@@ -989,13 +998,13 @@ export default function HomeScreen({ navigation }: any) {
       handleStartSolo();
     } else {
       showCustomAlert(
-        t("better_together_title", userLang),
-        t("better_together_msg", userLang),
+        t("better_together_title", userLang) || "Melhor Juntos",
+        t("better_together_msg", userLang) || "Deseja convidar seu parceiro ou continuar em modo solo?",
         "user-friends",
         "#EAB64A",
-        t("btn_send_invite", userLang),
+        t("btn_send_invite", userLang) || "Conectar Amor",
         () => navigation.navigate("Match"),
-        t("btn_continue_solo", userLang),
+        t("btn_continue_solo", userLang) || "Continuar Solo",
         async () => {
           if (currentUid) {
             await setDoc(
@@ -1010,7 +1019,6 @@ export default function HomeScreen({ navigation }: any) {
     }
   };
 
-  // 🔒 A TRAVA DE SEGURANÇA: EXIGE O PIN EM TODA TAREFA BLOQUEADA OU REVISÃO
   const handleOpenMission = async (
     stepIndex: number,
     isActuallyLocked: boolean,
@@ -1021,8 +1029,8 @@ export default function HomeScreen({ navigation }: any) {
 
     if (!hasCompletedAnamnesis) {
       showCustomAlert(
-        t("assessment_pending_title", userLang),
-        t("assessment_pending_msg", userLang),
+        t("assessment_pending_title", userLang) || "Diagnóstico Pendente",
+        t("assessment_pending_msg", userLang) || "Preencha a Anamnese para desbloquear as tarefas.",
         "clipboard-list",
         "#EAB64A"
       );
@@ -1032,13 +1040,13 @@ export default function HomeScreen({ navigation }: any) {
 
     if (!isPremium) {
       showCustomAlert(
-        t("sub_required_title", userLang),
-        t("sub_required_msg", userLang),
+        t("sub_required_title", userLang) || "Assinatura Necessária",
+        t("sub_required_msg", userLang) || "Assine para acessar as tarefas da jornada.",
         "lock",
         "#EAB64A",
-        t("btn_see_plans", userLang),
+        t("btn_see_plans", userLang) || "Ver Planos",
         () => navigation.navigate("PaywallScreen"),
-        t("btn_not_now", userLang),
+        t("btn_not_now", userLang) || "Agora Não",
         () => {}
       );
       return;
@@ -1048,15 +1056,14 @@ export default function HomeScreen({ navigation }: any) {
 
     if (isWaiting && !isCompleted) {
       showCustomAlert(
-        t("all_in_good_time_title", userLang),
-        t("all_in_good_time_msg", userLang),
+        t("all_in_good_time_title", userLang) || "Tudo a Seu Tempo",
+        t("all_in_good_time_msg", userLang) || "A próxima missão estará disponível amanhã!",
         "hourglass-half",
         "#202D3A"
       );
       return;
     }
 
-    // Se a sessão expirou (seja minimizada ou timeout), EXIGE PIN ANTES DE ABRIR TUDO
     if (!isSessionUnlocked()) {
       setIsReviewMode(Boolean(isCompleted));
       setPendingMissionStepIndex(stepIndex);
@@ -1123,7 +1130,8 @@ export default function HomeScreen({ navigation }: any) {
             title:
               rawMission.partnerTitle ||
               rawMission.title ||
-              t("your_mission_part_title", userLang),
+              t("your_mission_part_title", userLang) ||
+              "Sua Parte da Missão",
             concept:
               rawMission.partnerConcept ||
               rawMission.action ||
@@ -1140,8 +1148,8 @@ export default function HomeScreen({ navigation }: any) {
         setIsModalVisible(true);
       } else {
         showCustomAlert(
-          t("mission_under_construction_title", userLang),
-          t("mission_under_construction_msg", userLang),
+          t("mission_under_construction_title", userLang) || "Em Construção",
+          t("mission_under_construction_msg", userLang) || "Esta missão está sendo preparada.",
           "hard-hat",
           "#EAB64A"
         );
@@ -1152,7 +1160,6 @@ export default function HomeScreen({ navigation }: any) {
     }
   };
 
-  // 🎯 GRAVAÇÃO E CONCLUSAO DA MISSÃO TOTALMENTE ALINHADA COM A BUSCA DO DIÁRIO
   const handleCompleteMission = async (journalText: string = "") => {
     if (!currentUid || !activeMission) return;
 
@@ -1176,7 +1183,7 @@ export default function HomeScreen({ navigation }: any) {
           await setDoc(journalRef, {
             phase: goldJournalId,
             numericPhase: Number(visibleWeek),
-            text: journalText, // String E2EE gravada sem re-criptografia
+            text: journalText,
             date: new Date().toISOString(),
             isGold: true,
             isEncrypted: true,
@@ -1188,10 +1195,10 @@ export default function HomeScreen({ navigation }: any) {
 
         triggerHaptic("success");
         showCustomAlert(
-          t("gold_challenge_completed_title", userLang),
+          t("gold_challenge_completed_title", userLang) || "Desafio Concluído!",
           t("gold_challenge_completed_msg", userLang, {
             points: activeMission.pointsPE || 150,
-          }),
+          }) || `Você ganhou ${activeMission.pointsPE || 150} Bonds!`,
           "trophy",
           "#EAB64A"
         );
@@ -1238,14 +1245,13 @@ export default function HomeScreen({ navigation }: any) {
 
       await setDoc(doc(db, "users", currentUid), updates, { merge: true });
 
-      // 🎯 GRAVAÇÃO COM ID DETERMINÍSTICO DE FASE NO FIRESTORE
       if (journalText.trim().length > 0) {
         const docId = String(targetPhase);
         const journalRef = doc(db, "users", currentUid, "journals", docId);
         await setDoc(journalRef, {
           phase: targetPhase,
           numericPhase: Number(targetPhase) || nextAvailableStep + 1,
-          text: journalText, // Criptografia mantida do cliente
+          text: journalText,
           date: new Date().toISOString(),
           step: 3,
           isEncrypted: true,
@@ -1262,8 +1268,8 @@ export default function HomeScreen({ navigation }: any) {
       if (partnerData?.pushToken && !hasCompletedTaskToday) {
         sendPushNotificationDirectly(
           partnerData.pushToken,
-          t("push_mission_done_title", userLang),
-          t("push_mission_done_body", userLang)
+          t("push_mission_done_title", userLang) || "Tarefa Concluída!",
+          t("push_mission_done_body", userLang) || "Seu amor concluiu a tarefa do dia!"
         );
       }
 
@@ -1318,9 +1324,9 @@ export default function HomeScreen({ navigation }: any) {
 
       const challengeTitle =
         querySnapshot.empty
-          ? t("gold_challenge_default_title", userLang, { week: weekNumber })
+          ? t("gold_challenge_default_title", userLang, { week: weekNumber }) || `Desafio de Ouro - Semana ${weekNumber}`
           : querySnapshot.docs[0].data().title ||
-            t("gold_challenge_default_title", userLang, { week: weekNumber });
+            t("gold_challenge_default_title", userLang, { week: weekNumber }) || `Desafio de Ouro - Semana ${weekNumber}`;
 
       const challengeData = !querySnapshot.empty ? querySnapshot.docs[0].data() : {};
 
@@ -1328,15 +1334,15 @@ export default function HomeScreen({ navigation }: any) {
         title: challengeTitle,
         description:
           challengeData.description ||
-          t("gold_challenge_default_desc", userLang),
+          t("gold_challenge_default_desc", userLang) || "Desafio especial da semana.",
         concept:
           challengeData.concept ||
           challengeData.description ||
-          t("gold_challenge_default_concept", userLang),
+          t("gold_challenge_default_concept", userLang) || "Reforce seu elo com esta ação.",
         action:
           challengeData.action ||
           challengeData.description ||
-          t("gold_challenge_default_action", userLang),
+          t("gold_challenge_default_action", userLang) || "Realize o desafio e registre no diário.",
         pointsPE: 150,
         isGoldChallenge: true,
         phase: `gold_week_${weekNumber}`,
@@ -1373,7 +1379,7 @@ export default function HomeScreen({ navigation }: any) {
       return staticKeyTranslation;
     }
 
-    return DEFAULT_WEEK_THEMES[weekNum] || t("connection_rescue", userLang);
+    return DEFAULT_WEEK_THEMES[weekNum] || t("connection_rescue", userLang) || "Módulo do Elo";
   };
 
   const bannerWeekTheme = getDisplayThemeForWeek(visibleWeek);
@@ -1456,10 +1462,10 @@ export default function HomeScreen({ navigation }: any) {
         >
           <View style={styles.bannerLeftContent}>
             <Text style={styles.bannerSectionTitle}>
-              {t("week_tag", userLang, { week: visibleWeek })}
+              {t("week_tag", userLang, { week: visibleWeek }) || `SEMANA ${visibleWeek}`}
             </Text>
             <Text style={styles.bannerThemeTitle} numberOfLines={1}>
-              {isTrailUnlocked ? bannerWeekTheme : t("hidden_trail", userLang)}
+              {isTrailUnlocked ? bannerWeekTheme : t("hidden_trail", userLang) || "Trilha Bloqueada"}
             </Text>
           </View>
           <View style={styles.bannerRightDivider} />
@@ -1500,7 +1506,7 @@ export default function HomeScreen({ navigation }: any) {
                 ]}
               >
                 <Text style={styles.freeBadgeText}>
-                  {t("badge_free", userLang)}
+                  {t("badge_free", userLang) || "GRÁTIS"}
                 </Text>
               </Animated.View>
             )}
@@ -1515,13 +1521,13 @@ export default function HomeScreen({ navigation }: any) {
                 triggerHaptic("light");
                 if (hasCompletedAnamnesis) {
                   showCustomAlert(
-                    t("redo_assessment_title", userLang),
-                    t("redo_assessment_msg", userLang),
+                    t("redo_assessment_title", userLang) || "Refazer Diagnóstico",
+                    t("redo_assessment_msg", userLang) || "Deseja refazer a avaliação para recalibrar o Elo?",
                     "heartbeat",
                     "#EAB64A",
-                    t("btn_redo_assessment", userLang),
+                    t("btn_redo_assessment", userLang) || "Refazer",
                     () => navigation.navigate("AnamneseScreen"),
-                    t("btn_keep_current", userLang),
+                    t("btn_keep_current", userLang) || "Manter Atual",
                     () => {}
                   );
                 } else {
@@ -1536,12 +1542,12 @@ export default function HomeScreen({ navigation }: any) {
               />
             </TouchableOpacity>
             <Text style={styles.anamnesisTitle}>
-              {t("your_assessment_title", userLang)}
+              {t("your_assessment_title", userLang) || "Diagnóstico do Elo"}
             </Text>
             <Text style={styles.anamnesisSub}>
               {hasCompletedAnamnesis
-                ? t("diagnostic_completed", userLang)
-                : t("discover_temp_sub", userLang)}
+                ? t("diagnostic_completed", userLang) || "Diagnóstico Concluído"
+                : t("discover_temp_sub", userLang) || "Descubra a temperatura do casal"}
             </Text>
           </View>
 
@@ -1574,13 +1580,13 @@ export default function HomeScreen({ navigation }: any) {
                 triggerHaptic("light");
                 if (isMatchOrSoloDone) {
                   showCustomAlert(
-                    t("match_completed_title", userLang),
-                    t("match_completed_msg", userLang),
+                    t("match_completed_title", userLang) || "Match Ativo",
+                    t("match_completed_msg", userLang) || "Sua conexão está estabelecida.",
                     "check-circle",
                     "#67D4A8",
-                    t("btn_ok", userLang),
+                    t("btn_ok", userLang) || "OK",
                     () => {},
-                    t("btn_manage_match", userLang),
+                    t("btn_manage_match", userLang) || "Gerenciar Match",
                     () => navigation.navigate("Match")
                   );
                 } else {
@@ -1601,8 +1607,8 @@ export default function HomeScreen({ navigation }: any) {
               ]}
             >
               {isMatchOrSoloDone
-                ? t("match_completed_label", userLang)
-                : t("make_match_label", userLang)}
+                ? t("match_completed_label", userLang) || "Match Concluído"
+                : t("make_match_label", userLang) || "Fazer o Match"}
             </Text>
           </View>
 
@@ -1627,7 +1633,7 @@ export default function HomeScreen({ navigation }: any) {
                   <FontAwesome5 name="flag-checkered" size={28} color="#FFF" />
                 </TouchableOpacity>
                 <Text style={styles.mapLabelText}>
-                  {t("active_trail_label", userLang)}
+                  {t("active_trail_label", userLang) || "Trilha Ativa"}
                 </Text>
               </View>
             ) : (
@@ -1660,8 +1666,8 @@ export default function HomeScreen({ navigation }: any) {
                 </TouchableOpacity>
                 <Text style={[styles.mapLabelText, { color: "#202D3A" }]}>
                   {iAmReady
-                    ? t("waiting_partner_label", userLang, { name: pName })
-                    : t("press_play_label", userLang)}
+                    ? t("waiting_partner_label", userLang, { name: pName }) || `Aguardando ${pName}...`
+                    : t("press_play_label", userLang) || "Dar o Play na Jornada"}
                 </Text>
               </Animated.View>
             )}
@@ -1773,7 +1779,7 @@ export default function HomeScreen({ navigation }: any) {
                       <View style={styles.dashedLine} />
                       <View style={styles.weekTextWrapper}>
                         <Text style={styles.weekTitleText}>
-                          {t("week_tag", userLang, { week: weekNumber })}
+                          {t("week_tag", userLang, { week: weekNumber }) || `SEMANA ${weekNumber}`}
                         </Text>
                         <Text style={[styles.weekThemeText, { minHeight: 24 }]}>
                           {isTrailUnlocked
@@ -1793,7 +1799,6 @@ export default function HomeScreen({ navigation }: any) {
                       marginVertical: 5,
                     }}
                   >
-                    {/* NÓ PRINCIPAL DA TAREFA DO DIA */}
                     <View
                       style={[
                         styles.nodeWrapper,
@@ -1813,7 +1818,6 @@ export default function HomeScreen({ navigation }: any) {
                         }
                       }}
                     >
-                      {/* 🌟 ARO PULSANTE CENTRALIZADO E REANIMADO */}
                       {isNextUp && (
                         <Animated.View
                           style={{
@@ -1836,7 +1840,6 @@ export default function HomeScreen({ navigation }: any) {
                         </Animated.View>
                       )}
 
-                      {/* BASE 3D FÍSICA DO BOTÃO */}
                       <View
                         style={[
                           styles.nodeBase,
@@ -1881,7 +1884,6 @@ export default function HomeScreen({ navigation }: any) {
                         </Pressable>
                       </View>
 
-                      {/* 💖🔥 EFEITO FLUTUANTE DE CORAÇÕES E FOGO */}
                       {isActive && (
                         <View
                           style={[
@@ -1898,7 +1900,6 @@ export default function HomeScreen({ navigation }: any) {
                       )}
                     </View>
 
-                    {/* DESAFIO DE OURO ISOLADO */}
                     {isDay5 && (
                       <View
                         style={{
@@ -1946,10 +1947,10 @@ export default function HomeScreen({ navigation }: any) {
                             onPress={(e) => {
                               e.stopPropagation();
                               showCustomAlert(
-                                t("gold_challenge_locked_title", userLang),
+                                t("gold_challenge_locked_title", userLang) || "Desafio Bloqueado",
                                 t("gold_challenge_locked_msg", userLang, {
                                   progress: tasksDoneThisWeek,
-                                }),
+                                }) || `Complete 3 missões na semana para desbloquear este desafio. (${tasksDoneThisWeek}/3)`,
                                 "lock",
                                 "#EAB64A"
                               );
@@ -1963,7 +1964,7 @@ export default function HomeScreen({ navigation }: any) {
                           </TouchableOpacity>
                         )}
                         <Text style={styles.challengeLabel}>
-                          {t("challenge_label", userLang)}
+                          {t("challenge_label", userLang) || "DESAFIO DE OURO"}
                         </Text>
                         <View style={styles.challengeStarsRow}>
                           {[1, 2, 3].map((starNum) => (
@@ -1986,7 +1987,6 @@ export default function HomeScreen({ navigation }: any) {
               );
             })}
 
-            {/* 🏆 NÓ DO DIA 90 (TRAVA & CELEBRAÇÃO SIMPLES MVP) */}
             <View style={[styles.endNodeContainer, { marginTop: 40 }]}>
               <TouchableOpacity
                 style={[
@@ -2007,13 +2007,13 @@ export default function HomeScreen({ navigation }: any) {
                     );
                   } else if (hasCompletedAnamnesis && !isPremium) {
                     showCustomAlert(
-                      t("sub_required_title", userLang),
-                      t("sub_required_completion_msg", userLang),
+                      t("sub_required_title", userLang) || "Assinatura Necessária",
+                      t("sub_required_completion_msg", userLang) || "Assine para desbloquear todo o percurso até o Dia 90.",
                       "lock",
                       "#EAB64A",
-                      t("btn_see_plans", userLang),
+                      t("btn_see_plans", userLang) || "Ver Planos",
                       () => navigation.navigate("PaywallScreen"),
-                      t("btn_not_now", userLang),
+                      t("btn_not_now", userLang) || "Agora Não",
                       () => {}
                     );
                   } else {
@@ -2039,7 +2039,6 @@ export default function HomeScreen({ navigation }: any) {
         </View>
       </ScrollView>
 
-      {/* 🎯 BOTÃO FLUTUANTE GLOBAL */}
       {showFab && !isModalVisible && (
         <TouchableOpacity
           style={styles.floatingTargetBtn}
@@ -2053,7 +2052,6 @@ export default function HomeScreen({ navigation }: any) {
         </TouchableOpacity>
       )}
 
-      {/* MODAL DE MISSÃO */}
       <Modal
         visible={isModalVisible}
         animationType="slide"
@@ -2070,7 +2068,6 @@ export default function HomeScreen({ navigation }: any) {
         )}
       </Modal>
 
-      {/* MODAL DE SENHA MESTRA / ROSTO */}
       <MasterPasswordModal
         visible={isMasterPasswordModalVisible}
         userLanguage={userLang}
@@ -2087,7 +2084,6 @@ export default function HomeScreen({ navigation }: any) {
         }}
       />
 
-      {/* MODAL DE IDIOMAS */}
       <Modal visible={isLangModalVisible} transparent animationType="fade">
         <TouchableOpacity
           style={styles.modalOverlay}
@@ -2106,7 +2102,7 @@ export default function HomeScreen({ navigation }: any) {
                   triggerHaptic("light");
                   setUserLang(lang.code);
                   setIsLangModalVisible(false);
-                  if (currentUid)
+                  if (currentUid && auth.currentUser)
                     await setDoc(
                       doc(db, "users", currentUid),
                       { language: lang.code },
@@ -2121,7 +2117,6 @@ export default function HomeScreen({ navigation }: any) {
         </TouchableOpacity>
       </Modal>
 
-      {/* MODAL DE NOTIFICAÇÕES */}
       <Modal visible={isNotificationsVisible} transparent animationType="slide">
         <View style={styles.bottomSheetOverlay}>
           <View style={styles.bottomSheetContainer}>
@@ -2137,7 +2132,7 @@ export default function HomeScreen({ navigation }: any) {
             </View>
 
             <Text style={styles.bottomSheetTitle}>
-              {t("notifications_title", userLang)}
+              {t("notifications_title", userLang) || "Notificações"}
             </Text>
 
             {unreadNudges > 0 ? (
@@ -2149,20 +2144,20 @@ export default function HomeScreen({ navigation }: any) {
                 />
                 <View style={{ marginLeft: 12, flex: 1 }}>
                   <Text style={styles.nudgeTitle}>
-                    {t("nudge_title", userLang)}
+                    {t("nudge_title", userLang) || "Cutucada do Amor!"}
                   </Text>
                   <Text style={styles.nudgeText}>
-                    {t("nudge_text_part1", userLang)}{" "}
+                    {t("nudge_text_part1", userLang) || "Você recebeu"}{" "}
                     <Text style={{ fontFamily: "Montserrat_900Black" }}>
                       {unreadNudges}
                     </Text>{" "}
-                    {t("nudge_text_part2", userLang)}
+                    {t("nudge_text_part2", userLang) || "cutucada(s) para fazer a missão de hoje!"}
                   </Text>
                 </View>
               </View>
             ) : (
               <Text style={styles.bottomSheetText}>
-                {t("no_notifications_msg", userLang)}
+                {t("no_notifications_msg", userLang) || "Nenhuma notificação recente."}
               </Text>
             )}
 
@@ -2181,7 +2176,7 @@ export default function HomeScreen({ navigation }: any) {
                   style={{ marginRight: 8 }}
                 />
                 <Text style={styles.bottomSheetButtonPrimaryText}>
-                  {t("btn_nudge_partner", userLang)}
+                  {t("btn_nudge_partner", userLang) || "Cutucar Amor"}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -2189,7 +2184,7 @@ export default function HomeScreen({ navigation }: any) {
                 onPress={handleCloseNudges}
               >
                 <Text style={styles.bottomSheetButtonSecondaryText}>
-                  {t("modal_close", userLang)}
+                  {t("modal_close", userLang) || "Fechar"}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -2197,7 +2192,6 @@ export default function HomeScreen({ navigation }: any) {
         </View>
       </Modal>
 
-      {/* MODAL GERANDO JORNADA */}
       <Modal visible={isGeneratingJourney} transparent animationType="fade">
         <View style={styles.modalOverlayCenter}>
           <View style={styles.loadingCard}>
@@ -2207,16 +2201,15 @@ export default function HomeScreen({ navigation }: any) {
               style={{ transform: [{ scale: 1.5 }], marginBottom: 15 }}
             />
             <Text style={styles.codeModalTitle}>
-              {t("generating_journey_title", userLang)}
+              {t("generating_journey_title", userLang) || "Gerando sua Jornada..."}
             </Text>
             <Text style={styles.codeModalSub}>
-              {t("generating_journey_sub", userLang)}
+              {t("generating_journey_sub", userLang) || "Personalizando as 90 missões com base no seu perfil."}
             </Text>
           </View>
         </View>
       </Modal>
 
-      {/* ALERTAS CUSTOMIZADOS */}
       <Modal visible={customAlert.visible} transparent animationType="slide">
         <View style={styles.bottomSheetOverlay}>
           <View style={styles.bottomSheetContainer}>
@@ -2251,7 +2244,7 @@ export default function HomeScreen({ navigation }: any) {
                 }}
               >
                 <Text style={styles.bottomSheetButtonPrimaryText}>
-                  {customAlert.confirmText || t("btn_understand", userLang)}
+                  {customAlert.confirmText || t("btn_understand", userLang) || "Entendi"}
                 </Text>
               </TouchableOpacity>
 
@@ -2494,12 +2487,6 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     textAlign: "center",
     padding: 5,
-  },
-  goldChallengeWrapper: {
-    position: "absolute",
-    alignItems: "center",
-    zIndex: 99999,
-    elevation: 20,
   },
   goldBtnUnlocked: {
     width: 60,

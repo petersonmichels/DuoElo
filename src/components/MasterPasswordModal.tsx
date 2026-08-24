@@ -15,6 +15,7 @@ import {
   View,
 } from "react-native";
 import { auth } from "../config/firebase";
+import { t } from "../i18n/translations";
 import { logAuditEvent } from "../services/auditService";
 import {
   authenticateWithBiometrics,
@@ -49,42 +50,53 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
+    let isMounted = true;
+
     if (visible) {
       setPinInput("");
       setConfirmPinInput("");
       setErrorMessage("");
+
+      const initModal = async () => {
+        if (isMounted) setIsCheckingPinStatus(true);
+        try {
+          const exists = await hasSecurityPin();
+          if (isMounted) setIsPinCreated(exists);
+        } catch (e) {
+          if (isMounted) setIsPinCreated(false);
+        } finally {
+          if (isMounted) setIsCheckingPinStatus(false);
+        }
+      };
+
       initModal();
     }
-  }, [visible]);
 
-  // 🎯 INICIALIZAÇÃO SÍNCRONA E RESILIENTE DA CHECAGEM DE PIN
-  const initModal = async () => {
-    setIsCheckingPinStatus(true);
-    try {
-      const exists = await hasSecurityPin();
-      setIsPinCreated(exists);
-    } catch (e) {
-      setIsPinCreated(false);
-    } finally {
-      setIsCheckingPinStatus(false);
-    }
-  };
+    return () => {
+      isMounted = false;
+    };
+  }, [visible]);
 
   const handleBiometricPress = async () => {
     const success = await authenticateWithBiometrics();
     if (success) {
       const uid = auth.currentUser?.uid;
       if (uid) {
-        await logAuditEvent(
-          uid,
-          "MASTER_PASSWORD_VERIFIED",
-          "Acesso ao cofre liberado via Biometria/Rosto",
-          userLanguage
-        );
+        try {
+          await logAuditEvent(
+            uid,
+            "MASTER_PASSWORD_VERIFIED",
+            "Acesso ao cofre liberado via Biometria/Rosto",
+            userLanguage
+          );
+        } catch (e) {}
       }
       onSuccess("BIOMETRIC_UNLOCKED");
     } else {
-      setErrorMessage("Não foi possível autenticar com o Rosto/Biometria.");
+      setErrorMessage(
+        t("biometric_error_msg", userLanguage) ||
+          "Não foi possível autenticar com o Rosto/Biometria."
+      );
     }
   };
 
@@ -93,7 +105,10 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
     if (isLoading) return;
 
     if (!pinInput || pinInput.length < 4) {
-      setErrorMessage("O PIN de Segurança deve ter no mínimo 4 dígitos.");
+      setErrorMessage(
+        t("pin_min_length_msg", userLanguage) ||
+          "O PIN de Segurança deve ter no mínimo 4 dígitos."
+      );
       return;
     }
 
@@ -106,35 +121,45 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
         const isValid = await verifySecurityPin(pinInput);
         if (isValid) {
           if (uid) {
-            await logAuditEvent(
-              uid,
-              "MASTER_PASSWORD_VERIFIED",
-              "Acesso ao cofre liberado via PIN de Segurança",
-              userLanguage
-            );
+            try {
+              await logAuditEvent(
+                uid,
+                "MASTER_PASSWORD_VERIFIED",
+                "Acesso ao cofre liberado via PIN de Segurança",
+                userLanguage
+              );
+            } catch (e) {}
           }
           setIsLoading(false);
           onSuccess(pinInput);
         } else {
           setIsLoading(false);
-          setErrorMessage("PIN de Segurança incorreto. Tente novamente.");
+          setErrorMessage(
+            t("pin_incorrect_msg", userLanguage) ||
+              "PIN de Segurança incorreto. Tente novamente."
+          );
         }
       } else {
         if (pinInput !== confirmPinInput) {
           setIsLoading(false);
-          setErrorMessage("Os PINs digitados não coincidem.");
+          setErrorMessage(
+            t("pins_dont_match_msg", userLanguage) ||
+              "Os PINs digitados não coincidem."
+          );
           return;
         }
 
         await setSecurityPin(pinInput);
 
         if (uid) {
-          await logAuditEvent(
-            uid,
-            "MASTER_PASSWORD_CHANGED",
-            "Senha Mestra / PIN de Segurança cadastrado com sucesso",
-            userLanguage
-          );
+          try {
+            await logAuditEvent(
+              uid,
+              "MASTER_PASSWORD_CHANGED",
+              "Senha Mestra / PIN de Segurança cadastrado com sucesso",
+              userLanguage
+            );
+          } catch (e) {}
         }
 
         setIsPinCreated(true);
@@ -143,28 +168,37 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
       }
     } catch (error) {
       setIsLoading(false);
-      setErrorMessage("Erro ao processar PIN de Segurança.");
+      setErrorMessage(
+        t("pin_process_error_msg", userLanguage) ||
+          "Erro ao processar PIN de Segurança."
+      );
     }
   };
 
   const handleForgotPin = () => {
     Alert.alert(
-      "Redefinir PIN de Segurança",
-      "Para cadastrar um novo PIN, será necessário realizar o login novamente com sua conta por motivos de segurança. Deseja continuar?",
+      t("reset_pin_title", userLanguage) || "Redefinir PIN de Segurança",
+      t("reset_pin_msg", userLanguage) ||
+        "Para cadastrar um novo PIN, será necessário realizar o login novamente com sua conta por motivos de segurança. Deseja continuar?",
       [
-        { text: "Cancelar", style: "cancel" },
         {
-          text: "Redefinir e Sair",
+          text: t("modal_cancel", userLanguage) || "Cancelar",
+          style: "cancel",
+        },
+        {
+          text: t("btn_reset_logout", userLanguage) || "Redefinir e Sair",
           style: "destructive",
           onPress: async () => {
             const uid = auth.currentUser?.uid;
             if (uid) {
-              await logAuditEvent(
-                uid,
-                "MASTER_PASSWORD_RESET_REQUESTED",
-                "Redefinição de PIN solicitada com deslogamento",
-                userLanguage
-              );
+              try {
+                await logAuditEvent(
+                  uid,
+                  "MASTER_PASSWORD_RESET_REQUESTED",
+                  "Redefinição de PIN solicitada com deslogamento",
+                  userLanguage
+                );
+              } catch (e) {}
             }
             await clearSecurityPin();
             await signOut(auth);
@@ -192,8 +226,15 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
             {isCheckingPinStatus ? (
               <View style={{ paddingVertical: 40, alignItems: "center" }}>
                 <ActivityIndicator size="large" color="#EAB64A" />
-                <Text style={{ fontFamily: "Montserrat_600SemiBold", color: "#60646C", marginTop: 12 }}>
-                  Verificando segurança...
+                <Text
+                  style={{
+                    fontFamily: "Montserrat_600SemiBold",
+                    color: "#60646C",
+                    marginTop: 12,
+                  }}
+                >
+                  {t("checking_security_msg", userLanguage) ||
+                    "Verificando segurança..."}
                 </Text>
               </View>
             ) : (
@@ -209,14 +250,20 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
                 </TouchableOpacity>
 
                 <Text style={styles.title}>
-                  {title || (isPinCreated ? "🔒 PIN ou Rosto" : "🔑 Criar PIN de Segurança")}
+                  {title ||
+                    (isPinCreated
+                      ? t("pin_modal_title_unlock", userLanguage) || "🔒 PIN ou Rosto"
+                      : t("pin_modal_title_create", userLanguage) ||
+                        "🔑 Criar PIN de Segurança")}
                 </Text>
 
                 <Text style={styles.subtitle}>
                   {subtitle ||
                     (isPinCreated
-                      ? "Use o Reconhecimento Facial ou informe seu PIN."
-                      : "Crie um PIN de Segurança de 4 dígitos para proteger suas informações.")}
+                      ? t("pin_modal_sub_unlock", userLanguage) ||
+                        "Use o Reconhecimento Facial ou informe seu PIN."
+                      : t("pin_modal_sub_create", userLanguage) ||
+                        "Crie um PIN de Segurança de 4 dígitos para proteger suas informações.")}
                 </Text>
 
                 {errorMessage ? (
@@ -230,7 +277,10 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
                   keyboardType="numeric"
                   maxLength={6}
                   placeholder={
-                    isPinCreated ? "Digite seu PIN" : "Crie um PIN (mín. 4 dígitos)"
+                    isPinCreated
+                      ? t("placeholder_enter_pin", userLanguage) || "Digite seu PIN"
+                      : t("placeholder_create_pin", userLanguage) ||
+                        "Crie um PIN (mín. 4 dígitos)"
                   }
                   placeholderTextColor="#AFAFAF"
                   value={pinInput}
@@ -239,7 +289,6 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
                     setErrorMessage("");
                   }}
                   style={styles.input}
-                  // 🚫 BLOQUEIO DO POPUP DO GOOGLE AUTOFILL
                   importantForAutofill="no"
                   autoComplete="off"
                   textContentType="oneTimeCode"
@@ -250,7 +299,10 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
                     secureTextEntry
                     keyboardType="numeric"
                     maxLength={6}
-                    placeholder="Confirme seu PIN"
+                    placeholder={
+                      t("placeholder_confirm_pin", userLanguage) ||
+                      "Confirme seu PIN"
+                    }
                     placeholderTextColor="#AFAFAF"
                     value={confirmPinInput}
                     onChangeText={(txt) => {
@@ -258,7 +310,6 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
                       setErrorMessage("");
                     }}
                     style={[styles.input, { marginTop: 10 }]}
-                    // 🚫 BLOQUEIO DO POPUP DO GOOGLE AUTOFILL
                     importantForAutofill="no"
                     autoComplete="off"
                     textContentType="oneTimeCode"
@@ -274,7 +325,9 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
                     <ActivityIndicator color="#FFF" />
                   ) : (
                     <Text style={styles.btnPrimaryText}>
-                      {isPinCreated ? "Confirmar PIN" : "Cadastrar PIN"}
+                      {isPinCreated
+                        ? t("btn_confirm_pin", userLanguage) || "Confirmar PIN"
+                        : t("btn_register_pin", userLanguage) || "Cadastrar PIN"}
                     </Text>
                   )}
                 </TouchableOpacity>
@@ -285,18 +338,28 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
                     onPress={handleBiometricPress}
                   >
                     <FontAwesome5 name="smile" size={18} color="#202D3A" />
-                    <Text style={styles.btnBiometricsText}>Desbloquear com Rosto / Biometria</Text>
+                    <Text style={styles.btnBiometricsText}>
+                      {t("btn_unlock_biometrics", userLanguage) ||
+                        "Desbloquear com Rosto / Biometria"}
+                    </Text>
                   </TouchableOpacity>
                 )}
 
                 {isPinCreated && (
-                  <TouchableOpacity style={styles.btnForgot} onPress={handleForgotPin}>
-                    <Text style={styles.btnForgotText}>Esqueci meu PIN</Text>
+                  <TouchableOpacity
+                    style={styles.btnForgot}
+                    onPress={handleForgotPin}
+                  >
+                    <Text style={styles.btnForgotText}>
+                      {t("btn_forgot_pin", userLanguage) || "Esqueci meu PIN"}
+                    </Text>
                   </TouchableOpacity>
                 )}
 
                 <TouchableOpacity style={styles.btnSecondary} onPress={onCancel}>
-                  <Text style={styles.btnSecondaryText}>Cancelar</Text>
+                  <Text style={styles.btnSecondaryText}>
+                    {t("modal_cancel", userLanguage) || "Cancelar"}
+                  </Text>
                 </TouchableOpacity>
               </>
             )}

@@ -24,12 +24,12 @@ export interface RiskDiagnosis {
 const MODULE_WEIGHTS: Record<number, number> = {
   1: 10.0, // Início Áspero
   2: 10.0, // Os 4 Cavaleiros
-  3: 6.0, // Inundação Emocional
-  4: 7.0, // Reatividade Fisiológica
-  5: 6.0, // Falha na Reparação
-  6: 6.0, // Más Memórias / RAM
-  7: 6.0, // Carga Mental Invisível
-  8: 5.0, // Instabilidade Financeira
+  3: 6.0,  // Inundação Emocional
+  4: 7.0,  // Reatividade Fisiológica
+  5: 6.0,  // Falha na Reparação
+  6: 6.0,  // Más Memórias / RAM
+  7: 6.0,  // Carga Mental Invisível
+  8: 5.0,  // Instabilidade Financeira
   9: 10.0, // Neuroquímica e Intimidade
 };
 
@@ -39,22 +39,25 @@ const MODULE_WEIGHTS: Record<number, number> = {
  * @returns RiskDiagnosis com pontuação, zona de risco e chaves i18n
  */
 export function calculateThermometer(
-  answers: AnamnesisAnswer[],
+  answers: AnamnesisAnswer[]
 ): RiskDiagnosis {
   let totalScore = 0;
   const criticalModules: number[] = [];
 
-  answers.forEach((answer) => {
-    const weight = MODULE_WEIGHTS[answer.moduleId] || 1.0;
-    const moduleRisk = answer.points * weight;
+  if (answers && Array.isArray(answers)) {
+    answers.forEach((answer) => {
+      const points = Number(answer.points) || 0;
+      const weight = MODULE_WEIGHTS[answer.moduleId] || 1.0;
+      const moduleRisk = points * weight;
 
-    totalScore += moduleRisk;
+      totalScore += moduleRisk;
 
-    // Marca módulos críticos para intervenção no Algoritmo Sniper
-    if (answer.points >= 8) {
-      criticalModules.push(answer.moduleId);
-    }
-  });
+      // Marca módulos críticos para intervenção no Algoritmo Sniper
+      if (points >= 8 && !criticalModules.includes(answer.moduleId)) {
+        criticalModules.push(answer.moduleId);
+      }
+    });
+  }
 
   let zone: "GREEN" | "YELLOW" | "RED";
   let titleKey: string;
@@ -76,7 +79,7 @@ export function calculateThermometer(
   }
 
   return {
-    totalScore,
+    totalScore: Math.round(totalScore),
     zone,
     criticalModules,
     titleKey,

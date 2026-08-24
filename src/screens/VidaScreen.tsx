@@ -43,6 +43,10 @@ export default function VidaScreen({ navigation }: any) {
   const [partnerDesires, setPartnerDesires] = useState<{ [week: number]: string }>({});
   const [myPurchases, setMyPurchases] = useState<{ [week: number]: { status: string; giftId: string } }>({});
   const [partnerPurchases, setPartnerPurchases] = useState<{ [week: number]: { status: string; giftId: string } }>({});
+  
+  // Confirmações para controle de Cards na Vida
+  const [myConfirmations, setMyConfirmations] = useState<{ [week: number]: boolean }>({});
+  const [partnerConfirmations, setPartnerConfirmations] = useState<{ [week: number]: boolean }>({});
 
   const userLang = userData?.language || "pt-BR";
   const todayStr = new Date().toISOString().split("T")[0];
@@ -56,71 +60,123 @@ export default function VidaScreen({ navigation }: any) {
       return;
     }
 
-    const unsubscribeUser = onSnapshot(doc(db, "users", uid), (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setUserData(data);
+    const unsubscribeUser = onSnapshot(
+      doc(db, "users", uid),
+      (docSnap) => {
+        if (!auth.currentUser) return;
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setUserData(data);
 
-        if (data.habitsCompletedDate === todayStr) {
-          setCompletedToday(data.completedHabitsToday || []);
-        } else {
-          setCompletedToday([]);
+          if (data.habitsCompletedDate === todayStr) {
+            setCompletedToday(data.completedHabitsToday || []);
+          } else {
+            setCompletedToday([]);
+          }
+        }
+        setLoading(false);
+      },
+      (error) => {
+        if (error.code === "permission-denied") {
+          console.log("[VidaScreen] Listener de usuário encerrado.");
         }
       }
-      setLoading(false);
-    });
+    );
 
     return () => unsubscribeUser();
   }, [uid, todayStr]);
 
   // 2. Escuta Dados do Parceiro
   useEffect(() => {
-    if (!partnerUid) {
+    if (!partnerUid || !auth.currentUser) {
       setPartnerData(null);
       return;
     }
 
-    const unsubscribePartner = onSnapshot(doc(db, "users", partnerUid), (docSnap) => {
-      if (docSnap.exists()) {
-        setPartnerData(docSnap.data());
+    const unsubscribePartner = onSnapshot(
+      doc(db, "users", partnerUid),
+      (docSnap) => {
+        if (!auth.currentUser) return;
+        if (docSnap.exists()) {
+          setPartnerData(docSnap.data());
+        }
+      },
+      (error) => {
+        if (error.code === "permission-denied") {
+          console.log("[VidaScreen] Listener de parceiro encerrado.");
+        }
       }
-    });
+    );
 
     return () => unsubscribePartner();
   }, [partnerUid]);
 
   // 3. Escuta Subcoleções da Loja
   useEffect(() => {
-    if (!uid) return;
+    if (!uid || !auth.currentUser) return;
 
-    const unSubDesires = onSnapshot(doc(db, "users", uid, "shop", "desires"), (snap) => {
-      if (snap.exists()) setMyDesires(snap.data().list || {});
-    });
+    const unSubDesires = onSnapshot(
+      doc(db, "users", uid, "shop", "desires"),
+      (snap) => {
+        if (!auth.currentUser) return;
+        if (snap.exists()) setMyDesires(snap.data().list || {});
+      }
+    );
 
-    const unSubRedemptions = onSnapshot(doc(db, "users", uid, "shop", "redemptions"), (snap) => {
-      if (snap.exists()) setMyPurchases(snap.data() || {});
-    });
+    const unSubRedemptions = onSnapshot(
+      doc(db, "users", uid, "shop", "redemptions"),
+      (snap) => {
+        if (!auth.currentUser) return;
+        if (snap.exists()) setMyPurchases(snap.data() || {});
+      }
+    );
+
+    const unSubConfirmations = onSnapshot(
+      doc(db, "users", uid, "shop", "confirmations"),
+      (snap) => {
+        if (!auth.currentUser) return;
+        if (snap.exists()) setMyConfirmations(snap.data() || {});
+      }
+    );
 
     return () => {
       unSubDesires();
       unSubRedemptions();
+      unSubConfirmations();
     };
   }, [uid]);
 
   useEffect(() => {
-    if (!partnerUid) return;
+    if (!partnerUid || !auth.currentUser) return;
 
-    const unSubPartnerDesires = onSnapshot(doc(db, "users", partnerUid, "shop", "desires"), (snap) => {
-      if (snap.exists()) setPartnerDesires(snap.data().list || {});
-    });
+    const unSubPartnerDesires = onSnapshot(
+      doc(db, "users", partnerUid, "shop", "desires"),
+      (snap) => {
+        if (!auth.currentUser) return;
+        if (snap.exists()) setPartnerDesires(snap.data().list || {});
+      }
+    );
 
-    const unSubPartnerRedemptions = onSnapshot(doc(db, "users", partnerUid, "shop", "redemptions"), (snap) => {
-      if (snap.exists()) setPartnerPurchases(snap.data() || {});
-    });
+    const unSubPartnerRedemptions = onSnapshot(
+      doc(db, "users", partnerUid, "shop", "redemptions"),
+      (snap) => {
+        if (!auth.currentUser) return;
+        if (snap.exists()) setPartnerPurchases(snap.data() || {});
+      }
+    );
+
+    const unSubPartnerConfirmations = onSnapshot(
+      doc(db, "users", partnerUid, "shop", "confirmations"),
+      (snap) => {
+        if (!auth.currentUser) return;
+        if (snap.exists()) setPartnerConfirmations(snap.data() || {});
+      }
+    );
 
     return () => {
       unSubPartnerDesires();
       unSubPartnerRedemptions();
+      unSubPartnerConfirmations();
     };
   }, [partnerUid]);
 
@@ -172,12 +228,11 @@ export default function VidaScreen({ navigation }: any) {
     );
   }
 
-  // 🔎 VARREDURA DE PENDÊNCIAS DO SISTEMA
   const hasPhoto = !!(userData?.photoURL || userData?.photoUrl);
   const hasPartner = !!userData?.partnerId;
   const isSoloMode = !!userData?.isSoloMode;
+  const pendingMatchRequest = userData?.pendingMatchRequest;
 
-  // 📋 VALIDAÇÃO DE DADOS PESSOAIS (Nome e Telefone/DDI preenchidos)
   const hasName = !!(userData?.billingFirstName || userData?.firstName || userData?.displayName);
   const hasPhone = !!(userData?.billingPhone || userData?.phone || userData?.phoneNumber);
   const hasCompleteProfileData = hasName && hasPhone;
@@ -191,31 +246,49 @@ export default function VidaScreen({ navigation }: any) {
     (userData?.currentPhase && userData.currentPhase > 0) ||
     (userData?.currentWeek && userData.currentWeek > 0);
 
-  // 🎯 CHECAGEM RIGOROSA DA MISSÃO DO DIA (Avaliando todas as flags de conclusão/espera)
   const currentPhase = userData?.currentPhase || 1;
   const currentWeek = Math.min(13, Math.floor((currentPhase - 1) / 7) + 1);
-  const lastTaskDate = userData?.lastTaskDate;
-  
-  // Se o usuário concluiu a tarefa hoje, se a flag de tarefa completa estiver true, ou se estiver aguardando o timer, NÃO há missão pendente
+
+  // 🎯 CHECAGEM RIGOROSA DA MISSÃO DO DIA
+  const lastTaskDateObj = userData?.lastTaskDate ? new Date(userData.lastTaskDate) : null;
+  const todayDate = new Date();
+
+  const hasCompletedTaskToday = Boolean(
+    lastTaskDateObj &&
+      lastTaskDateObj.getDate() === todayDate.getDate() &&
+      lastTaskDateObj.getMonth() === todayDate.getMonth() &&
+      lastTaskDateObj.getFullYear() === todayDate.getFullYear()
+  );
+
+  const bypassDailyLock = Boolean(userData?.bypassDailyLock);
+
   const isMissionDoneToday =
-    lastTaskDate === todayStr ||
+    (hasCompletedTaskToday && !bypassDailyLock) ||
     userData?.isDailyTaskCompleted === true ||
     userData?.dailyTaskDone === true ||
     userData?.isTaskPending === false;
 
-  // Economia de Presentes da Loja
   const userBonds = userData?.totalPE || userData?.pointsPE || 0;
-  const partnerName = partnerData?.displayName || partnerData?.billingFirstName || t("partner_default_name", userLang);
+  const partnerName = partnerData?.displayName || partnerData?.billingFirstName || t("partner_default_name", userLang) || "Seu Amor";
 
-  // Presentes a entregar e confirmar
-  const hasGiftToDeliver = Object.entries(myPurchases).some(
-    ([_, val]: [string, any]) => val && val.status === "bought"
-  );
-  const hasGiftToConfirm = Object.entries(partnerPurchases).some(
-    ([_, val]: [string, any]) => val && val.status === "delivered"
+  // 1. Mostrar o Card para Eu entregar um Presente
+  const hasGiftToDeliver = Object.entries(myPurchases || {}).some(
+    ([weekNum, purchase]: [string, any]) => {
+      const isBought = purchase?.status === "bought";
+      return isBought;
+    }
   );
 
-  // Presente do parceiro para comprar
+  // 2. Mostrar o Card para Eu Confirmar que Recebi
+  const hasGiftToConfirm = Object.entries(partnerPurchases || {}).some(
+    ([weekNum, purchase]: [string, any]) => {
+      const isDelivered = purchase?.status === "delivered";
+      const isConfirmedByMe = Boolean((myConfirmations as any)?.[weekNum]);
+      // Só mostra SE foi entregue E ainda não confirmamos
+      return isDelivered && !isConfirmedByMe;
+    }
+  );
+
   const partnerCurrentWeekGiftId = partnerDesires[currentWeek];
   const myPurchaseCurrentWeek = myPurchases[currentWeek];
 
@@ -225,11 +298,8 @@ export default function VidaScreen({ navigation }: any) {
     (!myPurchaseCurrentWeek || myPurchaseCurrentWeek.status === "none");
 
   const hasEnoughBondsToBuy = userBonds >= 150;
-
-  // Escolha do meu presente
   const hasSelectedMyCurrentWeekGift = !!myDesires[currentWeek];
 
-  // Hábitos Atômicos e Personalizados
   const activeHabitIds: string[] = userData?.activeHabits || [
     "water_morning",
     "water_lunch",
@@ -243,7 +313,7 @@ export default function VidaScreen({ navigation }: any) {
   ).map((h) => ({
     id: h.id,
     icon: h.icon,
-    title: t(h.titleKey, userLang),
+    title: t(h.titleKey, userLang) || h.id,
     points: h.points,
     frequency: h.frequency,
   }));
@@ -268,13 +338,30 @@ export default function VidaScreen({ navigation }: any) {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        
-        {/* 1. SEÇÃO DE ESTRUTURA DO ELO E ONBOARDING */}
-        {(!hasPhoto || !hasCompleteProfileData || (!hasPartner && !isSoloMode) || !isJourneyActive) && (
+        {(pendingMatchRequest || !hasPhoto || !hasCompleteProfileData || (!hasPartner && !isSoloMode) || !isJourneyActive) && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Estrutura do Seu Elo</Text>
 
-            {/* ADICIONAR FOTO DE PERFIL */}
+            {/* 💌 CONVITE DE MATCH PENDENTE */}
+            {pendingMatchRequest && (
+              <TouchableOpacity
+                style={styles.actionCardHighlightMatch}
+                activeOpacity={0.8}
+                onPress={() => navigation.navigate("Match")}
+              >
+                <View style={[styles.iconBox, { backgroundColor: "#EAB64A" }]}>
+                  <FontAwesome5 name="envelope-open-text" size={18} color="#FFF" />
+                </View>
+                <View style={styles.cardInfo}>
+                  <Text style={styles.cardTitleHighlight}>Convite de Conexão Recebido!</Text>
+                  <Text style={styles.cardSubHighlight}>
+                    {pendingMatchRequest.fromName || "Alguém"} enviou um convite para conectar o Elo.
+                  </Text>
+                </View>
+                <FontAwesome5 name="chevron-right" size={14} color="#202D3A" />
+              </TouchableOpacity>
+            )}
+
             {!hasPhoto && (
               <TouchableOpacity
                 style={styles.actionCard}
@@ -292,7 +379,6 @@ export default function VidaScreen({ navigation }: any) {
               </TouchableOpacity>
             )}
 
-            {/* 📋 PREENCHER DADOS PESSOAIS */}
             {!hasCompleteProfileData && (
               <TouchableOpacity
                 style={styles.actionCard}
@@ -310,8 +396,7 @@ export default function VidaScreen({ navigation }: any) {
               </TouchableOpacity>
             )}
 
-            {/* CONECTAR PARCEIRO */}
-            {!hasPartner && !isSoloMode && (
+            {!hasPartner && !isSoloMode && !pendingMatchRequest && (
               <TouchableOpacity
                 style={styles.actionCard}
                 activeOpacity={0.8}
@@ -328,7 +413,6 @@ export default function VidaScreen({ navigation }: any) {
               </TouchableOpacity>
             )}
 
-            {/* BÚSSOLA DE DIAGNÓSTICO */}
             {!isJourneyActive && (
               <TouchableOpacity
                 style={styles.actionCard}
@@ -348,7 +432,6 @@ export default function VidaScreen({ navigation }: any) {
           </View>
         )}
 
-        {/* 2. SEÇÃO DE AÇÕES DA JORNADA PRINCIPAL E LOJA */}
         {(!isMissionDoneToday ||
           !hasSelectedMyCurrentWeekGift ||
           hasGiftToDeliver ||
@@ -357,7 +440,6 @@ export default function VidaScreen({ navigation }: any) {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Ações da Jornada Principal</Text>
 
-            {/* MISSÃO DO DIA PENDENTE */}
             {!isMissionDoneToday && (
               <TouchableOpacity
                 style={styles.actionCardHighlight}
@@ -379,7 +461,7 @@ export default function VidaScreen({ navigation }: any) {
               <TouchableOpacity
                 style={[styles.actionCard, { borderColor: "#EAB64A", backgroundColor: "#FFF9E6" }]}
                 activeOpacity={0.8}
-                onPress={() => navigation.navigate("MainTabs", { screen: "Loja" })}
+                onPress={() => navigation.navigate("MainTabs", { screen: "Loja", params: { initialTab: "partner" } })}
               >
                 <View style={[styles.iconBox, { backgroundColor: "#EAB64A" }]}>
                   <FontAwesome5 name="gift" size={18} color="#FFF" />
@@ -396,7 +478,7 @@ export default function VidaScreen({ navigation }: any) {
               <TouchableOpacity
                 style={[styles.actionCard, { borderColor: "#67D4A8", backgroundColor: "#E8F4F1" }]}
                 activeOpacity={0.8}
-                onPress={() => navigation.navigate("MainTabs", { screen: "Loja" })}
+                onPress={() => navigation.navigate("MainTabs", { screen: "Loja", params: { initialTab: "my" } })}
               >
                 <View style={[styles.iconBox, { backgroundColor: "#67D4A8" }]}>
                   <FontAwesome5 name="heart" size={18} color="#FFF" />
@@ -415,7 +497,7 @@ export default function VidaScreen({ navigation }: any) {
                 activeOpacity={0.8}
                 onPress={() =>
                   hasEnoughBondsToBuy
-                    ? navigation.navigate("MainTabs", { screen: "Loja" })
+                    ? navigation.navigate("MainTabs", { screen: "Loja", params: { initialTab: "partner" } })
                     : navigation.navigate("MainTabs", { screen: "Home" })
                 }
               >
@@ -451,7 +533,7 @@ export default function VidaScreen({ navigation }: any) {
               <TouchableOpacity
                 style={styles.actionCard}
                 activeOpacity={0.8}
-                onPress={() => navigation.navigate("MainTabs", { screen: "Loja" })}
+                onPress={() => navigation.navigate("MainTabs", { screen: "Loja", params: { initialTab: "my" } })}
               >
                 <View style={[styles.iconBox, { backgroundColor: "#F9EBF7" }]}>
                   <FontAwesome5 name="heart" size={18} color="#D066B3" />
@@ -466,7 +548,6 @@ export default function VidaScreen({ navigation }: any) {
           </View>
         )}
 
-        {/* 3. SEÇÃO DE HÁBITOS DA VIDA */}
         <View style={styles.section}>
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.sectionTitle}>SUAS AÇÕES DA VIDA</Text>
@@ -507,7 +588,7 @@ export default function VidaScreen({ navigation }: any) {
                     <View style={styles.badgeRow}>
                       <Text style={styles.pointsBadge}>+{habit.points} Bonds</Text>
                       <Text style={styles.freqBadge}>
-                        • {habit.frequency === "weekly" ? t("frequency_weekly", userLang) : t("frequency_daily", userLang)}
+                        • {habit.frequency === "weekly" ? (t("frequency_weekly", userLang) || "Semanal") : (t("frequency_daily", userLang) || "Diário")}
                       </Text>
                     </View>
                   </View>
@@ -579,6 +660,16 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginBottom: 10,
     borderWidth: 1.5,
+    borderColor: "#EAB64A",
+  },
+  actionCardHighlightMatch: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFF9E6",
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 10,
+    borderWidth: 2,
     borderColor: "#EAB64A",
   },
   iconBox: {
