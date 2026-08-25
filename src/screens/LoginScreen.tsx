@@ -1,4 +1,5 @@
 import { FontAwesome5 } from "@expo/vector-icons";
+import * as Sentry from "@sentry/react-native";
 import * as AppleAuthentication from "expo-apple-authentication";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import {
@@ -642,6 +643,10 @@ export default function LoginScreen({ navigation }: any) {
         return;
       }
 
+      Sentry.captureException(error, {
+        extra: { provider: "Google", userLang },
+      });
+
       showCustomAlert(
         t("login_canceled_title", userLang) || "Login Cancelado",
         t("login_canceled_msg", userLang) || "A autenticação com o Google não pôde ser concluída.",
@@ -742,6 +747,11 @@ export default function LoginScreen({ navigation }: any) {
       if (error?.code === "ERR_REQUEST_CANCELED") {
         return;
       }
+
+      Sentry.captureException(error, {
+        extra: { provider: "Apple", userLang },
+      });
+
       showCustomAlert(
         t("apple_login_error_title", userLang) || "Erro Apple Sign-In",
         t("apple_login_error_msg", userLang) || "Falha ao autenticar com Apple.",

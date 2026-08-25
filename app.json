@@ -17,7 +17,12 @@
         "NSCameraUsageDescription": "Permite capturar fotos de perfil e personalizar o diário do casal.",
         "NSPhotoLibraryUsageDescription": "Permite selecionar imagens para personalizar o perfil do casal.",
         "LSApplicationQueriesSchemes": [
-          "whatsapp"
+          "whatsapp",
+          "mailto",
+          "instagram",
+          "tiktok",
+          "https",
+          "http"
         ]
       }
     },
