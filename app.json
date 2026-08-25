@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "DuoElo",
-    "slug": "duoelo",
+    "slug": "duelo",
     "scheme": "duoelo",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -64,6 +64,7 @@
       "eas": {
         "projectId": "b6c6d761-02e8-4028-a22d-4bbc774023d6"
       }
-    }
+    },
+    "owner": "petersonmichels"
   }
 }

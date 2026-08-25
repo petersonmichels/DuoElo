@@ -440,7 +440,6 @@ export default function HomeScreen({ navigation }: any) {
     return () => unsubscribeAuth();
   }, []);
 
-  // 🟢 ESCUTA DE USUÁRIO COM SILENCIAMENTO NO LOGOUT
   useEffect(() => {
     if (!currentUid) {
       setUserData(null);
@@ -503,7 +502,6 @@ export default function HomeScreen({ navigation }: any) {
     }
   }, [currentUid, userData]);
 
-  // 🟢 ESCUTA DO PARCEIRO COM SILENCIAMENTO NO LOGOUT
   useEffect(() => {
     if (!userData?.partnerId || !auth.currentUser) {
       setPartnerData(null);

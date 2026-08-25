@@ -28,7 +28,6 @@ try {
   Haptics = require("expo-haptics");
 } catch (e) {}
 
-// Adicionamos a prop `route` para capturar a aba enviada pela tela VIDA
 export default function ShopScreen({ userData, partnerData, navigation, route }: any) {
   const currentUid = auth.currentUser?.uid;
   const partnerUid = userData?.partnerId;
@@ -63,7 +62,6 @@ export default function ShopScreen({ userData, partnerData, navigation, route }:
     } catch (e) {}
   };
 
-  // 🟢 ABA ATIVA DA LOJA (Se Solo, abre na Lista Pessoal por padrão)
   const [activeTab, setActiveTab] = useState<"partner" | "my">(
     !partnerUid && isSoloMode ? "my" : "partner"
   );
@@ -112,7 +110,6 @@ export default function ShopScreen({ userData, partnerData, navigation, route }:
     setCustomAlert({ visible: true, title, message, icon, color });
   };
 
-  // Garantia de saldo nunca negativo na leitura local
   const rawBonds = userData?.totalPE ?? userData?.pointsPE ?? 0;
   const currentBonds = Math.max(0, rawBonds);
 
@@ -139,7 +136,6 @@ export default function ShopScreen({ userData, partnerData, navigation, route }:
     }
   }, [partnerUid, isSoloMode, route?.params?.initialTab]);
 
-  // 1. Leitura em Tempo Real (Perfil Logado)
   useEffect(() => {
     if (!currentUid || !auth.currentUser) return;
 
@@ -186,7 +182,6 @@ export default function ShopScreen({ userData, partnerData, navigation, route }:
     };
   }, [currentUid]);
 
-  // 2. Leitura em Tempo Real (Perfil do Parceiro)
   useEffect(() => {
     if (!partnerUid || !auth.currentUser) return;
 
@@ -299,7 +294,6 @@ export default function ShopScreen({ userData, partnerData, navigation, route }:
     setIsBuying(true);
 
     try {
-      // Cálculo seguro: impede saldo negativo no banco de dados
       const newBalance = Math.max(0, currentBonds - cost);
 
       await setDoc(
@@ -314,7 +308,6 @@ export default function ShopScreen({ userData, partnerData, navigation, route }:
         { merge: true }
       );
 
-      // Atualiza o saldo diretamente para o valor absoluto calculado
       await setDoc(
         doc(db, "users", currentUid),
         {

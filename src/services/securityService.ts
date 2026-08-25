@@ -14,11 +14,55 @@ const TIMEOUT_MINUTES = 5;
 let activeSessionPin: string | null = null;
 let lastUnlockTimestamp: number | null = null;
 
+// 🔒 CONTROLE GLOBAL DE SESSÃO DESBLOQUEADA
+let sessionUnlocked = false;
+
+export function isSessionUnlocked(): boolean {
+  if (sessionUnlocked) {
+    if (lastUnlockTimestamp) {
+      const elapsedMinutes = (Date.now() - lastUnlockTimestamp) / (1000 * 60);
+      if (elapsedMinutes > TIMEOUT_MINUTES) {
+        lockSession();
+        return false;
+      }
+    }
+    lastUnlockTimestamp = Date.now();
+    return true;
+  }
+
+  if (!activeSessionPin || !lastUnlockTimestamp) return false;
+
+  const elapsedMinutes = (Date.now() - lastUnlockTimestamp) / (1000 * 60);
+  if (elapsedMinutes > TIMEOUT_MINUTES) {
+    lockSession();
+    return false;
+  }
+
+  lastUnlockTimestamp = Date.now();
+  return true;
+}
+
+export function setSessionUnlocked(unlocked: boolean): void {
+  sessionUnlocked = unlocked;
+  if (unlocked) {
+    lastUnlockTimestamp = Date.now();
+  } else {
+    activeSessionPin = null;
+    lastUnlockTimestamp = null;
+  }
+}
+
+export function lockSession(): void {
+  sessionUnlocked = false;
+  activeSessionPin = null;
+  lastUnlockTimestamp = null;
+}
+
 function getCurrentUserUid(): string | null {
   return auth.currentUser?.uid || null;
 }
 
-// 🛠️ MOTOR BASE64 UNIVERSAL (Substitui atob/btoa que quebram o React Native)
+// 🛠️ MOTOR BASE64 UNIVERSAL
 const b64chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
 
 function encodeBase64(input: string): string {
@@ -63,44 +107,27 @@ export async function setSecurityPin(pin: string): Promise<void> {
   await AsyncStorage.setItem(storageKey, hashedPin);
 
   activeSessionPin = pin;
-  lastUnlockTimestamp = Date.now();
+  setSessionUnlocked(true);
 }
 
-// 🎯 CHECAGEM RESILIENTE DE EXISTÊNCIA DO PIN
 export async function hasSecurityPin(): Promise<boolean> {
   try {
     const uid = getCurrentUserUid();
     
-    // 1. Tenta pela chave do UID atual
     if (uid) {
       const savedHash = await AsyncStorage.getItem(`@duoelo_pin_${uid}`);
       if (savedHash !== null && savedHash.length > 0) return true;
     }
 
-    // 2. Fallback para a chave genérica
     const fallbackHash = await AsyncStorage.getItem("duoelo_security_pin_hash");
     if (fallbackHash !== null && fallbackHash.length > 0) return true;
 
-    // 3. Fallback de varredura no AsyncStorage por qualquer chave de PIN salva
     const allKeys = await AsyncStorage.getAllKeys();
     const pinKeyExists = allKeys.some((key) => key.includes("duoelo_pin_"));
     return pinKeyExists;
   } catch (e) {
     return false;
   }
-}
-
-export function isSessionUnlocked(): boolean {
-  if (!activeSessionPin || !lastUnlockTimestamp) return false;
-
-  const elapsedMinutes = (Date.now() - lastUnlockTimestamp) / (1000 * 60);
-  if (elapsedMinutes > TIMEOUT_MINUTES) {
-    lockSession();
-    return false;
-  }
-
-  lastUnlockTimestamp = Date.now();
-  return true;
 }
 
 export async function verifySecurityPin(pin: string): Promise<boolean> {
@@ -110,18 +137,16 @@ export async function verifySecurityPin(pin: string): Promise<boolean> {
     const saltedPin = `${SALT_CONST}::${uid || "guest"}::${pin}`;
     const currentHash = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, saltedPin);
 
-    // 1. Tenta verificar na chave do UID
     let storageKey = uid ? `@duoelo_pin_${uid}` : "duoelo_security_pin_hash";
     let savedHash = await AsyncStorage.getItem(storageKey);
 
-    // 2. Se não achou na chave do UID, tenta a chave genérica
     if (!savedHash) {
       savedHash = await AsyncStorage.getItem("duoelo_security_pin_hash");
     }
 
     if (savedHash === currentHash) {
       activeSessionPin = pin;
-      lastUnlockTimestamp = Date.now();
+      setSessionUnlocked(true);
       return true;
     }
     return false;
@@ -147,18 +172,13 @@ export async function authenticateWithBiometrics(): Promise<boolean> {
 
     if (result.success) {
       activeSessionPin = "BIOMETRIC_UNLOCKED";
-      lastUnlockTimestamp = Date.now();
+      setSessionUnlocked(true);
       return true;
     }
     return false;
   } catch (e) {
     return false;
   }
-}
-
-export function lockSession(): void {
-  activeSessionPin = null;
-  lastUnlockTimestamp = null;
 }
 
 export async function clearSecurityPin(): Promise<void> {
@@ -200,11 +220,9 @@ export async function encryptText(text: string, userUid?: string): Promise<strin
   }
 }
 
-// 🔓 DESCRIPTOGRAFIA ATÔMICA E ROBUSTA COM MOTOR NATIVO
 export async function decryptText(encryptedData: string, userUid?: string): Promise<string> {
   if (!encryptedData) return "";
   
-  // Se não contém a tag de criptografia E2EE::, é um texto simples e retorna direto
   if (!encryptedData.includes("E2EE::")) {
     return encryptedData.replace(/[\u0000-\u001F\u007F-\u009F\uFFFD]/g, "").trim();
   }

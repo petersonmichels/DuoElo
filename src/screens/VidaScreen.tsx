@@ -249,7 +249,6 @@ export default function VidaScreen({ navigation }: any) {
   const currentPhase = userData?.currentPhase || 1;
   const currentWeek = Math.min(13, Math.floor((currentPhase - 1) / 7) + 1);
 
-  // 🎯 CHECAGEM RIGOROSA DA MISSÃO DO DIA
   const lastTaskDateObj = userData?.lastTaskDate ? new Date(userData.lastTaskDate) : null;
   const todayDate = new Date();
 
@@ -273,7 +272,7 @@ export default function VidaScreen({ navigation }: any) {
 
   // 1. Mostrar o Card para Eu entregar um Presente
   const hasGiftToDeliver = Object.entries(myPurchases || {}).some(
-    ([weekNum, purchase]: [string, any]) => {
+    ([_, purchase]: [string, any]) => {
       const isBought = purchase?.status === "bought";
       return isBought;
     }
@@ -284,7 +283,6 @@ export default function VidaScreen({ navigation }: any) {
     ([weekNum, purchase]: [string, any]) => {
       const isDelivered = purchase?.status === "delivered";
       const isConfirmedByMe = Boolean((myConfirmations as any)?.[weekNum]);
-      // Só mostra SE foi entregue E ainda não confirmamos
       return isDelivered && !isConfirmedByMe;
     }
   );
@@ -342,7 +340,6 @@ export default function VidaScreen({ navigation }: any) {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Estrutura do Seu Elo</Text>
 
-            {/* 💌 CONVITE DE MATCH PENDENTE */}
             {pendingMatchRequest && (
               <TouchableOpacity
                 style={styles.actionCardHighlightMatch}

@@ -893,7 +893,7 @@ export default function ProfileScreen({ navigation }: any) {
                   />
                 </View>
 
-                {/* 📞 TELEFONE COM ESPAÇO PROPORCIONAL DE 62% PARA EXPANDIR O NÚMERO */}
+                {/* 📞 TELEFONE */}
                 <View style={[styles.inputGroup, { flex: 0.62 }]}>
                   <Text style={styles.inputLabel}>{t("phone_label", userLang) || "Telefone"}</Text>
                   <View style={styles.phoneContainer}>

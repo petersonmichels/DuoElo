@@ -54,7 +54,6 @@ export default function MissionExecutionScreen({
   const [loadingJournal, setLoadingJournal] = useState(false);
   const [fetchedJournal, setFetchedJournal] = useState<string | null>(null);
 
-  // 💡 Estado para fechar a caixa explicativa dos botões
   const [showGuideBox, setShowGuideBox] = useState(true);
 
   const progressAnim = useRef(new Animated.Value(0)).current;
@@ -152,7 +151,6 @@ export default function MissionExecutionScreen({
     };
   }, [isReviewMode, isGold]);
 
-  // 📖 LEITURA INFALÍVEL DO DIÁRIO
   useEffect(() => {
     let isMounted = true;
 
@@ -309,12 +307,14 @@ export default function MissionExecutionScreen({
       if (uid && journalEntry.trim().length > 0) {
         finalJournalToSave = await encryptText(journalEntry, uid);
 
-        await logAuditEvent(
-          uid,
-          "JOURNAL_ENTRY_CREATED",
-          `Reflexão salva e protegida com criptografia E2EE (Fase/Dia: ${mission.id || currentDayOrPhase})`,
-          userLanguage
-        );
+        try {
+          await logAuditEvent(
+            uid,
+            "JOURNAL_ENTRY_CREATED",
+            `Reflexão salva e protegida com criptografia E2EE (Fase/Dia: ${mission.id || currentDayOrPhase})`,
+            userLanguage
+          );
+        } catch (auditErr) {}
       }
 
       await onComplete(finalJournalToSave);
@@ -530,7 +530,6 @@ export default function MissionExecutionScreen({
               transform: [{ translateY: slideAnim }],
             }}
           >
-            {/* PASSO 1: CONCEITO */}
             {currentStep === 1 && (
               <View style={styles.stepContainer}>
                 <View style={[styles.stepBadge, isGold && { backgroundColor: "#FFF9E6" }]}>
@@ -567,7 +566,6 @@ export default function MissionExecutionScreen({
               </View>
             )}
 
-            {/* PASSO 2: AÇÃO PRÁTICA */}
             {currentStep === 2 && (
               <View style={styles.stepContainer}>
                 <View style={[styles.stepBadge, isGold && { backgroundColor: "#FFF9E6" }]}>
@@ -616,7 +614,6 @@ export default function MissionExecutionScreen({
                   </TouchableOpacity>
                 </View>
 
-                {/* 💡 CAIXA DE GUIA EMBAIXO DOS BOTOES COM BOTAO DE FECHAR */}
                 {currentDayOrPhase <= 3 && !isGold && showGuideBox && (
                   <View style={styles.guideBannerFooter}>
                     <TouchableOpacity
@@ -646,7 +643,6 @@ export default function MissionExecutionScreen({
               </View>
             )}
 
-            {/* PASSO 3: CONCLUSÃO (BOTÃO REDONDO 3D) */}
             {currentStep === 3 && (
               <View style={styles.stepContainer}>
                 <View style={[styles.stepBadge, isGold && { backgroundColor: "#FFF9E6" }]}>
@@ -679,7 +675,6 @@ export default function MissionExecutionScreen({
                   <FontAwesome5 name="book-open" size={18} color="#D1D9E0" style={styles.journalIcon} />
                 </View>
 
-                {/* 🏆 BOTÃO 3D CIRCULAR DE VITÓRIA / CONQUISTA */}
                 <View style={styles.victoryButtonSection}>
                   <Animated.View
                     style={[

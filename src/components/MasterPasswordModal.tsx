@@ -22,6 +22,7 @@ import {
   clearSecurityPin,
   hasSecurityPin,
   setSecurityPin,
+  setSessionUnlocked,
   verifySecurityPin,
 } from "../services/securityService";
 
@@ -80,6 +81,7 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
   const handleBiometricPress = async () => {
     const success = await authenticateWithBiometrics();
     if (success) {
+      setSessionUnlocked(true);
       const uid = auth.currentUser?.uid;
       if (uid) {
         try {
@@ -120,6 +122,7 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
       if (isPinCreated) {
         const isValid = await verifySecurityPin(pinInput);
         if (isValid) {
+          setSessionUnlocked(true);
           if (uid) {
             try {
               await logAuditEvent(
@@ -150,6 +153,7 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
         }
 
         await setSecurityPin(pinInput);
+        setSessionUnlocked(true);
 
         if (uid) {
           try {
