@@ -281,26 +281,33 @@ export default function MatchScreen({ navigation }: any) {
     }
   };
 
+  // 💬 ENVIO DIRETO DE CONVITE PELO WHATSAPP (SEM BLOQUEIOS NO IOS)
   const handleSendInvite = async () => {
     const myCode = userData?.myInviteCode || "DUE-123";
     const message = t("invite_whatsapp_message", userLang, { code: myCode });
-    const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
+    const encodedMessage = encodeURIComponent(message);
+
+    const appUrl = `whatsapp://send?text=${encodedMessage}`;
+    const webUrl = `https://api.whatsapp.com/send?text=${encodedMessage}`;
 
     try {
-      const canOpen = await Linking.canOpenURL(whatsappUrl);
+      const canOpen = await Linking.canOpenURL(appUrl);
       if (canOpen) {
-        await Linking.openURL(whatsappUrl);
+        await Linking.openURL(appUrl);
       } else {
-        const webUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
         await Linking.openURL(webUrl);
       }
     } catch (error) {
-      showCustomAlert(
-        t("whatsapp_error_title", userLang) || "Erro WhatsApp",
-        t("whatsapp_error_msg", userLang) || "Não foi possível abrir o WhatsApp.",
-        "exclamation-triangle",
-        "#EAB64A",
-      );
+      try {
+        await Linking.openURL(webUrl);
+      } catch (e) {
+        showCustomAlert(
+          t("whatsapp_error_title", userLang) || "Erro WhatsApp",
+          t("whatsapp_error_msg", userLang) || "Não foi possível abrir o WhatsApp.",
+          "exclamation-triangle",
+          "#EAB64A",
+        );
+      }
     }
   };
 
@@ -502,7 +509,7 @@ export default function MatchScreen({ navigation }: any) {
       if (querySnapshot.empty) {
         showCustomAlert(
           t("match_not_found_title", userLang) || "Não Encontrado",
-          t("match_not_found_msg", userLang) || "Nenhum usuário localizado com esses dados.",
+          t("match_not_found_msg", userLang) || "Nenum usuário localizado com esses dados.",
           "search-minus",
           "#EAB64A",
         );
@@ -752,7 +759,6 @@ export default function MatchScreen({ navigation }: any) {
                 </TouchableOpacity>
               </View>
             ) : hasReceivedInvite ? (
-              /* CARD DE CONVITE RECEBIDO - BOTOES REDONDOS DE AÇÃO RÁPIDA */
               <View style={[styles.card, { borderColor: "#EAB64A", backgroundColor: "#FFF9E6", alignItems: "center" }]}>
                 <Text style={styles.sectionTitle}>💌 CONVITE RECEBIDO!</Text>
                 <Text style={[styles.cardDesc, { textAlign: "center" }]}>
@@ -763,7 +769,6 @@ export default function MatchScreen({ navigation }: any) {
                 </Text>
 
                 <View style={styles.circleButtonsRow}>
-                  {/* BOTAO REDONDO VERDE - CHECK */}
                   <TouchableOpacity
                     style={[styles.circleBtn, styles.circleBtnAccept]}
                     onPress={handleAcceptReceivedInvite}
@@ -777,7 +782,6 @@ export default function MatchScreen({ navigation }: any) {
                     )}
                   </TouchableOpacity>
 
-                  {/* BOTAO REDONDO VERMELHO - X */}
                   <TouchableOpacity
                     style={[styles.circleBtn, styles.circleBtnReject]}
                     onPress={handleRejectReceivedInvite}

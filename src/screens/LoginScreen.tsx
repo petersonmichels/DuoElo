@@ -110,6 +110,8 @@ export default function LoginScreen({ navigation }: any) {
         GoogleSignin.configure({
           webClientId:
             "504286284116-akoj0ufb3q6rrfb2b3gpskbjaatgeqle.apps.googleusercontent.com",
+          iosClientId:
+            "504286284116-akoj0ufb3q6rrfb2b3gpskbjaatgeqle.apps.googleusercontent.com",
         });
       } catch (e) {
         console.log("Erro ao configurar GoogleSignin:", e);
@@ -240,7 +242,6 @@ export default function LoginScreen({ navigation }: any) {
       const userSnap = await getDoc(doc(db, "users", uid));
       const userData = userSnap.data();
 
-      // 1. Se ainda não completou a Anamnese, vai para AnamneseScreen
       if (!userData?.hasCompletedAnamnesis) {
         navigation.reset({
           index: 0,
@@ -249,7 +250,6 @@ export default function LoginScreen({ navigation }: any) {
         return;
       }
 
-      // 2. Se não possui parceiro conectado nem convite pendente, vai para Match
       if (!userData?.partnerId || userData?.pendingMatchRequest || userData?.sentMatchRequestTo) {
         navigation.reset({
           index: 0,
@@ -258,7 +258,6 @@ export default function LoginScreen({ navigation }: any) {
         return;
       }
 
-      // 3. Checagem de Assinatura Premium
       let isUserPremium = Boolean(userData?.isPremium);
 
       if (!isUserPremium && userData?.partnerId) {
@@ -315,7 +314,7 @@ export default function LoginScreen({ navigation }: any) {
     } else {
       if (pinInput.length < 4) {
         showCustomAlert(
-          t("pin_err_short_title", userLang) || "PIN Muito Curtor",
+          t("pin_err_short_title", userLang) || "PIN Muito Curto",
           t("pin_err_short_msg", userLang) || "O PIN de segurança deve ter pelo menos 4 dígitos.",
           "exclamation-triangle",
           "#EAB64A"
@@ -574,7 +573,7 @@ export default function LoginScreen({ navigation }: any) {
       } catch (e) {}
 
       const signInResult = await GoogleSignin.signIn();
-      const idToken = signInResult.data?.idToken;
+      const idToken = signInResult.data?.idToken || signInResult.idToken;
 
       if (!idToken) {
         throw new Error("Token ID do Google não retornado.");
@@ -636,14 +635,16 @@ export default function LoginScreen({ navigation }: any) {
       if (
         error?.code === statusCodes?.SIGN_IN_IN_PROGRESS ||
         error?.code === statusCodes?.IN_PROGRESS ||
-        error?.code === statusCodes?.SIGN_IN_CANCELLED
+        error?.code === statusCodes?.SIGN_IN_CANCELLED ||
+        error?.code === "12501" ||
+        error?.message?.includes("cancel")
       ) {
         return;
       }
 
       showCustomAlert(
         t("login_canceled_title", userLang) || "Login Cancelado",
-        t("login_canceled_msg", userLang) || "A autenticação foi cancelada.",
+        t("login_canceled_msg", userLang) || "A autenticação com o Google não pôde ser concluída.",
         "times-circle",
         "#D96C6C"
       );

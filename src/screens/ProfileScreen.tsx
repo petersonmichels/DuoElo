@@ -180,26 +180,38 @@ export default function ProfileScreen({ navigation }: any) {
     };
   }, []);
 
+  // 🛠️ MÁSCARA DINÂMICA DE TELEFONE (POR PAÍS/DDI)
+  const formatLocalNumber = (text: string, country = selectedCountry) => {
+    let cleaned = text.replace(/\D/g, "");
+
+    // Se for Brasil (+55), aplica padrão (XX) XXXXX-XXXX
+    if (country.code === "BR") {
+      if (cleaned.length <= 2) return cleaned;
+      if (cleaned.length <= 6) return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2)}`;
+      if (cleaned.length <= 10)
+        return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2, 6)}-${cleaned.slice(6)}`;
+      return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2, 7)}-${cleaned.slice(7, 11)}`;
+    }
+
+    // Se for Luxemburgo ou Europa, formata em grupos de 3 dígitos (ex: 661 123 456)
+    if (cleaned.length <= 3) return cleaned;
+    if (cleaned.length <= 6) return `${cleaned.slice(0, 3)} ${cleaned.slice(3)}`;
+    if (cleaned.length <= 9)
+      return `${cleaned.slice(0, 3)} ${cleaned.slice(3, 6)} ${cleaned.slice(6)}`;
+    return `${cleaned.slice(0, 3)} ${cleaned.slice(3, 6)} ${cleaned.slice(6, 12)}`;
+  };
+
   const parseInitialPhone = (raw: string) => {
     if (!raw) return;
     const matchedCountry = COUNTRY_CODES.find((c) => raw.startsWith(c.ddi));
     if (matchedCountry) {
       setSelectedCountry(matchedCountry);
       const numberOnly = raw.replace(matchedCountry.ddi, "").trim();
-      setLocalPhone(formatLocalNumber(numberOnly));
+      setLocalPhone(formatLocalNumber(numberOnly, matchedCountry));
     } else {
       const numberOnly = raw.replace(/\D/g, "");
-      setLocalPhone(formatLocalNumber(numberOnly));
+      setLocalPhone(formatLocalNumber(numberOnly, selectedCountry));
     }
-  };
-
-  const formatLocalNumber = (text: string) => {
-    let cleaned = text.replace(/\D/g, "");
-    if (cleaned.length <= 2) return cleaned;
-    if (cleaned.length <= 6) return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2)}`;
-    if (cleaned.length <= 10)
-      return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2, 6)}-${cleaned.slice(6)}`;
-    return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2, 7)}-${cleaned.slice(7, 11)}`;
   };
 
   const triggerSaveAnimation = (toValue: number, callback?: () => void) => {
@@ -705,7 +717,7 @@ export default function ProfileScreen({ navigation }: any) {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* 📸 CABEÇALHO DO PERFIL COM DADOS ABAIXO DA FOTO */}
+          {/* 📸 CABEÇALHO DO PERFIL */}
           <View style={styles.avatarSection}>
             <TouchableOpacity
               style={styles.avatarContainer}
@@ -893,7 +905,7 @@ export default function ProfileScreen({ navigation }: any) {
                   />
                 </View>
 
-                {/* 📞 TELEFONE */}
+                {/* 📞 TELEFONE AJUSTADO COM MÁSCARA DINÂMICA */}
                 <View style={[styles.inputGroup, { flex: 0.62 }]}>
                   <Text style={styles.inputLabel}>{t("phone_label", userLang) || "Telefone"}</Text>
                   <View style={styles.phoneContainer}>
@@ -908,16 +920,16 @@ export default function ProfileScreen({ navigation }: any) {
 
                     <TextInput
                       style={styles.phoneInput}
-                      placeholder="(99) 99999-9999"
+                      placeholder={selectedCountry.code === "BR" ? "(99) 99999-9999" : "661 123 456"}
                       placeholderTextColor="#AFAFAF"
                       keyboardType="phone-pad"
                       value={localPhone}
                       onChangeText={(txt) => {
-                        const formatted = formatLocalNumber(txt);
+                        const formatted = formatLocalNumber(txt, selectedCountry);
                         setLocalPhone(formatted);
                       }}
-                      onBlur={() => savePhoneWithDDI(localPhone)}
-                      maxLength={16}
+                      onBlur={() => savePhoneWithDDI(localPhone, selectedCountry)}
+                      maxLength={selectedCountry.code === "BR" ? 15 : 16}
                     />
                   </View>
                 </View>
@@ -975,6 +987,7 @@ export default function ProfileScreen({ navigation }: any) {
             </TouchableOpacity>
           </View>
 
+          {/* ⚙️ CONFIGURAÇÕES DA CONTA (COM FLEXWRAP PROTEGENDO TEXTOS EM ALEMÃO/INGLÊS) */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>{t("account_settings_title", userLang) || "CONFIGURAÇÕES DA CONTA"}</Text>
 
@@ -983,7 +996,7 @@ export default function ProfileScreen({ navigation }: any) {
                 <View style={[styles.menuIconBg, { backgroundColor: "#F0F4F8" }]}>
                   <Text style={{ fontSize: 18 }}>{currentFlag}</Text>
                 </View>
-                <View>
+                <View style={{ flex: 1 }}>
                   <Text style={styles.menuOptionText}>{t("app_language_title", userLang) || "Idioma do Aplicativo"}</Text>
                   <Text style={{ fontSize: 11, color: "#60646C", marginTop: 2, fontFamily: "Montserrat_400Regular" }}>
                     {SUPPORTED_LANGUAGES.find((l) => l.code === userLang)?.label}
@@ -998,7 +1011,7 @@ export default function ProfileScreen({ navigation }: any) {
                 <View style={[styles.menuIconBg, { backgroundColor: "#F0F4F8" }]}>
                   <FontAwesome5 name="mobile-alt" size={16} color="#67D4A8" />
                 </View>
-                <View>
+                <View style={{ flex: 1 }}>
                   <Text style={styles.menuOptionText}>{t("haptics_label", userLang) || "Vibração Tátil (Haptics)"}</Text>
                   <Text style={{ fontSize: 11, color: "#60646C", marginTop: 2, fontFamily: "Montserrat_400Regular" }}>
                     {t("haptics_desc", userLang) || "Vibração ao tocar nos botões do app"}
@@ -1019,7 +1032,7 @@ export default function ProfileScreen({ navigation }: any) {
                 <View style={[styles.menuIconBg, { backgroundColor: "#F0F4F8" }]}>
                   <FontAwesome5 name="unlock-alt" size={16} color="#EAB64A" />
                 </View>
-                <View>
+                <View style={{ flex: 1 }}>
                   <Text style={styles.menuOptionText}>{t("bypass_lock_label", userLang) || "Desbloqueio sem Trava Diária"}</Text>
                   <Text style={{ fontSize: 11, color: "#60646C", marginTop: 2, fontFamily: "Montserrat_400Regular" }}>
                     {t("bypass_lock_desc", userLang) || "Permite responder mais de 1 missão por dia"}
@@ -1040,7 +1053,7 @@ export default function ProfileScreen({ navigation }: any) {
                 <View style={[styles.menuIconBg, { backgroundColor: "#FDE8E8" }]}>
                   <FontAwesome5 name="google" size={16} color="#EA4335" />
                 </View>
-                <View>
+                <View style={{ flex: 1 }}>
                   <Text style={styles.menuOptionText}>{t("switch_google_account_menu", userLang) || "Desconectar Conta Google"}</Text>
                   <Text style={{ fontSize: 11, color: "#60646C", marginTop: 2, fontFamily: "Montserrat_400Regular" }}>
                     {t("switch_google_account_desc", userLang) || "Desconecta e limpa sessão do Google"}
@@ -1130,7 +1143,9 @@ export default function ProfileScreen({ navigation }: any) {
                   onPress={() => {
                     setSelectedCountry(item);
                     setIsCountryModalVisible(false);
-                    savePhoneWithDDI(localPhone, item);
+                    const formatted = formatLocalNumber(localPhone, item);
+                    setLocalPhone(formatted);
+                    savePhoneWithDDI(formatted, item);
                     setSearchCountry("");
                   }}
                 >
@@ -1441,7 +1456,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#D1D9E0",
   },
-  menuOptionLeft: { flexDirection: "row", alignItems: "center", gap: 15 },
+  menuOptionLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 15,
+    flex: 1,
+    marginRight: 10,
+  },
   menuIconBg: {
     width: 36,
     height: 36,
@@ -1450,9 +1471,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   menuOptionText: {
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: "Montserrat_700Bold",
     color: "#202D3A",
+    flexShrink: 1,
   },
   deleteAccountLink: {
     alignItems: "center",

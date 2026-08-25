@@ -15,7 +15,10 @@
         "ITSAppUsesNonExemptEncryption": false,
         "NSFaceIDUsageDescription": "O DuoElo utiliza o Face ID para desbloquear sua chave mestre e proteger seu Diário do Casal com criptografia de ponta a ponta.",
         "NSCameraUsageDescription": "Permite capturar fotos de perfil e personalizar o diário do casal.",
-        "NSPhotoLibraryUsageDescription": "Permite selecionar imagens para personalizar o perfil do casal."
+        "NSPhotoLibraryUsageDescription": "Permite selecionar imagens para personalizar o perfil do casal.",
+        "LSApplicationQueriesSchemes": [
+          "whatsapp"
+        ]
       }
     },
     "android": {
