@@ -17,6 +17,10 @@
     },
     "preview": {
       "distribution": "internal",
+      "node": "20.18.0",
+      "ios": {
+        "image": "latest"
+      },
       "env": {
         "EXPO_PUBLIC_APP_ENV": "preview",
         "SENTRY_DISABLE_AUTO_UPLOAD": "true"
