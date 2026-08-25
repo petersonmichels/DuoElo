@@ -43,9 +43,6 @@
       "favicon": "./src/assets/favicon.png"
     },
     "plugins": [
-      "expo-apple-authentication",
-      "expo-image",
-      "expo-font",
       [
         "expo-local-authentication",
         {
