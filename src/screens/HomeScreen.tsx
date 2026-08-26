@@ -668,12 +668,14 @@ export default function HomeScreen({ navigation }: any) {
     const performScroll = () => {
       const targetScrollY = getActiveNodeScrollY();
       if (scrollViewRef.current && targetScrollY !== null) {
-        scrollViewRef.current.scrollTo({ y: targetScrollY, animated });
-        setShowFab(false);
-        fabVisibleRef.current = false;
-      } else if (attempts < 20) {
+        requestAnimationFrame(() => {
+          scrollViewRef.current?.scrollTo({ y: targetScrollY, animated });
+          setShowFab(false);
+          fabVisibleRef.current = false;
+        });
+      } else if (attempts < 25) {
         attempts++;
-        setTimeout(performScroll, 100);
+        setTimeout(performScroll, 80);
       }
     };
     performScroll();
@@ -681,7 +683,8 @@ export default function HomeScreen({ navigation }: any) {
 
   useEffect(() => {
     const unsubscribe = navigation.addListener("focus", () => {
-      setTimeout(() => scrollToActiveNode(true), 250);
+      setTimeout(() => scrollToActiveNode(true), 200);
+      setTimeout(() => scrollToActiveNode(true), 500);
     });
     return unsubscribe;
   }, [navigation, isTrailUnlocked, nextAvailableStep, userData?.currentPhase]);
