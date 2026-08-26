@@ -23,6 +23,13 @@
           "tiktok",
           "https",
           "http"
+        ],
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.SEU_IOS_CLIENT_ID_REVERSO"
+            ]
+          }
         ]
       }
     },
@@ -43,6 +50,21 @@
       "favicon": "./src/assets/favicon.png"
     },
     "plugins": [
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.SEU_IOS_CLIENT_ID_REVERSO"
+        }
+      ],
+      "expo-apple-authentication",
+      [
+        "expo-notifications",
+        {
+          "icon": "./src/assets/icon.png",
+          "color": "#0F0F12",
+          "sounds": []
+        }
+      ],
       [
         "expo-local-authentication",
         {
