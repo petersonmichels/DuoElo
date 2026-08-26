@@ -1,7 +1,8 @@
 {
   "cli": {
     "version": ">= 21.7.0",
-    "appVersionSource": "remote"
+    "appVersionSource": "remote",
+    "packageManager": "npm"
   },
   "build": {
     "development": {
@@ -18,7 +19,6 @@
     "preview": {
       "distribution": "internal",
       "node": "20.18.0",
-      "npmClient": "npm",
       "ios": {
         "image": "latest"
       },
