@@ -50,12 +50,6 @@
       "favicon": "./src/assets/favicon.png"
     },
     "plugins": [
-      [
-        "@react-native-google-signin/google-signin",
-        {
-          "iosUrlScheme": "com.googleusercontent.apps.SEU_IOS_CLIENT_ID_REVERSO"
-        }
-      ],
       "expo-apple-authentication",
       [
         "expo-notifications",
