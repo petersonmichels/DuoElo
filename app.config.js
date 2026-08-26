@@ -11,8 +11,9 @@ module.exports = {
       supportsTablet: false,
       usesAppleSignIn: true,
       bundleIdentifier: "lu.barnx.duoelo",
-      googleServicesFile:
-        process.env.GOOGLE_SERVICES_INFO_PLIST || "./GoogleService-Info.plist",
+      googleServicesFile: process.env.EAS_BUILD
+        ? process.env.GOOGLE_SERVICES_INFO_PLIST
+        : "./GoogleService-Info.plist",
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
         NSFaceIDUsageDescription:
