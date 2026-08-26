@@ -2,6 +2,7 @@ import { FontAwesome5 } from "@expo/vector-icons";
 import * as Sentry from "@sentry/react-native";
 import * as AppleAuthentication from "expo-apple-authentication";
 import Constants, { ExecutionEnvironment } from "expo-constants";
+import * as Crypto from "expo-crypto";
 import {
   createUserWithEmailAndPassword,
   GoogleAuthProvider,
@@ -113,6 +114,7 @@ export default function LoginScreen({ navigation }: any) {
             "504286284116-akoj0ufb3q6rrfb2b3gpskbjaatgeqle.apps.googleusercontent.com",
           iosClientId:
             "504286284116-akoj0ufb3q6rrfb2b3gpskbjaatgeqle.apps.googleusercontent.com",
+          offlineAccess: true,
         });
       } catch (e) {
         console.log("Erro ao configurar GoogleSignin:", e);
@@ -671,11 +673,18 @@ export default function LoginScreen({ navigation }: any) {
     setIsLoading(true);
 
     try {
+      const rawNonce = Math.random().toString(36).substring(2, 10);
+      const hashedNonce = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        rawNonce
+      );
+
       const appleCredential = await AppleAuthentication.signInAsync({
         requestedScopes: [
           AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
           AppleAuthentication.AppleAuthenticationScope.EMAIL,
         ],
+        nonce: hashedNonce,
       });
 
       const { identityToken } = appleCredential;
@@ -686,6 +695,7 @@ export default function LoginScreen({ navigation }: any) {
       const provider = new OAuthProvider("apple.com");
       const credential = provider.credential({
         idToken: identityToken,
+        rawNonce: rawNonce,
       });
 
       const userCred = await signInWithCredential(auth, credential);
