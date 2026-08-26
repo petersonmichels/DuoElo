@@ -7,6 +7,7 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "node": "22.13.0",
       "ios": {
         "simulator": true
       },
@@ -29,6 +30,7 @@
     "production": {
       "autoIncrement": true,
       "distribution": "store",
+      "node": "22.13.0",
       "env": {
         "EXPO_PUBLIC_APP_ENV": "production"
       },
