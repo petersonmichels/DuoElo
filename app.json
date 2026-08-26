@@ -11,6 +11,7 @@
       "supportsTablet": false,
       "usesAppleSignIn": true,
       "bundleIdentifier": "lu.barnx.duoelo",
+      "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSFaceIDUsageDescription": "O DuoElo utiliza o Face ID para desbloquear sua chave mestre e proteger seu Diário do Casal com criptografia de ponta a ponta.",
@@ -27,7 +28,7 @@
         "CFBundleURLTypes": [
           {
             "CFBundleURLSchemes": [
-              "com.googleusercontent.apps.504286284116-akoj0ufb3q6rrfb2b3gpskbjaatgeqle"
+              "com.googleusercontent.apps.504286284116-qkqjt7lt4tuibmoo53lfops2omk2l81u"
             ]
           }
         ]

@@ -113,7 +113,7 @@ export default function LoginScreen({ navigation }: any) {
           webClientId:
             "504286284116-akoj0ufb3q6rrfb2b3gpskbjaatgeqle.apps.googleusercontent.com",
           iosClientId:
-            "504286284116-akoj0ufb3q6rrfb2b3gpskbjaatgeqle.apps.googleusercontent.com",
+            "504286284116-qkqjt7lt4tuibmoo53lfops2omk2l81u.apps.googleusercontent.com",
           offlineAccess: true,
         });
       } catch (e) {
