@@ -281,7 +281,6 @@ export default function MatchScreen({ navigation }: any) {
     }
   };
 
-  // 💬 ENVIO DIRETO DE CONVITE PELO WHATSAPP (SEM BLOQUEIOS NO IOS)
   const handleSendInvite = async () => {
     const myCode = userData?.myInviteCode || "DUE-123";
     const message = t("invite_whatsapp_message", userLang, { code: myCode });
@@ -509,7 +508,7 @@ export default function MatchScreen({ navigation }: any) {
       if (querySnapshot.empty) {
         showCustomAlert(
           t("match_not_found_title", userLang) || "Não Encontrado",
-          t("match_not_found_msg", userLang) || "Nenum usuário localizado com esses dados.",
+          t("match_not_found_msg", userLang) || "Nenhum usuário localizado com esses dados.",
           "search-minus",
           "#EAB64A",
         );
@@ -677,6 +676,13 @@ export default function MatchScreen({ navigation }: any) {
           ? `@${pendingMatchPartner.data.username}`
           : t("mysterious_user", userLang));
 
+  const receivedSenderPhoto = isValidPhoto(userData?.pendingMatchRequest?.fromPhoto)
+    ? userData.pendingMatchRequest.fromPhoto
+    : null;
+
+  const receivedSenderName =
+    userData?.pendingMatchRequest?.fromName || "Seu Amor";
+
   const hasPartner = !!userData?.partnerId;
   const hasSentInvite = !!userData?.sentMatchRequestTo;
   const hasReceivedInvite = !!userData?.pendingMatchRequest;
@@ -761,12 +767,25 @@ export default function MatchScreen({ navigation }: any) {
             ) : hasReceivedInvite ? (
               <View style={[styles.card, { borderColor: "#EAB64A", backgroundColor: "#FFF9E6", alignItems: "center" }]}>
                 <Text style={styles.sectionTitle}>💌 CONVITE RECEBIDO!</Text>
-                <Text style={[styles.cardDesc, { textAlign: "center" }]}>
-                  <Text style={{ fontFamily: "Montserrat_700Bold", color: "#202D3A" }}>
-                    {userData.pendingMatchRequest.fromName}
-                  </Text>{" "}
-                  enviou um convite para iniciarem o elo juntos!
-                </Text>
+
+                <View style={styles.receivedSenderContainer}>
+                  {receivedSenderPhoto ? (
+                    <Image
+                      source={{ uri: receivedSenderPhoto }}
+                      style={styles.receivedSenderAvatar}
+                    />
+                  ) : (
+                    <View style={styles.receivedAvatarPlaceholder}>
+                      <FontAwesome5 name="user" size={26} color="#67D4A8" />
+                    </View>
+                  )}
+                  <Text style={[styles.cardDesc, { textAlign: "center", marginBottom: 0 }]}>
+                    <Text style={{ fontFamily: "Montserrat_700Bold", color: "#202D3A" }}>
+                      {receivedSenderName}
+                    </Text>{" "}
+                    enviou um convite para iniciarem o elo juntos!
+                  </Text>
+                </View>
 
                 <View style={styles.circleButtonsRow}>
                   <TouchableOpacity
@@ -1105,6 +1124,31 @@ const styles = StyleSheet.create({
     color: "#60646C",
     lineHeight: 20,
     marginBottom: 15,
+  },
+
+  receivedSenderContainer: {
+    alignItems: "center",
+    marginVertical: 10,
+    width: "100%",
+  },
+  receivedSenderAvatar: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 2,
+    borderColor: "#67D4A8",
+    marginBottom: 12,
+  },
+  receivedAvatarPlaceholder: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "#E8F4F1",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 12,
+    borderWidth: 1.5,
+    borderColor: "#67D4A8",
   },
 
   circleButtonsRow: {

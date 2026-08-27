@@ -31,6 +31,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Circle } from "react-native-svg";
 
 import { MasterPasswordModal } from "../components/MasterPasswordModal";
+import { NotificationsModal } from "../components/NotificationsModal";
 import { auth, db } from "../config/firebase";
 import { t } from "../i18n/translations";
 import { scheduleDailyReminder } from "../services/notificationService";
@@ -58,7 +59,7 @@ if (!isExpoGo) {
       handleNotification: async () => ({
         shouldShowAlert: true,
         shouldPlaySound: true,
-        shouldSetBadge: false,
+        shouldSetBadge: true,
         shouldShowBanner: true,
         shouldShowList: true,
       }),
@@ -305,12 +306,14 @@ export default function HomeScreen({ navigation }: any) {
 
   const [userLang, setUserLang] = useState("pt-BR");
   const [isLangModalVisible, setIsLangModalVisible] = useState(false);
+
+  // 🔔 ESTADOS DAS NOTIFICAÇÕES (USANDO COMPONENTE ISOLADO)
   const [isNotificationsVisible, setIsNotificationsVisible] = useState(false);
+  const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
 
   const [isMasterPasswordModalVisible, setIsMasterPasswordModalVisible] = useState(false);
   const [pendingMissionStepIndex, setPendingMissionStepIndex] = useState<number | null>(null);
 
-  const unreadNudges = userData?.cutucadas || 0;
   const [isGeneratingJourney, setIsGeneratingJourney] = useState(false);
 
   const triggerHaptic = (
@@ -404,6 +407,22 @@ export default function HomeScreen({ navigation }: any) {
 
   const currentStep = nextAvailableStep;
   const isJourneyFinished = currentStep >= totalStepsInModule;
+
+  // 🔔 LISTENER DE MENSAGENS NÃO LIDADAS PARA O BADGE DO SININHO
+  useEffect(() => {
+    if (!currentUid) return;
+
+    const notifQuery = query(
+      collection(db, "users", currentUid, "notifications"),
+      where("read", "==", false)
+    );
+
+    const unsubscribeNotifs = onSnapshot(notifQuery, (snapshot) => {
+      setHasUnreadNotifications(!snapshot.empty);
+    });
+
+    return () => unsubscribeNotifs();
+  }, [currentUid]);
 
   useEffect(() => {
     Animated.loop(
@@ -770,15 +789,6 @@ export default function HomeScreen({ navigation }: any) {
     }
   };
 
-  const handleSendNudge = async () => {
-    triggerHaptic("light");
-  };
-
-  const handleCloseNudges = async () => {
-    triggerHaptic("light");
-    setIsNotificationsVisible(false);
-  };
-
   const handleStartSolo = async () => {
     setIsGeneratingJourney(true);
 
@@ -950,8 +960,8 @@ export default function HomeScreen({ navigation }: any) {
               if (!partnerCompletedAnamnesis) {
                 setIsGeneratingJourney(false);
                 showCustomAlert(
-                  t("waiting_partner_title", userLang) || "Aguardando Parceiro",
-                  t("waiting_partner_msg", userLang) || "Aguardando seu amor responder ao diagnóstico.",
+                  t("waiting_partner_title", userLang) || "Aguardando o Amor ⏳",
+                  t("waiting_partner_msg", userLang, { name: pName }) || `${pName} ainda está preenchendo a avaliação inicial.`,
                   "hourglass-half",
                   "#EAB64A",
                   t("btn_understand", userLang) || "Entendi"
@@ -986,8 +996,8 @@ export default function HomeScreen({ navigation }: any) {
     if (hasPartner) {
       if (!partnerCompletedAnamnesis) {
         showCustomAlert(
-          t("waiting_partner_title", userLang) || "Aguardando Parceiro",
-          t("waiting_partner_msg", userLang) || "Aguardando seu amor responder ao diagnóstico.",
+          t("waiting_partner_title", userLang) || "Aguardando o Amor ⏳",
+          t("waiting_partner_msg", userLang, { name: pName }) || `${pName} ainda está preenchendo a avaliação inicial.`,
           "hourglass-half",
           "#EAB64A",
           t("btn_understand", userLang) || "Entendi"
@@ -1441,12 +1451,8 @@ export default function HomeScreen({ navigation }: any) {
         >
           <View style={{ position: "relative" }}>
             <FontAwesome5 name="bell" solid size={22} color="#202D3A" />
-            {unreadNudges > 0 && (
-              <View style={styles.notificationBadge}>
-                <Text style={styles.notificationBadgeText}>
-                  {unreadNudges > 9 ? "9+" : unreadNudges}
-                </Text>
-              </View>
+            {hasUnreadNotifications && (
+              <View style={styles.notificationBadge} />
             )}
           </View>
         </TouchableOpacity>
@@ -2118,80 +2124,12 @@ export default function HomeScreen({ navigation }: any) {
         </TouchableOpacity>
       </Modal>
 
-      <Modal visible={isNotificationsVisible} transparent animationType="slide">
-        <View style={styles.bottomSheetOverlay}>
-          <View style={styles.bottomSheetContainer}>
-            <View style={styles.bottomSheetHandle} />
-
-            <View
-              style={[
-                styles.alertIconContainer,
-                { backgroundColor: "#F0F4F8" },
-              ]}
-            >
-              <FontAwesome5 name="bell" solid size={26} color="#202D3A" />
-            </View>
-
-            <Text style={styles.bottomSheetTitle}>
-              {t("notifications_title", userLang) || "Notificações"}
-            </Text>
-
-            {unreadNudges > 0 ? (
-              <View style={styles.nudgeItem}>
-                <FontAwesome5
-                  name="hand-point-right"
-                  size={24}
-                  color="#EAB64A"
-                />
-                <View style={{ marginLeft: 12, flex: 1 }}>
-                  <Text style={styles.nudgeTitle}>
-                    {t("nudge_title", userLang) || "Cutucada do Amor!"}
-                  </Text>
-                  <Text style={styles.nudgeText}>
-                    {t("nudge_text_part1", userLang) || "Você recebeu"}{" "}
-                    <Text style={{ fontFamily: "Montserrat_900Black" }}>
-                      {unreadNudges}
-                    </Text>{" "}
-                    {t("nudge_text_part2", userLang) || "cutucada(s) para fazer a missão de hoje!"}
-                  </Text>
-                </View>
-              </View>
-            ) : (
-              <Text style={styles.bottomSheetText}>
-                {t("no_notifications_msg", userLang) || "Nenhuma notificação recente."}
-              </Text>
-            )}
-
-            <View style={{ width: "100%", marginTop: 15, gap: 10 }}>
-              <TouchableOpacity
-                style={[
-                  styles.bottomSheetButtonPrimary,
-                  { backgroundColor: "#202D3A" },
-                ]}
-                onPress={handleSendNudge}
-              >
-                <FontAwesome5
-                  name="hand-point-right"
-                  size={16}
-                  color="#FFF"
-                  style={{ marginRight: 8 }}
-                />
-                <Text style={styles.bottomSheetButtonPrimaryText}>
-                  {t("btn_nudge_partner", userLang) || "Cutucar Amor"}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.bottomSheetButtonSecondary}
-                onPress={handleCloseNudges}
-              >
-                <Text style={styles.bottomSheetButtonSecondaryText}>
-                  {t("modal_close", userLang) || "Fechar"}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      {/* 🔔 COMPONENTE DE NOTIFICAÇÕES SEPARADO */}
+      <NotificationsModal
+        visible={isNotificationsVisible}
+        onClose={() => setIsNotificationsVisible(false)}
+        userLanguage={userLang}
+      />
 
       <Modal visible={isGeneratingJourney} transparent animationType="fade">
         <View style={styles.modalOverlayCenter}>
@@ -2291,44 +2229,14 @@ const styles = StyleSheet.create({
   topBarItem: { flexDirection: "row", alignItems: "center", gap: 4 },
   notificationBadge: {
     position: "absolute",
-    top: -6,
-    right: -8,
-    backgroundColor: "#D96C6C",
-    borderRadius: 10,
-    minWidth: 18,
-    height: 18,
-    justifyContent: "center",
-    alignItems: "center",
+    top: -2,
+    right: -2,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#EA4335",
     borderWidth: 1.5,
     borderColor: "#FFF",
-  },
-  notificationBadgeText: {
-    fontFamily: "Montserrat_900Black",
-    color: "#FFF",
-    fontSize: 9,
-  },
-  nudgeItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#E8F4F1",
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#67D4A8",
-    width: "100%",
-    marginBottom: 10,
-  },
-  nudgeTitle: {
-    fontFamily: "Montserrat_700Bold",
-    fontSize: 15,
-    color: "#202D3A",
-    marginBottom: 2,
-  },
-  nudgeText: {
-    fontFamily: "Montserrat_400Regular",
-    fontSize: 13,
-    color: "#2C3E50",
-    lineHeight: 18,
   },
   flagEmoji: { fontSize: 22 },
   topBarText: { fontFamily: "Montserrat_900Black", fontSize: 16 },

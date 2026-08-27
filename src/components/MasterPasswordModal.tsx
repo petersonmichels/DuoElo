@@ -1,5 +1,6 @@
 import { FontAwesome5 } from "@expo/vector-icons";
 import { signOut } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -14,7 +15,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { auth } from "../config/firebase";
+import { auth, db } from "../config/firebase";
 import { t } from "../i18n/translations";
 import { logAuditEvent } from "../services/auditService";
 import {
@@ -61,8 +62,25 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
       const initModal = async () => {
         if (isMounted) setIsCheckingPinStatus(true);
         try {
-          const exists = await hasSecurityPin();
-          if (isMounted) setIsPinCreated(exists);
+          // 1. Verifica no SecureStore/Local
+          const hasLocalPin = await hasSecurityPin();
+
+          // 2. Verifica se o usuário tem PIN salvo no Firestore
+          let hasFirestorePin = false;
+          const uid = auth.currentUser?.uid;
+          if (uid) {
+            try {
+              const userSnap = await getDoc(doc(db, "users", uid));
+              if (userSnap.exists()) {
+                const data = userSnap.data();
+                hasFirestorePin = Boolean(data?.masterPasswordHash || data?.securityPin);
+              }
+            } catch (err) {}
+          }
+
+          if (isMounted) {
+            setIsPinCreated(hasLocalPin || hasFirestorePin);
+          }
         } catch (e) {
           if (isMounted) setIsPinCreated(false);
         } finally {

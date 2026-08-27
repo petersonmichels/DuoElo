@@ -1,0 +1,244 @@
+import { FontAwesome5 } from "@expo/vector-icons";
+import {
+    collection,
+    doc,
+    limit,
+    onSnapshot,
+    orderBy,
+    query,
+    writeBatch,
+} from "firebase/firestore";
+import React, { useEffect, useState } from "react";
+import {
+    FlatList,
+    Modal,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from "react-native";
+import { auth, db } from "../config/firebase";
+import { t } from "../i18n/translations";
+
+interface NotificationsModalProps {
+  visible: boolean;
+  onClose: () => void;
+  userLanguage?: string;
+}
+
+export const NotificationsModal: React.FC<NotificationsModalProps> = ({
+  visible,
+  onClose,
+  userLanguage = "pt-BR",
+}) => {
+  const [notifications, setNotifications] = useState<any[]>([]);
+
+  useEffect(() => {
+    let unsubscribe: (() => void) | null = null;
+    const uid = auth.currentUser?.uid;
+
+    if (visible && uid) {
+      const q = query(
+        collection(db, "users", uid, "notifications"),
+        orderBy("createdAt", "desc"),
+        limit(20)
+      );
+
+      unsubscribe = onSnapshot(q, (snapshot) => {
+        const docs = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+        setNotifications(docs);
+
+        // Marca automaticamente como lidas no banco
+        const unreadDocs = snapshot.docs.filter((d) => !d.data().read);
+        if (unreadDocs.length > 0) {
+          const batch = writeBatch(db);
+          unreadDocs.forEach((d) => {
+            batch.update(doc(db, "users", uid, "notifications", d.id), {
+              read: true,
+            });
+          });
+          batch.commit().catch(() => {});
+        }
+      });
+    }
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [visible]);
+
+  return (
+    <Modal visible={visible} transparent animationType="slide">
+      <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={onClose}>
+        <TouchableOpacity
+          activeOpacity={1}
+          style={styles.container}
+          onPress={(e) => e.stopPropagation()}
+        >
+          <View style={styles.handle} />
+
+          <View style={styles.header}>
+            <Text style={styles.title}>
+              {t("notifications_title", userLanguage) || "Notificações"}
+            </Text>
+            <TouchableOpacity onPress={onClose}>
+              <FontAwesome5 name="times" size={18} color="#60646C" />
+            </TouchableOpacity>
+          </View>
+
+          {notifications.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <View style={styles.bellIconBg}>
+                <FontAwesome5 name="bell" solid size={26} color="#202D3A" />
+              </View>
+              <Text style={styles.emptyText}>
+                {t("no_notifications_msg", userLanguage) ||
+                  "Nenhuma notificação nova no momento. Está tudo tranquilo por aqui!"}
+              </Text>
+            </View>
+          ) : (
+            <FlatList
+              data={notifications}
+              keyExtractor={(item) => item.id}
+              showsVerticalScrollIndicator={false}
+              style={{ width: "100%", maxHeight: 320 }}
+              renderItem={({ item }) => {
+                const isUnread = !item.read;
+                return (
+                  <View style={[styles.card, !isUnread && styles.cardRead]}>
+                    <View style={styles.cardHeader}>
+                      <FontAwesome5
+                        name={isUnread ? "envelope" : "envelope-open"}
+                        size={14}
+                        color={isUnread ? "#EAB64A" : "#AFAFAF"}
+                      />
+                      <Text
+                        style={[styles.cardTitle, !isUnread && styles.cardTitleRead]}
+                      >
+                        {item.title || "Notificação"}
+                      </Text>
+                    </View>
+                    <Text style={[styles.cardBody, !isUnread && styles.cardBodyRead]}>
+                      {item.body || item.message || ""}
+                    </Text>
+                  </View>
+                );
+              }}
+            />
+          )}
+
+          <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
+            <Text style={styles.closeBtnText}>
+              {t("modal_close", userLanguage) || "Fechar"}
+            </Text>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </TouchableOpacity>
+    </Modal>
+  );
+};
+
+const styles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(32,45,58,0.6)",
+    justifyContent: "flex-end",
+  },
+  container: {
+    backgroundColor: "#FFF",
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    padding: 24,
+    paddingBottom: 40,
+    alignItems: "center",
+    width: "100%",
+  },
+  handle: {
+    width: 50,
+    height: 5,
+    backgroundColor: "#D1D9E0",
+    borderRadius: 3,
+    marginBottom: 20,
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    width: "100%",
+    marginBottom: 16,
+  },
+  title: {
+    fontFamily: "Montserrat_900Black",
+    fontSize: 20,
+    color: "#202D3A",
+  },
+  emptyContainer: {
+    alignItems: "center",
+    marginVertical: 15,
+  },
+  bellIconBg: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: "#F0F4F8",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  emptyText: {
+    fontFamily: "Montserrat_400Regular",
+    fontSize: 14,
+    color: "#60646C",
+    textAlign: "center",
+    lineHeight: 20,
+  },
+  card: {
+    backgroundColor: "#F0F4F8",
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: "#D1D9E0",
+  },
+  cardRead: {
+    backgroundColor: "#FFF",
+    borderColor: "#EAEAEA",
+    opacity: 0.7,
+  },
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 4,
+  },
+  cardTitle: {
+    fontFamily: "Montserrat_700Bold",
+    fontSize: 14,
+    color: "#202D3A",
+  },
+  cardTitleRead: {
+    color: "#60646C",
+  },
+  cardBody: {
+    fontFamily: "Montserrat_400Regular",
+    fontSize: 13,
+    color: "#2C3E50",
+    lineHeight: 18,
+  },
+  cardBodyRead: {
+    color: "#AFAFAF",
+  },
+  closeBtn: {
+    width: "100%",
+    paddingVertical: 16,
+    borderRadius: 16,
+    backgroundColor: "#202D3A",
+    alignItems: "center",
+    marginTop: 15,
+  },
+  closeBtnText: {
+    fontFamily: "Montserrat_700Bold",
+    color: "#FFF",
+    fontSize: 16,
+  },
+});

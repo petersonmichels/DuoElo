@@ -401,35 +401,6 @@ export default function ProfileScreen({ navigation }: any) {
     }
   };
 
-  const handleSwitchGoogleAccount = () => {
-    Alert.alert(
-      t("switch_google_account_title", userLang) || "Desconectar Conta Google",
-      t("switch_google_account_msg", userLang) || "Deseja alternar ou desconectar sua conta Google?",
-      [
-        { text: t("modal_cancel", userLang) || "Cancelar", style: "cancel" },
-        {
-          text: t("btn_disconnect_google", userLang) || "Desconectar",
-          onPress: async () => {
-            try {
-              if (userListenerUnsubscribe.current) {
-                userListenerUnsubscribe.current();
-              }
-              if (GoogleSignin && typeof GoogleSignin.signOut === "function") {
-                try {
-                  await GoogleSignin.signOut();
-                } catch (e) {}
-              }
-              await clearSecurityPin();
-              await signOut(auth);
-            } catch (e) {
-              await signOut(auth);
-            }
-          },
-        },
-      ]
-    );
-  };
-
   const handleLogout = () => {
     Alert.alert(
       t("logout_title", userLang) || "Sair da Conta",
@@ -1043,21 +1014,6 @@ export default function ProfileScreen({ navigation }: any) {
                 value={bypassDailyLock}
               />
             </View>
-
-            <TouchableOpacity style={styles.menuOption} onPress={handleSwitchGoogleAccount}>
-              <View style={styles.menuOptionLeft}>
-                <View style={[styles.menuIconBg, { backgroundColor: "#FDE8E8" }]}>
-                  <FontAwesome5 name="google" size={16} color="#EA4335" />
-                </View>
-                <View style={{ flex: 1, flexShrink: 1 }}>
-                  <Text style={styles.menuOptionText}>{t("switch_google_account_menu", userLang) || "Desconectar Conta Google"}</Text>
-                  <Text style={{ fontSize: 11, color: "#60646C", marginTop: 2, fontFamily: "Montserrat_400Regular" }}>
-                    {t("switch_google_account_desc", userLang) || "Desconecta e limpa sessão do Google"}
-                  </Text>
-                </View>
-              </View>
-              <FontAwesome5 name="chevron-right" size={14} color="#D1D9E0" />
-            </TouchableOpacity>
 
             <TouchableOpacity style={styles.menuOption} onPress={handleOpenSettings}>
               <View style={styles.menuOptionLeft}>
