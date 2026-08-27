@@ -87,7 +87,6 @@ module.exports = {
             "Permite autenticar você em segurança para desbloquear seus dados encriptados.",
         },
       ],
-      "@sentry/react-native",
     ],
     extra: {
       eas: {
