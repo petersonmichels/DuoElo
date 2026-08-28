@@ -38,7 +38,7 @@ export type RootStackParamList = {
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator();
 
-// 💡 ÍCONE DA VIDA PULSANTE EM VERMELHO VIVO QUANDO HÁ PENDÊNCIAS
+// 💡 ÍCONE DA LIFE PULSANTE EM VERMELHO VIVO QUANDO HÁ PENDÊNCIAS
 const PulsingVidaIcon = ({ color, uid }: { color: string; uid: string | undefined }) => {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const [hasPending, setHasPending] = useState(false);
@@ -158,7 +158,7 @@ const PulsingVidaIcon = ({ color, uid }: { color: string; uid: string | undefine
     } else {
       pulseAnim.setValue(1);
     }
-  }, [hasPending]);
+  }, [hasPending, pulseAnim]);
 
   return (
     <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
@@ -300,8 +300,8 @@ function MainTabs() {
         name="Vida"
         component={VidaScreen}
         options={{
-          tabBarLabel: "VIDA",
-          tabBarIcon: ({ color }) => (
+          tabBarLabel: "Life",
+          tabBarIcon: ({ color }: { color: string }) => (
             <PulsingVidaIcon color={color} uid={currentUid} />
           ),
         }}
@@ -312,7 +312,7 @@ function MainTabs() {
         component={MatchScreen}
         options={{
           tabBarLabel: t("tab_match", userLang) || "Match",
-          tabBarIcon: ({ color }) => (
+          tabBarIcon: ({ color }: { color: string }) => (
             <FontAwesome5 name="user-friends" size={18} color={color} />
           ),
         }}
@@ -321,9 +321,15 @@ function MainTabs() {
       <Tab.Screen
         name="Home"
         component={HomeScreen}
+        listeners={({ navigation }: { navigation: any }) => ({
+          tabPress: (e: any) => {
+            e.preventDefault();
+            navigation.navigate("Home");
+          },
+        })}
         options={{
           tabBarLabel: () => null,
-          tabBarIcon: ({ focused }) => (
+          tabBarIcon: ({ focused }: { focused: boolean }) => (
             <View
               style={[
                 styles.floatingButton,
@@ -345,7 +351,7 @@ function MainTabs() {
         component={ShopScreenWrapper}
         options={{
           tabBarLabel: t("tab_shop", userLang) || "Loja",
-          tabBarIcon: ({ color }) => (
+          tabBarIcon: ({ color }: { color: string }) => (
             <FontAwesome5 name="shopping-bag" size={20} color={color} />
           ),
         }}
@@ -356,7 +362,7 @@ function MainTabs() {
         component={ProfileScreen}
         options={{
           tabBarLabel: t("tab_profile", userLang) || "Perfil",
-          tabBarIcon: ({ color }) => (
+          tabBarIcon: ({ color }: { color: string }) => (
             <FontAwesome5 name="user-alt" size={20} color={color} />
           ),
         }}

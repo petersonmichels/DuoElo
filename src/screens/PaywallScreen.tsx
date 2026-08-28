@@ -110,7 +110,7 @@ export default function PaywallScreen({ navigation }: any) {
     };
   }, []);
 
-  // 🎯 MAPEAMENTO CIRÚRGICO COM BASE NOS PRODUTOS DO REVENUECAT
+  // 🎯 MAPEAMENTO DE PRODUTOS/PACKAGES DO REVENUECAT
   const findPackage = (
     category: "duo" | "individual",
     period: "mensal" | "trimestral" | "anual",
@@ -122,11 +122,14 @@ export default function PaywallScreen({ navigation }: any) {
       if (category === "individual") {
         if (period === "mensal")
           return (
-            prodId.includes("duoelo_mensal") || pkgId.includes("solo_monthly")
+            prodId.includes("duoelo_mensal") ||
+            prodId.includes("solo.monthly") ||
+            pkgId.includes("solo_monthly")
           );
         if (period === "trimestral")
           return (
             prodId.includes("duoelo_trimestral") ||
+            prodId.includes("solo.quarterly") ||
             pkgId.includes("solo_three_month") ||
             pkgId.includes("solo_quarterly")
           );
@@ -134,22 +137,28 @@ export default function PaywallScreen({ navigation }: any) {
           return (
             (prodId.includes("duoelo_anual") &&
               !prodId.includes("duo_anual")) ||
+            prodId.includes("solo.annual") ||
             pkgId.includes("solo_annual")
           );
       } else {
         if (period === "mensal")
           return (
-            prodId.includes("duoelo_duo_mensal") || pkgId.includes("monthly")
+            prodId.includes("duoelo_duo_mensal") ||
+            prodId.includes("duo.monthly") ||
+            pkgId.includes("monthly")
           );
         if (period === "trimestral")
           return (
             prodId.includes("duoelo_duo_trimestral") ||
+            prodId.includes("duo.quarterly") ||
             pkgId.includes("three_month") ||
             pkgId.includes("quarterly")
           );
         if (period === "anual")
           return (
-            prodId.includes("duoelo_duo_anual") || pkgId.includes("annual")
+            prodId.includes("duoelo_duo_anual") ||
+            prodId.includes("duo.annual") ||
+            pkgId.includes("annual")
           );
       }
       return false;
@@ -216,57 +225,42 @@ export default function PaywallScreen({ navigation }: any) {
 
       const pkgToPurchase = findPackage(planCategory, selectedPlan);
 
-      if (pkgToPurchase) {
-        // 💳 PROCESSA A COMPRA VIA REVENUECAT
-        const { customerInfo } = await Purchases.purchasePackage(pkgToPurchase);
-        const activeProdId = customerInfo.activeSubscriptions[0] || pkgToPurchase.product.identifier;
-        const isDuoPlan = planCategory === "duo" || activeProdId.includes("_duo_");
-
-        const userUpdates: any = {
-          isPremium: true,
-          planType: isDuoPlan ? "duo" : "solo",
-          activeProductId: activeProdId,
-          subscriptionCategory: planCategory,
-          subscriptionPlan: selectedPlan,
-          subscriptionDate: new Date().toISOString(),
-        };
-
-        await setDoc(doc(db, "users", currentUid), userUpdates, { merge: true });
-
-        // 🎯 O PARCEIRO SÓ HERDA A ASSINATURA SE FOR PLANO DUO
-        if (isDuoPlan && partnerId) {
-          await setDoc(
-            doc(db, "users", partnerId),
-            { isPremium: true, isPartnerPremium: true, planType: "duo" },
-            { merge: true },
-          );
-        }
-      } else {
-        // Fallback em ambiente de teste sem RevenueCat configurado
-        const isDuoPlan = planCategory === "duo";
-        const userUpdates: any = {
-          isPremium: true,
-          planType: isDuoPlan ? "duo" : "solo",
-          activeProductId: isDuoPlan
-            ? `duoelo_duo_${selectedPlan}`
-            : `duoelo_${selectedPlan}`,
-          subscriptionCategory: planCategory,
-          subscriptionPlan: selectedPlan,
-          subscriptionDate: new Date().toISOString(),
-        };
-
-        await setDoc(doc(db, "users", currentUid), userUpdates, { merge: true });
-
-        if (isDuoPlan && partnerId) {
-          await setDoc(
-            doc(db, "users", partnerId),
-            { isPremium: true, isPartnerPremium: true, planType: "duo" },
-            { merge: true },
-          );
-        }
+      // 🛡️ SEGURANÇA: Se o pacote não for encontrado, bloqueia e exibe aviso
+      if (!pkgToPurchase) {
+        Alert.alert(
+          t("sub_error_title", userLang) || "Plano Indisponível",
+          t("sub_error_msg", userLang) || "Não foi possível carregar as informações do plano na loja. Tente novamente em instantes."
+        );
+        setIsProcessing(false);
+        return;
       }
 
-      // 📜 REGISTRO DE AUDITORIA DE SEGURANÇA (ATIVAÇÃO DE ASSINATURA)
+      // 💳 PROCESSA A COMPRA EXCLUSIVAMENTE VIA REVENUECAT (SEM BYPASS)
+      const { customerInfo } = await Purchases.purchasePackage(pkgToPurchase);
+      const activeProdId = customerInfo.activeSubscriptions[0] || pkgToPurchase.product.identifier;
+      const isDuoPlan = planCategory === "duo" || activeProdId.includes("_duo_") || activeProdId.includes(".duo.");
+
+      const userUpdates: any = {
+        isPremium: true,
+        planType: isDuoPlan ? "duo" : "solo",
+        activeProductId: activeProdId,
+        subscriptionCategory: planCategory,
+        subscriptionPlan: selectedPlan,
+        subscriptionDate: new Date().toISOString(),
+      };
+
+      await setDoc(doc(db, "users", currentUid), userUpdates, { merge: true });
+
+      // 🎯 O PARCEIRO SÓ HERDA A ASSINATURA SE FOR PLANO DUO
+      if (isDuoPlan && partnerId) {
+        await setDoc(
+          doc(db, "users", partnerId),
+          { isPremium: true, isPartnerPremium: true, planType: "duo" },
+          { merge: true },
+        );
+      }
+
+      // 📜 REGISTRO DE AUDITORIA DE SEGURANÇA
       await logAuditEvent(
         currentUid,
         "SUBSCRIPTION_ACTIVATED",
@@ -323,7 +317,7 @@ export default function PaywallScreen({ navigation }: any) {
         const currentUid = auth.currentUser?.uid;
         if (currentUid) {
           const activeSubId = restoredInfo.activeSubscriptions[0] || "";
-          const isDuoPlan = activeSubId.includes("_duo_");
+          const isDuoPlan = activeSubId.includes("_duo_") || activeSubId.includes(".duo.");
 
           await setDoc(
             doc(db, "users", currentUid),
@@ -343,7 +337,7 @@ export default function PaywallScreen({ navigation }: any) {
             );
           }
 
-          // 📜 REGISTRO DE AUDITORIA (RESTAURAÇÃO DE COMPRA)
+          // 📜 REGISTRO DE AUDITORIA
           await logAuditEvent(
             currentUid,
             "PURCHASE_RESTORED",
@@ -602,10 +596,10 @@ export default function PaywallScreen({ navigation }: any) {
                 );
 
                 if (matchedPkg && matchedPkg.product.priceString) {
-                  displayPrice = matchedPkg.product.priceString
-                    .replace("R$", "")
-                    .trim();
+                  displayPrice = matchedPkg.product.priceString;
                   displayDesc = matchedPkg.product.description || plan.desc;
+                } else {
+                  displayPrice = `R$ ${plan.price}`;
                 }
 
                 return (
@@ -631,7 +625,7 @@ export default function PaywallScreen({ navigation }: any) {
                     </View>
 
                     <View style={styles.planPriceBox}>
-                      <Text style={styles.planPrice}>R$ {displayPrice}</Text>
+                      <Text style={styles.planPrice}>{displayPrice}</Text>
                       <Text style={styles.planPeriod}>{plan.period}</Text>
                     </View>
                   </TouchableOpacity>
@@ -938,7 +932,7 @@ const styles = StyleSheet.create({
   },
   planPriceBox: { alignItems: "flex-end" },
   planPrice: {
-    fontSize: 20,
+    fontSize: 18,
     fontFamily: "Montserrat_900Black",
     color: "#202D3A",
   },

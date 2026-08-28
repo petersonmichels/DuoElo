@@ -1,21 +1,21 @@
 import { FontAwesome5 } from "@expo/vector-icons";
 import {
-    collection,
-    doc,
-    limit,
-    onSnapshot,
-    orderBy,
-    query,
-    writeBatch,
+  collection,
+  doc,
+  limit,
+  onSnapshot,
+  orderBy,
+  query,
+  writeBatch,
 } from "firebase/firestore";
 import React, { useEffect, useState } from "react";
 import {
-    FlatList,
-    Modal,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  FlatList,
+  Modal,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { auth, db } from "../config/firebase";
 import { t } from "../i18n/translations";
@@ -48,7 +48,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
         const docs = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
         setNotifications(docs);
 
-        // Marca automaticamente como lidas no banco
+        // 🎯 Marca como lidas de forma assíncrona sem afetar a legibilidade da renderização imediata
         const unreadDocs = snapshot.docs.filter((d) => !d.data().read);
         if (unreadDocs.length > 0) {
           const batch = writeBatch(db);
@@ -66,6 +66,20 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
       if (unsubscribe) unsubscribe();
     };
   }, [visible]);
+
+  // 🎨 MAPEAMENTO DINÂMICO DE ÍCONES POR TIPO DE NOTIFICAÇÃO
+  const getNotificationIcon = (type?: string) => {
+    switch (type) {
+      case "MATCH_INVITE":
+        return { name: "heart", color: "#E74C3C" };
+      case "DAILY_REMINDER":
+        return { name: "clock", color: "#EAB64A" };
+      case "MISSION_COMPLETED":
+        return { name: "check-circle", color: "#67D4A8" };
+      default:
+        return { name: "bell", color: "#202D3A" };
+    }
+  };
 
   return (
     <Modal visible={visible} transparent animationType="slide">
@@ -103,22 +117,21 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
               showsVerticalScrollIndicator={false}
               style={{ width: "100%", maxHeight: 320 }}
               renderItem={({ item }) => {
-                const isUnread = !item.read;
+                const iconInfo = getNotificationIcon(item.type);
                 return (
-                  <View style={[styles.card, !isUnread && styles.cardRead]}>
+                  <View style={styles.card}>
                     <View style={styles.cardHeader}>
                       <FontAwesome5
-                        name={isUnread ? "envelope" : "envelope-open"}
+                        name={iconInfo.name}
+                        solid
                         size={14}
-                        color={isUnread ? "#EAB64A" : "#AFAFAF"}
+                        color={iconInfo.color}
                       />
-                      <Text
-                        style={[styles.cardTitle, !isUnread && styles.cardTitleRead]}
-                      >
+                      <Text style={styles.cardTitle}>
                         {item.title || "Notificação"}
                       </Text>
                     </View>
-                    <Text style={[styles.cardBody, !isUnread && styles.cardBodyRead]}>
+                    <Text style={styles.cardBody}>
                       {item.body || item.message || ""}
                     </Text>
                   </View>
@@ -200,11 +213,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#D1D9E0",
   },
-  cardRead: {
-    backgroundColor: "#FFF",
-    borderColor: "#EAEAEA",
-    opacity: 0.7,
-  },
   cardHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -216,17 +224,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#202D3A",
   },
-  cardTitleRead: {
-    color: "#60646C",
-  },
   cardBody: {
     fontFamily: "Montserrat_400Regular",
     fontSize: 13,
     color: "#2C3E50",
     lineHeight: 18,
-  },
-  cardBodyRead: {
-    color: "#AFAFAF",
   },
   closeBtn: {
     width: "100%",

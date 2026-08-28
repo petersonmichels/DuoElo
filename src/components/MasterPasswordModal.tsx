@@ -55,17 +55,19 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
     let isMounted = true;
 
     if (visible) {
-      setPinInput("");
-      setConfirmPinInput("");
-      setErrorMessage("");
+      setTimeout(() => {
+        if (isMounted) {
+          setPinInput("");
+          setConfirmPinInput("");
+          setErrorMessage("");
+        }
+      }, 0);
 
       const initModal = async () => {
         if (isMounted) setIsCheckingPinStatus(true);
         try {
-          // 1. Verifica no SecureStore/Local
           const hasLocalPin = await hasSecurityPin();
 
-          // 2. Verifica se o usuário tem PIN salvo no Firestore
           let hasFirestorePin = false;
           const uid = auth.currentUser?.uid;
           if (uid) {
@@ -73,13 +75,16 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
               const userSnap = await getDoc(doc(db, "users", uid));
               if (userSnap.exists()) {
                 const data = userSnap.data();
-                hasFirestorePin = Boolean(data?.masterPasswordHash || data?.securityPin);
+                const pinVal = data?.masterPasswordHash || data?.securityPin;
+                if (typeof pinVal === "string" && pinVal.trim().length >= 4) {
+                  hasFirestorePin = true;
+                }
               }
             } catch (err) {}
           }
 
           if (isMounted) {
-            setIsPinCreated(hasLocalPin || hasFirestorePin);
+            setIsPinCreated(Boolean(hasLocalPin || hasFirestorePin));
           }
         } catch (e) {
           if (isMounted) setIsPinCreated(false);

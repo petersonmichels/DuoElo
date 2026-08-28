@@ -79,6 +79,7 @@ async function sendPushNotificationDirectly(
     sound: "default",
     title: title,
     body: body,
+    badge: 1,
   };
 
   try {
@@ -428,13 +429,13 @@ export default function HomeScreen({ navigation }: any) {
     Animated.loop(
       Animated.sequence([
         Animated.timing(logoPulseAnim, {
-          toValue: 1.12,
-          duration: 900,
+          toValue: 1.15,
+          duration: 800,
           useNativeDriver: true,
         }),
         Animated.timing(logoPulseAnim, {
-          toValue: 1,
-          duration: 900,
+          toValue: 1.0,
+          duration: 800,
           useNativeDriver: true,
         }),
       ])
@@ -1409,7 +1410,7 @@ export default function HomeScreen({ navigation }: any) {
         </Animated.View>
         <ActivityIndicator size="large" color="#67D4A8" style={{ marginBottom: 12 }} />
         <Text style={{ fontFamily: "Montserrat_700Bold", color: "#202D3A", fontSize: 16 }}>
-          Carregando sua jornada...
+          {t("welcome_loading_msg", userLang) || "Bem-vindo ao DuoElo! Carregando sua jornada..."}
         </Text>
       </SafeAreaView>
     );

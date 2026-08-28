@@ -4,6 +4,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  increment,
   query,
   setDoc,
   where,
@@ -114,6 +115,79 @@ export default function AnamneseScreen({ navigation, route }: any) {
   const thermometerFill = useRef(new Animated.Value(0)).current;
   const loadingProgress = useRef(new Animated.Value(0)).current;
 
+  // 🎯 DECLARAÇÃO MOVIDA PARA CIMA DO USEEFFECT DE CARREGAMENTO INICIAL
+  const loadQuestionsFromFirebase = async (langToFetch: string) => {
+    setIsLoadingQuestions(true);
+    try {
+      let q = query(
+        collection(db, "anamnesis"),
+        where("language", "==", langToFetch)
+      );
+      let qSnap = await getDocs(q);
+
+      if (qSnap.empty) {
+        q = query(
+          collection(db, "anamnesis"),
+          where("language", "==", "pt-BR")
+        );
+        qSnap = await getDocs(q);
+      }
+
+      const loadedQuestions: any[] = [];
+      qSnap.forEach((docSnap) => {
+        const data = docSnap.data();
+        loadedQuestions.push({
+          id: data.question_id || docSnap.id,
+          title:
+            data.pillar ||
+            `${t("connection_axis", langToFetch)} ${data.module_id || 1}`,
+          text:
+            data.translations?.[langToFetch] ||
+            data.translations?.["pt-BR"] ||
+            t("question_not_found", langToFetch),
+          options: (data.options || []).map((opt: any, index: number) => {
+            let defaultIcon = "smile-beam";
+            let defaultColor = "#67D4A8";
+            let fallbackScore = 1;
+
+            if (index === 1) {
+              defaultIcon = "meh";
+              defaultColor = "#EAB64A";
+              fallbackScore = 4;
+            } else if (index === 2) {
+              defaultIcon = "sad-tear";
+              defaultColor = "#E28743";
+              fallbackScore = 7;
+            } else if (index > 2) {
+              defaultIcon = "frown";
+              defaultColor = "#D96C6C";
+              fallbackScore = 10;
+            }
+
+            return {
+              label:
+                opt.translations?.[langToFetch] ||
+                opt.translations?.["pt-BR"] ||
+                opt.label ||
+                t("option_default", langToFetch),
+              score: Number(opt.points ?? opt.score ?? fallbackScore),
+              tag: opt.tag || "sintonia_geral",
+              icon: opt.icon || defaultIcon,
+              color: opt.color || defaultColor,
+            };
+          }),
+        });
+      });
+
+      loadedQuestions.sort((a, b) => a.id.localeCompare(b.id));
+      setQuestionsBank(loadedQuestions);
+    } catch (error) {
+      console.error("Erro ao buscar perguntas do Firebase:", error);
+    } finally {
+      setIsLoadingQuestions(false);
+    }
+  };
+
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
@@ -187,78 +261,6 @@ export default function AnamneseScreen({ navigation, route }: any) {
 
     return () => unsubscribe();
   }, []);
-
-  const loadQuestionsFromFirebase = async (langToFetch: string) => {
-    setIsLoadingQuestions(true);
-    try {
-      let q = query(
-        collection(db, "anamnesis"),
-        where("language", "==", langToFetch)
-      );
-      let qSnap = await getDocs(q);
-
-      if (qSnap.empty) {
-        q = query(
-          collection(db, "anamnesis"),
-          where("language", "==", "pt-BR")
-        );
-        qSnap = await getDocs(q);
-      }
-
-      const loadedQuestions: any[] = [];
-      qSnap.forEach((docSnap) => {
-        const data = docSnap.data();
-        loadedQuestions.push({
-          id: data.question_id || docSnap.id,
-          title:
-            data.pillar ||
-            `${t("connection_axis", langToFetch)} ${data.module_id || 1}`,
-          text:
-            data.translations?.[langToFetch] ||
-            data.translations?.["pt-BR"] ||
-            t("question_not_found", langToFetch),
-          options: (data.options || []).map((opt: any, index: number) => {
-            let defaultIcon = "smile-beam";
-            let defaultColor = "#67D4A8";
-            let fallbackScore = 1;
-
-            if (index === 1) {
-              defaultIcon = "meh";
-              defaultColor = "#EAB64A";
-              fallbackScore = 4;
-            } else if (index === 2) {
-              defaultIcon = "sad-tear";
-              defaultColor = "#E28743";
-              fallbackScore = 7;
-            } else if (index > 2) {
-              defaultIcon = "frown";
-              defaultColor = "#D96C6C";
-              fallbackScore = 10;
-            }
-
-            return {
-              label:
-                opt.translations?.[langToFetch] ||
-                opt.translations?.["pt-BR"] ||
-                opt.label ||
-                t("option_default", langToFetch),
-              score: Number(opt.points ?? opt.score ?? fallbackScore),
-              tag: opt.tag || "sintonia_geral",
-              icon: opt.icon || defaultIcon,
-              color: opt.color || defaultColor,
-            };
-          }),
-        });
-      });
-
-      loadedQuestions.sort((a, b) => a.id.localeCompare(b.id));
-      setQuestionsBank(loadedQuestions);
-    } catch (error) {
-      console.error("Erro ao buscar perguntas do Firebase:", error);
-    } finally {
-      setIsLoadingQuestions(false);
-    }
-  };
 
   const handleChangeLanguage = async (langCode: string) => {
     setUserLang(langCode);
@@ -557,6 +559,10 @@ export default function AnamneseScreen({ navigation, route }: any) {
     if (!userId) return false;
 
     try {
+      const userRef = doc(db, "users", userId);
+      const userSnap = await getDoc(userRef);
+      const userData = userSnap.data();
+
       const diagnosticTags: string[] = [];
       const safeAnswers = selectedAnswers || [];
 
@@ -590,7 +596,7 @@ export default function AnamneseScreen({ navigation, route }: any) {
       const encryptedTags = await encryptText(JSON.stringify(diagnosticTags), secretKey);
       const encryptedScores = await encryptText(JSON.stringify(priorityPillars), secretKey);
 
-      const payloadToSave = {
+      const payloadToSave: any = {
         hasCompletedAnamnesis: true,
         anamnesisScore: finalTemperature,
         priorityModules:
@@ -602,12 +608,25 @@ export default function AnamneseScreen({ navigation, route }: any) {
         anamnesisCompletedAt: new Date().toISOString(),
       };
 
-      await setDoc(doc(db, "users", userId), payloadToSave, { merge: true });
+      if (!userData?.anamnesisBonusGranted) {
+        payloadToSave.totalPE = increment(150);
+        payloadToSave.pointsPE = increment(150);
+        payloadToSave.anamnesisBonusGranted = true;
+
+        showCustomAlert(
+          "🎉 Bônus Desbloqueado!",
+          "Você ganhou +150 Bonds por completar seu Diagnóstico do Elo! Seu saldo já está liberado para usar na Loja.",
+          "gift",
+          "#EAB64A"
+        );
+      }
+
+      await setDoc(userRef, payloadToSave, { merge: true });
 
       await logAuditEvent(
         userId,
         "ANAMNESE_COMPLETED",
-        "Anamnese concluída e encriptada com sucesso",
+        "Anamnese concluída e encriptada com sucesso (+150 Bonds se primeiro envio)",
         userLang
       );
 

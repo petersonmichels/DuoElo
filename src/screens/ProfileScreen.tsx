@@ -94,7 +94,7 @@ export default function ProfileScreen({ navigation }: any) {
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [isEmailVerified, setIsEmailVerified] = useState(false);
-  const saveAnim = useRef(new Animated.Value(0)).current;
+  const saveAnim = useRef(new Animated.Value(0));
 
   const [bypassDailyLock, setBypassDailyLock] = useState(false);
   const [enableHaptics, setEnableHaptics] = useState(true);
@@ -104,6 +104,38 @@ export default function ProfileScreen({ navigation }: any) {
   const [isLangModalVisible, setIsLangModalVisible] = useState(false);
 
   const userListenerUnsubscribe = useRef<(() => void) | null>(null);
+
+  const formatLocalNumber = useCallback((text: string, country = selectedCountry) => {
+    let cleaned = text.replace(/\D/g, "");
+
+    if (country.code === "BR") {
+      if (cleaned.length <= 2) return cleaned;
+      if (cleaned.length <= 6) return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2)}`;
+      if (cleaned.length <= 10)
+        return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2, 6)}-${cleaned.slice(6)}`;
+      return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2, 7)}-${cleaned.slice(7, 11)}`;
+    }
+
+    if (cleaned.length <= 3) return cleaned;
+    if (cleaned.length <= 6) return `${cleaned.slice(0, 3)} ${cleaned.slice(3)}`;
+    if (cleaned.length <= 9)
+      return `${cleaned.slice(0, 3)} ${cleaned.slice(3, 6)} ${cleaned.slice(6)}`;
+    return `${cleaned.slice(0, 3)} ${cleaned.slice(3, 6)} ${cleaned.slice(6, 12)}`;
+  }, [selectedCountry]);
+
+  // 🎯 DECLARADO ANTES DE SER CHAMADO NO USEEFFECT
+  const parseInitialPhone = useCallback((raw: string) => {
+    if (!raw) return;
+    const matchedCountry = COUNTRY_CODES.find((c) => raw.startsWith(c.ddi));
+    if (matchedCountry) {
+      setSelectedCountry(matchedCountry);
+      const numberOnly = raw.replace(matchedCountry.ddi, "").trim();
+      setLocalPhone(formatLocalNumber(numberOnly, matchedCountry));
+    } else {
+      const numberOnly = raw.replace(/\D/g, "");
+      setLocalPhone(formatLocalNumber(numberOnly, selectedCountry));
+    }
+  }, [selectedCountry, formatLocalNumber]);
 
   useFocusEffect(
     useCallback(() => {
@@ -178,41 +210,10 @@ export default function ProfileScreen({ navigation }: any) {
       }
       appStateSubscription.remove();
     };
-  }, []);
-
-  const formatLocalNumber = (text: string, country = selectedCountry) => {
-    let cleaned = text.replace(/\D/g, "");
-
-    if (country.code === "BR") {
-      if (cleaned.length <= 2) return cleaned;
-      if (cleaned.length <= 6) return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2)}`;
-      if (cleaned.length <= 10)
-        return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2, 6)}-${cleaned.slice(6)}`;
-      return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2, 7)}-${cleaned.slice(7, 11)}`;
-    }
-
-    if (cleaned.length <= 3) return cleaned;
-    if (cleaned.length <= 6) return `${cleaned.slice(0, 3)} ${cleaned.slice(3)}`;
-    if (cleaned.length <= 9)
-      return `${cleaned.slice(0, 3)} ${cleaned.slice(3, 6)} ${cleaned.slice(6)}`;
-    return `${cleaned.slice(0, 3)} ${cleaned.slice(3, 6)} ${cleaned.slice(6, 12)}`;
-  };
-
-  const parseInitialPhone = (raw: string) => {
-    if (!raw) return;
-    const matchedCountry = COUNTRY_CODES.find((c) => raw.startsWith(c.ddi));
-    if (matchedCountry) {
-      setSelectedCountry(matchedCountry);
-      const numberOnly = raw.replace(matchedCountry.ddi, "").trim();
-      setLocalPhone(formatLocalNumber(numberOnly, matchedCountry));
-    } else {
-      const numberOnly = raw.replace(/\D/g, "");
-      setLocalPhone(formatLocalNumber(numberOnly, selectedCountry));
-    }
-  };
+  }, [parseInitialPhone]);
 
   const triggerSaveAnimation = (toValue: number, callback?: () => void) => {
-    Animated.timing(saveAnim, {
+    Animated.timing(saveAnim.current, {
       toValue,
       duration: 300,
       useNativeDriver: true,
@@ -666,7 +667,7 @@ export default function ProfileScreen({ navigation }: any) {
           <Text style={styles.headerTitle}>{t("my_profile_title", userLang) || "Meu Perfil"}</Text>
           <View style={{ width: 40 }} />
 
-          <Animated.View style={[styles.autoSaveToast, { opacity: saveAnim }]}>
+          <Animated.View style={[styles.autoSaveToast, { opacity: saveAnim.current }]}>
             <FontAwesome5
               name={saveStatus === "saving" ? "sync" : "check"}
               size={12}

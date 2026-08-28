@@ -44,7 +44,7 @@ export default function VidaScreen({ navigation }: any) {
   const [myPurchases, setMyPurchases] = useState<{ [week: number]: { status: string; giftId: string } }>({});
   const [partnerPurchases, setPartnerPurchases] = useState<{ [week: number]: { status: string; giftId: string } }>({});
   
-  // Confirmações para controle de Cards na Vida
+  // Confirmações para controle de Cards
   const [myConfirmations, setMyConfirmations] = useState<{ [week: number]: boolean }>({});
   const [partnerConfirmations, setPartnerConfirmations] = useState<{ [week: number]: boolean }>({});
 
@@ -237,14 +237,10 @@ export default function VidaScreen({ navigation }: any) {
   const hasPhone = !!(userData?.billingPhone || userData?.phone || userData?.phoneNumber);
   const hasCompleteProfileData = hasName && hasPhone;
 
-  const isJourneyActive =
-    isSoloMode ||
-    !!userData?.isJourneyStarted ||
-    !!userData?.anamneseCompleted ||
-    !!userData?.anamneseSkipped ||
-    !!userData?.lastTaskDate ||
-    (userData?.currentPhase && userData.currentPhase > 0) ||
-    (userData?.currentWeek && userData.currentWeek > 0);
+  // 🎯 VERIFICA SE A BÚSSOLA/ANAMNESE FOI CONCLUÍDA OU BLOQUEADA
+  const isAnamnesisCompleted = Boolean(
+    userData?.hasCompletedAnamnesis || userData?.anamneseCompleted || userData?.anamnesisLocked
+  );
 
   const currentPhase = userData?.currentPhase || 1;
   const currentWeek = Math.min(13, Math.floor((currentPhase - 1) / 7) + 1);
@@ -331,14 +327,14 @@ export default function VidaScreen({ navigation }: any) {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>VIDA</Text>
+        <Text style={styles.headerTitle}>LIFE</Text>
         <Text style={styles.headerSub}>Tecnologia para viver o mundo real</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {(pendingMatchRequest || !hasPhoto || !hasCompleteProfileData || (!hasPartner && !isSoloMode) || !isJourneyActive) && (
+        {(pendingMatchRequest || !hasPhoto || !hasCompleteProfileData || (!hasPartner && !isSoloMode) || !isAnamnesisCompleted) && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Estrutura do Seu Elo</Text>
+            <Text style={styles.sectionTitle}>ESTRUTURA DO SEU ELO</Text>
 
             {pendingMatchRequest && (
               <TouchableOpacity
@@ -410,7 +406,7 @@ export default function VidaScreen({ navigation }: any) {
               </TouchableOpacity>
             )}
 
-            {!isJourneyActive && (
+            {!isAnamnesisCompleted && (
               <TouchableOpacity
                 style={styles.actionCard}
                 activeOpacity={0.8}
@@ -435,7 +431,7 @@ export default function VidaScreen({ navigation }: any) {
           hasGiftToConfirm ||
           needsToBuyGift) && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Ações da Jornada Principal</Text>
+            <Text style={styles.sectionTitle}>AÇÕES DA JORNADA PRINCIPAL</Text>
 
             {!isMissionDoneToday && (
               <TouchableOpacity

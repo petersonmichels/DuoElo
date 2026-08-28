@@ -3,6 +3,7 @@ import * as Clipboard from "expo-clipboard";
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
   onSnapshot,
   query,
@@ -33,6 +34,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { auth, db } from "../config/firebase";
 import { t } from "../i18n/translations";
 import { logAuditEvent } from "../services/auditService";
+import { sendMatchNotificationToPartner } from "../services/notificationService";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -331,9 +333,32 @@ export default function MatchScreen({ navigation }: any) {
                 `Desvinculação efetuada com o parceiro ${partnerUid || "desconhecido"}`
               );
 
-              await setDoc(
-                doc(db, "users", currentUid),
-                {
+              // 🎯 RESET DO PREMIUM HERDADO PARA O USUÁRIO ATUAL
+              const myUpdates: any = {
+                partnerId: null,
+                matchStatus: "disconnected",
+                isSoloMode: false,
+                myTrail: null,
+                isReadyToStart: false,
+                hasPressedPlay: false,
+                sentMatchRequestTo: null,
+                pendingMatchRequest: null,
+              };
+
+              if (userData?.isPartnerPremium) {
+                myUpdates.isPremium = false;
+                myUpdates.isPartnerPremium = false;
+                myUpdates.planType = "free";
+              }
+
+              await setDoc(doc(db, "users", currentUid), myUpdates, { merge: true });
+
+              // 🎯 RESET DO PREMIUM HERDADO PARA O PARCEIRO
+              if (partnerUid) {
+                const partnerSnap = await getDoc(doc(db, "users", partnerUid));
+                const pData = partnerSnap.exists() ? partnerSnap.data() : null;
+
+                const partnerUpdates: any = {
                   partnerId: null,
                   matchStatus: "disconnected",
                   isSoloMode: false,
@@ -342,25 +367,15 @@ export default function MatchScreen({ navigation }: any) {
                   hasPressedPlay: false,
                   sentMatchRequestTo: null,
                   pendingMatchRequest: null,
-                },
-                { merge: true },
-              );
+                };
 
-              if (partnerUid) {
-                await setDoc(
-                  doc(db, "users", partnerUid),
-                  {
-                    partnerId: null,
-                    matchStatus: "disconnected",
-                    isSoloMode: false,
-                    myTrail: null,
-                    isReadyToStart: false,
-                    hasPressedPlay: false,
-                    sentMatchRequestTo: null,
-                    pendingMatchRequest: null,
-                  },
-                  { merge: true },
-                );
+                if (pData?.isPartnerPremium) {
+                  partnerUpdates.isPremium = false;
+                  partnerUpdates.isPartnerPremium = false;
+                  partnerUpdates.planType = "free";
+                }
+
+                await setDoc(doc(db, "users", partnerUid), partnerUpdates, { merge: true });
               }
 
               showCustomAlert(
@@ -418,6 +433,8 @@ export default function MatchScreen({ navigation }: any) {
         {
           partnerId: senderUid,
           isSoloMode: false,
+          hasCompletedAnamnesis: true,
+          anamnesisLocked: true,
           pendingMatchRequest: null,
           sentMatchRequestTo: null,
         },
@@ -429,6 +446,8 @@ export default function MatchScreen({ navigation }: any) {
         {
           partnerId: currentUid,
           isSoloMode: false,
+          hasCompletedAnamnesis: true,
+          anamnesisLocked: true,
           pendingMatchRequest: null,
           sentMatchRequestTo: null,
         },
@@ -597,6 +616,13 @@ export default function MatchScreen({ navigation }: any) {
       } catch (err) {
         console.log("[MatchScreen] Gravação direta pendente; operando via fallback.");
       }
+
+      await sendMatchNotificationToPartner(
+        pendingMatchPartner.data?.pushToken || "",
+        pendingMatchPartner.id,
+        myName,
+        userLang
+      );
 
       await logAuditEvent(
         currentUser.uid,

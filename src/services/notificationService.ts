@@ -23,25 +23,71 @@ if (!isExpoGo) {
 
 /**
  * Grava a notificação diretamente no Firestore para formar o histórico do usuário
+ * Permite especificar um `targetUid` para enviar a notificação na subcoleção do parceiro
  */
 export async function saveNotificationToFirestore(
   title: string,
   body: string,
-  type: string = "DAILY_REMINDER"
+  type: string = "DAILY_REMINDER",
+  targetUid?: string
 ): Promise<void> {
   try {
-    const uid = auth.currentUser?.uid;
-    if (!uid) return;
+    const recipientUid = targetUid || auth.currentUser?.uid;
+    if (!recipientUid) return;
 
-    await addDoc(collection(db, "users", uid, "notifications"), {
+    await addDoc(collection(db, "users", recipientUid, "notifications"), {
       title,
       body,
       type,
       read: false,
       createdAt: serverTimestamp(),
+      senderUid: auth.currentUser?.uid || null,
     });
   } catch (error) {
     console.error("[NOTIF_SERVICE] Erro ao gravar histórico:", error);
+  }
+}
+
+/**
+ * Dispara notificação push e salva no histórico do Firestore do parceiro quando um Match é enviado
+ */
+export async function sendMatchNotificationToPartner(
+  partnerPushToken: string,
+  partnerUid: string,
+  senderName: string,
+  userLang: string = "pt-BR"
+): Promise<void> {
+  const pushTitle =
+    t("match_invite_push_title", userLang) || "Convite de Match Recebido! 💌";
+  const pushBody =
+    t("match_invite_push_body", userLang, { name: senderName }) ||
+    `${senderName} enviou um convite para iniciarem o elo juntos!`;
+
+  // 1. Grava no histórico de notificações do parceiro no Firestore
+  await saveNotificationToFirestore(pushTitle, pushBody, "MATCH_INVITE", partnerUid);
+
+  // 2. Envia a notificação Push de sistema (iOS/Android) via API Expo
+  if (partnerPushToken && !isExpoGo) {
+    try {
+      await fetch("https://exp.host/--/api/v2/push/send", {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Accept-encoding": "gzip, deflate",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          to: partnerPushToken,
+          sound: "default",
+          title: pushTitle,
+          body: pushBody,
+          badge: 1,
+          data: { type: "MATCH_INVITE" },
+        }),
+      });
+    } catch (error) {
+      console.error("[NOTIF_SERVICE] Erro ao enviar Push de Match:", error);
+    }
   }
 }
 

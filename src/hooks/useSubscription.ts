@@ -1,7 +1,7 @@
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc, onSnapshot } from "firebase/firestore";
 import { useEffect, useState } from "react";
-import { auth, db } from "../services/firebaseService";
+import { auth, db } from "../config/firebase";
 
 export function useSubscription() {
   const [isPremium, setIsPremium] = useState<boolean | null>(null);
