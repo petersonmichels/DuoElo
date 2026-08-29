@@ -35,7 +35,7 @@ import {
 } from "@expo-google-fonts/montserrat";
 
 export default function App() {
-  const [fontsLoaded] = useFonts({
+  const [fontsLoaded, fontError] = useFonts({
     Montserrat_400Regular,
     Montserrat_600SemiBold,
     Montserrat_700Bold,
@@ -47,14 +47,12 @@ export default function App() {
     let isMounted = true;
 
     const setupRevenueCat = async () => {
-      // O SDK de compras nativas do RevenueCat só é executado no Android e iOS
       if (Platform.OS === "web") return;
 
       try {
         const isAlreadyConfigured = await Purchases.isConfigured();
         if (isAlreadyConfigured || !isMounted) return;
 
-        // Ativa os logs de debug do RevenueCat apenas em desenvolvimento
         if (__DEV__) {
           Purchases.setLogLevel(Purchases.LOG_LEVEL.DEBUG);
         }
@@ -85,12 +83,12 @@ export default function App() {
 
   // 🎨 CONTROLE DE RENDERIZAÇÃO DA SPLASH SCREEN E DE FONTES
   const onLayoutRootView = useCallback(async () => {
-    if (fontsLoaded) {
+    if (fontsLoaded || fontError) {
       await SplashScreen.hideAsync().catch(() => {});
     }
-  }, [fontsLoaded]);
+  }, [fontsLoaded, fontError]);
 
-  if (!fontsLoaded) {
+  if (!fontsLoaded && !fontError) {
     return (
       <View
         style={{

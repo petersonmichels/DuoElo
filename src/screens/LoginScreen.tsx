@@ -833,7 +833,7 @@ export default function LoginScreen({ navigation }: any) {
             >
               <View style={styles.logoImageContainer}>
                 <Image
-                  source={require("../assets/duoelo_brand_logo.png")}
+                  source={require("../../assets/duoelo_brand_logo.png")}
                   style={styles.logoImage}
                   resizeMode="contain"
                 />

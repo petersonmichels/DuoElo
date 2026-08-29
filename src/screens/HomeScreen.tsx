@@ -1403,7 +1403,7 @@ export default function HomeScreen({ navigation }: any) {
       <SafeAreaView style={[styles.container, styles.loadingSplashContainer]}>
         <Animated.View style={{ transform: [{ scale: logoPulseAnim }], alignItems: "center" }}>
           <Image
-            source={require("../assets/duoelo_brand_logo.png")}
+            source={require("../../assets/duoelo_brand_logo.png")}
             style={{ width: 110, height: 110, borderRadius: 25, marginBottom: 20 }}
             resizeMode="contain"
           />

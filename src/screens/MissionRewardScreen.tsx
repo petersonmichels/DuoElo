@@ -339,7 +339,7 @@ export default function MissionRewardScreen({ navigation, route }: any) {
             >
               {isSolo ? (
                 <Image
-                  source={require("../assets/duoelo_brand_logo.png")}
+                  source={require("../../assets/duoelo_brand_logo.png")}
                   style={styles.logoImageSolo}
                   resizeMode="contain"
                 />
