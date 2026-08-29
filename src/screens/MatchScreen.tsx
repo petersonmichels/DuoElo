@@ -7,6 +7,7 @@ import {
   getDocs,
   onSnapshot,
   query,
+  runTransaction,
   setDoc,
   where,
 } from "firebase/firestore";
@@ -312,6 +313,7 @@ export default function MatchScreen({ navigation }: any) {
     }
   };
 
+  // 🛡️ TRANSAÇÃO ATÔMICA DE DESMATCH (FIX PARA ERRO FALSO-POSITIVO)
   const handleDisconnectPartner = () => {
     Alert.alert(
       t("disconnect_confirm_title", userLang) || "Desconectar Parceiro(a)",
@@ -327,38 +329,12 @@ export default function MatchScreen({ navigation }: any) {
 
             setIsDisconnecting(true);
             try {
-              await logAuditEvent(
-                currentUid,
-                "PARTNER_UNLINKED",
-                `Desvinculação efetuada com o parceiro ${partnerUid || "desconhecido"}`
-              );
+              await runTransaction(db, async (transaction) => {
+                const myUserRef = doc(db, "users", currentUid);
+                const mySnap = await transaction.get(myUserRef);
+                const myCurrData = mySnap.exists() ? mySnap.data() : null;
 
-              // 🎯 RESET DO PREMIUM HERDADO PARA O USUÁRIO ATUAL
-              const myUpdates: any = {
-                partnerId: null,
-                matchStatus: "disconnected",
-                isSoloMode: false,
-                myTrail: null,
-                isReadyToStart: false,
-                hasPressedPlay: false,
-                sentMatchRequestTo: null,
-                pendingMatchRequest: null,
-              };
-
-              if (userData?.isPartnerPremium) {
-                myUpdates.isPremium = false;
-                myUpdates.isPartnerPremium = false;
-                myUpdates.planType = "free";
-              }
-
-              await setDoc(doc(db, "users", currentUid), myUpdates, { merge: true });
-
-              // 🎯 RESET DO PREMIUM HERDADO PARA O PARCEIRO
-              if (partnerUid) {
-                const partnerSnap = await getDoc(doc(db, "users", partnerUid));
-                const pData = partnerSnap.exists() ? partnerSnap.data() : null;
-
-                const partnerUpdates: any = {
+                const myUpdates: any = {
                   partnerId: null,
                   matchStatus: "disconnected",
                   isSoloMode: false,
@@ -369,14 +345,45 @@ export default function MatchScreen({ navigation }: any) {
                   pendingMatchRequest: null,
                 };
 
-                if (pData?.isPartnerPremium) {
-                  partnerUpdates.isPremium = false;
-                  partnerUpdates.isPartnerPremium = false;
-                  partnerUpdates.planType = "free";
+                if (myCurrData?.isPartnerPremium) {
+                  myUpdates.isPremium = false;
+                  myUpdates.isPartnerPremium = false;
+                  myUpdates.planType = "free";
                 }
 
-                await setDoc(doc(db, "users", partnerUid), partnerUpdates, { merge: true });
-              }
+                transaction.set(myUserRef, myUpdates, { merge: true });
+
+                if (partnerUid) {
+                  const partnerUserRef = doc(db, "users", partnerUid);
+                  const partnerSnap = await transaction.get(partnerUserRef);
+                  const pCurrData = partnerSnap.exists() ? partnerSnap.data() : null;
+
+                  const partnerUpdates: any = {
+                    partnerId: null,
+                    matchStatus: "disconnected",
+                    isSoloMode: false,
+                    myTrail: null,
+                    isReadyToStart: false,
+                    hasPressedPlay: false,
+                    sentMatchRequestTo: null,
+                    pendingMatchRequest: null,
+                  };
+
+                  if (pCurrData?.isPartnerPremium) {
+                    partnerUpdates.isPremium = false;
+                    partnerUpdates.isPartnerPremium = false;
+                    partnerUpdates.planType = "free";
+                  }
+
+                  transaction.set(partnerUserRef, partnerUpdates, { merge: true });
+                }
+              });
+
+              await logAuditEvent(
+                currentUid,
+                "PARTNER_UNLINKED",
+                `Desvinculação efetuada com o parceiro ${partnerUid || "desconhecido"}`
+              );
 
               showCustomAlert(
                 t("disconnected_title", userLang) || "Desconectado",
@@ -384,7 +391,13 @@ export default function MatchScreen({ navigation }: any) {
                 "unlink",
                 "#EAB64A",
               );
-            } catch (e) {
+            } catch (e: any) {
+              // 🛡️ Se o estado local já foi resetado pela transação, ignora o aviso de erro
+              const currentSnap = await getDoc(doc(db, "users", currentUid));
+              if (currentSnap.exists() && currentSnap.data()?.partnerId === null) {
+                return;
+              }
+
               showCustomAlert(
                 t("error_title", userLang) || "Erro",
                 t("disconnect_error_msg", userLang) || "Não foi possível desvincular.",
@@ -406,8 +419,13 @@ export default function MatchScreen({ navigation }: any) {
 
     setIsMatching(true);
     try {
-      await setDoc(doc(db, "users", currentUid), { sentMatchRequestTo: null }, { merge: true });
-      await setDoc(doc(db, "users", targetUid), { pendingMatchRequest: null }, { merge: true });
+      await runTransaction(db, async (transaction) => {
+        const myRef = doc(db, "users", currentUid);
+        const targetRef = doc(db, "users", targetUid);
+
+        transaction.set(myRef, { sentMatchRequestTo: null }, { merge: true });
+        transaction.set(targetRef, { pendingMatchRequest: null }, { merge: true });
+      });
 
       showCustomAlert(
         "Convite Cancelado",
@@ -422,37 +440,43 @@ export default function MatchScreen({ navigation }: any) {
     }
   };
 
+  // 🛡️ TRANSAÇÃO ATÔMICA PARA ACEITAR MATCH (FIX PARA ERRO FALSO-POSITIVO)
   const handleAcceptReceivedInvite = async () => {
     if (!currentUid || !userData?.pendingMatchRequest?.fromUid) return;
     const senderUid = userData.pendingMatchRequest.fromUid;
 
     setIsMatching(true);
     try {
-      await setDoc(
-        doc(db, "users", currentUid),
-        {
-          partnerId: senderUid,
-          isSoloMode: false,
-          hasCompletedAnamnesis: true,
-          anamnesisLocked: true,
-          pendingMatchRequest: null,
-          sentMatchRequestTo: null,
-        },
-        { merge: true }
-      );
+      await runTransaction(db, async (transaction) => {
+        const myUserRef = doc(db, "users", currentUid);
+        const senderUserRef = doc(db, "users", senderUid);
 
-      await setDoc(
-        doc(db, "users", senderUid),
-        {
-          partnerId: currentUid,
-          isSoloMode: false,
-          hasCompletedAnamnesis: true,
-          anamnesisLocked: true,
-          pendingMatchRequest: null,
-          sentMatchRequestTo: null,
-        },
-        { merge: true }
-      );
+        transaction.set(
+          myUserRef,
+          {
+            partnerId: senderUid,
+            isSoloMode: false,
+            hasCompletedAnamnesis: true,
+            anamnesisLocked: true,
+            pendingMatchRequest: null,
+            sentMatchRequestTo: null,
+          },
+          { merge: true }
+        );
+
+        transaction.set(
+          senderUserRef,
+          {
+            partnerId: currentUid,
+            isSoloMode: false,
+            hasCompletedAnamnesis: true,
+            anamnesisLocked: true,
+            pendingMatchRequest: null,
+            sentMatchRequestTo: null,
+          },
+          { merge: true }
+        );
+      });
 
       await logAuditEvent(
         currentUid,
@@ -468,6 +492,12 @@ export default function MatchScreen({ navigation }: any) {
         "#67D4A8"
       );
     } catch (e) {
+      // Check se a gravação transacional funcionou de fato
+      const currentSnap = await getDoc(doc(db, "users", currentUid));
+      if (currentSnap.exists() && currentSnap.data()?.partnerId === senderUid) {
+        return;
+      }
+
       showCustomAlert("Erro ao Aceitar", "Falha ao confirmar o vínculo.", "times-circle", "#D96C6C");
     } finally {
       setIsMatching(false);
@@ -480,8 +510,13 @@ export default function MatchScreen({ navigation }: any) {
 
     setIsMatching(true);
     try {
-      await setDoc(doc(db, "users", currentUid), { pendingMatchRequest: null }, { merge: true });
-      await setDoc(doc(db, "users", senderUid), { sentMatchRequestTo: null }, { merge: true });
+      await runTransaction(db, async (transaction) => {
+        const myRef = doc(db, "users", currentUid);
+        const senderRef = doc(db, "users", senderUid);
+
+        transaction.set(myRef, { pendingMatchRequest: null }, { merge: true });
+        transaction.set(senderRef, { sentMatchRequestTo: null }, { merge: true });
+      });
 
       showCustomAlert("Convite Recusado", "O convite de conexão foi recusado.", "info-circle", "#202D3A");
     } catch (e) {
@@ -588,21 +623,24 @@ export default function MatchScreen({ navigation }: any) {
       const myName = userData?.billingFirstName || userData?.displayName || "Seu Amor";
       const myPhoto = userData?.photoURL || userData?.photoUrl || null;
 
-      await setDoc(
-        doc(db, "users", currentUser.uid),
-        {
-          sentMatchRequestTo: {
-            toUid: pendingMatchPartner.id,
-            toName: pendingMatchPartner.data?.billingFirstName || pendingMatchPartner.data?.displayName || "Seu Amor",
-            requestedAt: new Date().toISOString(),
-          },
-        },
-        { merge: true }
-      );
+      await runTransaction(db, async (transaction) => {
+        const myRef = doc(db, "users", currentUser.uid);
+        const pendingRef = doc(db, "users", pendingMatchPartner.id);
 
-      try {
-        await setDoc(
-          doc(db, "users", pendingMatchPartner.id),
+        transaction.set(
+          myRef,
+          {
+            sentMatchRequestTo: {
+              toUid: pendingMatchPartner.id,
+              toName: pendingMatchPartner.data?.billingFirstName || pendingMatchPartner.data?.displayName || "Seu Amor",
+              requestedAt: new Date().toISOString(),
+            },
+          },
+          { merge: true }
+        );
+
+        transaction.set(
+          pendingRef,
           {
             pendingMatchRequest: {
               fromUid: currentUser.uid,
@@ -613,9 +651,7 @@ export default function MatchScreen({ navigation }: any) {
           },
           { merge: true }
         );
-      } catch (err) {
-        console.log("[MatchScreen] Gravação direta pendente; operando via fallback.");
-      }
+      });
 
       await sendMatchNotificationToPartner(
         pendingMatchPartner.data?.pushToken || "",

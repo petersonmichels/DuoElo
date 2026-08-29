@@ -1,8 +1,11 @@
 {
-  "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022", "DOM"],
+    "lib": [
+      "ES2022",
+      "DOM"
+    ],
+    "jsx": "react-native",
     "moduleResolution": "bundler",
     "strict": true,
     "noEmit": true,
@@ -16,11 +19,12 @@
     "node_modules",
     "functions",
     "babel.config.js",
-    "metro.config.js"
+    "metro.config.js",
+    "dist"
   ],
   "include": [
-    "src/**/*",
-    "App.tsx",
-    "*.d.ts"
-  ]
+    "**/*.ts",
+    "**/*.tsx"
+  ],
+  "extends": "expo/tsconfig.base"
 }

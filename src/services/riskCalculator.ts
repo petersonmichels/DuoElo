@@ -63,19 +63,19 @@ export function calculateThermometer(
   let titleKey: string;
   let messageKey: string;
 
-  // Definição das zonas e atribuição das chaves de tradução
+  // Definição das zonas e atribuição das chaves de tradução mapeadas no i18n
   if (totalScore <= 150) {
     zone = "GREEN";
-    titleKey = "diagnosis.zone.green.title";
-    messageKey = "diagnosis.zone.green.message";
+    titleKey = "result_hot_title";
+    messageKey = "result_hot_desc";
   } else if (totalScore <= 320) {
     zone = "YELLOW";
-    titleKey = "diagnosis.zone.yellow.title";
-    messageKey = "diagnosis.zone.yellow.message";
+    titleKey = "result_warm_title";
+    messageKey = "result_warm_desc";
   } else {
     zone = "RED";
-    titleKey = "diagnosis.zone.red.title";
-    messageKey = "diagnosis.zone.red.message";
+    titleKey = "result_cold_title";
+    messageKey = "result_cold_desc";
   }
 
   return {

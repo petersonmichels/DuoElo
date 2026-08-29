@@ -22,8 +22,8 @@ if (!isExpoGo) {
 }
 
 /**
- * Grava a notificação diretamente no Firestore para formar o histórico do usuário
- * Permite especificar um `targetUid` para enviar a notificação na subcoleção do parceiro
+ * Grava a notificação diretamente no Firestore para formar o histórico do usuário.
+ * Permite especificar um `targetUid` para salvar na subcoleção do parceiro.
  */
 export async function saveNotificationToFirestore(
   title: string,
@@ -49,7 +49,7 @@ export async function saveNotificationToFirestore(
 }
 
 /**
- * Dispara notificação push e salva no histórico do Firestore do parceiro quando um Match é enviado
+ * Dispara notificação push e salva no histórico do Firestore do parceiro quando um Match é enviado.
  */
 export async function sendMatchNotificationToPartner(
   partnerPushToken: string,
@@ -57,16 +57,27 @@ export async function sendMatchNotificationToPartner(
   senderName: string,
   userLang: string = "pt-BR"
 ): Promise<void> {
+  // 🎯 TRADUÇÃO DINÂMICA COMPLETA: Garante o texto traduzido e previne chaves cruas
+  const translatedTitle = t("match_invite_push_title", userLang);
   const pushTitle =
-    t("match_invite_push_title", userLang) || "Convite de Match Recebido! 💌";
-  const pushBody =
-    t("match_invite_push_body", userLang, { name: senderName }) ||
-    `${senderName} enviou um convite para iniciarem o elo juntos!`;
+    translatedTitle && !translatedTitle.includes("match_invite_push_title")
+      ? translatedTitle
+      : userLang.startsWith("pt")
+      ? "Convite de Elo Recebido! 💌"
+      : "Match Invite Received! 💌";
 
-  // 1. Grava no histórico de notificações do parceiro no Firestore
+  const translatedBody = t("match_invite_push_body", userLang, { name: senderName });
+  const pushBody =
+    translatedBody && !translatedBody.includes("match_invite_push_body")
+      ? translatedBody
+      : userLang.startsWith("pt")
+      ? `${senderName} enviou um convite para iniciarem o elo juntos!`
+      : `${senderName} sent you an invitation to connect your bond!`;
+
+  // 1. Grava no histórico de notificações do parceiro no Firestore (para alimentar a modal do Sininho)
   await saveNotificationToFirestore(pushTitle, pushBody, "MATCH_INVITE", partnerUid);
 
-  // 2. Envia a notificação Push de sistema (iOS/Android) via API Expo
+  // 2. Envia a notificação Push de sistema (iOS/Android) via API do Expo Push
   if (partnerPushToken && !isExpoGo) {
     try {
       await fetch("https://exp.host/--/api/v2/push/send", {
@@ -92,7 +103,7 @@ export async function sendMatchNotificationToPartner(
 }
 
 /**
- * Agenda o lembrete diário local
+ * Agenda o lembrete diário local.
  */
 export async function scheduleDailyReminder(
   userLang: string = "pt-BR",
@@ -114,7 +125,7 @@ export async function scheduleDailyReminder(
 
     if (Platform.OS === "android") {
       await Notifications.setNotificationChannelAsync("daily-reminders", {
-        name: "Lembretes Diários",
+        name: t("daily_reminder_channel_name", userLang) || "Lembretes Diários",
         importance: Notifications.AndroidImportance.HIGH,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: "#EAB64A",

@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Crypto from "expo-crypto";
 import { Platform } from "react-native";
+import { t } from "../i18n/translations";
 
 const MASTER_KEY_ALIAS = "duoelo_master_key_hash";
 const SALT_CONST = "DUOELO_E2EE_SALT_LUX_2026";
@@ -152,7 +153,8 @@ export async function encryptText(
  */
 export async function decryptText(
   encryptedData: string,
-  secretKey?: string
+  secretKey?: string,
+  userLang: string = "pt-BR"
 ): Promise<string> {
   if (!encryptedData) return "";
 
@@ -167,7 +169,10 @@ export async function decryptText(
 
   try {
     if (!secretKey) {
-      return "[Conteúdo Protegido por Senha Mestra]";
+      return (
+        t("protected_content_msg", userLang) ||
+        "[Conteúdo Protegido por Senha Mestra]"
+      );
     }
 
     const rawEncrypted = decodeBase64(base64Data);
@@ -198,5 +203,7 @@ export async function decryptText(
     console.error("[DECRYPT_ERROR] Falha ao decodificar payload:", error);
   }
 
-  return "[Erro ao decodificar mensagem]";
+  return (
+    t("decryption_error_msg", userLang) || "[Erro ao decodificar mensagem]"
+  );
 }

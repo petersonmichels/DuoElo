@@ -7,6 +7,7 @@ import {
   where,
 } from "firebase/firestore";
 import { db } from "../config/firebase";
+import { t } from "../i18n/translations";
 
 export type MultiLanguageText = {
   pt: string;
@@ -41,7 +42,13 @@ function getLocalDateString(date: Date): string {
 /**
  * Normaliza um campo de texto bruto ou objeto para a interface MultiLanguageText.
  */
-function resolveMultiLangText(raw: any, fallbackText: string = ""): MultiLanguageText {
+function resolveMultiLangText(
+  raw: any,
+  fallbackText: string = "",
+  userLang: string = "pt-BR"
+): MultiLanguageText {
+  const defaultFallback = fallbackText || t("task_default_desc", userLang) || "Realize a missão do dia para fortalecer seu elo.";
+
   if (typeof raw === "string") {
     return {
       pt: raw,
@@ -54,7 +61,7 @@ function resolveMultiLangText(raw: any, fallbackText: string = ""): MultiLanguag
   }
 
   if (typeof raw === "object" && raw !== null) {
-    const ptText = raw["pt-BR"] || raw["pt"] || fallbackText;
+    const ptText = raw["pt-BR"] || raw["pt"] || defaultFallback;
     return {
       pt: ptText,
       en: raw["en"] || ptText,
@@ -66,12 +73,12 @@ function resolveMultiLangText(raw: any, fallbackText: string = ""): MultiLanguag
   }
 
   return {
-    pt: fallbackText,
-    en: fallbackText,
-    es: fallbackText,
-    fr: fallbackText,
-    de: fallbackText,
-    ja: fallbackText,
+    pt: defaultFallback,
+    en: defaultFallback,
+    es: defaultFallback,
+    fr: defaultFallback,
+    de: defaultFallback,
+    ja: defaultFallback,
   };
 }
 
@@ -79,10 +86,12 @@ function resolveMultiLangText(raw: any, fallbackText: string = ""): MultiLanguag
  * Algoritmo Sniper: Busca a próxima Missão Diária ideal para o usuário.
  *
  * @param userId ID do usuário logado
+ * @param userLang Idioma do usuário para fallback de traduções
  * @returns O objeto da tarefa (MissionTask) totalmente multi-idioma ou null.
  */
 export async function getDailySniperTask(
-  userId: string
+  userId: string,
+  userLang: string = "pt-BR"
 ): Promise<MissionTask | null> {
   if (!userId) return null;
 
@@ -142,6 +151,11 @@ export async function getDailySniperTask(
         querySnapshot = await getDocs(q);
       }
 
+      const defaultTitle = t("task_default_title", userLang) || "Missão do Elo";
+      const defaultDesc =
+        t("task_default_desc", userLang) ||
+        "Realize a missão do dia para fortalecer seu elo.";
+
       const availableTasks = querySnapshot.docs.map((docSnap) => {
         const data = docSnap.data();
         return {
@@ -149,13 +163,14 @@ export async function getDailySniperTask(
           moduleId: Number(data.moduleId || data.module_id || moduleId),
           phase: Number(data.phase || data.day || currentPhase),
           pointsPE: Number(data.pointsPE || data.points || 50),
-          title: resolveMultiLangText(data.title || data.name, "Missão do Elo"),
+          title: resolveMultiLangText(data.title || data.name, defaultTitle, userLang),
           description: resolveMultiLangText(
             data.description || data.concept || data.action,
-            "Realize a missão do dia para fortalecer seu elo."
+            defaultDesc,
+            userLang
           ),
-          concept: resolveMultiLangText(data.concept || data.description),
-          action: resolveMultiLangText(data.action || data.description),
+          concept: resolveMultiLangText(data.concept || data.description, "", userLang),
+          action: resolveMultiLangText(data.action || data.description, "", userLang),
         } as MissionTask;
       });
 

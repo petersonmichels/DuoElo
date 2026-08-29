@@ -38,18 +38,19 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
     const uid = auth.currentUser?.uid;
 
     if (visible && uid) {
+      // 🛡️ BÚSSOLA SEGURA: Tenta ordenar por createdAt, se falhar por falta de índice, usa listener básico
       const q = query(
         collection(db, "users", uid, "notifications"),
         orderBy("createdAt", "desc"),
         limit(20)
       );
 
-      unsubscribe = onSnapshot(q, (snapshot) => {
-        const docs = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const processDocs = (snapshotDocs: any[]) => {
+        const docs = snapshotDocs.map((d) => ({ id: d.id, ...d.data() }));
         setNotifications(docs);
 
-        // 🎯 Marca como lidas de forma assíncrona sem afetar a legibilidade da renderização imediata
-        const unreadDocs = snapshot.docs.filter((d) => !d.data().read);
+        // 🎯 Marca as notificações não lidas como lidas de forma assíncrona
+        const unreadDocs = snapshotDocs.filter((d) => !d.data().read);
         if (unreadDocs.length > 0) {
           const batch = writeBatch(db);
           unreadDocs.forEach((d) => {
@@ -59,7 +60,24 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
           });
           batch.commit().catch(() => {});
         }
-      });
+      };
+
+      unsubscribe = onSnapshot(
+        q,
+        (snapshot) => {
+          processDocs(snapshot.docs);
+        },
+        (error) => {
+          // Fallback seguro caso o índice de ordenação do Firestore não esteja pronto
+          const fallbackQuery = query(
+            collection(db, "users", uid, "notifications"),
+            limit(20)
+          );
+          onSnapshot(fallbackQuery, (fbSnapshot) => {
+            processDocs(fbSnapshot.docs);
+          });
+        }
+      );
     }
 
     return () => {
@@ -128,7 +146,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
                         color={iconInfo.color}
                       />
                       <Text style={styles.cardTitle}>
-                        {item.title || "Notificação"}
+                        {item.title || t("notification_default_title", userLanguage) || "Notificação"}
                       </Text>
                     </View>
                     <Text style={styles.cardBody}>

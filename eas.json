@@ -24,7 +24,9 @@
       },
       "env": {
         "EXPO_PUBLIC_APP_ENV": "preview",
-        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true",
+        "EXPO_PUBLIC_REVENUECAT_IOS_KEY": "appl_xZNigunYBjnJfNUXAOfFqIyXbgY",
+        "EXPO_PUBLIC_REVENUECAT_ANDROID_KEY": "goog_bYcEfvvHdSDOOPlWDlhsnYxJJov"
       }
     },
     "production": {
@@ -33,7 +35,9 @@
       "node": "22.13.0",
       "env": {
         "EXPO_PUBLIC_APP_ENV": "production",
-        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true",
+        "EXPO_PUBLIC_REVENUECAT_IOS_KEY": "appl_xZNigunYBjnJfNUXAOfFqIyXbgY",
+        "EXPO_PUBLIC_REVENUECAT_ANDROID_KEY": "goog_bYcEfvvHdSDOOPlWDlhsnYxJJov"
       },
       "android": {
         "buildType": "app-bundle"

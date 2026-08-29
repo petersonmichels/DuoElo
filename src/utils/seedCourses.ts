@@ -1,5 +1,5 @@
 import { doc, serverTimestamp, setDoc } from "firebase/firestore";
-import { db } from "../config/firebase"; // 👈 Ajustado de '../../' para '../'
+import { db } from "../config/firebase";
 
 export interface CourseSeedPayload {
   id: string;

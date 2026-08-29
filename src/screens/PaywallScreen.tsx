@@ -110,7 +110,7 @@ export default function PaywallScreen({ navigation }: any) {
     };
   }, []);
 
-  // 🎯 MAPEAMENTO DE PRODUTOS/PACKAGES DO REVENUECAT
+  // 🎯 MAPEAMENTO DE PRODUTOS/PACKAGES DO REVENUECAT (PRECISO & SEGURO)
   const findPackage = (
     category: "duo" | "individual",
     period: "mensal" | "trimestral" | "anual",
@@ -235,7 +235,7 @@ export default function PaywallScreen({ navigation }: any) {
         return;
       }
 
-      // 💳 PROCESSA A COMPRA EXCLUSIVAMENTE VIA REVENUECAT (SEM BYPASS)
+      // 💳 PROCESSA A COMPRA EXCLUSIVAMENTE VIA REVENUECAT
       const { customerInfo } = await Purchases.purchasePackage(pkgToPurchase);
       const activeProdId = customerInfo.activeSubscriptions[0] || pkgToPurchase.product.identifier;
       const isDuoPlan = planCategory === "duo" || activeProdId.includes("_duo_") || activeProdId.includes(".duo.");
@@ -430,7 +430,7 @@ export default function PaywallScreen({ navigation }: any) {
       desc: t("plan_duo_quarterly_desc", userLang) || "Cobrança a cada 3 meses para o casal",
       price: "49,90",
       period: t("period_per_quarter", userLang) || "/trimestre",
-      highlight: t("highlight_recommended_couple", userLang) || "MAIS POPULAR PARA CASAIS",
+      highlight: t("highlight_recommended_couple", userLang) || "3 DIAS GRÁTIS • MAIS POPULAR",
     },
     {
       id: "anual",
@@ -455,7 +455,7 @@ export default function PaywallScreen({ navigation }: any) {
       desc: t("plan_solo_quarterly_desc", userLang) || "Cobrança trimestral individual",
       price: "39,90",
       period: t("period_per_quarter", userLang) || "/trimestre",
-      highlight: t("highlight_best_value_solo", userLang) || "RECOMENDADO SOLO",
+      highlight: t("highlight_best_value_solo", userLang) || "3 DIAS GRÁTIS • RECOMENDADO SOLO",
     },
     {
       id: "anual",
@@ -469,6 +469,12 @@ export default function PaywallScreen({ navigation }: any) {
   const activePlans = planCategory === "duo" ? duoPlans : individualPlans;
   const activeFeatures =
     planCategory === "duo" ? featuresDuo : featuresIndividual;
+
+  // Pacote selecionado atualmente no estado para controle de Trial e CTA
+  const currentSelectedPkg = findPackage(planCategory, selectedPlan);
+  const selectedHasFreeTrial =
+    currentSelectedPkg?.product?.introPrice !== null &&
+    currentSelectedPkg?.product?.introPrice !== undefined;
 
   return (
     <View style={styles.container}>
@@ -595,6 +601,10 @@ export default function PaywallScreen({ navigation }: any) {
                   plan.id as "mensal" | "trimestral" | "anual",
                 );
 
+                const hasFreeTrial =
+                  matchedPkg?.product?.introPrice !== null &&
+                  matchedPkg?.product?.introPrice !== undefined;
+
                 if (matchedPkg && matchedPkg.product.priceString) {
                   displayPrice = matchedPkg.product.priceString;
                   displayDesc = matchedPkg.product.description || plan.desc;
@@ -622,6 +632,16 @@ export default function PaywallScreen({ navigation }: any) {
                     <View style={styles.planInfo}>
                       <Text style={styles.planName}>{plan.name}</Text>
                       <Text style={styles.planDesc}>{displayDesc}</Text>
+
+                      {/* 🎁 BADGE DE FREE TRIAL DE 3 DIAS QUANDO DISPONÍVEL NO REVENUECAT */}
+                      {hasFreeTrial && (
+                        <View style={styles.trialBadgeInline}>
+                          <FontAwesome5 name="gift" size={10} color="#03543F" />
+                          <Text style={styles.trialBadgeInlineText}>
+                            {t("free_trial_3_days_badge", userLang) || "3 Dias Grátis"}
+                          </Text>
+                        </View>
+                      )}
                     </View>
 
                     <View style={styles.planPriceBox}>
@@ -720,17 +740,19 @@ export default function PaywallScreen({ navigation }: any) {
             <ActivityIndicator size="small" color="#202D3A" />
           ) : (
             <>
-              <FontAwesome5 name="star" solid size={18} color="#202D3A" />
+              <FontAwesome5 name={selectedHasFreeTrial ? "gift" : "star"} solid size={18} color="#202D3A" />
               <Text style={styles.ctaButtonText}>
-                {t("btn_subscribe_plan_cta", userLang, {
-                  category: planCategory === "duo" ? "Duo" : "Solo",
-                  period:
-                    selectedPlan === "mensal"
-                      ? t("period_monthly_word", userLang) || "Mensal"
-                      : selectedPlan === "trimestral"
-                        ? t("period_quarterly_word", userLang) || "Trimestral"
-                        : t("period_annual_word", userLang) || "Anual",
-                }) || `Assinar ${planCategory === "duo" ? "Duo" : "Solo"} ${selectedPlan}`}
+                {selectedHasFreeTrial
+                  ? (t("btn_start_free_trial_cta", userLang) || "EXPERIMENTAR 3 DIAS GRÁTIS")
+                  : (t("btn_subscribe_plan_cta", userLang, {
+                      category: planCategory === "duo" ? "Duo" : "Solo",
+                      period:
+                        selectedPlan === "mensal"
+                          ? t("period_monthly_word", userLang) || "Mensal"
+                          : selectedPlan === "trimestral"
+                            ? t("period_quarterly_word", userLang) || "Trimestral"
+                            : t("period_annual_word", userLang) || "Anual",
+                    }) || `Assinar ${planCategory === "duo" ? "Duo" : "Solo"} ${selectedPlan}`)}
               </Text>
             </>
           )}
@@ -789,7 +811,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 24,
-    paddingBottom: 120,
+    paddingBottom: 140,
     alignItems: "center",
   },
   iconWrapper: {
@@ -929,6 +951,22 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#60646C",
     fontFamily: "Montserrat_400Regular",
+  },
+  trialBadgeInline: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#DEF7EC",
+    alignSelf: "flex-start",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    marginTop: 6,
+    gap: 6,
+  },
+  trialBadgeInlineText: {
+    color: "#03543F",
+    fontSize: 11,
+    fontFamily: "Montserrat_700Bold",
   },
   planPriceBox: { alignItems: "flex-end" },
   planPrice: {

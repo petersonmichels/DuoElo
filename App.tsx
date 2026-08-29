@@ -60,8 +60,8 @@ export default function App() {
         }
 
         const apiKey = Platform.select({
-          ios: process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY_appl_xZNigunYBjnJfNUXAOfFqIyXbgY,
-          android: process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY_goog_bYcEfvvHdSDOOPlWDlhsnYxJJov,
+          ios: process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY,
+          android: process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY,
         });
 
         if (apiKey && apiKey.trim().length > 0) {

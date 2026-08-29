@@ -96,9 +96,11 @@ export function isStrongPassword(password: string, userLang = "pt-BR"): { isVali
   return { isValid: true };
 }
 
-export async function setSecurityPin(pin: string): Promise<void> {
+export async function setSecurityPin(pin: string, userLang = "pt-BR"): Promise<void> {
   const uid = getCurrentUserUid();
-  if (!pin || pin.length < 4) throw new Error("O PIN deve ter pelo menos 4 dígitos.");
+  if (!pin || pin.length < 4) {
+    throw new Error(t("pin_min_length_msg", userLang) || "O PIN de Segurança deve ter no mínimo 4 dígitos.");
+  }
   
   const saltedPin = `${SALT_CONST}::${uid || "guest"}::${pin}`;
   const hashedPin = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, saltedPin);
@@ -155,7 +157,7 @@ export async function verifySecurityPin(pin: string): Promise<boolean> {
   }
 }
 
-export async function authenticateWithBiometrics(): Promise<boolean> {
+export async function authenticateWithBiometrics(userLang = "pt-BR"): Promise<boolean> {
   if (!LocalAuthentication) return false;
   try {
     const hasHardware = await LocalAuthentication.hasHardwareAsync();
@@ -164,9 +166,9 @@ export async function authenticateWithBiometrics(): Promise<boolean> {
     if (!hasHardware || !isEnrolled) return false;
 
     const result = await LocalAuthentication.authenticateAsync({
-      promptMessage: "Autenticação DuoElo",
-      fallbackLabel: "Usar PIN de Segurança",
-      cancelLabel: "Cancelar",
+      promptMessage: t("biometric_prompt_msg", userLang) || "Autenticação DuoElo",
+      fallbackLabel: t("biometric_fallback_label", userLang) || "Usar PIN de Segurança",
+      cancelLabel: t("modal_cancel", userLang) || "Cancelar",
       disableDeviceFallback: false,
     });
 
@@ -220,7 +222,7 @@ export async function encryptText(text: string, userUid?: string): Promise<strin
   }
 }
 
-export async function decryptText(encryptedData: string, userUid?: string): Promise<string> {
+export async function decryptText(encryptedData: string, userUid?: string, userLang = "pt-BR"): Promise<string> {
   if (!encryptedData) return "";
   
   if (!encryptedData.includes("E2EE::")) {
@@ -257,5 +259,5 @@ export async function decryptText(encryptedData: string, userUid?: string): Prom
     }
   } catch (e) {}
 
-  return "Mensagem protegida (Falha ao descriptografar)";
+  return t("decryption_failed_warn", userLang) || "⚠️ Falha ao descriptografar.";
 }

@@ -614,8 +614,8 @@ export default function AnamneseScreen({ navigation, route }: any) {
         payloadToSave.anamnesisBonusGranted = true;
 
         showCustomAlert(
-          "🎉 Bônus Desbloqueado!",
-          "Você ganhou +150 Bonds por completar seu Diagnóstico do Elo! Seu saldo já está liberado para usar na Loja.",
+          t("anamnesis_bonus_unlocked_title", userLang) || "🎉 Bônus Desbloqueado!",
+          t("anamnesis_bonus_unlocked_msg", userLang) || "Você ganhou +150 Bonds por completar seu Diagnóstico do Elo! Seu saldo já está liberado para usar na Loja.",
           "gift",
           "#EAB64A"
         );

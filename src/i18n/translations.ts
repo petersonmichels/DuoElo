@@ -42,6 +42,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     habit_reading_sub: "Ler 2 páginas de um livro",
     habit_gratitude_title: "Momento Gratidão",
     habit_gratitude_sub: "Falar 1 motivo de gratidão do dia",
+    confirm_delete_custom_habit_msg: "Deseja realmente excluir este hábito personalizado?",
 
     // Requisitos de Senha e Segurança
     pwd_req_header:
@@ -263,6 +264,10 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     error_register: "Não foi possível registrar o presente no momento.",
 
     // AnamneseScreen
+    anamnesis_loading_start: "Carregando perguntas da avaliação...",
+    anamnesis_bonus_unlocked_title: "🎉 Bônus Desbloqueado!",
+    anamnesis_bonus_unlocked_msg:
+      "Você ganhou +150 Bonds por completar seu Diagnóstico do Elo! Seu saldo já está liberado para usar na Loja.",
     loading_info_text: "Carregando informações...",
     connection_axis: "Eixo de Conexão",
     question_not_found: "Pergunta não encontrada",
@@ -273,7 +278,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
       "Seu diagnóstico será definido com o modelo padrão para liberar seu uso imediatamente.\n\nVocê poderá personalizar a avaliação a qualquer momento pelo seu Perfil.",
     btn_answer_assessment: "Responder Avaliação",
     btn_use_default_profile: "Seguir com Perfil Padrão",
-    loading_step_1: "Mapeando os Eixes de Conexão do casal...",
+    loading_step_1: "Mapeando os Eixos de Conexão do casal...",
     loading_step_2: "Cruzando dinâmicas de presença e escuta...",
     loading_step_3: "Calculando o Índice de Sintonia DuoElo...",
     loading_step_4: "Gerando o mapa de prioridades da jornada...",
@@ -382,6 +387,12 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     btn_yes_connect: "Sim, Conectar!",
     btn_no_wrong_code: "Não, errei o código",
 
+    // Push Notifications & Match Keys
+    match_invite_push_title: "Novo Convite de Elo! ❤️",
+    match_invite_push_body: "{{name}} enviou um convite para iniciarem o elo juntos!",
+    daily_reminder_push_title: "✨ DuoElo - Hora do Casal!",
+    daily_reminder_push_body: "Sua missão diária e reflexão do casal já estão disponíveis.",
+
     // InvitePartnerScreen
     invite_whatsapp_message:
       "Amor, estou investindo na nossa relação porque você é muito importante pra mim. Vamos fazer juntos essa jornada de 90 dias do DuoElo? É só baixar o app e colocar o meu código pra gente dar o match: *{{code}}* 👇\n\nhttps://duoelo.com/app",
@@ -400,11 +411,11 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     invite_header_title_2: "Vocês estão conectados!",
     invite_header_sub_2:
       "Os elos foram unidos. Preparem-se para fortalecer a relação a partir de hoje.",
-    workflow_step_1_active: "1. Enviar convite do DuoElo",
+    workflow_step_1_active: "Enviar convite",
     workflow_step_1_done: "1. Convite enviado!",
-    workflow_step_2_waiting: "2. Aguardando instalação do parceiro...",
+    workflow_step_2_waiting: "Aguardando aceite do amor",
     workflow_step_2_done: "2. Parceiro instalou o app!",
-    workflow_step_3_title: "3. Contas unidas",
+    workflow_step_3_title: "Elo Estabelecido",
     code_generator_label: "Código gerador",
     btn_update_status: "Atualizar Status",
     btn_start_trail_together: "Começar a Trilha Juntos",
@@ -412,6 +423,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     welcome_duoelo_msg: "Bem-vindos ao DuoElo!",
 
     // MissionExecutionScreen
+    btn_complete_gold_label: "CONCLUIR DESAFIO DE OURO",
     fallback_mission_concept:
       "Com o tempo, a rotina faz com que casais parem de se olhar de verdade. Conversamos sobre contas, sobre os filhos, mas não nos conectamos mais. O silêncio e a falta de contato visual são os primeiros sinais de distanciamento.",
     fallback_mission_action:
@@ -448,6 +460,8 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     btn_already_did_register: "JÁ FIZ, QUERO REGISTRAR ✓",
 
     // HomeScreen
+    welcome_loading_msg: "Bem-vindo ao DuoElo! Carregando sua jornada...",
+    sub_required_completion_msg: "Assine para desbloquear todo o percurso até o Dia 90.",
     solo_journey_generated_title: "Jornada Solo Gerada! 🚀",
     solo_journey_generated_msg:
       "Cruzamos os dados da sua avaliação. A trilha oficial de 90 dias está liberada!",
@@ -535,8 +549,6 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     challenge_label: "Desafio",
     congrats_completion_title: "🏆 Parabéns!",
     congrats_completion_msg: "Você completou os 90 dias de conexão profunda.",
-    sub_required_completion_msg:
-      "Para desbloquear a conclusão da sua jornada, escolha um plano.",
     notifications_title: "Notificações",
     nudge_title: "Ei, atenção aqui!",
     nudge_text_part1: "Seu parceiro(a) te mandou",
@@ -568,6 +580,9 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     btn_continue_label: "CONTINUAR",
 
     // PaywallScreen
+    sub_error_title: "Plano Indisponível",
+    free_trial_3_days_badge: "3 DIAS GRÁTIS",
+    btn_start_free_trial_cta: "EXPERIMENTAR 3 DIAS GRÁTIS",
     session_expired_sub_msg:
       "Você precisa estar conectado para realizar uma assinatura. Faça login novamente.",
     sub_confirmed_title: "Assinatura Confirmada! 🎉",
@@ -576,7 +591,6 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     sub_confirmed_partner_bonus:
       " O acesso do seu amor também já foi liberado!",
     btn_access_app: "Acessar App",
-    sub_error_title: "Erro na Assinatura",
     sub_error_msg:
       "Não foi possível processar a assinatura no momento. Tente novamente.",
     sub_restored_title: "Assinatura Restaurada! 🎉",
@@ -608,7 +622,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     plan_duo_quarterly_name: "Jornada 90 Dias",
     plan_duo_quarterly_desc: "R$ 16,60/mês (Total R$ 49,90)",
     period_per_quarter: "/trimestre",
-    highlight_recommended_couple: "RECOMENDADO (CASAL)",
+    highlight_recommended_couple: "3 DIAS GRÁTIS • MAIS POPULAR",
     plan_duo_annual_name: "Duo Anual",
     plan_duo_annual_desc: "R$ 14,99/mês (Total R$ 179,90)",
     period_per_year: "/ano",
@@ -616,7 +630,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     plan_solo_monthly_desc: "Renovação mês a mês",
     plan_solo_quarterly_name: "Trimestral Solo",
     plan_solo_quarterly_desc: "R$ 13,30/mês (Total R$ 39,90)",
-    highlight_best_value_solo: "MELHOR VALOR SOLO",
+    highlight_best_value_solo: "3 DIAS GRÁTIS • RECOMENDADO SOLO",
     plan_solo_annual_name: "Anual Solo",
     plan_solo_annual_desc: "R$ 10,82/mês (Total R$ 129,90)",
     paywall_hero_title: "O Plano de Resgate da Sua Relação",
@@ -770,6 +784,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     habit_reading_sub: "Ler 2 páginas de um livro",
     habit_gratitude_title: "Momento Gratidão",
     habit_gratitude_sub: "Falar 1 motivo de gratidão do dia",
+    confirm_delete_custom_habit_msg: "Deseja realmente eliminar este hábito personalizado?",
 
     tab_tasks: "VIDA",
     pwd_req_header:
@@ -977,6 +992,12 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     confirmed_success_msg: "Fortaleceram ainda mais o elo de conexão hoje!",
     error_save: "Não foi possível guardar o presente.",
     error_register: "Não foi possível registar o presente de momento.",
+
+    // AnamneseScreen
+    anamnesis_loading_start: "A carregar perguntas da avaliação...",
+    anamnesis_bonus_unlocked_title: "🎉 Bónus Desbloqueado!",
+    anamnesis_bonus_unlocked_msg:
+      "Ganhou +150 Bonds por concluir o Diagnóstico do Elo! O seu saldo já está disponível para usar na Loja.",
     loading_info_text: "A carregar informações...",
     connection_axis: "Eixo de Conexão",
     question_not_found: "Pergunta não encontrada",
@@ -1037,6 +1058,8 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     unlock_rescue_trail: "Desbloqueie a sua Trilha de Resgate",
     btn_unlock_my_journey: "DESBLOQUEAR A MINHA JORNADA",
     btn_postpone_rescue: "Adiar o resgate da nossa relação",
+
+    // MatchScreen
     partner_default_name: "O Seu Amor",
     mysterious_user: "Utilizador Mistério",
     code_copied_title: "Código Copiado! 📋",
@@ -1089,6 +1112,14 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     is_this_person_sub: "Confirme se a conta abaixo pertence ao seu amor.",
     btn_yes_connect: "Sim, Ligar!",
     btn_no_wrong_code: "Não, código errado",
+
+    // Push Notifications & Match Keys
+    match_invite_push_title: "Novo Convite de Elo! ❤️",
+    match_invite_push_body: "{{name}} enviou um convite para iniciarem o elo juntos!",
+    daily_reminder_push_title: "✨ DuoElo - Hora do Casal!",
+    daily_reminder_push_body: "Sua missão diária e reflexão do casal já estão disponíveis.",
+
+    // InvitePartnerScreen
     invite_whatsapp_message:
       "Amor, estou a investir na nossa relação! Vamos fazer juntos a jornada de 90 dias do DuoElo? Descarrega a app e usa o meu código: *{{code}}* 👇\n\nhttps://duoelo.com/app",
     whatsapp_not_found_title: "WhatsApp não encontrado",
@@ -1105,16 +1136,19 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     invite_header_title_2: "Estão Ligados!",
     invite_header_sub_2:
       "Os elos foram unidos. Preparem-se para fortalecer a relação.",
-    workflow_step_1_active: "1. Enviar convite do DuoElo",
+    workflow_step_1_active: "Enviar convite",
     workflow_step_1_done: "1. Convite enviado!",
-    workflow_step_2_waiting: "2. A aguardar instalação do parceiro...",
+    workflow_step_2_waiting: "A aguardar aceite do amor",
     workflow_step_2_done: "2. O parceiro instalou a app!",
-    workflow_step_3_title: "3. Contas unidas",
+    workflow_step_3_title: "Elo Estabelecido",
     code_generator_label: "Código gerador",
     btn_update_status: "Atualizar Estado",
     btn_start_trail_together: "Começar a Trilha Juntos",
     btn_already_have_code: "Já tenho um código",
     welcome_duoelo_msg: "Bem-vindos ao DuoElo!",
+
+    // MissionExecutionScreen
+    btn_complete_gold_label: "CONCLUIR DESAFIO DE OURO",
     fallback_mission_concept:
       "Com o tempo, a rotina faz com que casais parem de se olhar de verdade. Falamos de contas, sobre os filhos, mas não nos conectamos mais.",
     fallback_mission_action:
@@ -1148,6 +1182,10 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     btn_mark_accomplished_label: "MARCAR COMO CUMPRIDA",
     btn_do_real_life: "VOU FAZER NA VIDA REAL AGORA 🚀",
     btn_already_did_register: "JÁ FIZ, QUERO REGISTAR ✓",
+
+    // HomeScreen
+    welcome_loading_msg: "Bem-vindo ao DuoElo! A carregar a sua jornada...",
+    sub_required_completion_msg: "Subscreva para desbloquear todo o percurso até ao Dia 90.",
     solo_journey_generated_title: "Jornada Solo Gerada! 🚀",
     solo_journey_generated_msg:
       "Analisámos os seus dados. A trilha oficial de 90 dias está disponível!",
@@ -1235,8 +1273,6 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     challenge_label: "Desafio",
     congrats_completion_title: "🏆 Parabéns!",
     congrats_completion_msg: "Concluiu os 90 dias de conexão profunda.",
-    sub_required_completion_msg:
-      "Para desbloquear a conclusão da sua jornada, escolha um plano.",
     notifications_title: "Notificações",
     nudge_title: "Ei, atenção aqui!",
     nudge_text_part1: "O seu parceiro enviou-lhe",
@@ -1254,6 +1290,8 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     btn_confirm_delete_account: "SIM, ELIMINAR A MINHA CONTA",
     reset_error_title: "Erro de Reset",
     reset_error_msg: "Verifique a ligação ou inicie sessão novamente.",
+
+    // MissionRewardScreen
     daily_mission_completed_label: "Missão Diária Concluída",
     streak_maintained_label: "Ofensiva Mantida",
     cupid_awake_title: "Cupido Desperto! 🎉",
@@ -1263,6 +1301,11 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     journey_90_days_title: "Parcours de 90 Dias",
     day_counter_text: "Dia {{day}} / {{total}}",
     btn_continue_label: "CONTINUAR",
+
+    // PaywallScreen
+    sub_error_title: "Plano Indisponível",
+    free_trial_3_days_badge: "3 DIAS GRÁTIS",
+    btn_start_free_trial_cta: "EXPERIMENTAR 3 DIAS GRÁTIS",
     session_expired_sub_msg:
       "Precisa de estar ligado para realizar uma subscrição.",
     sub_confirmed_title: "Subscrição Confirmada! 🎉",
@@ -1271,7 +1314,6 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     sub_confirmed_partner_bonus:
       " O acesso do seu amor também foi libertado!",
     btn_access_app: "Aceder à App",
-    sub_error_title: "Erro na Subscrição",
     sub_error_msg: "Não foi possível processar a subscrição de momento.",
     sub_restored_title: "Subscrição Restaurada! 🎉",
     sub_restored_msg:
@@ -1298,7 +1340,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     plan_duo_quarterly_name: "Jornada 90 Dias",
     plan_duo_quarterly_desc: "16,60 €/mês (Total 49,90 €)",
     period_per_quarter: "/trimestre",
-    highlight_recommended_couple: "RECOMENDADO (CASAL)",
+    highlight_recommended_couple: "3 DIAS GRÁTIS • MAIS POPULAR",
     plan_duo_annual_name: "Duo Anual",
     plan_duo_annual_desc: "14,99 €/mês (Total 179,90 €)",
     period_per_year: "/ano",
@@ -1306,7 +1348,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     plan_solo_monthly_desc: "Renovação mês a mês",
     plan_solo_quarterly_name: "Trimestral Solo",
     plan_solo_quarterly_desc: "13,30 €/mês (Total 39,90 €)",
-    highlight_best_value_solo: "MELHOR VALOR SOLO",
+    highlight_best_value_solo: "3 DIAS GRÁTIS • RECOMENDADO SOLO",
     plan_solo_annual_name: "Anual Solo",
     plan_solo_annual_desc: "10,82 €/mês (Total 129,90 €)",
     paywall_hero_title: "O Plano de Resgate da Sua Relação",
@@ -1332,6 +1374,8 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     period_quarterly_word: "Trimestral",
     period_annual_word: "Anual",
     secure_payment_env: "Ambiente de Pagamento 100% Seguro",
+
+    // ProfileScreen
     verify_email_sent_title: "E-mail Enviado! ✉️",
     verify_email_sent_msg:
       "Um link de confirmação foi enviado para a sua caixa de entrada.",
@@ -1451,6 +1495,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     habit_reading_sub: "Read 2 pages of a book",
     habit_gratitude_title: "Gratitude Moment",
     habit_gratitude_sub: "Share 1 thing you're grateful for today",
+    confirm_delete_custom_habit_msg: "Do you really want to delete this custom habit?",
 
     tab_tasks: "LIFE",
     pwd_req_header:
@@ -1647,6 +1692,12 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     confirmed_success_msg: "You deepened your connection bond today!",
     error_save: "Could not save the gift.",
     error_register: "Could not register the gift right now.",
+
+    // AnamneseScreen
+    anamnesis_loading_start: "Loading assessment questions...",
+    anamnesis_bonus_unlocked_title: "🎉 Bonus Unlocked!",
+    anamnesis_bonus_unlocked_msg:
+      "You earned +150 Bonds for completing your Bond Diagnostic! Your balance is now available in the Shop.",
     loading_info_text: "Loading information...",
     connection_axis: "Connection Axis",
     question_not_found: "Question not found",
@@ -1708,6 +1759,8 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     unlock_rescue_trail: "Unlock Your Relationship Trail",
     btn_unlock_my_journey: "UNLOCK MY JOURNEY",
     btn_postpone_rescue: "Postpone relationship rescue",
+
+    // MatchScreen
     partner_default_name: "Partner",
     mysterious_user: "Mysterious User",
     code_copied_title: "Code Copied! 📋",
@@ -1761,6 +1814,14 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     is_this_person_sub: "Verify that the account below belongs to your love.",
     btn_yes_connect: "Yes, Connect!",
     btn_no_wrong_code: "No, wrong code",
+
+    // Push Notifications & Match Keys
+    match_invite_push_title: "New Match Invite! ❤️",
+    match_invite_push_body: "{{name}} sent an invitation to connect your bond!",
+    daily_reminder_push_title: "✨ DuoElo - Couple Time!",
+    daily_reminder_push_body: "Your daily mission and reflection are ready.",
+
+    // InvitePartnerScreen
     invite_whatsapp_message:
       "Honey, I'm investing in our relationship because you mean the world to me. Let's do the 90-day DuoElo journey together! Download the app and enter my code to match: *{{code}}* 👇\n\nhttps://duoelo.com/app",
     whatsapp_not_found_title: "WhatsApp Not Found",
@@ -1778,16 +1839,19 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     invite_header_title_2: "You Are Connected!",
     invite_header_sub_2:
       "Your bonds are linked. Get ready to strengthen your relationship starting today.",
-    workflow_step_1_active: "1. Send DuoElo invite",
+    workflow_step_1_active: "Send invite",
     workflow_step_1_done: "1. Invite sent!",
-    workflow_step_2_waiting: "2. Waiting for partner installation...",
+    workflow_step_2_waiting: "Awaiting partner's acceptance",
     workflow_step_2_done: "2. Partner installed app!",
-    workflow_step_3_title: "3. Accounts linked",
+    workflow_step_3_title: "Bond Established",
     code_generator_label: "Generator Code",
     btn_update_status: "Update Status",
     btn_start_trail_together: "Start Trail Together",
     btn_already_have_code: "I already have a code",
     welcome_duoelo_msg: "Welcome to DuoElo!",
+
+    // MissionExecutionScreen
+    btn_complete_gold_label: "COMPLETE GOLD CHALLENGE",
     fallback_mission_concept:
       "Over time, routine causes couples to stop truly looking at each other. We talk about bills and kids, but disconnect. Silence and lack of eye contact are early warning signs.",
     fallback_mission_action:
@@ -1822,6 +1886,10 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     btn_mark_accomplished_label: "MARK AS ACCOMPLISHED",
     btn_do_real_life: "I'LL DO IT IN REAL LIFE NOW 🚀",
     btn_already_did_register: "I'VE DONE IT, LET'S REGISTER ✓",
+
+    // HomeScreen
+    welcome_loading_msg: "Welcome to DuoElo! Loading your journey...",
+    sub_required_completion_msg: "Subscribe to unlock the full trail up to Day 90.",
     solo_journey_generated_title: "Solo Journey Generated! 🚀",
     solo_journey_generated_msg:
       "We analyzed your assessment. Your 90-day trail is now unlocked!",
@@ -1907,8 +1975,6 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     challenge_label: "Challenge",
     congrats_completion_title: "🏆 Congratulations!",
     congrats_completion_msg: "You completed 90 days of deep connection.",
-    sub_required_completion_msg:
-      "To unlock your journey completion, please choose a plan.",
     notifications_title: "Notifications",
     nudge_title: "Hey, look here!",
     nudge_text_part1: "Your partner sent you",
@@ -1926,6 +1992,8 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     btn_confirm_delete_account: "YES, DELETE MY ACCOUNT",
     reset_error_title: "Reset Error",
     reset_error_msg: "Check connection or re-authenticate.",
+
+    // MissionRewardScreen
     daily_mission_completed_label: "Daily Mission Completed",
     streak_maintained_label: "Streak Maintained",
     cupid_awake_title: "Cupid Awakened! 🎉",
@@ -1935,6 +2003,11 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     journey_90_days_title: "90-Day Journey",
     day_counter_text: "Day {{day}} / {{total}}",
     btn_continue_label: "CONTINUE",
+
+    // PaywallScreen
+    sub_error_title: "Plan Unavailable",
+    free_trial_3_days_badge: "3-DAY FREE TRIAL",
+    btn_start_free_trial_cta: "START 3-DAY FREE TRIAL",
     session_expired_sub_msg:
       "You must be logged in to subscribe. Please log in again.",
     sub_confirmed_title: "Subscription Confirmed! 🎉",
@@ -1943,7 +2016,6 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     sub_confirmed_partner_bonus:
       " Your partner's access has also been unlocked!",
     btn_access_app: "Access App",
-    sub_error_title: "Subscription Error",
     sub_error_msg: "Could not process subscription right now. Try again.",
     sub_restored_title: "Subscription Restored! 🎉",
     sub_restored_msg:
@@ -1972,7 +2044,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     plan_duo_quarterly_name: "90-Day Journey",
     plan_duo_quarterly_desc: "$16.60/month (Total $49.90)",
     period_per_quarter: "/quarter",
-    highlight_recommended_couple: "RECOMMENDED (COUPLE)",
+    highlight_recommended_couple: "3-DAY FREE TRIAL • MOST POPULAR",
     plan_duo_annual_name: "Duo Annual",
     plan_duo_annual_desc: "$14.99/month (Total $179.90)",
     period_per_year: "/year",
@@ -1980,7 +2052,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     plan_solo_monthly_desc: "Month-to-month renewal",
     plan_solo_quarterly_name: "Solo Quarterly",
     plan_solo_quarterly_desc: "$13.30/month (Total $39.90)",
-    highlight_best_value_solo: "BEST SOLO VALUE",
+    highlight_best_value_solo: "3-DAY FREE TRIAL • RECOMMENDED SOLO",
     plan_solo_annual_name: "Solo Annual",
     plan_solo_annual_desc: "$10.82/month (Total $129.90)",
     paywall_hero_title: "Your Relationship Rescue Plan",
@@ -2005,6 +2077,8 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     period_quarterly_word: "Quarterly",
     period_annual_word: "Annual",
     secure_payment_env: "100% Secure Payment Environment",
+
+    // ProfileScreen
     verify_email_sent_title: "Email Sent! ✉️",
     verify_email_sent_msg:
       "A confirmation link was sent to your inbox. Click to verify account.",
@@ -2072,6 +2146,8 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     contact_support_menu: "Contact Support",
     logout_menu_option: "Sign Out",
     delete_account_permanently_btn: "Permanently delete my account",
+
+    // Configurações & Auditoria
     app_language_title: "App Language",
     haptics_label: "Haptic Feedback",
     haptics_desc: "Vibrations upon task completion and interaction",
@@ -2126,6 +2202,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     habit_reading_sub: "Leer 2 páginas de un libro",
     habit_gratitude_title: "Momento Gratitud",
     habit_gratitude_sub: "Compartir 1 motivo de gratitud del día",
+    confirm_delete_custom_habit_msg: "¿Realmente deseas eliminar este hábito personalizado?",
 
     tab_tasks: "VIDA",
     pwd_req_header:
@@ -2327,6 +2404,12 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     confirmed_success_msg: "¡Han fortalecido aún más su vínculo hoy!",
     error_save: "No se pudo guardar el regalo.",
     error_register: "No se pudo registrar el regalo en este momento.",
+
+    // AnamneseScreen
+    anamnesis_loading_start: "Cargando preguntas de la evaluación...",
+    anamnesis_bonus_unlocked_title: "🎉 ¡Bono Desbloqueado!",
+    anamnesis_bonus_unlocked_msg:
+      "¡Ganaste +150 Bonds por completar tu Diagnóstico del Vínculo! Tu saldo ya está disponible para usar en la Tienda.",
     loading_info_text: "Cargando información...",
     connection_axis: "Eje de Conexión",
     question_not_found: "Pregunta no encontrada",
@@ -2343,12 +2426,12 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     loading_step_4: "Generando el mapa de prioridades de la jornada...",
     compass_prompt_title: "La Brújula de tu Relación 💍",
     compass_prompt_msg:
-      "Para crear una jornada realmente única y personalizada, es fundamental mapear la sintonía de la pareja primero.\n\nResponder lleva menos de 2 minutos y garantiza misiones donde más se necesitan.\n\n¿Deseas responder ahora?",
+      "Para crear una jornada realmente única y personalizada, es fundamental mapear la sintonía de la pareja primero.\n\nResponder lleva menos de 2 minutos y garantiza misiones personalizadas.\n\n¿Deseas responder ahora?",
     btn_answer_assessment_now: "Responder Mapeo Ahora",
     btn_start_default_profile: "Iniciar con Perfil Estándar",
     solo_mode_alert_title: "¡La Jornada Es Mejor en Pareja! ❤️",
     solo_mode_alert_msg:
-      "DuoElo fue diseñado para crear puentes de complicidad y transformar la rutina en una experiencia compartida.\n\nInvitar a tu amor ahora desbloquea la dinámica de misiones cruzadas.\n\n¿Quieres enviar una invitación especial antes de dar Play?",
+      "DuoElo fue diseñado para crear puentes de complicidad y transformar la rutina en una experiencia compartida.\n\nInvitar a tu amor agora desbloquea la dinámica de misiones cruzadas.\n\n¿Quieres enviar una invitación especial antes de dar Play?",
     btn_send_partner_invite: "Enviar Invitación a Mi Amor",
     btn_continue_solo_for_now: "Continuar en Modo Solo por Ahora",
     journey_locked_title: "Jornada Activa y Congelada 🔐",
@@ -2388,6 +2471,8 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     unlock_rescue_trail: "Libera tu Ruta de Rescate",
     btn_unlock_my_journey: "LIBERAR MI JORNADA",
     btn_postpone_rescue: "Posponer el rescate de nuestra relación",
+
+    // MatchScreen
     partner_default_name: "Pareja",
     mysterious_user: "Usuario Misterioso",
     code_copied_title: "¡Código Copiado! 📋",
@@ -2441,6 +2526,14 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     is_this_person_sub: "Verifica que la cuenta pertenezca a tu amor.",
     btn_yes_connect: "¡Sí, Conectar!",
     btn_no_wrong_code: "No, me equivoqué de código",
+
+    // Push Notifications & Match Keys
+    match_invite_push_title: "¡Nueva Invitación de Vínculo! ❤️",
+    match_invite_push_body: "¡{{name}} te envió una invitación para unirse!",
+    daily_reminder_push_title: "✨ DuoElo - ¡Hora de Pareja!",
+    daily_reminder_push_body: "Tu misión diaria y reflexión en pareja están listas.",
+
+    // InvitePartnerScreen
     invite_whatsapp_message:
       "Amor, estoy invirtiendo en nuestra relación porque eres muy importante para mí. ¿Hacemos juntos la jornada de 90 días de DuoElo? Descarga la app e ingresa mi código: *{{code}}* 👇\n\nhttps://duoelo.com/app",
     whatsapp_not_found_title: "WhatsApp No Encontrado",
@@ -2458,16 +2551,19 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     invite_header_title_2: "¡Están conectados!",
     invite_header_sub_2:
       "Los eslabones se unieron. Prepárense para fortalecer la relación desde hoy.",
-    workflow_step_1_active: "1. Enviar invitación de DuoElo",
+    workflow_step_1_active: "Enviar invitación",
     workflow_step_1_done: "1. ¡Invitación enviada!",
-    workflow_step_2_waiting: "2. Esperando instalación de la pareja...",
+    workflow_step_2_waiting: "Esperando aceptación de tu amor",
     workflow_step_2_done: "2. ¡Tu pareja instaló la app!",
-    workflow_step_3_title: "3. Cuentas unidas",
+    workflow_step_3_title: "Vínculo Establecido",
     code_generator_label: "Código generador",
     btn_update_status: "Actualizar Estado",
     btn_start_trail_together: "Comenzar Ruta Juntos",
     btn_already_have_code: "Ya tengo un código",
     welcome_duoelo_msg: "¡Bienvenidos a DuoElo!",
+
+    // MissionExecutionScreen
+    btn_complete_gold_label: "CONCLUIR DESAFÍO DE ORO",
     fallback_mission_concept:
       "Con el tiempo, la rutina hace que las parejas dejen de mirarse de verdad. El silencio y la falta de contacto visual son las primeras señales de distanciamiento.",
     fallback_mission_action:
@@ -2501,6 +2597,10 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     btn_mark_accomplished_label: "MARCAR COMO CUMPRIDA",
     btn_do_real_life: "¡LO HARÉ EN LA VIDA REAL AHORA! 🚀",
     btn_already_did_register: "YA LO HICE, QUIERO REGISTRARLO ✓",
+
+    // HomeScreen
+    welcome_loading_msg: "¡Bienvenido a DuoElo! Cargando tu jornada...",
+    sub_required_completion_msg: "Suscríbete para desbloquear todo el recorrido hasta el Día 90.",
     solo_journey_generated_title: "¡Jornada Solo Generada! 🚀",
     solo_journey_generated_msg:
       "Cruzamos los datos de tu evaluación. ¡Tu ruta de 90 días está liberada!",
@@ -2570,11 +2670,11 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     btn_redo_assessment: "Rehacer Evaluación",
     btn_keep_current: "Mantener Actual",
     your_assessment_title: "Tu Evaluación",
-    diagnostic_completed: "Diagnóstico Concluido ✓",
+    diagnostic_completed: "Diagnóstico Concluído ✓",
     discover_temp_sub: "Descubram a temperatura da relação",
     match_completed_title: "Match Concluído ✅",
     match_completed_msg:
-      "Opción de Match/Solo registrada. ¡Sigue hacia el botón Play!",
+      "Opción de Match/Solo registrada. ¡Sigue hacia el botão Play!",
     btn_manage_match: "Gestionar Match",
     match_completed_label: "Match Concluido",
     make_match_label: "Hacer Match",
@@ -2587,8 +2687,6 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     challenge_label: "Desafío",
     congrats_completion_title: "🏆 ¡Felicidades!",
     congrats_completion_msg: "Completaste 90 días de conexión profunda.",
-    sub_required_completion_msg:
-      "Para desbloquear la conclusión de tu jornada, elige un plan.",
     notifications_title: "Notificaciones",
     nudge_title: "¡Hey, atención aquí!",
     nudge_text_part1: "Tu pareja te mandó",
@@ -2605,6 +2703,8 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     btn_confirm_delete_account: "SÍ, ELIMINAR MI CUENTA",
     reset_error_title: "Error de Reinicio",
     reset_error_msg: "Verifica la conexión o vuelve a iniciar sesión.",
+
+    // MissionRewardScreen
     daily_mission_completed_label: "Misión Diaria Concluida",
     streak_maintained_label: "Racha Mantenida",
     cupid_awake_title: "¡Cupido Despierto! 🎉",
@@ -2614,6 +2714,11 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     journey_90_days_title: "Jornada de 90 Días",
     day_counter_text: "Día {{day}} / {{total}}",
     btn_continue_label: "CONTINUAR",
+
+    // PaywallScreen
+    sub_error_title: "Plan No Disponible",
+    free_trial_3_days_badge: "3 DÍAS GRATIS",
+    btn_start_free_trial_cta: "PROBAR 3 DÍAS GRATIS",
     session_expired_sub_msg:
       "Debes estar conectado para suscribirte. Inicia sesión nuevamente.",
     sub_confirmed_title: "¡Suscripción Confirmada! 🎉",
@@ -2621,7 +2726,6 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
       "¡Plan {{category}} ({{plan}}) activado con éxito!{{partnerBonus}}",
     sub_confirmed_partner_bonus: " ¡El acceso de tu amor también fue liberado!",
     btn_access_app: "Acceder a App",
-    sub_error_title: "Error en Suscripción",
     sub_error_msg:
       "No se pudo procesar la suscripción en este momento. Intenta de nuevo.",
     sub_restored_title: "¡Suscripción Restaurada! 🎉",
@@ -2652,7 +2756,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     plan_duo_quarterly_name: "Jornada 90 Días",
     plan_duo_quarterly_desc: "$16,60/mes (Total $49,90)",
     period_per_quarter: "/trimestre",
-    highlight_recommended_couple: "RECOMENDADO (PAREJA)",
+    highlight_recommended_couple: "3 DÍAS GRATIS • MÁS POPULAR",
     plan_duo_annual_name: "Duo Anual",
     plan_duo_annual_desc: "$14,99/mes (Total $179,90)",
     period_per_year: "/año",
@@ -2660,7 +2764,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     plan_solo_monthly_desc: "Renovación mes a mes",
     plan_solo_quarterly_name: "Trimestral Solo",
     plan_solo_quarterly_desc: "$13,30/mes (Total $39,90)",
-    highlight_best_value_solo: "MEJOR VALOR SOLO",
+    highlight_best_value_solo: "3 DÍAS GRATIS • RECOMENDADO SOLO",
     plan_solo_annual_name: "Anual Solo",
     plan_solo_annual_desc: "$10,82/mes (Total $129,90)",
     paywall_hero_title: "El Plan de Rescate de tu Relación",
@@ -2686,6 +2790,8 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     period_quarterly_word: "Trimestral",
     period_annual_word: "Anual",
     secure_payment_env: "Entorno de Pago 100% Seguro",
+
+    // ProfileScreen
     verify_email_sent_title: "¡E-mail Enviado! ✉️",
     verify_email_sent_msg:
       "Enviamos un enlace de confirmación a tu correo. Haz clic para verificar la cuenta.",
@@ -2754,6 +2860,8 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     contact_support_menu: "Contactar a Soporte",
     logout_menu_option: "Cerrar Sesión",
     delete_account_permanently_btn: "Eliminar mi cuenta permanentemente",
+
+    // Configurações & Auditoria
     app_language_title: "Idioma de la Aplicación",
     haptics_label: "Efectos Táctiles (Haptics)",
     haptics_desc: "Vibraciones al completar tareas e interactuar",
@@ -2809,6 +2917,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     habit_reading_sub: "Lire 2 pages d'un livre",
     habit_gratitude_title: "Moment de Gratitude",
     habit_gratitude_sub: "Partager 1 motif de gratitude du jour",
+    confirm_delete_custom_habit_msg: "Voulez-vous vraiment supprimer cette habitude personnalisée ?",
 
     tab_tasks: "VIDA",
     pwd_req_header:
@@ -3012,6 +3121,12 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
       "Vous avez renforcé votre lien d'amour aujourd'hui !",
     error_save: "Impossible d'enregistrer le cadeau.",
     error_register: "Impossible d'enregistrer le cadeau pour le moment.",
+
+    // AnamneseScreen
+    anamnesis_loading_start: "Chargement des questions de l'évaluation...",
+    anamnesis_bonus_unlocked_title: "🎉 Bonus Débloqué !",
+    anamnesis_bonus_unlocked_msg:
+      "Vous avez gagné +150 Bonds pour avoir complété votre Diagnostic de Lien ! Votre solde est disponible dans la Boutique.",
     loading_info_text: "Chargement des informations...",
     connection_axis: "Axe de Connexion",
     question_not_found: "Question non trouvée",
@@ -3089,8 +3204,6 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     congrats_completion_title: "🏆 Félicitations !",
     congrats_completion_msg:
       "Vous avez accompli les 90 jours de connexion profonde.",
-    sub_required_completion_msg:
-      "Pour débloquer la conclusion de votre parcours, choisissez un plan.",
     notifications_title: "Notifications",
     nudge_title: "Hé, regardez ici !",
     nudge_text_part1: "Votre partenaire vous a envoyé",
@@ -3109,6 +3222,8 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     btn_confirm_delete_account: "OUI, SUPPRIMER MON COMPTE",
     reset_error_title: "Erreur de Réinitialisation",
     reset_error_msg: "Vérifiez votre connexion ou réauthentifiez-vous.",
+
+    // MissionRewardScreen
     daily_mission_completed_label: "Mission Quotidienne Accomplie",
     streak_maintained_label: "Série Maintenue",
     cupid_awake_title: "Cupidon Éveillé ! 🎉",
@@ -3118,6 +3233,11 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     journey_90_days_title: "Parcours de 90 Jours",
     day_counter_text: "Jour {{day}} / {{total}}",
     btn_continue_label: "CONTINUAR",
+
+    // PaywallScreen
+    sub_error_title: "Plan Indisponible",
+    free_trial_3_days_badge: "3 JOURS GRATUITS",
+    btn_start_free_trial_cta: "ESSAYER 3 JOURS GRATUITEMENT",
     session_expired_sub_msg:
       "Vous devez être connecté pour vous abonner. Reconnectez-vous.",
     sub_confirmed_title: "Abonnement Confirmé ! 🎉",
@@ -3126,7 +3246,6 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     sub_confirmed_partner_bonus:
       " L'accès de votre amour a également été débloqué !",
     btn_access_app: "Accéder à l'App",
-    sub_error_title: "Erreur d'Abonnement",
     sub_error_msg:
       "Impossible de traiter l'abonnement pour le moment. Réessayez.",
     sub_restored_title: "Abonnement Restauré ! 🎉",
@@ -3156,7 +3275,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     plan_duo_quarterly_name: "Parcours 90 Jours",
     plan_duo_quarterly_desc: "16,60 €/mois (Total 49,90 €)",
     period_per_quarter: "/trimestre",
-    highlight_recommended_couple: "RECOMMANDÉ (COUPLE)",
+    highlight_recommended_couple: "3 JOURS GRATUITS • LE PLUS POPULAIRE",
     plan_duo_annual_name: "Duo Annuel",
     plan_duo_annual_desc: "14,99 €/mois (Total 179,90 €)",
     period_per_year: "/an",
@@ -3164,7 +3283,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     plan_solo_monthly_desc: "Renouvellement mois par mois",
     plan_solo_quarterly_name: "Trimestriel Solo",
     plan_solo_quarterly_desc: "13,30 €/mois (Total 39,90 €)",
-    highlight_best_value_solo: "MEILLEURE OFFRE SOLO",
+    highlight_best_value_solo: "3 JOURS GRATUITS • RECOMMANDÉ SOLO",
     plan_solo_annual_name: "Annuel Solo",
     plan_solo_annual_desc: "10,82 €/mois (Total 129,90 €)",
     paywall_hero_title: "Le Plan de Sauvetage de Votre Couple",
@@ -3190,6 +3309,8 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     period_quarterly_word: "Trimestriel",
     period_annual_word: "Annuel",
     secure_payment_env: "Environnement de Paiement 100% Sécurisé",
+
+    // ProfileScreen
     verify_email_sent_title: "E-mail Envoyé ! ✉️",
     verify_email_sent_msg:
       "Un lien de confirmation vous a été envoyé. Cliquez dessus pour vérifier votre compte.",
@@ -3254,7 +3375,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     bypass_lock_desc: "Permet de réaliser plusieurs tâches le mesmo jour",
     switch_google_account_menu: "Changer de Compte Google",
     switch_google_account_desc:
-      "Force la sélection de l'e-mail lors du prochain login",
+      "Force la sélection de l'e-mail lors du próximo login",
     adjust_notifications_menu: "Ajuster les Notifications",
     contact_support_menu: "Contacter le Support",
     logout_menu_option: "Se Déconnecter",
@@ -3314,6 +3435,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     habit_reading_sub: "2 Seiten eines Buches lesen",
     habit_gratitude_title: "Dankbarkeitsmoment",
     habit_gratitude_sub: "Teilen Sie 1 Sache, für die Sie heute dankbar sind",
+    confirm_delete_custom_habit_msg: "Möchten Sie diese benutzerdefinierte Gewohnheit wirklich löschen?",
 
     tab_tasks: "VIDA",
     pwd_req_header:
@@ -3519,6 +3641,12 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     confirmed_success_msg: "Sie haben Ihre Bindung heute weiter gestärkt!",
     error_save: "Geschenk konnte nicht gespeichert werden.",
     error_register: "Geschenk konnte nicht registriert werden.",
+
+    // AnamneseScreen
+    anamnesis_loading_start: "Lade Fragen der Analyse...",
+    anamnesis_bonus_unlocked_title: "🎉 Bonus freigeschaltet!",
+    anamnesis_bonus_unlocked_msg:
+      "Sie haben +150 Bonds für den Abschluss Ihrer Diagnose erhalten! Ihr Guthaben ist im Shop verfügbar.",
     loading_info_text: "Informationen werden geladen...",
     connection_axis: "Verbindungsachse",
     question_not_found: "Frage nicht gefunden",
@@ -3580,6 +3708,8 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     unlock_rescue_trail: "Schalten Sie Ihre Beziehungs-Route frei",
     btn_unlock_my_journey: "MEINE REISE FREISCHALTEN",
     btn_postpone_rescue: "Beziehungs-Rettung verschieben",
+
+    // MatchScreen
     partner_default_name: "Partner(in)",
     mysterious_user: "Geheimnisvoller Nutzer",
     code_copied_title: "Code kopiert! 📋",
@@ -3633,6 +3763,13 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     is_this_person_sub: "Prüfen Sie, ob das Konto Ihrem Schatz gehört.",
     btn_yes_connect: "Ja, verbinden!",
     btn_no_wrong_code: "Nein, falscher Code",
+
+    match_invite_push_title: "Neue Match-Einladung! ❤️",
+    match_invite_push_body: "{{name}} hat Ihnen eine Einladung geschickt!",
+    daily_reminder_push_title: "✨ DuoElo - Paarzeit!",
+    daily_reminder_push_body: "Ihre tägliche Aufgabe und Reflexion stehen bereit.",
+
+    // InvitePartnerScreen
     invite_whatsapp_message:
       "Schatz, ich investiere in unsere Beziehung! Lass uns gemeinsam die 90-Tage-Reise von DuoElo machen! Lade die App herunter und gib meinen Code ein: *{{code}}* 👇\n\nhttps://duoelo.com/app",
     whatsapp_not_found_title: "WhatsApp nicht gefunden",
@@ -3650,16 +3787,19 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     invite_header_title_2: "Sie sind verbunden!",
     invite_header_sub_2:
       "Ihre Band ist geknüpft. Machen Sie sich bereit, ab heute Ihre Beziehung zu stärken.",
-    workflow_step_1_active: "1. DuoElo-Einladung senden",
+    workflow_step_1_active: "Einladung senden",
     workflow_step_1_done: "1. Einladung gesendet!",
-    workflow_step_2_waiting: "2. Warten auf App-Installation...",
+    workflow_step_2_waiting: "Warten auf Annahme des Partners",
     workflow_step_2_done: "2. Partner hat App installiert!",
-    workflow_step_3_title: "3. Konten verbunden",
+    workflow_step_3_title: "Bindung hergestellt",
     code_generator_label: "Generierter Code",
     btn_update_status: "Status aktualisieren",
     btn_start_trail_together: "Route gemeinsam starten",
     btn_already_have_code: "Ich habe bereits einen Code",
     welcome_duoelo_msg: "Willkommen bei DuoElo!",
+
+    // MissionExecutionScreen
+    btn_complete_gold_label: "GOLD-HERAUSFORDERUNG ABSCHLIESSEN",
     fallback_mission_concept:
       "Mit der Zeit führt Routine dazu, dass Paare aufhören, sich wirklich anzusehen. Schweigen und fehlender Blickkontakt sind erste Warnzeichen.",
     fallback_mission_action:
@@ -3695,6 +3835,10 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     btn_mark_accomplished_label: "ALS ERFÜLLT MARKIEREN",
     btn_do_real_life: "ICH MACHE ES JETZT IM WIRKLICHEN LEBEN 🚀",
     btn_already_did_register: "SCHON GEMACHT, EINTRAGEN ✓",
+
+    // HomeScreen
+    welcome_loading_msg: "Willkommen bei DuoElo! Ihre Reise wird geladen...",
+    sub_required_completion_msg: "Abonnieren Sie, um die gesamte Route bis Tag 90 freizuschalten.",
     solo_journey_generated_title: "Solo-Reise erstellt! 🚀",
     solo_journey_generated_msg:
       "Ihre Analyse wurde verarbeitet. Ihre 90-Tage-Route ist freigeschaltet!",
@@ -3781,8 +3925,6 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     challenge_label: "Herausforderung",
     congrats_completion_title: "🏆 Herzlichen Glückwunsch!",
     congrats_completion_msg: "Sie haben 90 Tage tiefe Verbindung vollendet.",
-    sub_required_completion_msg:
-      "Wählen Sie ein Abonnement zum Freischalten des Beziehungs-Abschlusses.",
     notifications_title: "Benachrichtigungen",
     nudge_title: "Hallo, aufgepasst!",
     nudge_text_part1: "Ihr Partner hat Ihnen",
@@ -3800,6 +3942,8 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     btn_confirm_delete_account: "JA, MEIN KONTO LÖSCHEN",
     reset_error_title: "Zurücksetzungsfehler",
     reset_error_msg: "Verbindung prüfen oder erneut anmelden.",
+
+    // MissionRewardScreen
     daily_mission_completed_label: "Tägliche Aufgabe erfüllt",
     streak_maintained_label: "Serie gehalten",
     cupid_awake_title: "Amor erwacht! 🎉",
@@ -3809,6 +3953,11 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     journey_90_days_title: "90-Tage-Reise",
     day_counter_text: "Tag {{day}} / {{total}}",
     btn_continue_label: "WEITER",
+
+    // PaywallScreen
+    sub_error_title: "Plan nicht verfügbar",
+    free_trial_3_days_badge: "3 TAGE KOSTENLOS",
+    btn_start_free_trial_cta: "3 TAGE KOSTENLOS TESTEN",
     session_expired_sub_msg:
       "Anmeldung erforderlich zum Abonnieren. Bitte erneut anmelden.",
     sub_confirmed_title: "Abonnement bestätigt! 🎉",
@@ -3817,7 +3966,6 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     sub_confirmed_partner_bonus:
       " Der Zugang Ihres Partners wurde ebenfalls freigeschaltet!",
     btn_access_app: "Zur App",
-    sub_error_title: "Abonnementfehler",
     sub_error_msg: "Abonnement konnte derzeit nicht verarbeitet werden.",
     sub_restored_title: "Abonnement wiederhergestellt! 🎉",
     sub_restored_msg:
@@ -3846,7 +3994,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     plan_duo_quarterly_name: "90-Tage-Reise",
     plan_duo_quarterly_desc: "16,60 €/Monat (Gesamt 49,90 €)",
     period_per_quarter: "/Quartal",
-    highlight_recommended_couple: "EMPFOHLEN (PAAR)",
+    highlight_recommended_couple: "3 TAGE KOSTENLOS • BELIEBTEST",
     plan_duo_annual_name: "Duo Jährlich",
     plan_duo_annual_desc: "14,99 €/Monat (Gesamt 179,90 €)",
     period_per_year: "/Jahr",
@@ -3854,7 +4002,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     plan_solo_monthly_desc: "Monatliche Verlängerung",
     plan_solo_quarterly_name: "Solo Quartal",
     plan_solo_quarterly_desc: "13,30 €/Monat (Gesamt 39,90 €)",
-    highlight_best_value_solo: "BESTER PREIS SOLO",
+    highlight_best_value_solo: "3 TAGE KOSTENLOS • EMPFOHLEN SOLO",
     plan_solo_annual_name: "Solo Jährlich",
     plan_solo_annual_desc: "10,82 €/Monat (Gesamt 129,90 €)",
     paywall_hero_title: "Der Rettungsplan für Ihre Beziehung",
@@ -3880,6 +4028,8 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     period_quarterly_word: "Quartalsweise",
     period_annual_word: "Jährlich",
     secure_payment_env: "100% sichere Zahlungsumgebung",
+
+    // ProfileScreen
     verify_email_sent_title: "E-Mail gesendet! ✉️",
     verify_email_sent_msg:
       "Ein Bestätigungslink wurde gesendet. Bitte anklicken zur Verifizierung.",
@@ -3975,146 +4125,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
       "カタログから習慣を選択するか、現実世界で実践する個人目標（毎日/毎週）を作成します。",
     create_custom_habit_label: "新しい習慣を作成",
     placeholder_custom_habit: "例：一緒に祈る、6秒のキス...",
-    frequency_daily: "毎日",
-    frequency_weekly: "毎週",
-    your_custom_habits_label: "マイカスタム習慣",
-    atomic_catalog_label: "おすすめカタログ（アトミック・ハビッツ）",
-    habit_water_morning_title: "起床時の水",
-    habit_water_morning_sub: "ベッドから出るときにコップ1杯の水",
-    habit_water_lunch_title: "昼食前の水",
-    habit_water_lunch_sub: "食事の30分前にコップ1杯の水",
-    habit_water_night_title: "就寝前の水",
-    habit_water_night_sub: "寝る準備をするときのコップ1杯の水",
-    habit_no_screens_title: "スクリーンフリーの寝室",
-    habit_no_screens_sub: "夜はベッドサイドにスマホを置かない",
-    habit_deep_breath_title: "マインドフルな一時停止",
-    habit_deep_breath_sub: "2分間の深呼吸",
-    habit_walk_express_title: "エクスプレスウォーク",
-    habit_walk_express_sub: "10分間の屋外散歩",
-    habit_fruit_daily_title: "マインドフルな食事",
-    habit_fruit_daily_sub: "日中に果物を1個食べる",
-    habit_compliment_title: "心からの褒め言葉",
-    habit_compliment_sub: "愛する人に褒め言葉を1つ贈る",
-    habit_reading_title: "アトミック・リーディング",
-    habit_reading_sub: "本を2ページ読む",
-    habit_gratitude_title: "感謝の瞬間",
-    habit_gratitude_sub: "今日感謝していることを1つ共有する",
-
-    tab_tasks: "VIDA",
-    pwd_req_header:
-      "データと関係性のセキュリティと絶対的な機密性を維持するために重要です。\n\nパスワードには以下が必要です：",
-    pwd_req_min_len: "• 8文字以上",
-    pwd_req_upper: "• 大文字1文字以上",
-    pwd_req_lower: "• 小文字1文字以上",
-    pwd_req_number: "• 数字1字以上",
-    pwd_req_special: "• 特殊文字1文字以上 (@, #, $, %, など)",
-    security_req_title: "セキュリティ要件",
-    weak_password_fallback:
-      "データを非公開にするために強力なパスワードを設定してください。",
-    weak_password_title: "パスワードが弱いです",
-    weak_password_msg:
-      "パスワードは、大文字、小文字、数字、特殊文字を含む8文字以上である必要があります。",
-
-    checking_security_msg: "セキュリティを確認中...",
-    pin_modal_title_unlock: "🔒 PINまたは顔認証",
-    pin_modal_title_create: "🔑 セキュリティPINの作成",
-    pin_modal_sub_unlock: "顔認証を使用するか、PINを入力してください。",
-    pin_modal_sub_create:
-      "情報を保護するために4桁のセキュリティPINを作成してください。",
-    placeholder_enter_pin: "PINを入力",
-    placeholder_create_pin: "PINを作成（4桁以上）",
-    placeholder_confirm_pin: "PINを再入力",
-    btn_confirm_pin: "PINを確認",
-    btn_register_pin: "PINを登録",
-    btn_unlock_biometrics: "顔認証 / 生体認証で解除",
-    btn_forgot_pin: "PINをお忘れの方",
-    biometric_error_msg: "顔認証/生体認証で認証できませんでした。",
-    pin_min_length_msg: "セキュリティPINは4桁以上である必要があります。",
-    pin_incorrect_msg:
-      "セキュリティPINが違います。もう一度お試しください。",
-    pins_dont_match_msg: "入力されたPINが一致しません。",
-    pin_process_error_msg:
-      "セキュリティPINの処理中にエラーが発生しました。",
-    reset_pin_title: "セキュリティPINの再設定",
-    reset_pin_msg:
-      "新しいPINを設定するには、セキュリティ上の理由から再ログインが必要です。続行しますか？",
-    btn_reset_logout: "リセットしてログアウト",
-
-    pin_modal_title: "セキュリティPIN",
-    pin_enter_msg:
-      "アクセスを解除するにはセキュリティPINを入力してください。",
-    pin_create_msg:
-      "情報を保護するために4桁のセキュリティPINを作成してください。",
-    pin_placeholder_enter: "PINを入力",
-    pin_placeholder_create: "PINを作成 (4桁以上)",
-    pin_placeholder_confirm: "PINを再確認",
-    pin_btn_confirm: "PINを確認",
-    pin_btn_create: "PINを登録",
-
-    tab_match: "マッチ",
-    tab_shop: "ショップ",
-    tab_profile: "プロフィール",
-    guide_green_label: "緑：",
-    guide_green_desc: "タスクは完了しており、記録します。",
-    guide_orange_label: "オレンジ：",
-    guide_orange_desc: "日中に二人で行うタスクです。",
-    week_theme_1: "コミュニケーションと調和",
-    week_theme_2: "情熱を再点火する",
-    week_theme_3: "対立の管理",
-    week_theme_4: "親密さと気配り",
-    week_theme_5: "日常とカップルの管理",
-    week_theme_6: "愛の言語",
-    week_theme_7: "ふたりの財務",
-    week_theme_8: "ライフプロジェクト",
-    week_theme_9: "絆と笑顔",
-    week_theme_10: "許しと再スタート",
-    week_theme_11: "深い繋がり",
-    week_theme_12: "感謝の儀式",
-    week_theme_13: "揺るぎない誓い",
-    btn_understand: "了解",
-    btn_ok: "OK",
-    modal_close: "閉じる",
-    modal_cancel: "キャンセル",
-    error_title: "エラー",
-    attention_title: "ご注意",
-    ops_title: "おっと",
-    warning_label: "⚠️ ご注意:",
-    invalid_username_format_msg:
-      "ユーザー名に使用できるのは半角英数字とアンダースコア（_）のみです。ドット、スペース、記号は使用できません。",
-    account_created_success_title: "アカウント作成完了 🎉",
-    account_created_verify_email_msg:
-      "確認リンクをメールで送信しました。ログイン前に受信トレイをご確認ください。",
-    register_error_default_msg: "アカウント作成中にエラーが発生しました。",
-    email_already_in_use_msg:
-      "このメールアドレスは既にDuoEloに登録されています。",
-    create_account_title: "アカウント作成",
-    create_account_sub:
-      "今日最初の種をまき、ふたりの関係の絆を育み始めましょう。",
-    placeholder_password_register: "パスワードを作成（6文字以上）",
-    btn_register_submit: "アカウントを登録",
-    already_part_of_duoelo_msg: "既にDuoEloの会員ですか？",
-    do_login_link: "ログイン",
-    login_welcome_back_title: "おかえりなさい",
-    login_start_journey_title: "旅を始めましょう",
-    login_welcome_back_sub: "今日もふたりの絆を深めましょう。",
-    login_start_journey_sub:
-      "アカウントを作成し、関係を修復する第一歩を踏み出しましょう。",
-    placeholder_username: "ユーザー名（例: taro_yamada）",
-    placeholder_email: "メールアドレス",
-    placeholder_password: "パスワード（6文字以上）",
-    forgot_password_link: "パスワードをお忘れですか？",
-    btn_login_submit: "ログイン",
-    btn_signup_submit: "アカウントを作成",
-    divider_social_login: "または次でログイン",
-    toggle_no_account_msg: "アカウントをお持ちでないですか？",
-    toggle_has_account_msg: "既にDuoEloを利用していますか？",
-    toggle_create_account_link: "アカウント作成",
-    toggle_login_link: "ログイン",
-    forgot_pwd_empty_title: "メールアドレスを入力",
-/**
- * Função de internacionalização principal do DuoElo (t)
- */
-  }
+    }
 }
 export function t(
   key: string,

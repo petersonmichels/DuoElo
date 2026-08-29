@@ -11,8 +11,8 @@
     "lint": "expo lint",
     "doctor": "npx expo-doctor",
     "check-build": "npx expo-doctor && npx expo prebuild --clean",
-    "build:ios": "npm run check-build && git add . && git commit -m 'build: versao ios validada' && git push origin main && eas build --platform ios --profile production",
-    "build:android": "npm run check-build && git add . && git commit -m 'build: versao android validada' && git push origin main && eas build --platform android --profile production"
+    "build:ios": "npm run check-build && git add . && (git commit -m 'build: versao ios validada' || true) && git push origin main && eas build --platform ios --profile production",
+    "build:android": "npm run check-build && git add . && (git commit -m 'build: versao android validada' || true) && git push origin main && eas build --platform android --profile production"
   },
   "dependencies": {
     "@expo-google-fonts/montserrat": "^0.4.2",

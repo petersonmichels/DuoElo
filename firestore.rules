@@ -24,6 +24,11 @@ service cloud.firestore {
       // Permite alterar se for o próprio dono OU se for uma solicitação/aceite de Match
       allow update: if isOwner(userId) || isUpdatingMatchData();
 
+      // 🔔 SUBCOLEÇÃO DE NOTIFICAÇÕES (Permite que parceiros gravem notificações de Match)
+      match /notifications/{notificationId} {
+        allow read, write: if isAuthenticated();
+      }
+
       // 🎁 SUBCOLEÇÕES DA LOJA
       match /shop/{document=**} {
         allow read: if isAuthenticated();
@@ -37,6 +42,11 @@ service cloud.firestore {
     }
 
     // 📚 CONTEÚDOS PÚBLICOS E ANAMNESE (Somente Leitura)
+    match /courses/{document=**} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
     match /anamnesis/{document=**} {
       allow read: if isAuthenticated();
       allow write: if false;
@@ -67,7 +77,7 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // 🛡️ COLEÇÃO DE AUDITORIA (AUDIT_LOGS)
+    // 🛡️ COLEÇÃO DE AUDITORIA (AUDIT_LOGS - Gravação Imutável)
     match /audit_logs/{logId} {
       allow create: if isAuthenticated();
       allow read, update, delete: if false;
