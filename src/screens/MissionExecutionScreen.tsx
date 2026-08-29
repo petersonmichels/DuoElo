@@ -29,6 +29,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { auth, db } from "../config/firebase";
 import { t } from "../i18n/translations";
 import { logAuditEvent } from "../services/auditService";
+import { sendLessonCompletedNotification } from "../services/notificationService";
 import { decryptText, encryptText } from "../services/securityService";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -315,6 +316,29 @@ export default function MissionExecutionScreen({
             userLanguage
           );
         } catch (auditErr) {}
+      }
+
+      // 🔔 Notificação para o parceiro via Firestore & Push ao concluir
+      if (uid) {
+        try {
+          const userSnap = await getDoc(doc(db, "users", uid));
+          if (userSnap.exists()) {
+            const uData = userSnap.data();
+            if (uData?.partnerId) {
+              const partnerSnap = await getDoc(doc(db, "users", uData.partnerId));
+              const partnerPushToken = partnerSnap.exists()
+                ? partnerSnap.data()?.pushToken || ""
+                : "";
+
+              await sendLessonCompletedNotification(
+                partnerPushToken,
+                uData.partnerId,
+                uData.displayName || "Seu Amor",
+                userLanguage
+              );
+            }
+          }
+        } catch (notifErr) {}
       }
 
       await onComplete(finalJournalToSave);

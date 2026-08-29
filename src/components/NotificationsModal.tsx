@@ -38,7 +38,6 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
     const uid = auth.currentUser?.uid;
 
     if (visible && uid) {
-      // 🛡️ BÚSSOLA SEGURA: Tenta ordenar por createdAt, se falhar por falta de índice, usa listener básico
       const q = query(
         collection(db, "users", uid, "notifications"),
         orderBy("createdAt", "desc"),
@@ -85,18 +84,49 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
     };
   }, [visible]);
 
-  // 🎨 MAPEAMENTO DINÂMICO DE ÍCONES POR TIPO DE NOTIFICAÇÃO
+  // 🎨 MAPEAMENTO COMPLETO DE ÍCONES E CORES POR TIPO DE NOTIFICAÇÃO
   const getNotificationIcon = (type?: string) => {
     switch (type) {
       case "MATCH_INVITE":
-        return { name: "heart", color: "#E74C3C" };
+        return { name: "heart", color: "#D96C6C" };
+      case "MATCH_ACCEPT":
+        return { name: "heart", color: "#67D4A8" };
+      case "PLAY_STARTED":
+        return { name: "play-circle", color: "#202D3A" };
+      case "LESSON_COMPLETED":
+        return { name: "check-circle", color: "#67D4A8" };
+      case "GIFT_RECEIVED":
+        return { name: "gift", color: "#EAB64A" };
+      case "GIFT_CONFIRMED":
+        return { name: "gift", color: "#67D4A8" };
       case "DAILY_REMINDER":
         return { name: "clock", color: "#EAB64A" };
-      case "MISSION_COMPLETED":
-        return { name: "check-circle", color: "#67D4A8" };
       default:
         return { name: "bell", color: "#202D3A" };
     }
+  };
+
+  // 📅 FORMATAÇÃO DE DATA E HORA
+  const formatDate = (rawDate: any) => {
+    if (!rawDate) return "";
+    let dateObj: Date;
+
+    if (rawDate?.toDate) {
+      dateObj = rawDate.toDate();
+    } else if (typeof rawDate === "string") {
+      dateObj = new Date(rawDate);
+    } else {
+      return "";
+    }
+
+    if (isNaN(dateObj.getTime())) return "";
+
+    const day = dateObj.getDate().toString().padStart(2, "0");
+    const month = (dateObj.getMonth() + 1).toString().padStart(2, "0");
+    const hours = dateObj.getHours().toString().padStart(2, "0");
+    const minutes = dateObj.getMinutes().toString().padStart(2, "0");
+
+    return `${day}/${month} às ${hours}:${minutes}`;
   };
 
   return (
@@ -133,23 +163,45 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
               data={notifications}
               keyExtractor={(item) => item.id}
               showsVerticalScrollIndicator={false}
-              style={{ width: "100%", maxHeight: 320 }}
+              style={{ width: "100%", maxHeight: 360 }}
               renderItem={({ item }) => {
                 const iconInfo = getNotificationIcon(item.type);
+                const isUnread = !item.read;
+
                 return (
-                  <View style={styles.card}>
+                  <View
+                    style={[
+                      styles.card,
+                      isUnread ? styles.cardUnread : styles.cardRead,
+                    ]}
+                  >
                     <View style={styles.cardHeader}>
-                      <FontAwesome5
-                        name={iconInfo.name}
-                        solid
-                        size={14}
-                        color={iconInfo.color}
-                      />
-                      <Text style={styles.cardTitle}>
-                        {item.title || t("notification_default_title", userLanguage) || "Notificação"}
-                      </Text>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1 }}>
+                        <FontAwesome5
+                          name={iconInfo.name}
+                          solid
+                          size={14}
+                          color={iconInfo.color}
+                        />
+                        <Text
+                          style={[
+                            styles.cardTitle,
+                            isUnread ? styles.textBoldTitle : styles.textNormalTitle,
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {item.title || t("notification_default_title", userLanguage) || "Notificação"}
+                        </Text>
+                      </View>
+                      <Text style={styles.dateText}>{formatDate(item.createdAt)}</Text>
                     </View>
-                    <Text style={styles.cardBody}>
+
+                    <Text
+                      style={[
+                        styles.cardBody,
+                        isUnread ? styles.textBoldBody : styles.textNormalBody,
+                      ]}
+                    >
                       {item.body || item.message || ""}
                     </Text>
                   </View>
@@ -224,29 +276,60 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   card: {
-    backgroundColor: "#F0F4F8",
     borderRadius: 14,
     padding: 14,
     marginBottom: 10,
     borderWidth: 1,
+  },
+  cardUnread: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "#EAB64A",
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+  },
+  cardRead: {
+    backgroundColor: "#F0F4F8",
     borderColor: "#D1D9E0",
+    opacity: 0.85,
   },
   cardHeader: {
     flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
-    gap: 8,
-    marginBottom: 4,
+    marginBottom: 6,
   },
   cardTitle: {
-    fontFamily: "Montserrat_700Bold",
     fontSize: 14,
     color: "#202D3A",
+    flex: 1,
+  },
+  dateText: {
+    fontSize: 11,
+    color: "#AFAFAF",
+    fontFamily: "Montserrat_400Regular",
+    marginLeft: 6,
   },
   cardBody: {
-    fontFamily: "Montserrat_400Regular",
     fontSize: 13,
-    color: "#2C3E50",
     lineHeight: 18,
+  },
+  textBoldTitle: {
+    fontFamily: "Montserrat_900Black",
+  },
+  textNormalTitle: {
+    fontFamily: "Montserrat_700Bold",
+    color: "#2C3E50",
+  },
+  textBoldBody: {
+    fontFamily: "Montserrat_700Bold",
+    color: "#202D3A",
+  },
+  textNormalBody: {
+    fontFamily: "Montserrat_400Regular",
+    color: "#60646C",
   },
   closeBtn: {
     width: "100%",

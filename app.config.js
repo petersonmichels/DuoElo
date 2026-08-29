@@ -3,7 +3,7 @@ module.exports = {
     name: "DuoElo",
     slug: "duelo",
     scheme: "duoelo",
-    version: "1.0.0",
+    version: "1.0.1", // 👈 Atualizado para 1.0.1
     orientation: "portrait",
     icon: "./src/assets/icon.png",
     userInterfaceStyle: "dark",
@@ -11,6 +11,7 @@ module.exports = {
       supportsTablet: false,
       usesAppleSignIn: true,
       bundleIdentifier: "lu.barnx.duoelo",
+      buildNumber: "8", // 👈 Adicionado buildNumber 8 para o App Store Connect
       googleServicesFile:
         process.env.GOOGLE_SERVICES_INFO_PLIST || "./GoogleService-Info.plist",
       infoPlist: {
@@ -39,6 +40,7 @@ module.exports = {
       },
     },
     android: {
+      versionCode: 8, // 👈 Adicionado versionCode 8 para manter em paridade com o iOS
       adaptiveIcon: {
         foregroundImage: "./src/assets/icon.png",
         backgroundColor: "#0F0F12",

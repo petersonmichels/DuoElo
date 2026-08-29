@@ -22,6 +22,10 @@ import {
 
 import { t } from "../i18n/translations";
 import { logAuditEvent } from "../services/auditService";
+import {
+  sendGiftConfirmedNotification,
+  sendGiftNotification,
+} from "../services/notificationService";
 
 let Haptics: any = null;
 try {
@@ -328,6 +332,18 @@ export default function ShopScreen({ userData, partnerData, navigation, route }:
       } catch (e) {}
 
       const translatedTitle = getGiftTitle(giftId, userLang);
+
+      // 🔔 Notificação ao parceiro (Push + Histórico) ao comprar o presente
+      try {
+        await sendGiftNotification(
+          partnerData?.pushToken || "",
+          partnerUid,
+          userData?.displayName || "Seu Amor",
+          translatedTitle,
+          userLang
+        );
+      } catch (notifErr) {}
+
       showAlert(
         t("gift_bought_title", userLang) || "Presente Adquirido!",
         t("gift_bought_msg", userLang, { gift: translatedTitle }) || `Você adquiriu ${translatedTitle}!`,
@@ -392,6 +408,22 @@ export default function ShopScreen({ userData, partnerData, navigation, route }:
         },
         { merge: true }
       );
+
+      // 🔔 Notificação ao parceiro quando quem recebeu confirma a entrega do presente
+      if (partnerUid) {
+        try {
+          const giftId = partnerPurchases[weekNum]?.giftId || "";
+          const giftTitle = giftId ? getGiftTitle(giftId, userLang) : "Presente";
+
+          await sendGiftConfirmedNotification(
+            partnerData?.pushToken || "",
+            partnerUid,
+            userData?.displayName || "Seu Amor",
+            giftTitle,
+            userLang
+          );
+        } catch (notifErr) {}
+      }
 
       showAlert(
         t("confirmed_success_title", userLang) || "Recebimento Confirmado!",

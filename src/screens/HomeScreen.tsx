@@ -34,7 +34,11 @@ import { MasterPasswordModal } from "../components/MasterPasswordModal";
 import { NotificationsModal } from "../components/NotificationsModal";
 import { auth, db } from "../config/firebase";
 import { t } from "../i18n/translations";
-import { scheduleDailyReminder } from "../services/notificationService";
+import {
+  scheduleDailyReminder,
+  sendLessonCompletedNotification,
+  sendPlayNotificationToPartner,
+} from "../services/notificationService";
 import {
   isSessionUnlocked,
   lockSession,
@@ -65,34 +69,6 @@ if (!isExpoGo) {
       }),
     });
   } catch (e) {}
-}
-
-async function sendPushNotificationDirectly(
-  expoPushToken: string,
-  title: string,
-  body: string
-) {
-  if (!expoPushToken || isExpoGo) return;
-
-  const message = {
-    to: expoPushToken,
-    sound: "default",
-    title: title,
-    body: body,
-    badge: 1,
-  };
-
-  try {
-    await fetch("https://exp.host/--/api/v2/push/send", {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Accept-encoding": "gzip, deflate",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(message),
-    });
-  } catch (error) {}
 }
 
 async function registerForPushNotificationsAsync(): Promise<string | null> {
@@ -308,7 +284,6 @@ export default function HomeScreen({ navigation }: any) {
   const [userLang, setUserLang] = useState("pt-BR");
   const [isLangModalVisible, setIsLangModalVisible] = useState(false);
 
-  // 🔔 ESTADOS DAS NOTIFICAÇÕES (USANDO COMPONENTE ISOLADO)
   const [isNotificationsVisible, setIsNotificationsVisible] = useState(false);
   const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
 
@@ -409,7 +384,6 @@ export default function HomeScreen({ navigation }: any) {
   const currentStep = nextAvailableStep;
   const isJourneyFinished = currentStep >= totalStepsInModule;
 
-  // 🔔 LISTENER DE MENSAGENS NÃO LIDADAS PARA O BADGE DO SININHO
   useEffect(() => {
     if (!currentUid) return;
 
@@ -823,6 +797,7 @@ export default function HomeScreen({ navigation }: any) {
     }, 2000);
   };
 
+  // 🔔 ENVIO DE NOTIFICAÇÃO COMPLETA AO CLICAR EM PLAY / DAR LARGADA NO MATCH
   const handleStartHandshake = async () => {
     if (!currentUid) return;
     setIsGeneratingJourney(true);
@@ -863,13 +838,13 @@ export default function HomeScreen({ navigation }: any) {
             },
             { merge: true }
           );
-        }
 
-        if (partnerData?.pushToken) {
-          sendPushNotificationDirectly(
-            partnerData.pushToken,
-            t("push_journey_unlocked_title", userLang) || "Jornada Desbloqueada!",
-            t("push_journey_unlocked_body", userLang) || "Sua jornada a dois começou!"
+          // 🔔 Dispara Notificação completa do PLAY e salva no sininho do parceiro
+          await sendPlayNotificationToPartner(
+            partnerData?.pushToken || "",
+            targetPartnerId,
+            userData?.displayName || "Seu Amor",
+            userLang
           );
         }
 
@@ -891,11 +866,13 @@ export default function HomeScreen({ navigation }: any) {
           { merge: true }
         );
 
-        if (partnerData?.pushToken) {
-          sendPushNotificationDirectly(
-            partnerData.pushToken,
-            t("push_green_light_title", userLang) || "Sinal Verde Dado!",
-            t("push_green_light_body", userLang) || "Seu amor deu play na jornada!"
+        // 🔔 Dispara Notificação do PLAY para o parceiro que está pendente
+        if (targetPartnerId) {
+          await sendPlayNotificationToPartner(
+            partnerData?.pushToken || "",
+            targetPartnerId,
+            userData?.displayName || "Seu Amor",
+            userLang
           );
         }
 
@@ -1172,6 +1149,7 @@ export default function HomeScreen({ navigation }: any) {
     }
   };
 
+  // 🔔 ENVIO DE NOTIFICAÇÃO COMPLETA AO CUMPRIR A LIÇÃO
   const handleCompleteMission = async (journalText: string = "") => {
     if (!currentUid || !activeMission) return;
 
@@ -1277,11 +1255,13 @@ export default function HomeScreen({ navigation }: any) {
       const completedDay = nextAvailableStep + 1;
       const weekCycleProgress = ((completedDay - 1) % 7) + 1;
 
-      if (partnerData?.pushToken && !hasCompletedTaskToday) {
-        sendPushNotificationDirectly(
-          partnerData.pushToken,
-          t("push_mission_done_title", userLang) || "Tarefa Concluída!",
-          t("push_mission_done_body", userLang) || "Seu amor concluiu a tarefa do dia!"
+      // 🔔 Dispara Notificação completa da Lição Concluída para o parceiro
+      if (userData?.partnerId) {
+        await sendLessonCompletedNotification(
+          partnerData?.pushToken || "",
+          userData.partnerId,
+          userData?.displayName || "Seu Amor",
+          userLang
         );
       }
 
@@ -2125,7 +2105,6 @@ export default function HomeScreen({ navigation }: any) {
         </TouchableOpacity>
       </Modal>
 
-      {/* 🔔 COMPONENTE DE NOTIFICAÇÕES SEPARADO */}
       <NotificationsModal
         visible={isNotificationsVisible}
         onClose={() => setIsNotificationsVisible(false)}

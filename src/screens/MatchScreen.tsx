@@ -3,13 +3,12 @@ import * as Clipboard from "expo-clipboard";
 import {
   collection,
   doc,
-  getDoc,
   getDocs,
   onSnapshot,
   query,
-  runTransaction,
   setDoc,
   where,
+  writeBatch
 } from "firebase/firestore";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -313,7 +312,7 @@ export default function MatchScreen({ navigation }: any) {
     }
   };
 
-  // 🛡️ TRANSAÇÃO ATÔMICA DE DESMATCH (FIX PARA ERRO FALSO-POSITIVO)
+  // 🛡️ OPERAÇÃO BATCH PARA DESMATCH (SEM EXIGÊNCIA DE LEITURA BLOQUEADA)
   const handleDisconnectPartner = () => {
     Alert.alert(
       t("disconnect_confirm_title", userLang) || "Desconectar Parceiro(a)",
@@ -329,61 +328,42 @@ export default function MatchScreen({ navigation }: any) {
 
             setIsDisconnecting(true);
             try {
-              await runTransaction(db, async (transaction) => {
-                const myUserRef = doc(db, "users", currentUid);
-                const mySnap = await transaction.get(myUserRef);
-                const myCurrData = mySnap.exists() ? mySnap.data() : null;
+              const batch = writeBatch(db);
 
-                const myUpdates: any = {
-                  partnerId: null,
-                  matchStatus: "disconnected",
-                  isSoloMode: false,
-                  myTrail: null,
-                  isReadyToStart: false,
-                  hasPressedPlay: false,
-                  sentMatchRequestTo: null,
-                  pendingMatchRequest: null,
-                };
+              const myUserRef = doc(db, "users", currentUid);
+              const resetPayload: any = {
+                partnerId: null,
+                matchStatus: "disconnected",
+                isSoloMode: false,
+                myTrail: null,
+                isReadyToStart: false,
+                hasPressedPlay: false,
+                sentMatchRequestTo: null,
+                pendingMatchRequest: null,
+              };
 
-                if (myCurrData?.isPartnerPremium) {
-                  myUpdates.isPremium = false;
-                  myUpdates.isPartnerPremium = false;
-                  myUpdates.planType = "free";
-                }
+              if (userData?.isPartnerPremium) {
+                resetPayload.isPremium = false;
+                resetPayload.isPartnerPremium = false;
+                resetPayload.planType = "free";
+              }
 
-                transaction.set(myUserRef, myUpdates, { merge: true });
+              batch.set(myUserRef, resetPayload, { merge: true });
 
-                if (partnerUid) {
-                  const partnerUserRef = doc(db, "users", partnerUid);
-                  const partnerSnap = await transaction.get(partnerUserRef);
-                  const pCurrData = partnerSnap.exists() ? partnerSnap.data() : null;
+              if (partnerUid) {
+                const partnerUserRef = doc(db, "users", partnerUid);
+                batch.set(partnerUserRef, resetPayload, { merge: true });
+              }
 
-                  const partnerUpdates: any = {
-                    partnerId: null,
-                    matchStatus: "disconnected",
-                    isSoloMode: false,
-                    myTrail: null,
-                    isReadyToStart: false,
-                    hasPressedPlay: false,
-                    sentMatchRequestTo: null,
-                    pendingMatchRequest: null,
-                  };
+              await batch.commit();
 
-                  if (pCurrData?.isPartnerPremium) {
-                    partnerUpdates.isPremium = false;
-                    partnerUpdates.isPartnerPremium = false;
-                    partnerUpdates.planType = "free";
-                  }
-
-                  transaction.set(partnerUserRef, partnerUpdates, { merge: true });
-                }
-              });
-
-              await logAuditEvent(
-                currentUid,
-                "PARTNER_UNLINKED",
-                `Desvinculação efetuada com o parceiro ${partnerUid || "desconhecido"}`
-              );
+              try {
+                await logAuditEvent(
+                  currentUid,
+                  "PARTNER_UNLINKED",
+                  `Desvinculação efetuada com o parceiro ${partnerUid || "desconhecido"}`
+                );
+              } catch (auditErr) {}
 
               showCustomAlert(
                 t("disconnected_title", userLang) || "Desconectado",
@@ -392,15 +372,10 @@ export default function MatchScreen({ navigation }: any) {
                 "#EAB64A",
               );
             } catch (e: any) {
-              // 🛡️ Se o estado local já foi resetado pela transação, ignora o aviso de erro
-              const currentSnap = await getDoc(doc(db, "users", currentUid));
-              if (currentSnap.exists() && currentSnap.data()?.partnerId === null) {
-                return;
-              }
-
+              console.error("[MatchScreen Error Desmatch]:", e);
               showCustomAlert(
                 t("error_title", userLang) || "Erro",
-                t("disconnect_error_msg", userLang) || "Não foi possível desvincular.",
+                t("disconnect_error_msg", userLang) || "Não foi possível desvincular no momento.",
                 "times-circle",
                 "#D96C6C",
               );
@@ -419,13 +394,14 @@ export default function MatchScreen({ navigation }: any) {
 
     setIsMatching(true);
     try {
-      await runTransaction(db, async (transaction) => {
-        const myRef = doc(db, "users", currentUid);
-        const targetRef = doc(db, "users", targetUid);
+      const batch = writeBatch(db);
+      const myRef = doc(db, "users", currentUid);
+      const targetRef = doc(db, "users", targetUid);
 
-        transaction.set(myRef, { sentMatchRequestTo: null }, { merge: true });
-        transaction.set(targetRef, { pendingMatchRequest: null }, { merge: true });
-      });
+      batch.set(myRef, { sentMatchRequestTo: null }, { merge: true });
+      batch.set(targetRef, { pendingMatchRequest: null }, { merge: true });
+
+      await batch.commit();
 
       showCustomAlert(
         "Convite Cancelado",
@@ -440,49 +416,46 @@ export default function MatchScreen({ navigation }: any) {
     }
   };
 
-  // 🛡️ TRANSAÇÃO ATÔMICA PARA ACEITAR MATCH (FIX PARA ERRO FALSO-POSITIVO)
   const handleAcceptReceivedInvite = async () => {
     if (!currentUid || !userData?.pendingMatchRequest?.fromUid) return;
     const senderUid = userData.pendingMatchRequest.fromUid;
 
     setIsMatching(true);
     try {
-      await runTransaction(db, async (transaction) => {
-        const myUserRef = doc(db, "users", currentUid);
-        const senderUserRef = doc(db, "users", senderUid);
+      const batch = writeBatch(db);
+      const myUserRef = doc(db, "users", currentUid);
+      const senderUserRef = doc(db, "users", senderUid);
 
-        transaction.set(
-          myUserRef,
-          {
-            partnerId: senderUid,
-            isSoloMode: false,
-            hasCompletedAnamnesis: true,
-            anamnesisLocked: true,
-            pendingMatchRequest: null,
-            sentMatchRequestTo: null,
-          },
-          { merge: true }
+      const payload = {
+        partnerId: senderUid,
+        isSoloMode: false,
+        hasCompletedAnamnesis: true,
+        anamnesisLocked: true,
+        pendingMatchRequest: null,
+        sentMatchRequestTo: null,
+      };
+
+      const senderPayload = {
+        partnerId: currentUid,
+        isSoloMode: false,
+        hasCompletedAnamnesis: true,
+        anamnesisLocked: true,
+        pendingMatchRequest: null,
+        sentMatchRequestTo: null,
+      };
+
+      batch.set(myUserRef, payload, { merge: true });
+      batch.set(senderUserRef, senderPayload, { merge: true });
+
+      await batch.commit();
+
+      try {
+        await logAuditEvent(
+          currentUid,
+          "PARTNER_LINKED",
+          `Match aceito com o parceiro ID: ${senderUid}`
         );
-
-        transaction.set(
-          senderUserRef,
-          {
-            partnerId: currentUid,
-            isSoloMode: false,
-            hasCompletedAnamnesis: true,
-            anamnesisLocked: true,
-            pendingMatchRequest: null,
-            sentMatchRequestTo: null,
-          },
-          { merge: true }
-        );
-      });
-
-      await logAuditEvent(
-        currentUid,
-        "PARTNER_LINKED",
-        `Match aceito com o parceiro ID: ${senderUid}`
-      );
+      } catch (e) {}
 
       triggerHaptic("success");
       showCustomAlert(
@@ -492,12 +465,6 @@ export default function MatchScreen({ navigation }: any) {
         "#67D4A8"
       );
     } catch (e) {
-      // Check se a gravação transacional funcionou de fato
-      const currentSnap = await getDoc(doc(db, "users", currentUid));
-      if (currentSnap.exists() && currentSnap.data()?.partnerId === senderUid) {
-        return;
-      }
-
       showCustomAlert("Erro ao Aceitar", "Falha ao confirmar o vínculo.", "times-circle", "#D96C6C");
     } finally {
       setIsMatching(false);
@@ -510,13 +477,14 @@ export default function MatchScreen({ navigation }: any) {
 
     setIsMatching(true);
     try {
-      await runTransaction(db, async (transaction) => {
-        const myRef = doc(db, "users", currentUid);
-        const senderRef = doc(db, "users", senderUid);
+      const batch = writeBatch(db);
+      const myRef = doc(db, "users", currentUid);
+      const senderRef = doc(db, "users", senderUid);
 
-        transaction.set(myRef, { pendingMatchRequest: null }, { merge: true });
-        transaction.set(senderRef, { sentMatchRequestTo: null }, { merge: true });
-      });
+      batch.set(myRef, { pendingMatchRequest: null }, { merge: true });
+      batch.set(senderRef, { sentMatchRequestTo: null }, { merge: true });
+
+      await batch.commit();
 
       showCustomAlert("Convite Recusado", "O convite de conexão foi recusado.", "info-circle", "#202D3A");
     } catch (e) {
@@ -623,48 +591,53 @@ export default function MatchScreen({ navigation }: any) {
       const myName = userData?.billingFirstName || userData?.displayName || "Seu Amor";
       const myPhoto = userData?.photoURL || userData?.photoUrl || null;
 
-      await runTransaction(db, async (transaction) => {
-        const myRef = doc(db, "users", currentUser.uid);
-        const pendingRef = doc(db, "users", pendingMatchPartner.id);
+      const batch = writeBatch(db);
+      const myRef = doc(db, "users", currentUser.uid);
+      const pendingRef = doc(db, "users", pendingMatchPartner.id);
 
-        transaction.set(
-          myRef,
-          {
-            sentMatchRequestTo: {
-              toUid: pendingMatchPartner.id,
-              toName: pendingMatchPartner.data?.billingFirstName || pendingMatchPartner.data?.displayName || "Seu Amor",
-              requestedAt: new Date().toISOString(),
-            },
+      batch.set(
+        myRef,
+        {
+          sentMatchRequestTo: {
+            toUid: pendingMatchPartner.id,
+            toName: pendingMatchPartner.data?.billingFirstName || pendingMatchPartner.data?.displayName || "Seu Amor",
+            requestedAt: new Date().toISOString(),
           },
-          { merge: true }
-        );
-
-        transaction.set(
-          pendingRef,
-          {
-            pendingMatchRequest: {
-              fromUid: currentUser.uid,
-              fromName: myName,
-              fromPhoto: myPhoto,
-              requestedAt: new Date().toISOString(),
-            },
-          },
-          { merge: true }
-        );
-      });
-
-      await sendMatchNotificationToPartner(
-        pendingMatchPartner.data?.pushToken || "",
-        pendingMatchPartner.id,
-        myName,
-        userLang
+        },
+        { merge: true }
       );
 
-      await logAuditEvent(
-        currentUser.uid,
-        "PARTNER_MATCH_REQUESTED",
-        `Solicitação de convite enviada para o parceiro ID: ${pendingMatchPartner.id}`
+      batch.set(
+        pendingRef,
+        {
+          pendingMatchRequest: {
+            fromUid: currentUser.uid,
+            fromName: myName,
+            fromPhoto: myPhoto,
+            requestedAt: new Date().toISOString(),
+          },
+        },
+        { merge: true }
       );
+
+      await batch.commit();
+
+      try {
+        await sendMatchNotificationToPartner(
+          pendingMatchPartner.data?.pushToken || "",
+          pendingMatchPartner.id,
+          myName,
+          userLang
+        );
+      } catch (e) {}
+
+      try {
+        await logAuditEvent(
+          currentUser.uid,
+          "PARTNER_MATCH_REQUESTED",
+          `Solicitação de convite enviada para o parceiro ID: ${pendingMatchPartner.id}`
+        );
+      } catch (e) {}
 
       setInviteCodeInput("");
       setPendingMatchPartner(null);

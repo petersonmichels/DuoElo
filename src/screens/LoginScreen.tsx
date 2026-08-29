@@ -657,7 +657,7 @@ export default function LoginScreen({ navigation }: any) {
     }
   };
 
-  // 🍎 LÓGICA CORRIGIDA PARA CAPTURAR O NOME COMPLETO DA APPLE NA PRIMEIRA AUTENTICAÇÃO
+  // 🍎 LÓGICA ATUALIZADA: FALLBACK PELO PREFIXO DO E-MAIL
   const handleAppleSignIn = async () => {
     if (Platform.OS !== "ios") {
       showCustomAlert(
@@ -704,23 +704,40 @@ export default function LoginScreen({ navigation }: any) {
       const userRef = doc(db, "users", user.uid);
       const userSnap = await getDoc(userRef);
 
-      // 🎯 EXTRAÇÃO SEGURA DO NOME DA APPLE (Disponível apenas no PRIMEIRO login do usuário)
+      // 1. Extração do Nome Retornado pela Apple (Apenas 1º login)
       let firstName = appleCredential.fullName?.givenName || "";
       let lastName = appleCredential.fullName?.familyName || "";
-      
       let derivedDisplayName = "";
+
       if (firstName || lastName) {
         derivedDisplayName = `${firstName} ${lastName}`.trim();
       }
 
+      // 2. Fallback: Se não veio nome (logins subsequentes), extrai do e-mail
+      const userEmail = user.email || appleCredential.email || "";
+      let emailPrefixName = "";
+
+      if (userEmail.includes("@")) {
+        const prefix = userEmail.split("@")[0];
+        emailPrefixName = prefix
+          .replace(/[._-]/g, " ")
+          .replace(/\b\w/g, (char) => char.toUpperCase());
+      }
+
+      if (!derivedDisplayName) {
+        derivedDisplayName = emailPrefixName || "Usuário";
+        const parts = derivedDisplayName.split(" ");
+        firstName = parts[0] || "Usuário";
+        lastName = parts.slice(1).join(" ") || "";
+      }
+
       if (!userSnap.exists()) {
-        // Se for um novo usuário no Firestore:
-        const finalDisplayName = derivedDisplayName || user.displayName || "Usuário Apple";
+        const finalDisplayName = derivedDisplayName;
         const finalFirstName = firstName || finalDisplayName.split(" ")[0] || "Usuário";
         const finalLastName = lastName || finalDisplayName.split(" ").slice(1).join(" ") || "";
 
-        // Normalização e sanitização do username (ex: Peterson Michels -> petersonmichels)
-        const cleanUsername = finalDisplayName
+        // Normalização e sanitização do username (ex: peterson.michels@gmail.com -> petersonmichels)
+        const cleanUsername = (emailPrefixName || finalDisplayName)
           .toLowerCase()
           .normalize("NFD")
           .replace(/[\u0300-\u036f]/g, "")
@@ -730,7 +747,7 @@ export default function LoginScreen({ navigation }: any) {
 
         await setDoc(userRef, {
           uid: user.uid,
-          email: user.email || appleCredential.email || null,
+          email: userEmail || null,
           username: cleanUsername,
           displayName: finalDisplayName,
           billingFirstName: finalFirstName,
@@ -757,11 +774,11 @@ export default function LoginScreen({ navigation }: any) {
           );
         } catch (e) {}
       } else {
-        // Se o usuário já existia, atualiza o idioma e apenas adiciona o nome se o documento estivesse sem ele
         const existingData = userSnap.data();
         const updates: any = { language: userLang };
 
-        if (!existingData.displayName && derivedDisplayName) {
+        // Se o registro existente estava sem nome ou com "Usuário Apple", atualiza com o fallback do e-mail
+        if (!existingData.displayName || existingData.displayName === "Usuário Apple") {
           updates.displayName = derivedDisplayName;
           updates.billingFirstName = firstName || derivedDisplayName.split(" ")[0];
           updates.billingLastName = lastName || derivedDisplayName.split(" ").slice(1).join(" ");
