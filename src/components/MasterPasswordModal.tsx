@@ -83,13 +83,25 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
             } catch (err) {}
           }
 
+          const pinExists = Boolean(hasLocalPin || hasFirestorePin);
+
           if (isMounted) {
-            setIsPinCreated(Boolean(hasLocalPin || hasFirestorePin));
+            setIsPinCreated(pinExists);
+            setIsCheckingPinStatus(false);
+
+            if (pinExists) {
+              setTimeout(() => {
+                if (isMounted) {
+                  triggerBiometrics();
+                }
+              }, 300);
+            }
           }
         } catch (e) {
-          if (isMounted) setIsPinCreated(false);
-        } finally {
-          if (isMounted) setIsCheckingPinStatus(false);
+          if (isMounted) {
+            setIsPinCreated(false);
+            setIsCheckingPinStatus(false);
+          }
         }
       };
 
@@ -101,28 +113,45 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
     };
   }, [visible]);
 
-  const handleBiometricPress = async () => {
-    const success = await authenticateWithBiometrics();
-    if (success) {
-      setSessionUnlocked(true);
-      const uid = auth.currentUser?.uid;
-      if (uid) {
-        try {
-          await logAuditEvent(
-            uid,
-            "MASTER_PASSWORD_VERIFIED",
-            "Acesso ao cofre liberado via Biometria/Rosto",
-            userLanguage
+  const triggerBiometrics = async () => {
+    try {
+      const res: any = await authenticateWithBiometrics();
+
+      const isSuccess = typeof res === "boolean" ? res : Boolean(res?.success);
+
+      if (isSuccess) {
+        setSessionUnlocked(true);
+        const uid = auth.currentUser?.uid;
+        if (uid) {
+          try {
+            await logAuditEvent(
+              uid,
+              "MASTER_PASSWORD_VERIFIED",
+              "Acesso ao cofre liberado via Biometria/Rosto",
+              userLanguage
+            );
+          } catch (e) {}
+        }
+        onSuccess("BIOMETRIC_UNLOCKED");
+      } else {
+        if (res?.error !== "user_cancel" && res?.error !== "system_cancel") {
+          setErrorMessage(
+            t("biometric_error_msg", userLanguage) ||
+              "Não foi possível autenticar com o Rosto/Biometria."
           );
-        } catch (e) {}
+        }
       }
-      onSuccess("BIOMETRIC_UNLOCKED");
-    } else {
+    } catch (err) {
       setErrorMessage(
         t("biometric_error_msg", userLanguage) ||
           "Não foi possível autenticar com o Rosto/Biometria."
       );
     }
+  };
+
+  const handleBiometricPress = () => {
+    setErrorMessage("");
+    triggerBiometrics();
   };
 
   const handleSubmit = async () => {

@@ -160,6 +160,11 @@ export default function MissionExecutionScreen({
         const uid = auth.currentUser?.uid;
         if (!uid) return;
         if (isMounted) setLoadingJournal(true);
+
+        const journalTimeout = setTimeout(() => {
+          if (isMounted) setLoadingJournal(false);
+        }, 3000);
+
         try {
           const rawPhase =
             mission.displayPhase || mission.phase || mission.day || mission.week;
@@ -213,6 +218,7 @@ export default function MissionExecutionScreen({
         } catch (error: any) {
           if (isMounted) setFetchedJournal("");
         } finally {
+          clearTimeout(journalTimeout);
           if (isMounted) setLoadingJournal(false);
         }
       };
@@ -225,7 +231,8 @@ export default function MissionExecutionScreen({
   }, [isReviewMode, mission, userLanguage, isGold]);
 
   useEffect(() => {
-    Animated.loop(
+    let isMounted = true;
+    const loopAnim = Animated.loop(
       Animated.sequence([
         Animated.timing(ringPulseAnim, {
           toValue: 1.12,
@@ -240,7 +247,16 @@ export default function MissionExecutionScreen({
           useNativeDriver: true,
         }),
       ])
-    ).start();
+    );
+
+    if (isMounted) {
+      loopAnim.start();
+    }
+
+    return () => {
+      isMounted = false;
+      loopAnim.stop();
+    };
   }, [ringPulseAnim]);
 
   const goToStep = async (nextStep: number) => {
@@ -318,7 +334,6 @@ export default function MissionExecutionScreen({
         } catch (auditErr) {}
       }
 
-      // 🔔 Notificação para o parceiro via Firestore & Push ao concluir
       if (uid) {
         try {
           const userSnap = await getDoc(doc(db, "users", uid));

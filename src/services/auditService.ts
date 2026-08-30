@@ -1,4 +1,5 @@
 import { collection, doc, setDoc } from "firebase/firestore";
+import { Platform } from "react-native";
 import { db } from "../config/firebase";
 import { t } from "../i18n/translations";
 
@@ -44,12 +45,13 @@ export async function logAuditEvent(
     const auditRef = doc(collection(db, "audit_logs"));
 
     const translatedFallback = t(`audit_action_${action.toLowerCase()}`, userLang);
-    const resolvedDetails =
-      details && details.trim().length > 0
-        ? details
-        : typeof translatedFallback === "string"
-        ? translatedFallback
-        : action;
+    
+    let resolvedDetails = action as string;
+    if (typeof details === "string" && details.trim().length > 0) {
+      resolvedDetails = details.trim();
+    } else if (typeof translatedFallback === "string" && translatedFallback.trim().length > 0) {
+      resolvedDetails = translatedFallback.trim();
+    }
 
     const payload: AuditLogPayload = {
       uid: String(uid),
@@ -57,7 +59,7 @@ export async function logAuditEvent(
       action,
       details: resolvedDetails,
       timestamp: new Date().toISOString(),
-      platform: "react-native",
+      platform: Platform.OS || "react-native",
       language: userLang,
     };
 

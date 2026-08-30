@@ -13,10 +13,8 @@ import AppNavigator from "./src/navigation/AppNavigator";
 // 🚀 ATIVA O SUPORTE A TELAS NATIVAS DE ALTA PERFORMANCE
 enableScreens(true);
 
-// 🛡️ IMPEDE O AUTO-HIDE DA SPLASH SCREEN ATÉ O CARREGAMENTO TOTAL DE RECURSOS
-SplashScreen.preventAutoHideAsync().catch(() => {
-  /* ignora exceções se já estiver oculto */
-});
+// 🛡️ MANTÉM A SPLASH SCREEN VISÍVEL ATÉ A INICIALIZAÇÃO
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 // 🙈 FILTRAGEM ESTRITA DE WARNINGS DE TERCEIROS CONHECIDOS
 LogBox.ignoreLogs([
@@ -42,7 +40,16 @@ export default function App() {
     Montserrat_900Black,
   });
 
-  // 💳 INICIALIZAÇÃO SEGURA DO REVENUECAT VIA VARIÁVEIS DE AMBIENTE
+  // 🛡️ TIMEOUT OBRIGATÓRIO PARA FECHAR A SPLASH SCREEN
+  useEffect(() => {
+    const forceHideSplashTimer = setTimeout(() => {
+      SplashScreen.hideAsync().catch(() => {});
+    }, 1200);
+
+    return () => clearTimeout(forceHideSplashTimer);
+  }, []);
+
+  // 💳 INICIALIZAÇÃO SEGURA DO REVENUECAT
   useEffect(() => {
     let isMounted = true;
 
@@ -50,9 +57,6 @@ export default function App() {
       if (Platform.OS === "web") return;
 
       try {
-        const isAlreadyConfigured = await Purchases.isConfigured();
-        if (isAlreadyConfigured || !isMounted) return;
-
         if (__DEV__) {
           Purchases.setLogLevel(Purchases.LOG_LEVEL.DEBUG);
         }
@@ -63,7 +67,9 @@ export default function App() {
         });
 
         if (apiKey && apiKey.trim().length > 0) {
-          Purchases.configure({ apiKey });
+          if (isMounted) {
+            Purchases.configure({ apiKey });
+          }
         } else if (__DEV__) {
           console.warn(
             "[REVENUECAT_WARNING] Chave do RevenueCat não encontrada nas variáveis de ambiente (.env)."
@@ -81,10 +87,12 @@ export default function App() {
     };
   }, []);
 
-  // 🎨 CONTROLE DE RENDERIZAÇÃO DA SPLASH SCREEN E DE FONTES
+  // 🎨 LIBERA A SPLASH SCREEN QUANDO AS FONTES FOREM CARREGADAS
   const onLayoutRootView = useCallback(async () => {
     if (fontsLoaded || fontError) {
-      await SplashScreen.hideAsync().catch(() => {});
+      try {
+        await SplashScreen.hideAsync();
+      } catch (e) {}
     }
   }, [fontsLoaded, fontError]);
 
@@ -104,7 +112,10 @@ export default function App() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#0F0F12" }} onLayout={onLayoutRootView}>
+    <View
+      style={{ flex: 1, backgroundColor: "#0F0F12" }}
+      onLayout={onLayoutRootView}
+    >
       <NavigationContainer>
         <AppNavigator />
       </NavigationContainer>

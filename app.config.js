@@ -3,15 +3,22 @@ module.exports = {
     name: "DuoElo",
     slug: "duelo",
     scheme: "duoelo",
-    version: "1.0.1", // 👈 Atualizado para 1.0.1
+    version: "1.0.1",
     orientation: "portrait",
     icon: "./src/assets/icon.png",
     userInterfaceStyle: "dark",
+    
+    // 🎨 Ajustes de UI/Design para Android
+    androidNavigationBar: {
+      barStyle: "light-content",
+      backgroundColor: "#0F0F12",
+    },
+    
     ios: {
       supportsTablet: false,
       usesAppleSignIn: true,
       bundleIdentifier: "lu.barnx.duoelo",
-      buildNumber: "8", // 👈 Adicionado buildNumber 8 para o App Store Connect
+      buildNumber: "13",
       googleServicesFile:
         process.env.GOOGLE_SERVICES_INFO_PLIST || "./GoogleService-Info.plist",
       infoPlist: {
@@ -33,20 +40,27 @@ module.exports = {
         CFBundleURLTypes: [
           {
             CFBundleURLSchemes: [
-              "com.googleusercontent.apps.504286284116-qkqjt7lt4tuibmoo53lfops2omk2l81u",
+              "com.googleusercontent.apps.504286284116-akoj0ufb3q6rrfb2b3gpskbjaatgeqle",
             ],
           },
         ],
       },
     },
     android: {
-      versionCode: 8, // 👈 Adicionado versionCode 8 para manter em paridade com o iOS
+      versionCode: 13,
+      package: "lu.barnx.duoelo",
+      googleServicesFile:
+        process.env.GOOGLE_SERVICES_JSON || "./google-services.json",
+      allowBackup: false,
+      statusBar: {
+        barStyle: "light-content",
+        backgroundColor: "#0F0F12",
+        translucent: true,
+      },
       adaptiveIcon: {
         foregroundImage: "./src/assets/icon.png",
         backgroundColor: "#0F0F12",
       },
-      package: "lu.barnx.duoelo",
-      allowBackup: false,
       permissions: [
         "android.permission.USE_BIOMETRIC",
         "android.permission.USE_FINGERPRINT",

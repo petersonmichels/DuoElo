@@ -127,6 +127,7 @@ const WEEKLY_PROGRESSION_ICONS = [
   "gift",
 ];
 
+// 📝 TEMAS DE CADA SEMANA EXIBIDOS NO BANNER SUPERIOR
 const DEFAULT_WEEK_THEMES: { [key: number]: string } = {
   1: "Comunicação & Sintonia",
   2: "Reacendendo a Chama",
@@ -260,7 +261,7 @@ export default function HomeScreen({ navigation }: any) {
   const [currentUid, setCurrentUid] = useState<string | null>(null);
   const [userData, setUserData] = useState<any>(null);
   const [partnerData, setPartnerData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   const [weekThemes, setWeekThemes] = useState<any>({});
   const [visibleWeek, setVisibleWeek] = useState(1);
@@ -384,6 +385,21 @@ export default function HomeScreen({ navigation }: any) {
   const currentStep = nextAvailableStep;
   const isJourneyFinished = currentStep >= totalStepsInModule;
 
+  // 🛡️ TRAVA DE SEGURANÇA CONTRA CONGELAMENTO DE CARREGAMENTO
+  useEffect(() => {
+    let isMounted = true;
+    const timer = setTimeout(() => {
+      if (isMounted && loading) {
+        setLoading(false);
+      }
+    }, 1500);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
+  }, [loading]);
+
   useEffect(() => {
     if (!currentUid) return;
 
@@ -392,9 +408,15 @@ export default function HomeScreen({ navigation }: any) {
       where("read", "==", false)
     );
 
-    const unsubscribeNotifs = onSnapshot(notifQuery, (snapshot) => {
-      setHasUnreadNotifications(!snapshot.empty);
-    });
+    const unsubscribeNotifs = onSnapshot(
+      notifQuery,
+      (snapshot) => {
+        setHasUnreadNotifications(!snapshot.empty);
+      },
+      (err) => {
+        console.log("[HomeScreen] Listener de notificações encerrado:", err);
+      }
+    );
 
     return () => unsubscribeNotifs();
   }, [currentUid]);
@@ -430,6 +452,9 @@ export default function HomeScreen({ navigation }: any) {
   useEffect(() => {
     const unsubscribeAuth = auth.onAuthStateChanged((user) => {
       setCurrentUid(user?.uid || null);
+      if (!user) {
+        setLoading(false);
+      }
     });
     return () => unsubscribeAuth();
   }, []);
@@ -472,6 +497,7 @@ export default function HomeScreen({ navigation }: any) {
           setLoading(false);
         },
         (error) => {
+          setLoading(false);
           if (error.code === "permission-denied") {
             console.log("[HomeScreen] Listener de usuário encerrado.");
           }
@@ -797,7 +823,6 @@ export default function HomeScreen({ navigation }: any) {
     }, 2000);
   };
 
-  // 🔔 ENVIO DE NOTIFICAÇÃO COMPLETA AO CLICAR EM PLAY / DAR LARGADA NO MATCH
   const handleStartHandshake = async () => {
     if (!currentUid) return;
     setIsGeneratingJourney(true);
@@ -839,7 +864,6 @@ export default function HomeScreen({ navigation }: any) {
             { merge: true }
           );
 
-          // 🔔 Dispara Notificação completa do PLAY e salva no sininho do parceiro
           await sendPlayNotificationToPartner(
             partnerData?.pushToken || "",
             targetPartnerId,
@@ -866,7 +890,6 @@ export default function HomeScreen({ navigation }: any) {
           { merge: true }
         );
 
-        // 🔔 Dispara Notificação do PLAY para o parceiro que está pendente
         if (targetPartnerId) {
           await sendPlayNotificationToPartner(
             partnerData?.pushToken || "",
@@ -1149,7 +1172,6 @@ export default function HomeScreen({ navigation }: any) {
     }
   };
 
-  // 🔔 ENVIO DE NOTIFICAÇÃO COMPLETA AO CUMPRIR A LIÇÃO
   const handleCompleteMission = async (journalText: string = "") => {
     if (!currentUid || !activeMission) return;
 
@@ -1255,7 +1277,6 @@ export default function HomeScreen({ navigation }: any) {
       const completedDay = nextAvailableStep + 1;
       const weekCycleProgress = ((completedDay - 1) % 7) + 1;
 
-      // 🔔 Dispara Notificação completa da Lição Concluída para o parceiro
       if (userData?.partnerId) {
         await sendLessonCompletedNotification(
           partnerData?.pushToken || "",

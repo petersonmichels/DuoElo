@@ -2,6 +2,7 @@ import { FontAwesome5 } from "@expo/vector-icons";
 import { doc, getDoc, onSnapshot, setDoc } from "firebase/firestore";
 import { useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Animated,
   Linking,
@@ -23,6 +24,7 @@ export default function InvitePartnerScreen({ navigation }: any) {
 
   // Estado do código gerado dinamicamente
   const [myInviteCode, setMyInviteCode] = useState("CARREGANDO...");
+  const [isCheckingStatus, setIsCheckingStatus] = useState(false);
 
   // Animação de pulsação para o estado "Aguardando"
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -120,10 +122,26 @@ export default function InvitePartnerScreen({ navigation }: any) {
         console.error("Erro ao abrir WhatsApp", error);
       }
     } else if (connectionStep === 1) {
-      Alert.alert(
-        t("waiting_partner_alert_title", userLang) || "Aguardando Seu Amor",
-        t("waiting_partner_alert_msg", userLang) || "Assim que seu parceiro aceitar o convite, vocês estarão conectados!",
-      );
+      // 🔄 VERIFICAÇÃO ATIVA DO FIRESTORE AO TOCAR NO BOTÃO
+      const currentUid = auth.currentUser?.uid;
+      if (!currentUid) return;
+
+      setIsCheckingStatus(true);
+      try {
+        const userSnap = await getDoc(doc(db, "users", currentUid));
+        if (userSnap.exists() && userSnap.data()?.partnerId) {
+          setConnectionStep(2);
+        } else {
+          Alert.alert(
+            t("waiting_partner_alert_title", userLang) || "Aguardando Seu Amor",
+            t("waiting_partner_alert_msg", userLang) || "Assim que seu parceiro aceitar o convite, vocês estarão conectados!",
+          );
+        }
+      } catch (e) {
+        console.error("Erro ao verificar status do parceiro:", e);
+      } finally {
+        setIsCheckingStatus(false);
+      }
     } else if (connectionStep === 2) {
       // 🔒 ROTEAMENTO INTELIGENTE PÓS-MATCH
       const currentUid = auth.currentUser?.uid;
@@ -382,17 +400,24 @@ export default function InvitePartnerScreen({ navigation }: any) {
             ]}
             activeOpacity={0.8}
             onPress={handleMainAction}
+            disabled={isCheckingStatus}
           >
-            {connectionStep === 0 && (
-              <FontAwesome5 name="whatsapp" size={20} color="#FFF" />
+            {isCheckingStatus ? (
+              <ActivityIndicator color="#FFF" size="small" />
+            ) : (
+              <>
+                {connectionStep === 0 && (
+                  <FontAwesome5 name="whatsapp" size={20} color="#FFF" />
+                )}
+                <Text style={styles.mainButtonText}>
+                  {connectionStep === 0
+                    ? t("btn_invite_whatsapp", userLang) || "Enviar pelo WhatsApp"
+                    : connectionStep === 1
+                      ? t("btn_update_status", userLang) || "Verificar Status"
+                      : t("btn_start_trail_together", userLang) || "Iniciar Trilha do Casal"}
+                </Text>
+              </>
             )}
-            <Text style={styles.mainButtonText}>
-              {connectionStep === 0
-                ? t("btn_invite_whatsapp", userLang) || "Enviar pelo WhatsApp"
-                : connectionStep === 1
-                  ? t("btn_update_status", userLang) || "Verificar Status"
-                  : t("btn_start_trail_together", userLang) || "Iniciar Trilha do Casal"}
-            </Text>
           </TouchableOpacity>
 
           {connectionStep === 0 && (

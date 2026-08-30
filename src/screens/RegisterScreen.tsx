@@ -58,7 +58,7 @@ export default function RegisterScreen({ navigation }: any) {
     icon = "info-circle",
     color = "#202D3A",
     confirmText = t("btn_understand", userLang) || "Entendi",
-    onConfirm: (() => void) | null = null,
+    onConfirm: (() => void) | null = null
   ) => {
     setCustomAlert({
       visible: true,
@@ -83,7 +83,7 @@ export default function RegisterScreen({ navigation }: any) {
         t("attention_title", userLang) || "Atenção",
         t("fill_required_fields_msg", userLang) || "Preencha todos os campos obrigatórios.",
         "exclamation-triangle",
-        "#EAB64A",
+        "#EAB64A"
       );
       return;
     }
@@ -93,7 +93,7 @@ export default function RegisterScreen({ navigation }: any) {
         t("short_username_title", userLang) || "Usuário Curto",
         t("short_username_msg", userLang) || "O nome de usuário deve conter pelo menos 3 caracteres.",
         "user",
-        "#EAB64A",
+        "#EAB64A"
       );
       return;
     }
@@ -113,22 +113,26 @@ export default function RegisterScreen({ navigation }: any) {
     setIsLoading(true);
 
     try {
-      // 1. Verifica se o @username já está em uso
-      const usernameQuery = query(
-        collection(db, "users"),
-        where("username", "==", cleanUsername),
-      );
-      const usernameSnap = await getDocs(usernameQuery);
-
-      if (!usernameSnap.empty) {
-        setIsLoading(false);
-        showCustomAlert(
-          t("username_unavailable_title", userLang) || "Nome de Usuário Indisponível",
-          t("username_unavailable_msg", userLang) || "Este nome de usuário já está em uso. Escolha outro.",
-          "user-times",
-          "#EAB64A",
+      // 1. Validação defensiva do username no Firestore
+      try {
+        const usernameQuery = query(
+          collection(db, "users"),
+          where("username", "==", cleanUsername)
         );
-        return;
+        const usernameSnap = await getDocs(usernameQuery);
+
+        if (!usernameSnap.empty) {
+          setIsLoading(false);
+          showCustomAlert(
+            t("username_unavailable_title", userLang) || "Nome de Usuário Indisponível",
+            t("username_unavailable_msg", userLang) || "Este nome de usuário já está em uso. Escolha outro.",
+            "user-times",
+            "#EAB64A"
+          );
+          return;
+        }
+      } catch (firestoreCheckErr) {
+        console.warn("[RegisterScreen] Ignorada verificação prévia de username por regras de leitura pública:", firestoreCheckErr);
       }
 
       // 2. Trava a transição automática do AppNavigator durante a criação
@@ -138,15 +142,19 @@ export default function RegisterScreen({ navigation }: any) {
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         cleanEmail,
-        password,
+        password
       );
       const uid = userCredential.user.uid;
 
       // 4. Cria o documento oficial no Firestore
       const myGeneratedCode = uid.substring(0, 6).toUpperCase();
       const userDataToSave: any = {
+        uid: uid,
         email: cleanEmail,
         username: cleanUsername,
+        displayName: cleanUsername,
+        billingFirstName: cleanUsername,
+        billingLastName: "",
         language: userLang,
         myInviteCode: myGeneratedCode,
         createdAt: new Date().toISOString(),
@@ -189,16 +197,16 @@ export default function RegisterScreen({ navigation }: any) {
         "check-circle",
         "#67D4A8",
         t("btn_go_to_login", userLang) || "Ir para o Login",
-        () => navigation.goBack(),
+        () => navigation.goBack()
       );
     } catch (error: any) {
       let errorMessage = t("register_error_default_msg", userLang) || "Não foi possível concluir o cadastro.";
 
-      if (error.code === "auth/email-already-in-use") {
+      if (error?.code === "auth/email-already-in-use") {
         errorMessage = t("email_already_in_use_msg", userLang) || "Este e-mail já está em uso por outra conta.";
-      } else if (error.code === "auth/weak-password") {
+      } else if (error?.code === "auth/weak-password") {
         errorMessage = t("short_password_msg", userLang) || "A senha informada é muito fraca.";
-      } else if (error.code === "auth/invalid-email") {
+      } else if (error?.code === "auth/invalid-email") {
         errorMessage = t("invalid_email_msg", userLang) || "O e-mail informado não é válido.";
       }
 
@@ -206,7 +214,7 @@ export default function RegisterScreen({ navigation }: any) {
         t("signup_error_title", userLang) || "Erro no Cadastro",
         errorMessage,
         "times-circle",
-        "#D96C6C",
+        "#D96C6C"
       );
     } finally {
       if (authControls) authControls.isCreatingAccount = false;

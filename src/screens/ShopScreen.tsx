@@ -333,7 +333,6 @@ export default function ShopScreen({ userData, partnerData, navigation, route }:
 
       const translatedTitle = getGiftTitle(giftId, userLang);
 
-      // 🔔 Notificação ao parceiro (Push + Histórico) ao comprar o presente
       try {
         await sendGiftNotification(
           partnerData?.pushToken || "",
@@ -409,7 +408,6 @@ export default function ShopScreen({ userData, partnerData, navigation, route }:
         { merge: true }
       );
 
-      // 🔔 Notificação ao parceiro quando quem recebeu confirma a entrega do presente
       if (partnerUid) {
         try {
           const giftId = partnerPurchases[weekNum]?.giftId || "";
@@ -470,7 +468,11 @@ export default function ShopScreen({ userData, partnerData, navigation, route }:
           }}
         >
           <FontAwesome5 name="gift" size={14} color={activeTab === "partner" ? "#FFF" : "#60646C"} />
-          <Text style={[styles.toggleTabText, activeTab === "partner" && styles.toggleTabTextActive]}>
+          <Text
+            style={[styles.toggleTabText, activeTab === "partner" && styles.toggleTabTextActive]}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
             Desejos de {partnerName}
           </Text>
         </TouchableOpacity>
@@ -483,7 +485,11 @@ export default function ShopScreen({ userData, partnerData, navigation, route }:
           }}
         >
           <FontAwesome5 name="star" size={14} color={activeTab === "my" ? "#FFF" : "#60646C"} />
-          <Text style={[styles.toggleTabText, activeTab === "my" && styles.toggleTabTextActive]}>
+          <Text
+            style={[styles.toggleTabText, activeTab === "my" && styles.toggleTabTextActive]}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
             Sua Lista
           </Text>
         </TouchableOpacity>
@@ -854,13 +860,20 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "#FFF",
     paddingVertical: 12,
+    paddingHorizontal: 8,
     borderRadius: 14,
-    gap: 8,
+    gap: 6,
     borderWidth: 1,
     borderColor: "#D1D9E0",
+    overflow: "hidden",
   },
   toggleTabActive: { backgroundColor: "#202D3A", borderColor: "#202D3A" },
-  toggleTabText: { fontSize: 13, fontFamily: "Montserrat_700Bold", color: "#60646C" },
+  toggleTabText: { 
+    fontSize: 12, 
+    fontFamily: "Montserrat_700Bold", 
+    color: "#60646C",
+    flexShrink: 1,
+  },
   toggleTabTextActive: { color: "#FFF" },
   scrollContent: { paddingHorizontal: 20, paddingTop: 6, paddingBottom: 120 },
   sectionContainer: { marginBottom: 28 },

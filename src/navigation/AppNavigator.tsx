@@ -55,7 +55,6 @@ const PulsingVidaIcon = ({ color, uid }: { color: string; uid: string | undefine
           const data = snap.data();
           const partnerUid = data.partnerId;
 
-          // Onboarding e Dados Cadastrais
           const noPhoto = !data.photoURL && !data.photoUrl;
           const noPartner = !partnerUid && !data.isSoloMode;
 
@@ -71,7 +70,6 @@ const PulsingVidaIcon = ({ color, uid }: { color: string; uid: string | undefine
             !!data.lastTaskDate ||
             (data.currentPhase && data.currentPhase > 0);
 
-          // Checagem rigorosa da missão do dia
           const isMissionDoneToday =
             data.lastTaskDate === todayStr ||
             data.isDailyTaskCompleted === true ||
@@ -82,7 +80,6 @@ const PulsingVidaIcon = ({ color, uid }: { color: string; uid: string | undefine
             data.habitsCompletedDate !== todayStr ||
             (data.completedHabitsToday || []).length === 0;
 
-          // Subcoleção de Compras
           const unSubRedemptions = onSnapshot(
             doc(db, "users", uid, "shop", "redemptions"),
             (redemptionSnap) => {
@@ -92,7 +89,6 @@ const PulsingVidaIcon = ({ color, uid }: { color: string; uid: string | undefine
                 ([_, value]: [string, any]) => value?.status === "bought"
               );
 
-              // Subcoleção de Desejos
               const unSubDesires = onSnapshot(
                 doc(db, "users", uid, "shop", "desires"),
                 (desiresSnap) => {
@@ -376,7 +372,18 @@ export default function AppNavigator() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let isMounted = true;
+
+    // 🛡️ TIMEOUT DE SEGURANÇA: Desbloqueia a verificação em no máximo 2.5s se a rede/auth oscilar
+    const forceUnlockTimer = setTimeout(() => {
+      if (isMounted && loading) {
+        setLoading(false);
+      }
+    }, 2500);
+
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      if (!isMounted) return;
+
       if (authControls && authControls.isCreatingAccount) {
         return;
       }
@@ -390,7 +397,11 @@ export default function AppNavigator() {
       setLoading(false);
     });
 
-    return unsubscribe;
+    return () => {
+      isMounted = false;
+      clearTimeout(forceUnlockTimer);
+      unsubscribe();
+    };
   }, []);
 
   if (loading) {
@@ -428,7 +439,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#F0F4F8",
+    backgroundColor: "#0F0F12",
   },
   floatingButton: {
     top: -20,

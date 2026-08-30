@@ -39,6 +39,7 @@ const ATOMIC_HABITS_CATALOG = [
 export default function HabitsConfigScreen({ navigation }: any) {
   const [userData, setUserData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
 
   const [activeHabits, setActiveHabits] = useState<string[]>([
     "water_morning",
@@ -75,6 +76,7 @@ export default function HabitsConfigScreen({ navigation }: any) {
         if (error.code === "permission-denied") {
           console.log("[HabitsConfigScreen] Listener de hábitos encerrado.");
         }
+        setLoading(false);
       }
     );
 
@@ -91,7 +93,7 @@ export default function HabitsConfigScreen({ navigation }: any) {
 
   const toggleHabitSelection = async (habitId: string) => {
     const currentUid = auth.currentUser?.uid;
-    if (!currentUid) return;
+    if (!currentUid || isSaving) return;
     triggerHaptic();
 
     let updated: string[] = [];
@@ -102,19 +104,26 @@ export default function HabitsConfigScreen({ navigation }: any) {
     }
 
     setActiveHabits(updated);
-    await setDoc(doc(db, "users", currentUid), { activeHabits: updated }, { merge: true });
+    try {
+      await setDoc(doc(db, "users", currentUid), { activeHabits: updated }, { merge: true });
+    } catch (err) {
+      console.error("[HabitsConfigScreen] Erro ao alternar hábito:", err);
+    }
   };
 
   const handleAddCustomHabit = async () => {
-    if (!newHabitTitle.trim()) return;
+    const trimmedTitle = newHabitTitle.trim();
+    if (!trimmedTitle || isSaving) return;
+
     const currentUid = auth.currentUser?.uid;
     if (!currentUid) return;
     triggerHaptic();
+    setIsSaving(true);
 
     const habitId = `custom_${Date.now()}`;
     const newHabit = {
       id: habitId,
-      title: newHabitTitle.trim(),
+      title: trimmedTitle,
       frequency: selectedFrequency,
       points: 5,
     };
@@ -126,11 +135,17 @@ export default function HabitsConfigScreen({ navigation }: any) {
     setActiveHabits(updatedActive);
     setNewHabitTitle("");
 
-    await setDoc(
-      doc(db, "users", currentUid),
-      { customHabits: updatedCustoms, activeHabits: updatedActive },
-      { merge: true }
-    );
+    try {
+      await setDoc(
+        doc(db, "users", currentUid),
+        { customHabits: updatedCustoms, activeHabits: updatedActive },
+        { merge: true }
+      );
+    } catch (err) {
+      console.error("[HabitsConfigScreen] Erro ao criar hábito personalizado:", err);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleRemoveCustomHabit = (habitId: string) => {
@@ -153,11 +168,15 @@ export default function HabitsConfigScreen({ navigation }: any) {
             setCustomHabits(updatedCustoms);
             setActiveHabits(updatedActive);
 
-            await setDoc(
-              doc(db, "users", currentUid),
-              { customHabits: updatedCustoms, activeHabits: updatedActive },
-              { merge: true }
-            );
+            try {
+              await setDoc(
+                doc(db, "users", currentUid),
+                { customHabits: updatedCustoms, activeHabits: updatedActive },
+                { merge: true }
+              );
+            } catch (err) {
+              console.error("[HabitsConfigScreen] Erro ao remover hábito:", err);
+            }
           },
         },
       ]
@@ -201,9 +220,18 @@ export default function HabitsConfigScreen({ navigation }: any) {
                 placeholderTextColor="#AFAFAF"
                 value={newHabitTitle}
                 onChangeText={setNewHabitTitle}
+                editable={!isSaving}
               />
-              <TouchableOpacity style={styles.createHabitBtn} onPress={handleAddCustomHabit}>
-                <FontAwesome5 name="plus" size={16} color="#FFF" />
+              <TouchableOpacity
+                style={[styles.createHabitBtn, (!newHabitTitle.trim() || isSaving) && styles.createHabitBtnDisabled]}
+                onPress={handleAddCustomHabit}
+                disabled={!newHabitTitle.trim() || isSaving}
+              >
+                {isSaving ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <FontAwesome5 name="plus" size={16} color="#FFF" />
+                )}
               </TouchableOpacity>
             </View>
 
@@ -218,9 +246,10 @@ export default function HabitsConfigScreen({ navigation }: any) {
                 onPress={() => setSelectedFrequency("daily")}
               >
                 <FontAwesome5
-                  name={selectedFrequency === "daily" ? "check" : "square"}
+                  name={selectedFrequency === "daily" ? "check-circle" : "circle"}
+                  solid={selectedFrequency === "daily"}
                   size={14}
-                  color={selectedFrequency === "daily" ? "#FFF" : "#AFAFAF"}
+                  color={selectedFrequency === "daily" ? "#FFF" : "#60646C"}
                   style={{ marginRight: 8 }}
                 />
                 <Text
@@ -241,9 +270,10 @@ export default function HabitsConfigScreen({ navigation }: any) {
                 onPress={() => setSelectedFrequency("weekly")}
               >
                 <FontAwesome5
-                  name={selectedFrequency === "weekly" ? "check" : "square"}
+                  name={selectedFrequency === "weekly" ? "check-circle" : "circle"}
+                  solid={selectedFrequency === "weekly"}
                   size={14}
-                  color={selectedFrequency === "weekly" ? "#FFF" : "#AFAFAF"}
+                  color={selectedFrequency === "weekly" ? "#FFF" : "#60646C"}
                   style={{ marginRight: 8 }}
                 />
                 <Text
@@ -276,7 +306,7 @@ export default function HabitsConfigScreen({ navigation }: any) {
                     activeOpacity={0.8}
                     onPress={() => toggleHabitSelection(c.id)}
                   >
-                    <FontAwesome5 name="star" size={16} color="#EAB64A" style={{ marginRight: 12 }} />
+                    <FontAwesome5 name="star" solid size={16} color="#EAB64A" style={{ marginRight: 12 }} />
                     <View style={{ flex: 1 }}>
                       <Text style={styles.customHabitTitle}>{c.title}</Text>
                       <Text style={styles.customHabitSub}>
@@ -341,7 +371,7 @@ export default function HabitsConfigScreen({ navigation }: any) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F0F4F8" },
-  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
+  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#F0F4F8" },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -409,6 +439,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  createHabitBtnDisabled: {
+    backgroundColor: "#D1D9E0",
+  },
   frequencySectionTitle: {
     fontSize: 12,
     fontFamily: "Montserrat_900Black",
@@ -423,7 +456,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#FFF",
+    backgroundColor: "#F0F4F8",
     paddingVertical: 14,
     borderRadius: 14,
     borderWidth: 1.5,
@@ -436,7 +469,7 @@ const styles = StyleSheet.create({
   frequencyButtonText: {
     fontSize: 13,
     fontFamily: "Montserrat_900Black",
-    color: "#1D2836",
+    color: "#60646C",
   },
   frequencyButtonTextActive: { color: "#FFF" },
   section: { marginBottom: 25 },

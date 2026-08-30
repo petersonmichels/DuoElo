@@ -91,11 +91,17 @@ export async function sendMatchNotificationToPartner(
   senderName: string,
   userLang: string = "pt-BR"
 ): Promise<void> {
+  const rawTitle = t("match_invite_push_title", userLang);
   const pushTitle =
-    t("match_invite_push_title", userLang) || "Convite de Elo Recebido! 💌";
+    rawTitle && !rawTitle.includes("match_invite_push_title")
+      ? rawTitle
+      : "Novo Convite de Elo! ❤️";
+
+  const rawBody = t("match_invite_push_body", userLang, { name: senderName });
   const pushMessage =
-    t("match_invite_push_body", userLang, { name: senderName }) ||
-    `${senderName} enviou um convite para iniciarem o elo juntos!`;
+    rawBody && !rawBody.includes("match_invite_push_body")
+      ? rawBody
+      : `${senderName} enviou um convite para iniciarem o elo juntos!`;
 
   await saveNotificationToFirestore(pushTitle, pushMessage, "MATCH_INVITE", partnerUid);
 
@@ -131,11 +137,17 @@ export async function sendMatchAcceptNotification(
   senderName: string,
   userLang: string = "pt-BR"
 ): Promise<void> {
+  const rawTitle = t("match_accept_push_title", userLang);
   const pushTitle =
-    t("match_accept_push_title", userLang) || "Elo Conectado! ❤️";
+    rawTitle && !rawTitle.includes("match_accept_push_title")
+      ? rawTitle
+      : "Elo Conectado! ❤️";
+
+  const rawBody = t("match_accept_push_body", userLang, { name: senderName });
   const pushMessage =
-    t("match_accept_push_body", userLang, { name: senderName }) ||
-    `${senderName} aceitou seu convite! Vocês já estão vinculados.`;
+    rawBody && !rawBody.includes("match_accept_push_body")
+      ? rawBody
+      : `${senderName} aceitou seu convite! Vocês já estão vinculados.`;
 
   await saveNotificationToFirestore(pushTitle, pushMessage, "MATCH_ACCEPT", partnerUid);
 
@@ -171,11 +183,17 @@ export async function sendPlayNotificationToPartner(
   senderName: string,
   userLang: string = "pt-BR"
 ): Promise<void> {
+  const rawTitle = t("play_push_title", userLang);
   const pushTitle =
-    t("play_push_title", userLang) || "▶️ Hora de Começar!";
+    rawTitle && !rawTitle.includes("play_push_title")
+      ? rawTitle
+      : "▶️ Hora de Começar!";
+
+  const rawBody = t("play_push_body", userLang, { name: senderName });
   const pushMessage =
-    t("play_push_body", userLang, { name: senderName }) ||
-    `${senderName} já deu o PLAY e está te aguardando para a jornada de hoje!`;
+    rawBody && !rawBody.includes("play_push_body")
+      ? rawBody
+      : `${senderName} já deu o PLAY e está te aguardando para a jornada de hoje!`;
 
   await saveNotificationToFirestore(pushTitle, pushMessage, "PLAY_STARTED", partnerUid);
 
@@ -211,11 +229,17 @@ export async function sendLessonCompletedNotification(
   senderName: string,
   userLang: string = "pt-BR"
 ): Promise<void> {
+  const rawTitle = t("lesson_completed_push_title", userLang);
   const pushTitle =
-    t("lesson_completed_push_title", userLang) || "✨ Lição Concluída!";
+    rawTitle && !rawTitle.includes("lesson_completed_push_title")
+      ? rawTitle
+      : "✨ Lição Concluída!";
+
+  const rawBody = t("lesson_completed_push_body", userLang, { name: senderName });
   const pushMessage =
-    t("lesson_completed_push_body", userLang, { name: senderName }) ||
-    `${senderName} acabou de responder a lição do dia. Acesse para ver a resposta!`;
+    rawBody && !rawBody.includes("lesson_completed_push_body")
+      ? rawBody
+      : `${senderName} acabou de responder a lição do dia. Acesse para ver a resposta!`;
 
   await saveNotificationToFirestore(pushTitle, pushMessage, "LESSON_COMPLETED", partnerUid);
 
@@ -252,11 +276,17 @@ export async function sendGiftNotification(
   giftTitle: string,
   userLang: string = "pt-BR"
 ): Promise<void> {
+  const rawTitle = t("gift_push_title", userLang);
   const pushTitle =
-    t("gift_push_title", userLang) || "Novo Presente Escolhido! 🎁";
+    rawTitle && !rawTitle.includes("gift_push_title")
+      ? rawTitle
+      : "Novo Presente Escolhido! 🎁";
+
+  const rawBody = t("gift_push_body", userLang, { name: senderName, gift: giftTitle });
   const pushMessage =
-    t("gift_push_body", userLang, { name: senderName, gift: giftTitle }) ||
-    `${senderName} escolheu o presente "${giftTitle}" para você!`;
+    rawBody && !rawBody.includes("gift_push_body")
+      ? rawBody
+      : `${senderName} escolheu o presente "${giftTitle}" para você!`;
 
   await saveNotificationToFirestore(pushTitle, pushMessage, "GIFT_RECEIVED", partnerUid);
 
@@ -293,11 +323,17 @@ export async function sendGiftConfirmedNotification(
   giftTitle: string,
   userLang: string = "pt-BR"
 ): Promise<void> {
+  const rawTitle = t("gift_confirmed_push_title", userLang);
   const pushTitle =
-    t("gift_confirmed_push_title", userLang) || "Presente Confirmado! ❤️";
+    rawTitle && !rawTitle.includes("gift_confirmed_push_title")
+      ? rawTitle
+      : "Presente Confirmado! ❤️";
+
+  const rawBody = t("gift_confirmed_push_body", userLang, { name: senderName, gift: giftTitle });
   const pushMessage =
-    t("gift_confirmed_push_body", userLang, { name: senderName, gift: giftTitle }) ||
-    `${senderName} confirmou o recebimento do presente "${giftTitle}"!`;
+    rawBody && !rawBody.includes("gift_confirmed_push_body")
+      ? rawBody
+      : `${senderName} confirmou o recebimento do presente "${giftTitle}"!`;
 
   await saveNotificationToFirestore(pushTitle, pushMessage, "GIFT_CONFIRMED", partnerUid);
 
@@ -371,11 +407,27 @@ export async function scheduleDailyReminder(
 
     await Notifications.cancelAllScheduledNotificationsAsync();
 
+    const rawTitle = t("daily_reminder_push_title", userLang);
     const pushTitle =
-      t("daily_reminder_push_title", userLang) || "✨ DuoElo - Hora do Casal!";
+      rawTitle && !rawTitle.includes("daily_reminder_push_title")
+        ? rawTitle
+        : "✨ DuoElo - Hora do Casal!";
+
+    const rawBody = t("daily_reminder_push_body", userLang);
     const pushBody =
-      t("daily_reminder_push_body", userLang) ||
-      "Sua missão diária e reflexão do casal já estão disponíveis.";
+      rawBody && !rawBody.includes("daily_reminder_push_body")
+        ? rawBody
+        : "Sua missão diária e reflexão do casal já estão disponíveis.";
+
+    const triggerInput: Notifications.DailyTriggerInput = {
+      type: Notifications.SchedulableTriggerInputTypes.DAILY,
+      hour,
+      minute,
+    };
+
+    if (Platform.OS === "android") {
+      (triggerInput as any).channelId = "daily-reminders";
+    }
 
     await Notifications.scheduleNotificationAsync({
       content: {
@@ -384,12 +436,7 @@ export async function scheduleDailyReminder(
         sound: true,
         badge: 1,
       },
-      trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.DAILY,
-        hour,
-        minute,
-        channelId: "daily-reminders",
-      },
+      trigger: triggerInput,
     });
 
     return true;

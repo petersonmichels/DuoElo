@@ -7,7 +7,7 @@ node_modules/
 .pnp
 .pnp.js
 
-# 2. Arquivos de Variáveis de Ambiente e Segredos (CRÍTICO)
+# 2. Arquivos de Variáveis de Ambiente (CRÍTICO)
 .env
 .env.*
 !.env.example
@@ -24,8 +24,9 @@ node_modules/
 *.mobileprovision
 *serviceAccount*.json
 serviceAccountKey.json
-google-services.json
-GoogleService-Info.plist
+
+# ⚠️ NOTA: google-services.json e GoogleService-Info.plist devem ser rastreados 
+# para que o EAS Build monte a configuração nativa do Firebase/Google Sign-In.
 
 # 4. Expo & Bundlers
 .expo/

@@ -80,6 +80,7 @@ export default function VidaScreen({ navigation }: any) {
         if (error.code === "permission-denied") {
           console.log("[VidaScreen] Listener de usuário encerrado.");
         }
+        setLoading(false);
       }
     );
 
@@ -208,16 +209,20 @@ export default function VidaScreen({ navigation }: any) {
 
     const newPE = Math.max(0, (userData.pointsPE || userData.totalPE || 0) + pointDelta);
 
-    await setDoc(
-      doc(db, "users", uid),
-      {
-        completedHabitsToday: updatedCompleted,
-        habitsCompletedDate: todayStr,
-        pointsPE: newPE,
-        totalPE: newPE,
-      },
-      { merge: true }
-    );
+    try {
+      await setDoc(
+        doc(db, "users", uid),
+        {
+          completedHabitsToday: updatedCompleted,
+          habitsCompletedDate: todayStr,
+          pointsPE: newPE,
+          totalPE: newPE,
+        },
+        { merge: true }
+      );
+    } catch (e) {
+      console.error("[VidaScreen] Erro ao alternar hábito:", e);
+    }
   };
 
   if (loading) {
@@ -243,7 +248,7 @@ export default function VidaScreen({ navigation }: any) {
   );
 
   const currentPhase = userData?.currentPhase || 1;
-  const currentWeek = Math.min(13, Math.floor((currentPhase - 1) / 7) + 1);
+  const currentWeek = Math.min(13, Math.max(1, Math.ceil(currentPhase / 7)));
 
   const lastTaskDateObj = userData?.lastTaskDate ? new Date(userData.lastTaskDate) : null;
   const todayDate = new Date();

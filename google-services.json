@@ -1,0 +1,62 @@
+{
+  "project_info": {
+    "project_number": "504286284116",
+    "project_id": "duoelo-987fd",
+    "storage_bucket": "duoelo-987fd.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:504286284116:android:7e5e67ebedd9f17b2420c1",
+        "android_client_info": {
+          "package_name": "lu.barnx.duoelo"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "504286284116-0senc3e3qblqajolbvs30vv24t032b6m.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "lu.barnx.duoelo",
+            "certificate_hash": "91eb70736c388b3d016b4ee0c387491a47b11c6e"
+          }
+        },
+        {
+          "client_id": "504286284116-5hf6gcjon6qccfr846tm490618hso8ud.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "lu.barnx.duoelo",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "504286284116-akoj0ufb3q6rrfb2b3gpskbjaatgeqle.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyASMdetVAxq5yat8qujFpiburZq9_hlJVM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "504286284116-akoj0ufb3q6rrfb2b3gpskbjaatgeqle.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "504286284116-qkqjt7lt4tuibmoo53lfops2omk2l81u.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "lu.barnx.duoelo"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

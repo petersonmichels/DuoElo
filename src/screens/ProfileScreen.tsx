@@ -123,7 +123,6 @@ export default function ProfileScreen({ navigation }: any) {
     return `${cleaned.slice(0, 3)} ${cleaned.slice(3, 6)} ${cleaned.slice(6, 12)}`;
   }, [selectedCountry]);
 
-  // 🎯 DECLARADO ANTES DE SER CHAMADO NO USEEFFECT
   const parseInitialPhone = useCallback((raw: string) => {
     if (!raw) return;
     const matchedCountry = COUNTRY_CODES.find((c) => raw.startsWith(c.ddi));
@@ -199,6 +198,7 @@ export default function ProfileScreen({ navigation }: any) {
         if (error.code === "permission-denied") {
           console.log("[ProfileScreen] Sessão encerrada ou permissão alterada.");
         }
+        setLoading(false);
       }
     );
 

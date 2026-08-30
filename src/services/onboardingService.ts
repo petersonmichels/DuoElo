@@ -42,7 +42,7 @@ export async function processUserOnboarding(
 
     // Módulos críticos (nota >= 8). Se for 100% seguro, inicia pela Manutenção (Módulo 9)
     priorityModules =
-      diagnosisResult.criticalModules.length > 0
+      diagnosisResult?.criticalModules && diagnosisResult.criticalModules.length > 0
         ? diagnosisResult.criticalModules
         : [9];
   } else {
@@ -52,7 +52,10 @@ export async function processUserOnboarding(
   }
 
   try {
-    // Gravação segura no Firestore usando merge: true (cria se não existir, atualiza se existir)
+    // Converte diagnosisResult para objeto JS puro antes do envio ao Firestore
+    const rawDiagnosis = diagnosisResult ? JSON.parse(JSON.stringify(diagnosisResult)) : null;
+
+    // Gravação segura no Firestore usando merge: true
     await setDoc(
       userRef,
       {
@@ -61,7 +64,7 @@ export async function processUserOnboarding(
         enrolledCourses: ["curso_duoelo"],
         activeCourseId: "curso_duoelo",
         priorityModules,
-        diagnosis: diagnosisResult,
+        diagnosis: rawDiagnosis,
         updatedAt: serverTimestamp(),
       },
       { merge: true }

@@ -45,13 +45,19 @@
     }
   },
   "submit": {
+    "preview": {
+      "ios": {
+        "appleId": "peterson.michels@gmail.com",
+        "ascAppId": "6806007810"
+      }
+    },
     "production": {
       "android": {
         "track": "internal"
       },
       "ios": {
-        "appleId": "legal@duoelo.lu",
-        "ascAppId": "6740000000"
+        "appleId": "peterson.michels@gmail.com",
+        "ascAppId": "6806007810"
       }
     }
   }

@@ -62,15 +62,19 @@ function getCurrentUserUid(): string | null {
   return auth.currentUser?.uid || null;
 }
 
-// 🛠️ MOTOR BASE64 UNIVERSAL
+// 🛠️ MOTOR BASE64 UNIVERSAL COMPATÍVEL COM UNICODE / EMOJIS E HERMES JS ENGINE
 const b64chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
 
 function encodeBase64(input: string): string {
   let str = input;
   let output = "";
-  for (let block = 0, charCode, i = 0, map = b64chars; str.charAt(i | 0) || (map = "=", i % 1); output += map.charAt(63 & block >> 8 - i % 1 * 8)) {
-    charCode = str.charCodeAt(i += 3/4);
-    block = block << 8 | charCode;
+  for (
+    let block = 0, charCode: number, i = 0, map = b64chars;
+    str.charAt(i | 0) || ((map = "="), i % 1);
+    output += map.charAt(63 & (block >> (8 - (i % 1) * 8)))
+  ) {
+    charCode = str.charCodeAt((i += 3 / 4));
+    block = (block << 8) | charCode;
   }
   return output;
 }
@@ -78,32 +82,64 @@ function encodeBase64(input: string): string {
 function decodeBase64(input: string): string {
   let str = input.replace(/=+$/, "");
   let output = "";
-  for (let bc = 0, bs = 0, buffer, i = 0; buffer = str.charAt(i++); ~buffer && (bs = bc % 4 ? bs * 64 + buffer : buffer, bc++ % 4) ? output += String.fromCharCode(255 & bs >> (-2 * bc & 6)) : 0) {
+  for (
+    let bc = 0, bs = 0, buffer: any, i = 0;
+    (buffer = str.charAt(i++));
+    ~buffer && ((bs = bc % 4 ? bs * 64 + buffer : buffer), bc++ % 4)
+      ? (output += String.fromCharCode(255 & (bs >> ((-2 * bc) & 6))))
+      : 0
+  ) {
     buffer = b64chars.indexOf(buffer);
   }
   return output;
 }
 
-export function isStrongPassword(password: string, userLang = "pt-BR"): { isValid: boolean; message?: string } {
-  const fullInstructions = `${t("pwd_req_header", userLang) || "Requisitos de Senha:"}\n\n${t("pwd_req_min_len", userLang) || "• Mínimo de 8 caracteres"}\n${t("pwd_req_upper", userLang) || "• Pelo menos uma letra maiúscula"}\n${t("pwd_req_lower", userLang) || "• Pelo menos uma letra minúscula"}\n${t("pwd_req_number", userLang) || "• Pelo menos um número"}\n${t("pwd_req_special", userLang) || "• Pelo menos um caractere especial (!@#$%^&*)"}`;
+export function isStrongPassword(
+  password: string,
+  userLang = "pt-BR"
+): { isValid: boolean; message?: string } {
+  const fullInstructions = `${
+    t("pwd_req_header", userLang) || "Requisitos de Senha:"
+  }\n\n${t("pwd_req_min_len", userLang) || "• Mínimo de 8 caracteres"}\n${
+    t("pwd_req_upper", userLang) || "• Pelo menos uma letra maiúscula"
+  }\n${t("pwd_req_lower", userLang) || "• Pelo menos uma letra minúscula"}\n${
+    t("pwd_req_number", userLang) || "• Pelo menos um número"
+  }\n${
+    t("pwd_req_special", userLang) || "• Pelo menos um caractere especial (!@#$%^&*)"
+  }`;
 
-  if (!password || password.length < 8) return { isValid: false, message: fullInstructions };
+  if (!password || password.length < 8)
+    return { isValid: false, message: fullInstructions };
 
-  if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password) || !/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+  if (
+    !/[A-Z]/.test(password) ||
+    !/[a-z]/.test(password) ||
+    !/[0-9]/.test(password) ||
+    !/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
+  ) {
     return { isValid: false, message: fullInstructions };
   }
 
   return { isValid: true };
 }
 
-export async function setSecurityPin(pin: string, userLang = "pt-BR"): Promise<void> {
+export async function setSecurityPin(
+  pin: string,
+  userLang = "pt-BR"
+): Promise<void> {
   const uid = getCurrentUserUid();
   if (!pin || pin.length < 4) {
-    throw new Error(t("pin_min_length_msg", userLang) || "O PIN de Segurança deve ter no mínimo 4 dígitos.");
+    throw new Error(
+      t("pin_min_length_msg", userLang) ||
+        "O PIN de Segurança deve ter no mínimo 4 dígitos."
+    );
   }
-  
+
   const saltedPin = `${SALT_CONST}::${uid || "guest"}::${pin}`;
-  const hashedPin = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, saltedPin);
+  const hashedPin = await Crypto.digestStringAsync(
+    Crypto.CryptoDigestAlgorithm.SHA256,
+    saltedPin
+  );
 
   const storageKey = uid ? `@duoelo_pin_${uid}` : "duoelo_security_pin_hash";
   await AsyncStorage.setItem(storageKey, hashedPin);
@@ -115,7 +151,7 @@ export async function setSecurityPin(pin: string, userLang = "pt-BR"): Promise<v
 export async function hasSecurityPin(): Promise<boolean> {
   try {
     const uid = getCurrentUserUid();
-    
+
     if (uid) {
       const savedHash = await AsyncStorage.getItem(`@duoelo_pin_${uid}`);
       if (savedHash !== null && savedHash.length > 0) return true;
@@ -137,7 +173,10 @@ export async function verifySecurityPin(pin: string): Promise<boolean> {
   try {
     const uid = getCurrentUserUid();
     const saltedPin = `${SALT_CONST}::${uid || "guest"}::${pin}`;
-    const currentHash = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, saltedPin);
+    const currentHash = await Crypto.digestStringAsync(
+      Crypto.CryptoDigestAlgorithm.SHA256,
+      saltedPin
+    );
 
     let storageKey = uid ? `@duoelo_pin_${uid}` : "duoelo_security_pin_hash";
     let savedHash = await AsyncStorage.getItem(storageKey);
@@ -157,7 +196,10 @@ export async function verifySecurityPin(pin: string): Promise<boolean> {
   }
 }
 
-export async function authenticateWithBiometrics(userLang = "pt-BR"): Promise<boolean> {
+// 🛑 CORREÇÃO CRÍTICA NA AUTENTICAÇÃO BIOMÉTRICA
+export async function authenticateWithBiometrics(
+  userLang = "pt-BR"
+): Promise<boolean> {
   if (!LocalAuthentication) return false;
   try {
     const hasHardware = await LocalAuthentication.hasHardwareAsync();
@@ -166,13 +208,15 @@ export async function authenticateWithBiometrics(userLang = "pt-BR"): Promise<bo
     if (!hasHardware || !isEnrolled) return false;
 
     const result = await LocalAuthentication.authenticateAsync({
-      promptMessage: t("biometric_prompt_msg", userLang) || "Autenticação DuoElo",
-      fallbackLabel: t("biometric_fallback_label", userLang) || "Usar PIN de Segurança",
+      promptMessage:
+        t("biometric_prompt_msg", userLang) || "Autenticação DuoElo",
+      fallbackLabel:
+        t("biometric_fallback_label", userLang) || "Usar PIN de Segurança",
       cancelLabel: t("modal_cancel", userLang) || "Cancelar",
       disableDeviceFallback: false,
     });
 
-    if (result.success) {
+    if (result && result.success === true) {
       activeSessionPin = "BIOMETRIC_UNLOCKED";
       setSessionUnlocked(true);
       return true;
@@ -194,24 +238,23 @@ export async function clearSecurityPin(): Promise<void> {
   } catch (e) {}
 }
 
-export async function encryptText(text: string, userUid?: string): Promise<string> {
+export async function encryptText(
+  text: string,
+  userUid?: string
+): Promise<string> {
   const uid = userUid || getCurrentUserUid();
   if (!text || text.trim().length === 0) return "";
   if (!uid) return text;
 
   try {
-    const keyHash = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, uid + "duoelo_secret_salt");
-    
-    let utf8Text = text;
-    try {
-      utf8Text = unescape(encodeURIComponent(text));
-    } catch (e) {
-      utf8Text = text;
-    }
+    const keyHash = await Crypto.digestStringAsync(
+      Crypto.CryptoDigestAlgorithm.SHA256,
+      uid + "duoelo_secret_salt"
+    );
 
     let encrypted = "";
-    for (let i = 0; i < utf8Text.length; i++) {
-      const charCode = utf8Text.charCodeAt(i);
+    for (let i = 0; i < text.length; i++) {
+      const charCode = text.charCodeAt(i);
       const keyChar = keyHash.charCodeAt(i % keyHash.length);
       encrypted += String.fromCharCode(charCode ^ keyChar);
     }
@@ -222,9 +265,13 @@ export async function encryptText(text: string, userUid?: string): Promise<strin
   }
 }
 
-export async function decryptText(encryptedData: string, userUid?: string, userLang = "pt-BR"): Promise<string> {
+export async function decryptText(
+  encryptedData: string,
+  userUid?: string,
+  userLang = "pt-BR"
+): Promise<string> {
   if (!encryptedData) return "";
-  
+
   if (!encryptedData.includes("E2EE::")) {
     return encryptedData.replace(/[\u0000-\u001F\u007F-\u009F\uFFFD]/g, "").trim();
   }
@@ -237,26 +284,21 @@ export async function decryptText(encryptedData: string, userUid?: string, userL
 
   try {
     const rawEncrypted = decodeBase64(base64Data);
-    
-    const keyHash = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, uid + "duoelo_secret_salt");
+
+    const keyHash = await Crypto.digestStringAsync(
+      Crypto.CryptoDigestAlgorithm.SHA256,
+      uid + "duoelo_secret_salt"
+    );
     let decrypted = "";
-    
+
     for (let i = 0; i < rawEncrypted.length; i++) {
       const charCode = rawEncrypted.charCodeAt(i);
       const keyChar = keyHash.charCodeAt(i % keyHash.length);
       decrypted += String.fromCharCode(charCode ^ keyChar);
     }
 
-    try {
-      const cleanText = decodeURIComponent(escape(decrypted));
-      const result = cleanText.replace(/[\u0000-\u001F\u007F-\u009F\uFFFD]/g, "").trim();
-      if (result && result.length > 0) return result;
-    } catch (e) {}
-
-    const fallbackClean = rawEncrypted.replace(/[\u0000-\u001F\u007F-\u009F\uFFFD]/g, "").trim();
-    if (fallbackClean && fallbackClean.length > 0) {
-      return fallbackClean;
-    }
+    const cleanResult = decrypted.replace(/[\u0000-\u001F\u007F-\u009F\uFFFD]/g, "").trim();
+    if (cleanResult && cleanResult.length > 0) return cleanResult;
   } catch (e) {}
 
   return t("decryption_failed_warn", userLang) || "⚠️ Falha ao descriptografar.";

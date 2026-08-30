@@ -115,9 +115,15 @@ export default function AnamneseScreen({ navigation, route }: any) {
   const thermometerFill = useRef(new Animated.Value(0)).current;
   const loadingProgress = useRef(new Animated.Value(0)).current;
 
-  // 🎯 DECLARAÇÃO MOVIDA PARA CIMA DO USEEFFECT DE CARREGAMENTO INICIAL
+  // 🎯 CARREGAMENTO DE PERGUNTAS COM TRAVA DE SEGURANÇA CONTRA OFFLINE
   const loadQuestionsFromFirebase = async (langToFetch: string) => {
     setIsLoadingQuestions(true);
+    
+    // Timeout de segurança para não travar a tela se o Firestore falhar
+    const fallbackTimer = setTimeout(() => {
+      setIsLoadingQuestions(false);
+    }, 3000);
+
     try {
       let q = query(
         collection(db, "anamnesis"),
@@ -182,8 +188,9 @@ export default function AnamneseScreen({ navigation, route }: any) {
       loadedQuestions.sort((a, b) => a.id.localeCompare(b.id));
       setQuestionsBank(loadedQuestions);
     } catch (error) {
-      console.error("Erro ao buscar perguntas do Firebase:", error);
+      console.error("[AnamneseScreen] Erro ao buscar perguntas do Firebase:", error);
     } finally {
+      clearTimeout(fallbackTimer);
       setIsLoadingQuestions(false);
     }
   };
@@ -208,12 +215,24 @@ export default function AnamneseScreen({ navigation, route }: any) {
   }, [pulseAnim]);
 
   useEffect(() => {
+    let isMounted = true;
+
+    // Timeout de segurança para inicialização geral do usuário
+    const safetyCheckTimer = setTimeout(() => {
+      if (isMounted && isCheckingUser) {
+        setIsCheckingUser(false);
+        setIsLoadingQuestions(false);
+      }
+    }, 2500);
+
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      if (!isMounted) return;
+
       if (user) {
         let currentLang = "pt-BR";
         try {
           const snap = await getDoc(doc(db, "users", user.uid));
-          if (snap.exists()) {
+          if (snap.exists() && isMounted) {
             const data = snap.data();
             setCurrentUserData(data);
 
@@ -250,16 +269,26 @@ export default function AnamneseScreen({ navigation, route }: any) {
             }
           }
         } catch (e) {
-          console.log("Erro ao checar status do usuário/parceiro:", e);
+          console.log("[AnamneseScreen] Erro ao checar status do usuário:", e);
+        } finally {
+          if (isMounted) {
+            setIsCheckingUser(false);
+            loadQuestionsFromFirebase(currentLang);
+          }
         }
-        setIsCheckingUser(false);
-        loadQuestionsFromFirebase(currentLang);
       } else {
-        setIsCheckingUser(false);
+        if (isMounted) {
+          setIsCheckingUser(false);
+          setIsLoadingQuestions(false);
+        }
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      isMounted = false;
+      clearTimeout(safetyCheckTimer);
+      unsubscribe();
+    };
   }, []);
 
   const handleChangeLanguage = async (langCode: string) => {
@@ -836,7 +865,7 @@ export default function AnamneseScreen({ navigation, route }: any) {
 
   const renderQuestions = () => {
     const question = questionsBank[currentIndex];
-    const progress = ((currentIndex + 1) / questionsBank.length) * 100;
+    const progress = questionsBank.length > 0 ? ((currentIndex + 1) / questionsBank.length) * 100 : 0;
     const currentAnswer = selectedAnswers[currentIndex];
     const canGoForward = currentIndex < selectedAnswers.length;
 

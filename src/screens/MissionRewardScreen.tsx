@@ -42,12 +42,22 @@ const LoveExplosionParticle = ({ index }: { index: number }) => {
   const isHeart = index % 2 === 0;
 
   useEffect(() => {
-    Animated.timing(anim, {
+    let isMounted = true;
+    const particleAnim = Animated.timing(anim, {
       toValue: 1,
       duration: 1000 + Math.random() * 300,
       easing: Easing.out(Easing.quad),
       useNativeDriver: true,
-    }).start();
+    });
+
+    if (isMounted) {
+      particleAnim.start();
+    }
+
+    return () => {
+      isMounted = false;
+      particleAnim.stop();
+    };
   }, [anim]);
 
   const translateX = anim.interpolate({

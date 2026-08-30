@@ -105,16 +105,18 @@ export default function LoginScreen({ navigation }: any) {
   const btnIcon = isLogin ? "sign-in-alt" : "arrow-right";
   const btnTextColor = isLogin ? "#FFF" : "#202D3A";
 
+  // 🔑 CONFIGURAÇÃO SEGURA DO GOOGLE SIGN-IN
   useEffect(() => {
     if (!isExpoGo && GoogleSignin) {
       try {
-        GoogleSignin.configure({
-          webClientId:
-            "504286284116-akoj0ufb3q6rrfb2b3gpskbjaatgeqle.apps.googleusercontent.com",
-          iosClientId:
-            "504286284116-qkqjt7lt4tuibmoo53lfops2omk2l81u.apps.googleusercontent.com",
-          offlineAccess: true,
-        });
+        const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+        if (webClientId) {
+          GoogleSignin.configure({
+            webClientId: webClientId,
+            offlineAccess: true,
+            scopes: ["profile", "email"],
+          });
+        }
       } catch (e) {
         console.log("Erro ao configurar GoogleSignin:", e);
       }
@@ -586,49 +588,55 @@ export default function LoginScreen({ navigation }: any) {
       const user = userCred.user;
 
       const userRef = doc(db, "users", user.uid);
-      const userSnap = await getDoc(userRef);
 
-      if (!userSnap.exists()) {
-        const cleanUsername = (
-          user.displayName ||
-          user.email?.split("@")[0] ||
-          "user"
-        )
-          .toLowerCase()
-          .replace(/[^a-z0-9_]/g, "");
+      // 🛡️ TRATAMENTO DE ERRO DE CONEXÃO DO FIRESTORE
+      try {
+        const userSnap = await getDoc(userRef);
 
-        const myGeneratedCode = user.uid.substring(0, 6).toUpperCase();
+        if (!userSnap.exists()) {
+          const cleanUsername = (
+            user.displayName ||
+            user.email?.split("@")[0] ||
+            "user"
+          )
+            .toLowerCase()
+            .replace(/[^a-z0-9_]/g, "");
 
-        await setDoc(userRef, {
-          uid: user.uid,
-          email: user.email,
-          username: cleanUsername,
-          displayName: user.displayName || "Usuário",
-          billingFirstName: user.displayName?.split(" ")[0] || "Usuário",
-          billingLastName: user.displayName?.split(" ").slice(1).join(" ") || "",
-          photoURL: user.photoURL || null,
-          language: userLang,
-          myInviteCode: myGeneratedCode,
-          createdAt: new Date().toISOString(),
-          isPremium: false,
-          hasCompletedAnamnesis: false,
-          totalPE: 0,
-          streak: 0,
-          currentPhase: 1,
-          currentTaskStep: 0,
-          partnerId: null,
-        });
+          const myGeneratedCode = user.uid.substring(0, 6).toUpperCase();
 
-        try {
-          await logAuditEvent(
-            user.uid,
-            "EULA_ACCEPTED",
-            "Conta criada via Google Sign-In com aceite do EULA",
-            userLang
-          );
-        } catch (e) {}
-      } else {
-        await setDoc(userRef, { language: userLang }, { merge: true });
+          await setDoc(userRef, {
+            uid: user.uid,
+            email: user.email,
+            username: cleanUsername,
+            displayName: user.displayName || "Usuário",
+            billingFirstName: user.displayName?.split(" ")[0] || "Usuário",
+            billingLastName: user.displayName?.split(" ").slice(1).join(" ") || "",
+            photoURL: user.photoURL || null,
+            language: userLang,
+            myInviteCode: myGeneratedCode,
+            createdAt: new Date().toISOString(),
+            isPremium: false,
+            hasCompletedAnamnesis: false,
+            totalPE: 0,
+            streak: 0,
+            currentPhase: 1,
+            currentTaskStep: 0,
+            partnerId: null,
+          });
+
+          try {
+            await logAuditEvent(
+              user.uid,
+              "EULA_ACCEPTED",
+              "Conta criada via Google Sign-In com aceite do EULA",
+              userLang
+            );
+          } catch (e) {}
+        } else {
+          await setDoc(userRef, { language: userLang }, { merge: true });
+        }
+      } catch (firestoreError) {
+        console.warn("[Firestore Notice]: Conexão lentíssima ou offline. Seguiu com login local.", firestoreError);
       }
 
       setIsLoading(false);
@@ -649,15 +657,14 @@ export default function LoginScreen({ navigation }: any) {
       console.error("[Google Sign-In Error]:", error);
 
       showCustomAlert(
-        t("login_canceled_title", userLang) || "Login Cancelado",
-        t("login_canceled_msg", userLang) || "A autenticação com o Google não pôde ser concluída.",
+        t("login_canceled_title", userLang) || "Falha na Conexão",
+        t("login_canceled_msg", userLang) || "Verifique sua conexão com a internet e tente novamente.",
         "times-circle",
         "#D96C6C"
       );
     }
   };
 
-  // 🍎 LÓGICA ATUALIZADA: FALLBACK PELO PREFIXO DO E-MAIL
   const handleAppleSignIn = async () => {
     if (Platform.OS !== "ios") {
       showCustomAlert(
@@ -702,89 +709,90 @@ export default function LoginScreen({ navigation }: any) {
       const user = userCred.user;
 
       const userRef = doc(db, "users", user.uid);
-      const userSnap = await getDoc(userRef);
 
-      // 1. Extração do Nome Retornado pela Apple (Apenas 1º login)
-      let firstName = appleCredential.fullName?.givenName || "";
-      let lastName = appleCredential.fullName?.familyName || "";
-      let derivedDisplayName = "";
+      try {
+        const userSnap = await getDoc(userRef);
 
-      if (firstName || lastName) {
-        derivedDisplayName = `${firstName} ${lastName}`.trim();
-      }
+        let firstName = appleCredential.fullName?.givenName || "";
+        let lastName = appleCredential.fullName?.familyName || "";
+        let derivedDisplayName = "";
 
-      // 2. Fallback: Se não veio nome (logins subsequentes), extrai do e-mail
-      const userEmail = user.email || appleCredential.email || "";
-      let emailPrefixName = "";
-
-      if (userEmail.includes("@")) {
-        const prefix = userEmail.split("@")[0];
-        emailPrefixName = prefix
-          .replace(/[._-]/g, " ")
-          .replace(/\b\w/g, (char) => char.toUpperCase());
-      }
-
-      if (!derivedDisplayName) {
-        derivedDisplayName = emailPrefixName || "Usuário";
-        const parts = derivedDisplayName.split(" ");
-        firstName = parts[0] || "Usuário";
-        lastName = parts.slice(1).join(" ") || "";
-      }
-
-      if (!userSnap.exists()) {
-        const finalDisplayName = derivedDisplayName;
-        const finalFirstName = firstName || finalDisplayName.split(" ")[0] || "Usuário";
-        const finalLastName = lastName || finalDisplayName.split(" ").slice(1).join(" ") || "";
-
-        // Normalização e sanitização do username (ex: peterson.michels@gmail.com -> petersonmichels)
-        const cleanUsername = (emailPrefixName || finalDisplayName)
-          .toLowerCase()
-          .normalize("NFD")
-          .replace(/[\u0300-\u036f]/g, "")
-          .replace(/[^a-z0-9_]/g, "") || `apple_${user.uid.substring(0, 5)}`;
-
-        const myGeneratedCode = user.uid.substring(0, 6).toUpperCase();
-
-        await setDoc(userRef, {
-          uid: user.uid,
-          email: userEmail || null,
-          username: cleanUsername,
-          displayName: finalDisplayName,
-          billingFirstName: finalFirstName,
-          billingLastName: finalLastName,
-          photoURL: user.photoURL || null,
-          language: userLang,
-          myInviteCode: myGeneratedCode,
-          createdAt: new Date().toISOString(),
-          isPremium: false,
-          hasCompletedAnamnesis: false,
-          totalPE: 0,
-          streak: 0,
-          currentPhase: 1,
-          currentTaskStep: 0,
-          partnerId: null,
-        });
-
-        try {
-          await logAuditEvent(
-            user.uid,
-            "EULA_ACCEPTED",
-            "Conta criada via Apple Sign-In com aceite do EULA",
-            userLang
-          );
-        } catch (e) {}
-      } else {
-        const existingData = userSnap.data();
-        const updates: any = { language: userLang };
-
-        // Se o registro existente estava sem nome ou com "Usuário Apple", atualiza com o fallback do e-mail
-        if (!existingData.displayName || existingData.displayName === "Usuário Apple") {
-          updates.displayName = derivedDisplayName;
-          updates.billingFirstName = firstName || derivedDisplayName.split(" ")[0];
-          updates.billingLastName = lastName || derivedDisplayName.split(" ").slice(1).join(" ");
+        if (firstName || lastName) {
+          derivedDisplayName = `${firstName} ${lastName}`.trim();
         }
 
-        await setDoc(userRef, updates, { merge: true });
+        const userEmail = user.email || appleCredential.email || "";
+        let emailPrefixName = "";
+
+        if (userEmail.includes("@")) {
+          const prefix = userEmail.split("@")[0];
+          emailPrefixName = prefix
+            .replace(/[._-]/g, " ")
+            .replace(/\b\w/g, (char) => char.toUpperCase());
+        }
+
+        if (!derivedDisplayName) {
+          derivedDisplayName = emailPrefixName || "Usuário";
+          const parts = derivedDisplayName.split(" ");
+          firstName = parts[0] || "Usuário";
+          lastName = parts.slice(1).join(" ") || "";
+        }
+
+        if (!userSnap.exists()) {
+          const finalDisplayName = derivedDisplayName;
+          const finalFirstName = firstName || finalDisplayName.split(" ")[0] || "Usuário";
+          const finalLastName = lastName || finalDisplayName.split(" ").slice(1).join(" ") || "";
+
+          const cleanUsername = (emailPrefixName || finalDisplayName)
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/[^a-z0-9_]/g, "") || `apple_${user.uid.substring(0, 5)}`;
+
+          const myGeneratedCode = user.uid.substring(0, 6).toUpperCase();
+
+          await setDoc(userRef, {
+            uid: user.uid,
+            email: userEmail || null,
+            username: cleanUsername,
+            displayName: finalDisplayName,
+            billingFirstName: finalFirstName,
+            billingLastName: finalLastName,
+            photoURL: user.photoURL || null,
+            language: userLang,
+            myInviteCode: myGeneratedCode,
+            createdAt: new Date().toISOString(),
+            isPremium: false,
+            hasCompletedAnamnesis: false,
+            totalPE: 0,
+            streak: 0,
+            currentPhase: 1,
+            currentTaskStep: 0,
+            partnerId: null,
+          });
+
+          try {
+            await logAuditEvent(
+              user.uid,
+              "EULA_ACCEPTED",
+              "Conta criada via Apple Sign-In com aceite do EULA",
+              userLang
+            );
+          } catch (e) {}
+        } else {
+          const existingData = userSnap.data();
+          const updates: any = { language: userLang };
+
+          if (!existingData?.displayName || existingData.displayName === "Usuário Apple") {
+            updates.displayName = derivedDisplayName;
+            updates.billingFirstName = firstName || derivedDisplayName.split(" ")[0];
+            updates.billingLastName = lastName || derivedDisplayName.split(" ").slice(1).join(" ");
+          }
+
+          await setDoc(userRef, updates, { merge: true });
+        }
+      } catch (firestoreError) {
+        console.warn("[Apple Firestore Notice]: Seguiu localmente sem sincronizar profile.", firestoreError);
       }
 
       setIsLoading(false);

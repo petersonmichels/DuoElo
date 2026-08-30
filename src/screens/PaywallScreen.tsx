@@ -110,56 +110,75 @@ export default function PaywallScreen({ navigation }: any) {
     };
   }, []);
 
-  // 🎯 MAPEAMENTO DE PRODUTOS/PACKAGES DO REVENUECAT (PRECISO & SEGURO)
+  // 🎯 MAPEAMENTO COMPATÍVEL COM APP STORE (iOS) E PLAY STORE (ANDROID)
   const findPackage = (
     category: "duo" | "individual",
-    period: "mensal" | "trimestral" | "anual",
+    period: "mensal" | "trimestral" | "anual"
   ) => {
     return availablePackages.find((pkg) => {
       const prodId = pkg.product.identifier.toLowerCase();
       const pkgId = pkg.identifier.toLowerCase();
 
+      // Identifica se o produto pertence ao catálogo DUO
+      const isDuoProduct =
+        prodId.includes("duo.") ||
+        prodId.includes("duo_") ||
+        pkgId.includes("duo");
+
+      // Identifica se o produto pertence ao catálogo SOLO (Individual)
+      const isSoloProduct =
+        prodId.includes("solo.") ||
+        (prodId.includes("duoelo_") && !prodId.includes("duoelo_duo_")) ||
+        pkgId.includes("solo");
+
       if (category === "individual") {
-        if (period === "mensal")
+        if (isDuoProduct && !isSoloProduct) return false;
+
+        if (period === "mensal") {
           return (
-            prodId.includes("duoelo_mensal") ||
             prodId.includes("solo.monthly") ||
+            prodId.includes("duoelo_mensal") ||
             pkgId.includes("solo_monthly")
           );
-        if (period === "trimestral")
+        }
+        if (period === "trimestral") {
           return (
-            prodId.includes("duoelo_trimestral") ||
             prodId.includes("solo.quarterly") ||
-            pkgId.includes("solo_three_month") ||
+            prodId.includes("duoelo_trimestral") ||
             pkgId.includes("solo_quarterly")
           );
-        if (period === "anual")
+        }
+        if (period === "anual") {
           return (
-            (prodId.includes("duoelo_anual") &&
-              !prodId.includes("duo_anual")) ||
             prodId.includes("solo.annual") ||
+            prodId.includes("duoelo_anual") ||
             pkgId.includes("solo_annual")
           );
+        }
       } else {
-        if (period === "mensal")
+        if (isSoloProduct && !isDuoProduct) return false;
+
+        if (period === "mensal") {
           return (
-            prodId.includes("duoelo_duo_mensal") ||
             prodId.includes("duo.monthly") ||
-            pkgId.includes("monthly")
+            prodId.includes("duoelo_duo_mensal") ||
+            pkgId.includes("duo_monthly")
           );
-        if (period === "trimestral")
+        }
+        if (period === "trimestral") {
           return (
-            prodId.includes("duoelo_duo_trimestral") ||
             prodId.includes("duo.quarterly") ||
-            pkgId.includes("three_month") ||
-            pkgId.includes("quarterly")
+            prodId.includes("duoelo_duo_trimestral") ||
+            pkgId.includes("duo_quarterly")
           );
-        if (period === "anual")
+        }
+        if (period === "anual") {
           return (
-            prodId.includes("duoelo_duo_anual") ||
             prodId.includes("duo.annual") ||
-            pkgId.includes("annual")
+            prodId.includes("duoelo_duo_anual") ||
+            pkgId.includes("duo_annual")
           );
+        }
       }
       return false;
     });
@@ -225,7 +244,6 @@ export default function PaywallScreen({ navigation }: any) {
 
       const pkgToPurchase = findPackage(planCategory, selectedPlan);
 
-      // 🛡️ SEGURANÇA: Se o pacote não for encontrado, bloqueia e exibe aviso
       if (!pkgToPurchase) {
         Alert.alert(
           t("sub_error_title", userLang) || "Plano Indisponível",
@@ -235,7 +253,6 @@ export default function PaywallScreen({ navigation }: any) {
         return;
       }
 
-      // 💳 PROCESSA A COMPRA EXCLUSIVAMENTE VIA REVENUECAT
       const { customerInfo } = await Purchases.purchasePackage(pkgToPurchase);
       const activeProdId = customerInfo.activeSubscriptions[0] || pkgToPurchase.product.identifier;
       const isDuoPlan = planCategory === "duo" || activeProdId.includes("_duo_") || activeProdId.includes(".duo.");
@@ -251,16 +268,18 @@ export default function PaywallScreen({ navigation }: any) {
 
       await setDoc(doc(db, "users", currentUid), userUpdates, { merge: true });
 
-      // 🎯 O PARCEIRO SÓ HERDA A ASSINATURA SE FOR PLANO DUO
       if (isDuoPlan && partnerId) {
-        await setDoc(
-          doc(db, "users", partnerId),
-          { isPremium: true, isPartnerPremium: true, planType: "duo" },
-          { merge: true },
-        );
+        try {
+          await setDoc(
+            doc(db, "users", partnerId),
+            { isPremium: true, isPartnerPremium: true, planType: "duo" },
+            { merge: true },
+          );
+        } catch (partnerErr) {
+          console.warn("[PaywallScreen] Erro ao sincronizar parceiro no Duo:", partnerErr);
+        }
       }
 
-      // 📜 REGISTRO DE AUDITORIA DE SEGURANÇA
       await logAuditEvent(
         currentUid,
         "SUBSCRIPTION_ACTIVATED",
@@ -330,14 +349,15 @@ export default function PaywallScreen({ navigation }: any) {
           );
 
           if (isDuoPlan && partnerId) {
-            await setDoc(
-              doc(db, "users", partnerId),
-              { isPremium: true, isPartnerPremium: true, planType: "duo" },
-              { merge: true },
-            );
+            try {
+              await setDoc(
+                doc(db, "users", partnerId),
+                { isPremium: true, isPartnerPremium: true, planType: "duo" },
+                { merge: true },
+              );
+            } catch (partnerErr) {}
           }
 
-          // 📜 REGISTRO DE AUDITORIA
           await logAuditEvent(
             currentUid,
             "PURCHASE_RESTORED",
@@ -470,7 +490,6 @@ export default function PaywallScreen({ navigation }: any) {
   const activeFeatures =
     planCategory === "duo" ? featuresDuo : featuresIndividual;
 
-  // Pacote selecionado atualmente no estado para controle de Trial e CTA
   const currentSelectedPkg = findPackage(planCategory, selectedPlan);
   const selectedHasFreeTrial =
     currentSelectedPkg?.product?.introPrice !== null &&
@@ -633,7 +652,6 @@ export default function PaywallScreen({ navigation }: any) {
                       <Text style={styles.planName}>{plan.name}</Text>
                       <Text style={styles.planDesc}>{displayDesc}</Text>
 
-                      {/* 🎁 BADGE DE FREE TRIAL DE 3 DIAS QUANDO DISPONÍVEL NO REVENUECAT */}
                       {hasFreeTrial && (
                         <View style={styles.trialBadgeInline}>
                           <FontAwesome5 name="gift" size={10} color="#03543F" />

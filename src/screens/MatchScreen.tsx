@@ -58,12 +58,22 @@ const LoveExplosionParticle = ({ index }: { index: number }) => {
   const isHeart = index % 2 === 0;
 
   useEffect(() => {
-    Animated.timing(anim, {
+    let isMounted = true;
+    const particleAnim = Animated.timing(anim, {
       toValue: 1,
       duration: 1000 + Math.random() * 300,
       easing: Easing.out(Easing.quad),
       useNativeDriver: true,
-    }).start();
+    });
+
+    if (isMounted) {
+      particleAnim.start();
+    }
+
+    return () => {
+      isMounted = false;
+      particleAnim.stop();
+    };
   }, [anim]);
 
   const translateX = anim.interpolate({
@@ -193,6 +203,7 @@ export default function MatchScreen({ navigation }: any) {
         if (error.code === "permission-denied") {
           console.log("[MatchScreen] Listener de usuário encerrado.");
         }
+        setLoading(false);
       }
     );
 
@@ -284,8 +295,10 @@ export default function MatchScreen({ navigation }: any) {
   };
 
   const handleSendInvite = async () => {
-    const myCode = userData?.myInviteCode || "DUE-123";
-    const message = t("invite_whatsapp_message", userLang, { code: myCode });
+    const myCode = userData?.myInviteCode || (currentUid ? currentUid.substring(0, 6).toUpperCase() : "DUE-123");
+    const message =
+      t("invite_whatsapp_message", userLang, { code: myCode }) ||
+      `Olá! Baixe o DuoElo para conectarmos nosso elo. Use meu código de convite: ${myCode}`;
     const encodedMessage = encodeURIComponent(message);
 
     const appUrl = `whatsapp://send?text=${encodedMessage}`;
@@ -312,7 +325,6 @@ export default function MatchScreen({ navigation }: any) {
     }
   };
 
-  // 🛡️ OPERAÇÃO BATCH PARA DESMATCH (SEM EXIGÊNCIA DE LEITURA BLOQUEADA)
   const handleDisconnectPartner = () => {
     Alert.alert(
       t("disconnect_confirm_title", userLang) || "Desconectar Parceiro(a)",
@@ -361,7 +373,8 @@ export default function MatchScreen({ navigation }: any) {
                 await logAuditEvent(
                   currentUid,
                   "PARTNER_UNLINKED",
-                  `Desvinculação efetuada com o parceiro ${partnerUid || "desconhecido"}`
+                  `Desvinculação efetuada com o parceiro ${partnerUid || "desconhecido"}`,
+                  userLang
                 );
               } catch (auditErr) {}
 
@@ -453,7 +466,8 @@ export default function MatchScreen({ navigation }: any) {
         await logAuditEvent(
           currentUid,
           "PARTNER_LINKED",
-          `Match aceito com o parceiro ID: ${senderUid}`
+          `Match aceito com o parceiro ID: ${senderUid}`,
+          userLang
         );
       } catch (e) {}
 
@@ -635,7 +649,8 @@ export default function MatchScreen({ navigation }: any) {
         await logAuditEvent(
           currentUser.uid,
           "PARTNER_MATCH_REQUESTED",
-          `Solicitação de convite enviada para o parceiro ID: ${pendingMatchPartner.id}`
+          `Solicitação de convite enviada para o parceiro ID: ${pendingMatchPartner.id}`,
+          userLang
         );
       } catch (e) {}
 
