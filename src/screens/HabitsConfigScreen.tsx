@@ -23,17 +23,24 @@ try {
   Haptics = require("expo-haptics");
 } catch (e) {}
 
+export interface CustomHabit {
+  id: string;
+  title: string;
+  frequency: "daily" | "weekly";
+  points: number;
+}
+
 const ATOMIC_HABITS_CATALOG = [
-  { id: "water_morning", icon: "tint", titleKey: "habit_water_morning_title", subKey: "habit_water_morning_sub", points: 5 },
-  { id: "water_lunch", icon: "tint", titleKey: "habit_water_lunch_title", subKey: "habit_water_lunch_sub", points: 5 },
-  { id: "water_night", icon: "tint", titleKey: "habit_water_night_title", subKey: "habit_water_night_sub", points: 5 },
-  { id: "no_screens", icon: "mobile-alt", titleKey: "habit_no_screens_title", subKey: "habit_no_screens_sub", points: 10 },
-  { id: "deep_breath", icon: "wind", titleKey: "habit_deep_breath_title", subKey: "habit_deep_breath_sub", points: 5 },
-  { id: "walk_express", icon: "walking", titleKey: "habit_walk_express_title", subKey: "habit_walk_express_sub", points: 10 },
-  { id: "fruit_daily", icon: "apple-alt", titleKey: "habit_fruit_daily_title", subKey: "habit_fruit_daily_sub", points: 5 },
-  { id: "compliment_partner", icon: "heart", titleKey: "habit_compliment_title", subKey: "habit_compliment_sub", points: 10 },
-  { id: "atomic_reading", icon: "book-open", titleKey: "habit_reading_title", subKey: "habit_reading_sub", points: 5 },
-  { id: "gratitude_moment", icon: "sun", titleKey: "habit_gratitude_title", subKey: "habit_gratitude_sub", points: 5 },
+  { id: "water_morning", icon: "tint", titleKey: "habit_water_morning_title", subKey: "habit_water_morning_sub", defaultTitle: "Água ao Acordar", defaultSub: "Beba 1 copo d'água ao levantar", points: 5 },
+  { id: "water_lunch", icon: "tint", titleKey: "habit_water_lunch_title", subKey: "habit_water_lunch_sub", defaultTitle: "Hidratação da Tarde", defaultSub: "Beba água após o almoço", points: 5 },
+  { id: "water_night", icon: "tint", titleKey: "habit_water_night_title", subKey: "habit_water_night_sub", defaultTitle: "Hidratação da Noite", defaultSub: "1 copo d'água antes de dormir", points: 5 },
+  { id: "no_screens", icon: "mobile-alt", titleKey: "habit_no_screens_title", subKey: "habit_no_screens_sub", defaultTitle: "Desconexão Noturna", defaultSub: "Sem telas 30 min antes de dormir", points: 10 },
+  { id: "deep_breath", icon: "wind", titleKey: "habit_deep_breath_title", subKey: "habit_deep_breath_sub", defaultTitle: "Pausa Respiratória", defaultSub: "3 respirações profundas consciente", points: 5 },
+  { id: "walk_express", icon: "walking", titleKey: "habit_walk_express_title", subKey: "habit_walk_express_sub", defaultTitle: "Caminhada Leve", defaultSub: "15 minutos de caminhada ativa", points: 10 },
+  { id: "fruit_daily", icon: "apple-alt", titleKey: "habit_fruit_daily_title", subKey: "habit_fruit_daily_sub", defaultTitle: "Fruta do Dia", defaultSub: "Consuma ao menos 1 porção de fruta", points: 5 },
+  { id: "compliment_partner", icon: "heart", titleKey: "habit_compliment_title", subKey: "habit_compliment_sub", defaultTitle: "Elogio Sincero", defaultSub: "Faça um elogio ao seu amor hoje", points: 10 },
+  { id: "atomic_reading", icon: "book-open", titleKey: "habit_reading_title", subKey: "habit_reading_sub", defaultTitle: "Leitura Focada", defaultSub: "Leia 5 páginas de um bom livro", points: 5 },
+  { id: "gratitude_moment", icon: "sun", titleKey: "habit_gratitude_title", subKey: "habit_gratitude_sub", defaultTitle: "Momento Gratidão", defaultSub: "Agradeça por algo positivo do dia", points: 5 },
 ];
 
 export default function HabitsConfigScreen({ navigation }: any) {
@@ -47,7 +54,7 @@ export default function HabitsConfigScreen({ navigation }: any) {
     "water_night",
     "no_screens",
   ]);
-  const [customHabits, setCustomHabits] = useState<any[]>([]);
+  const [customHabits, setCustomHabits] = useState<CustomHabit[]>([]);
   const [newHabitTitle, setNewHabitTitle] = useState("");
   const [selectedFrequency, setSelectedFrequency] = useState<"daily" | "weekly">("daily");
 
@@ -121,7 +128,7 @@ export default function HabitsConfigScreen({ navigation }: any) {
     setIsSaving(true);
 
     const habitId = `custom_${Date.now()}`;
-    const newHabit = {
+    const newHabit: CustomHabit = {
       id: habitId,
       title: trimmedTitle,
       frequency: selectedFrequency,
@@ -212,7 +219,7 @@ export default function HabitsConfigScreen({ navigation }: any) {
             <Text style={styles.subGroupTitle}>
               {t("create_custom_habit_label", userLang) || "Criar Hábito Personalizado"}
             </Text>
-            
+
             <View style={styles.createHabitRow}>
               <TextInput
                 style={styles.createHabitInput}
@@ -220,6 +227,7 @@ export default function HabitsConfigScreen({ navigation }: any) {
                 placeholderTextColor="#AFAFAF"
                 value={newHabitTitle}
                 onChangeText={setNewHabitTitle}
+                maxLength={50}
                 editable={!isSaving}
               />
               <TouchableOpacity
@@ -235,8 +243,10 @@ export default function HabitsConfigScreen({ navigation }: any) {
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.frequencySectionTitle}>SELECIONE A FREQUÊNCIA:</Text>
-            
+            <Text style={styles.frequencySectionTitle}>
+              {t("select_frequency_label", userLang) || "SELECIONE A FREQUÊNCIA:"}
+            </Text>
+
             <View style={styles.frequencyRow}>
               <TouchableOpacity
                 style={[
@@ -353,8 +363,8 @@ export default function HabitsConfigScreen({ navigation }: any) {
                     style={{ marginRight: 15 }}
                   />
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.habitSelectTitle}>{t(habit.titleKey, userLang) || habit.id}</Text>
-                    <Text style={styles.habitSelectSub}>{t(habit.subKey, userLang) || ""}</Text>
+                    <Text style={styles.habitSelectTitle}>{t(habit.titleKey, userLang) || habit.defaultTitle}</Text>
+                    <Text style={styles.habitSelectSub}>{t(habit.subKey, userLang) || habit.defaultSub}</Text>
                   </View>
                   <View style={[styles.checkboxCircle, isSelected && styles.checkboxCircleActive]}>
                     {isSelected && <FontAwesome5 name="check" size={10} color="#FFF" />}

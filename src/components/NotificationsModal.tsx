@@ -66,7 +66,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
         (snapshot) => {
           processDocs(snapshot.docs);
         },
-        (error) => {
+        (error: unknown) => {
           // Fallback seguro caso o índice de ordenação do Firestore não esteja pronto
           const fallbackQuery = query(
             collection(db, "users", uid, "notifications"),

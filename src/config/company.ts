@@ -1,9 +1,9 @@
-// 🇱🇺 DADOS CORPORATIVOS OFICIAIS DA BARNX S.A R.L.-S (LUXEMBURGO)
+// 🇱🇺 DADOS CORPORATIVOS OFICIAIS DA BARNX S.À R.L.-S (LUXEMBURGO)
 export const BARNX_COMPANY_DATA = {
   legalName: "BARNX S.A R.L.-S",
   rcsNumber: "B308846", // Registre de Commerce et des Sociétés (RCS)
   businessPermitNumber: "10196485/0", // Autorisation d'établissement
-  legalForm: "Société à responsabilité limitée simplifiée",
+  legalForm: "Société à responsabilitée limitée simplifiée",
   managingDirector: "Peterson Michels",
   registeredAddress: {
     street: "Wämperweeg",
@@ -21,7 +21,17 @@ export const BARNX_COMPANY_DATA = {
 /**
  * Retorna o endereço corporativo oficial formatado para termos e rodapés legais
  */
-export const getFormattedCompanyAddress = (): string => {
+export const getFormattedCompanyAddress = (lang = "pt-BR"): string => {
   const { street, number, postalCode, locality, country } = BARNX_COMPANY_DATA.registeredAddress;
-  return `${number}, ${street}, ${postalCode} ${locality}, ${country}`;
+  
+  let translatedCountry: string = country;
+  if (lang.startsWith("en")) {
+    translatedCountry = "Grand Duchy of Luxembourg";
+  } else if (lang.startsWith("es")) {
+    translatedCountry = "Gran Ducado de Luxemburgo";
+  } else if (lang.startsWith("de")) {
+    translatedCountry = "Großherzogtum Luxemburg";
+  }
+
+  return `${number}, ${street}, ${postalCode} ${locality}, ${translatedCountry}`;
 };

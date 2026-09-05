@@ -1,4 +1,4 @@
-import { doc, serverTimestamp, setDoc } from "firebase/firestore";
+import { doc, FieldValue, serverTimestamp, setDoc } from "firebase/firestore";
 import { db } from "../config/firebase";
 
 export interface CourseSeedPayload {
@@ -6,11 +6,11 @@ export interface CourseSeedPayload {
   titleKey: string;
   moduleIds: number[];
   icon: string;
-  createdAt?: any;
+  createdAt?: FieldValue;
 }
 
 export async function createDefaultCourses(): Promise<boolean> {
-  const courses: CourseSeedPayload[] = [
+  const courses: Omit<CourseSeedPayload, "createdAt">[] = [
     {
       id: "trilha_semaforo",
       titleKey: "course.main.title",

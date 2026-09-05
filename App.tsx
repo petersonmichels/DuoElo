@@ -1,4 +1,4 @@
-import "react-native-gesture-handler";
+import "react-native-gesture-handler"; // 👈 OBRIGATÓRIO: Deve ser estritamente a primeira linha!
 import "react-native-get-random-values";
 
 import { NavigationContainer } from "@react-navigation/native";
@@ -7,21 +7,6 @@ import { useCallback, useEffect } from "react";
 import { ActivityIndicator, LogBox, Platform, View } from "react-native";
 import Purchases from "react-native-purchases";
 import { enableScreens } from "react-native-screens";
-
-import AppNavigator from "./src/navigation/AppNavigator";
-
-// 🚀 ATIVA O SUPORTE A TELAS NATIVAS DE ALTA PERFORMANCE
-enableScreens(true);
-
-// 🛡️ MANTÉM A SPLASH SCREEN VISÍVEL ATÉ A INICIALIZAÇÃO
-SplashScreen.preventAutoHideAsync().catch(() => {});
-
-// 🙈 FILTRAGEM ESTRITA DE WARNINGS DE TERCEIROS CONHECIDOS
-LogBox.ignoreLogs([
-  "You are initializing Firebase Auth for React Native without providing AsyncStorage",
-  "@firebase/auth",
-  "Purchases instance already set",
-]);
 
 // 🔥 IMPORTAÇÃO DA TIPOGRAFIA OFICIAL DUOELO
 import {
@@ -32,6 +17,21 @@ import {
   useFonts,
 } from "@expo-google-fonts/montserrat";
 
+import AppNavigator from "./src/navigation/AppNavigator";
+
+// 🚀 ATIVA O SUPORTE A TELAS NATIVAS DE ALTA PERFORMANCE
+enableScreens(true);
+
+// 🛡️ MANTÉM A SPLASH SCREEN VISÍVEL ATÉ A INICIALIZACAO COMPLETA
+SplashScreen.preventAutoHideAsync().catch(() => {});
+
+// 🙈 FILTRAGEM ESTRITA DE WARNINGS DE TERCEIROS CONHECIDOS
+LogBox.ignoreLogs([
+  "You are initializing Firebase Auth for React Native without providing AsyncStorage",
+  "@firebase/auth",
+  "Purchases instance already set",
+]);
+
 export default function App() {
   const [fontsLoaded, fontError] = useFonts({
     Montserrat_400Regular,
@@ -40,11 +40,11 @@ export default function App() {
     Montserrat_900Black,
   });
 
-  // 🛡️ TIMEOUT OBRIGATÓRIO PARA FECHAR A SPLASH SCREEN
+  // 🛡️ TIMEOUT OBRIGATÓRIO PARA FECHAR A SPLASH SCREEN (Evita tela travada)
   useEffect(() => {
     const forceHideSplashTimer = setTimeout(() => {
       SplashScreen.hideAsync().catch(() => {});
-    }, 1200);
+    }, 2000);
 
     return () => clearTimeout(forceHideSplashTimer);
   }, []);
@@ -68,6 +68,7 @@ export default function App() {
 
         if (apiKey && apiKey.trim().length > 0) {
           if (isMounted) {
+            // Purchases.configure lança um aviso no LogBox se já configurado (que já tratamos com o LogBox.ignore)
             Purchases.configure({ apiKey });
           }
         } else if (__DEV__) {

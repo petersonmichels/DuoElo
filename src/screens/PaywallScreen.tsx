@@ -497,7 +497,7 @@ export default function PaywallScreen({ navigation }: any) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { marginTop: Platform.OS === "android" ? 45 : Math.max(insets.top, 20) }]}>
         <TouchableOpacity
           style={styles.closeBtn}
           onPress={handleClose}
@@ -520,7 +520,7 @@ export default function PaywallScreen({ navigation }: any) {
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: 220 + insets.bottom }]}
         showsVerticalScrollIndicator={false}
       >
         <Animated.View
@@ -624,7 +624,7 @@ export default function PaywallScreen({ navigation }: any) {
                   matchedPkg?.product?.introPrice !== null &&
                   matchedPkg?.product?.introPrice !== undefined;
 
-                if (matchedPkg && matchedPkg.product.priceString) {
+                if (matchedPkg && matchedPkg.product?.priceString) {
                   displayPrice = matchedPkg.product.priceString;
                   displayDesc = matchedPkg.product.description || plan.desc;
                 } else {
@@ -710,44 +710,11 @@ export default function PaywallScreen({ navigation }: any) {
               </View>
             ))}
           </View>
-
-          <View style={styles.legalSection}>
-            <TouchableOpacity
-              style={styles.restoreBtn}
-              onPress={handleRestorePurchases}
-              disabled={isProcessing}
-            >
-              <Text style={styles.restoreBtnText}>
-                {t("btn_restore_purchases", userLang) || "Restaurar Compras"}
-              </Text>
-            </TouchableOpacity>
-
-            <View style={styles.legalLinksRow}>
-              <TouchableOpacity
-                onPress={() =>
-                  openUrl(`https://duoelo.lu/termos?lang=${userLang}`)
-                }
-              >
-                <Text style={styles.legalLinkText}>
-                  {t("terms_of_use_eula", userLang) || "Termos de Uso (EULA)"}
-                </Text>
-              </TouchableOpacity>
-              <Text style={styles.legalDivider}>•</Text>
-              <TouchableOpacity
-                onPress={() =>
-                  openUrl(`https://duoelo.lu/privacidade?lang=${userLang}`)
-                }
-              >
-                <Text style={styles.legalLinkText}>
-                  {t("privacy_policy_link", userLang) || "Política de Privacidade"}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
         </Animated.View>
       </ScrollView>
 
-      <View style={styles.footer}>
+      {/* 📌 RODAPÉ FIXO DE CONFORMIDADE EXIGIDO PELA APPLE (GUIDELINE 3.1.2c) */}
+      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
         <TouchableOpacity
           style={[styles.ctaButton, isProcessing && { opacity: 0.8 }]}
           activeOpacity={0.9}
@@ -770,11 +737,49 @@ export default function PaywallScreen({ navigation }: any) {
                           : selectedPlan === "trimestral"
                             ? t("period_quarterly_word", userLang) || "Trimestral"
                             : t("period_annual_word", userLang) || "Anual",
-                    }) || `Assinar ${planCategory === "duo" ? "Duo" : "Solo"} ${selectedPlan}`)}
+                    }) || `ASSINAR PLANO ${planCategory === "duo" ? "DUO" : "SOLO"} ${selectedPlan.toUpperCase()}`)}
               </Text>
             </>
           )}
         </TouchableOpacity>
+
+        {/* ⚖️ LINKS LEGAIS OBRIGATÓRIOS UNIFICADOS NO RODAPÉ FIXO */}
+        <View style={styles.legalSection}>
+          <TouchableOpacity
+            style={styles.restoreBtn}
+            onPress={handleRestorePurchases}
+            disabled={isProcessing}
+          >
+            <Text style={styles.restoreBtnText}>
+              {t("btn_restore_purchases", userLang) || "Restaurar Compras"}
+            </Text>
+          </TouchableOpacity>
+
+          <View style={styles.legalLinksRow}>
+            <TouchableOpacity
+              onPress={() =>
+                openUrl("https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")
+              }
+            >
+              <Text style={styles.legalLinkText}>
+                {t("terms_of_use_eula", userLang) || "Termos de Uso (EULA)"}
+              </Text>
+            </TouchableOpacity>
+
+            <Text style={styles.legalDivider}>•</Text>
+
+            <TouchableOpacity
+              onPress={() =>
+                openUrl(`https://duoelo.lu/privacidade?lang=${userLang}`)
+              }
+            >
+              <Text style={styles.legalLinkText}>
+                {t("privacy_policy_link", userLang) || "Política de Privacidade"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
         <Text style={styles.guaranteeText}>
           <FontAwesome5 name="lock" size={10} color="#60646C" />{" "}
           {t("secure_payment_env", userLang) || "Ambiente de Pagamento 100% Seguro"}
@@ -792,44 +797,42 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
-    marginTop: Platform.OS === "android" ? 45 : 20,
     marginBottom: 10,
     zIndex: 99999,
     elevation: 20,
   },
   closeBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: "#FFF",
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
     borderColor: "#D1D9E0",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
   },
   logoutBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: "#FFF",
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
     borderColor: "#FADBD8",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
   },
   scrollContent: {
     paddingHorizontal: 24,
-    paddingBottom: 140,
     alignItems: "center",
   },
   iconWrapper: {
@@ -1068,16 +1071,15 @@ const styles = StyleSheet.create({
   },
   legalSection: {
     alignItems: "center",
-    marginTop: 20,
     marginBottom: 10,
-    gap: 8,
+    gap: 6,
   },
   restoreBtn: {
-    padding: 8,
+    paddingVertical: 4,
   },
   restoreBtnText: {
     color: "#60646C",
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: "Montserrat_700Bold",
     textDecorationLine: "underline",
     textAlign: "center",
@@ -1088,7 +1090,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   legalLinkText: {
-    color: "#AFAFAF",
+    color: "#7A8A99",
     fontSize: 11,
     fontFamily: "Montserrat_600SemiBold",
     textDecorationLine: "underline",
@@ -1102,30 +1104,34 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: "100%",
     paddingHorizontal: 24,
-    paddingTop: 15,
-    paddingBottom: 30,
+    paddingTop: 12,
     backgroundColor: "#F0F4F8",
     borderTopWidth: 1,
     borderTopColor: "#D1D9E0",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 10,
   },
   ctaButton: {
     flexDirection: "row",
     backgroundColor: "#EAB64A",
-    paddingVertical: 18,
+    paddingVertical: 16,
     borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
     gap: 12,
     shadowColor: "#EAB64A",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
     elevation: 5,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   ctaButtonText: {
     color: "#202D3A",
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: "Montserrat_900Black",
     textTransform: "uppercase",
     letterSpacing: 0.5,
@@ -1133,7 +1139,7 @@ const styles = StyleSheet.create({
   guaranteeText: {
     textAlign: "center",
     color: "#60646C",
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: "Montserrat_600SemiBold",
   },
 });

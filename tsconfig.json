@@ -24,9 +24,9 @@
     "dist"
   ],
   "include": [
-    "**/*.ts",
-    "**/*.tsx",
-    ".expo/types/**/*.ts",
-    "expo-env.d.ts"
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "App.tsx",
+    "app.config.js"
   ]
 }

@@ -38,7 +38,7 @@ export const setupRevenueCat = async (userId?: string): Promise<void> => {
       // Se já estava configurado, associa o ID do usuário do Firebase
       await Purchases.logIn(userId);
     }
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("[REVENUECAT_ERROR] Erro ao inicializar compras:", error);
   }
 };
@@ -53,7 +53,7 @@ export const getOfferings = async (): Promise<PurchasesOffering | null> => {
       return offerings.current;
     }
     return null;
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("[REVENUECAT_ERROR] Erro ao buscar planos:", error);
     return null;
   }
@@ -66,9 +66,24 @@ export const restoreUserPurchases = async (): Promise<CustomerInfo | null> => {
   try {
     const customerInfo = await Purchases.restorePurchases();
     return customerInfo;
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("[REVENUECAT_ERROR] Erro ao restaurar compras:", error);
     return null;
+  }
+};
+
+/**
+ * Verifica se a conta possui um plano ativo ativo no RevenueCat
+ */
+export const checkSubscriptionStatus = async (
+  entitlementId: string = "premium"
+): Promise<boolean> => {
+  try {
+    const customerInfo = await Purchases.getCustomerInfo();
+    return Boolean(customerInfo.entitlements.active[entitlementId]);
+  } catch (error: unknown) {
+    console.warn("[REVENUECAT_ERROR] Falha ao verificar status da assinatura:", error);
+    return false;
   }
 };
 

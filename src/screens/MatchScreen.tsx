@@ -417,13 +417,18 @@ export default function MatchScreen({ navigation }: any) {
       await batch.commit();
 
       showCustomAlert(
-        "Convite Cancelado",
-        "O convite de conexão enviado foi cancelado.",
+        t("invite_canceled_title", userLang) || "Convite Cancelado",
+        t("invite_canceled_msg", userLang) || "O convite de conexão enviado foi cancelado.",
         "info-circle",
         "#EAB64A"
       );
     } catch (e) {
-      showCustomAlert("Erro", "Não foi possível cancelar o convite.", "times-circle", "#D96C6C");
+      showCustomAlert(
+        t("error_title", userLang) || "Erro",
+        t("cancel_invite_error_msg", userLang) || "Não foi possível cancelar o convite.",
+        "times-circle",
+        "#D96C6C"
+      );
     } finally {
       setIsMatching(false);
     }
@@ -473,13 +478,18 @@ export default function MatchScreen({ navigation }: any) {
 
       triggerHaptic("success");
       showCustomAlert(
-        "Elo Conectado! ❤️",
-        "Vocês agora estão vinculados e prontos para iniciar a jornada!",
+        t("elo_connected_title", userLang) || "Elo Conectado! ❤️",
+        t("elo_connected_msg", userLang) || "Vocês agora estão vinculados e prontos para iniciar a jornada!",
         "heart",
         "#67D4A8"
       );
     } catch (e) {
-      showCustomAlert("Erro ao Aceitar", "Falha ao confirmar o vínculo.", "times-circle", "#D96C6C");
+      showCustomAlert(
+        t("error_accept_title", userLang) || "Erro ao Aceitar",
+        t("error_accept_msg", userLang) || "Falha ao confirmar o vínculo.",
+        "times-circle",
+        "#D96C6C"
+      );
     } finally {
       setIsMatching(false);
     }
@@ -500,9 +510,19 @@ export default function MatchScreen({ navigation }: any) {
 
       await batch.commit();
 
-      showCustomAlert("Convite Recusado", "O convite de conexão foi recusado.", "info-circle", "#202D3A");
+      showCustomAlert(
+        t("invite_rejected_title", userLang) || "Convite Recusado",
+        t("invite_rejected_msg", userLang) || "O convite de conexão foi recusado.",
+        "info-circle",
+        "#202D3A"
+      );
     } catch (e) {
-      showCustomAlert("Erro", "Não foi possível recusar o convite.", "times-circle", "#D96C6C");
+      showCustomAlert(
+        t("error_title", userLang) || "Erro",
+        t("reject_invite_error_msg", userLang) || "Não foi possível recusar o convite.",
+        "times-circle",
+        "#D96C6C"
+      );
     } finally {
       setIsMatching(false);
     }
@@ -658,8 +678,8 @@ export default function MatchScreen({ navigation }: any) {
       setPendingMatchPartner(null);
 
       showCustomAlert(
-        "Convite Enviado! 💌",
-        "Sua solicitação de conexão foi enviada. O vínculo será ativado assim que ela(e) aceitar!",
+        t("invite_sent_title", userLang) || "Convite Enviado! 💌",
+        t("invite_sent_msg", userLang) || "Sua solicitação de conexão foi enviada. O vínculo será ativado assim que ela(e) aceitar!",
         "heart",
         "#67D4A8"
       );
@@ -816,7 +836,9 @@ export default function MatchScreen({ navigation }: any) {
               </View>
             ) : hasReceivedInvite ? (
               <View style={[styles.card, { borderColor: "#EAB64A", backgroundColor: "#FFF9E6", alignItems: "center" }]}>
-                <Text style={styles.sectionTitle}>💌 CONVITE RECEBIDO!</Text>
+                <Text style={styles.sectionTitle}>
+                  {t("invite_received_title", userLang) || "💌 CONVITE RECEBIDO!"}
+                </Text>
 
                 <View style={styles.receivedSenderContainer}>
                   {receivedSenderPhoto ? (
@@ -833,7 +855,7 @@ export default function MatchScreen({ navigation }: any) {
                     <Text style={{ fontFamily: "Montserrat_700Bold", color: "#202D3A" }}>
                       {receivedSenderName}
                     </Text>{" "}
-                    enviou um convite para iniciarem o elo juntos!
+                    {t("invite_received_body_msg", userLang) || "enviou um convite para iniciarem o elo juntos!"}
                   </Text>
                 </View>
 
@@ -867,13 +889,15 @@ export default function MatchScreen({ navigation }: any) {
               </View>
             ) : hasSentInvite ? (
               <View style={[styles.card, { borderColor: "#EAB64A" }]}>
-                <Text style={styles.sectionTitle}>⏳ CONVITE ENVIADO</Text>
+                <Text style={styles.sectionTitle}>
+                  {t("invite_sent_header_title", userLang) || "⏳ CONVITE ENVIADO"}
+                </Text>
                 <Text style={styles.cardDesc}>
-                  Aguardando{" "}
+                  {t("invite_sent_waiting_msg_part1", userLang) || "Aguardando"}{" "}
                   <Text style={{ fontFamily: "Montserrat_700Bold", color: "#202D3A" }}>
                     {userData.sentMatchRequestTo.toName}
                   </Text>{" "}
-                  aceitar seu convite de conexão...
+                  {t("invite_sent_waiting_msg_part2", userLang) || "aceitar seu convite de conexão..."}
                 </Text>
 
                 <TouchableOpacity
@@ -881,7 +905,9 @@ export default function MatchScreen({ navigation }: any) {
                   onPress={handleCancelSentInvite}
                   disabled={isMatching}
                 >
-                  <Text style={styles.disconnectBtnText}>Cancelar Convite Enviado</Text>
+                  <Text style={styles.disconnectBtnText}>
+                    {t("btn_cancel_sent_invite", userLang) || "Cancelar Convite Enviado"}
+                  </Text>
                 </TouchableOpacity>
               </View>
             ) : (

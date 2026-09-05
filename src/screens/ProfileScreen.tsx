@@ -529,8 +529,6 @@ export default function ProfileScreen({ navigation }: any) {
 
               await deleteUser(user);
             } catch (error: any) {
-              setLoading(false);
-
               if (
                 error.code === "auth/requires-recent-login" ||
                 error.message?.includes("requires-recent-login")
@@ -556,6 +554,8 @@ export default function ProfileScreen({ navigation }: any) {
                     "Não foi possível excluir sua conta neste momento. Tente novamente mais tarde."
                 );
               }
+            } finally {
+              setLoading(false);
             }
           },
         },
@@ -630,7 +630,7 @@ export default function ProfileScreen({ navigation }: any) {
     url.length > 5 &&
     url.toLowerCase() !== "null";
 
-  const getFirstName = (nameStr?: string | null) =>
+  const getFirstNameStr = (nameStr?: string | null) =>
     nameStr ? nameStr.trim().split(" ")[0] : null;
 
   const rawPhoto = userData?.photoURL || userData?.photoUrl;
@@ -643,9 +643,9 @@ export default function ProfileScreen({ navigation }: any) {
     ? `@${userData.username}`
     : firstName.trim()
     ? firstName.trim()
-    : getFirstName(userData?.billingFirstName ?? undefined) ||
-      getFirstName(userData?.displayName ?? undefined) ||
-      getFirstName(auth.currentUser?.displayName ?? undefined) ||
+    : getFirstNameStr(userData?.billingFirstName ?? undefined) ||
+      getFirstNameStr(userData?.displayName ?? undefined) ||
+      getFirstNameStr(auth.currentUser?.displayName ?? undefined) ||
       t("user_default_name", userLang) || "Usuário DuoElo";
 
   const currentFlag =
@@ -1056,7 +1056,7 @@ export default function ProfileScreen({ navigation }: any) {
             </Text>
           </TouchableOpacity>
 
-          <Text style={styles.versionText}>DuoElo v1.0.0</Text>
+          <Text style={styles.versionText}>DuoElo v1.0.2 (Build 16)</Text>
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -1069,13 +1069,15 @@ export default function ProfileScreen({ navigation }: any) {
         >
           <View style={styles.bottomSheetContainer}>
             <View style={styles.bottomSheetHandle} />
-            <Text style={styles.bottomSheetTitle}>Selecione o País</Text>
+            <Text style={styles.bottomSheetTitle}>
+              {t("select_country_title", userLang) || "Selecione o País"}
+            </Text>
 
             <View style={styles.searchBox}>
               <FontAwesome5 name="search" size={14} color="#AFAFAF" />
               <TextInput
                 style={styles.searchInput}
-                placeholder="Buscar país ou DDI..."
+                placeholder={t("placeholder_search_country", userLang) || "Buscar país ou DDI..."}
                 placeholderTextColor="#AFAFAF"
                 value={searchCountry}
                 onChangeText={setSearchCountry}

@@ -43,7 +43,7 @@ export default function VidaScreen({ navigation }: any) {
   const [partnerDesires, setPartnerDesires] = useState<{ [week: number]: string }>({});
   const [myPurchases, setMyPurchases] = useState<{ [week: number]: { status: string; giftId: string } }>({});
   const [partnerPurchases, setPartnerPurchases] = useState<{ [week: number]: { status: string; giftId: string } }>({});
-  
+
   // Confirmações para controle de Cards
   const [myConfirmations, setMyConfirmations] = useState<{ [week: number]: boolean }>({});
   const [partnerConfirmations, setPartnerConfirmations] = useState<{ [week: number]: boolean }>({});
@@ -207,7 +207,8 @@ export default function VidaScreen({ navigation }: any) {
 
     setCompletedToday(updatedCompleted);
 
-    const newPE = Math.max(0, (userData.pointsPE || userData.totalPE || 0) + pointDelta);
+    const currentPE = Number(userData.pointsPE ?? userData.totalPE ?? 0);
+    const newPE = Math.max(0, currentPE + pointDelta);
 
     try {
       await setDoc(
@@ -333,13 +334,17 @@ export default function VidaScreen({ navigation }: any) {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>LIFE</Text>
-        <Text style={styles.headerSub}>Tecnologia para viver o mundo real</Text>
+        <Text style={styles.headerSub}>
+          {t("life_header_sub", userLang) || "Tecnologia para viver o mundo real"}
+        </Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {(pendingMatchRequest || !hasPhoto || !hasCompleteProfileData || (!hasPartner && !isSoloMode) || !isAnamnesisCompleted) && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>ESTRUTURA DO SEU ELO</Text>
+            <Text style={styles.sectionTitle}>
+              {t("elo_structure_section_title", userLang) || "ESTRUTURA DO SEU ELO"}
+            </Text>
 
             {pendingMatchRequest && (
               <TouchableOpacity
@@ -351,9 +356,12 @@ export default function VidaScreen({ navigation }: any) {
                   <FontAwesome5 name="envelope-open-text" size={18} color="#FFF" />
                 </View>
                 <View style={styles.cardInfo}>
-                  <Text style={styles.cardTitleHighlight}>Convite de Conexão Recebido!</Text>
+                  <Text style={styles.cardTitleHighlight}>
+                    {t("invite_received_card_title", userLang) || "Convite de Conexão Recebido!"}
+                  </Text>
                   <Text style={styles.cardSubHighlight}>
-                    {pendingMatchRequest.fromName || "Alguém"} enviou um convite para conectar o Elo.
+                    {t("invite_received_card_sub", userLang, { name: pendingMatchRequest.fromName || "Alguém" }) ||
+                      `${pendingMatchRequest.fromName || "Alguém"} enviou um convite para conectar o Elo.`}
                   </Text>
                 </View>
                 <FontAwesome5 name="chevron-right" size={14} color="#202D3A" />
@@ -370,8 +378,12 @@ export default function VidaScreen({ navigation }: any) {
                   <FontAwesome5 name="camera" size={18} color="#EAB64A" />
                 </View>
                 <View style={styles.cardInfo}>
-                  <Text style={styles.cardTitle}>Adicionar Foto de Perfil</Text>
-                  <Text style={styles.cardSub}>Dê um rosto ao seu perfil no aplicativo.</Text>
+                  <Text style={styles.cardTitle}>
+                    {t("add_photo_card_title", userLang) || "Adicionar Foto de Perfil"}
+                  </Text>
+                  <Text style={styles.cardSub}>
+                    {t("add_photo_card_sub", userLang) || "Dê um rosto ao seu perfil no aplicativo."}
+                  </Text>
                 </View>
                 <FontAwesome5 name="chevron-right" size={14} color="#AFAFAF" />
               </TouchableOpacity>
@@ -387,8 +399,12 @@ export default function VidaScreen({ navigation }: any) {
                   <FontAwesome5 name="user-edit" size={18} color="#202D3A" />
                 </View>
                 <View style={styles.cardInfo}>
-                  <Text style={styles.cardTitle}>Completar Dados Pessoais</Text>
-                  <Text style={styles.cardSub}>Preencha nome e telefone no Perfil.</Text>
+                  <Text style={styles.cardTitle}>
+                    {t("complete_profile_card_title", userLang) || "Completar Dados Pessoais"}
+                  </Text>
+                  <Text style={styles.cardSub}>
+                    {t("complete_profile_card_sub", userLang) || "Preencha nome e telefone no Perfil."}
+                  </Text>
                 </View>
                 <FontAwesome5 name="chevron-right" size={14} color="#AFAFAF" />
               </TouchableOpacity>
@@ -404,8 +420,12 @@ export default function VidaScreen({ navigation }: any) {
                   <FontAwesome5 name="heart" size={18} color="#67D4A8" />
                 </View>
                 <View style={styles.cardInfo}>
-                  <Text style={styles.cardTitle}>Conectar Parceiro(a)</Text>
-                  <Text style={styles.cardSub}>Vincule sua alma gêmea para trilhar a dois.</Text>
+                  <Text style={styles.cardTitle}>
+                    {t("connect_partner_card_title", userLang) || "Conectar Parceiro(a)"}
+                  </Text>
+                  <Text style={styles.cardSub}>
+                    {t("connect_partner_card_sub", userLang) || "Vincule sua alma gêmea para trilhar a dois."}
+                  </Text>
                 </View>
                 <FontAwesome5 name="chevron-right" size={14} color="#AFAFAF" />
               </TouchableOpacity>
@@ -421,8 +441,12 @@ export default function VidaScreen({ navigation }: any) {
                   <FontAwesome5 name="compass" size={18} color="#4A90E2" />
                 </View>
                 <View style={styles.cardInfo}>
-                  <Text style={styles.cardTitle}>Bússola do Relacionamento</Text>
-                  <Text style={styles.cardSub}>Preencha o diagnóstico para calibrar suas missões.</Text>
+                  <Text style={styles.cardTitle}>
+                    {t("relationship_compass_card_title", userLang) || "Bússola do Relacionamento"}
+                  </Text>
+                  <Text style={styles.cardSub}>
+                    {t("relationship_compass_card_sub", userLang) || "Preencha o diagnóstico para calibrar suas missões."}
+                  </Text>
                 </View>
                 <FontAwesome5 name="chevron-right" size={14} color="#AFAFAF" />
               </TouchableOpacity>
@@ -436,7 +460,9 @@ export default function VidaScreen({ navigation }: any) {
           hasGiftToConfirm ||
           needsToBuyGift) && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>AÇÕES DA JORNADA PRINCIPAL</Text>
+            <Text style={styles.sectionTitle}>
+              {t("main_journey_actions_title", userLang) || "AÇÕES DA JORNADA PRINCIPAL"}
+            </Text>
 
             {!isMissionDoneToday && (
               <TouchableOpacity
@@ -448,8 +474,12 @@ export default function VidaScreen({ navigation }: any) {
                   <FontAwesome5 name="fire" size={18} color="#FFF" />
                 </View>
                 <View style={styles.cardInfo}>
-                  <Text style={styles.cardTitleHighlight}>Missão do Dia Pendente</Text>
-                  <Text style={styles.cardSubHighlight}>Fortaleça o seu elo realizando a tarefa de hoje.</Text>
+                  <Text style={styles.cardTitleHighlight}>
+                    {t("pending_daily_mission_title", userLang) || "Missão do Dia Pendente"}
+                  </Text>
+                  <Text style={styles.cardSubHighlight}>
+                    {t("pending_daily_mission_sub", userLang) || "Fortaleça o seu elo realizando a tarefa de hoje."}
+                  </Text>
                 </View>
                 <FontAwesome5 name="chevron-right" size={14} color="#202D3A" />
               </TouchableOpacity>
@@ -465,8 +495,12 @@ export default function VidaScreen({ navigation }: any) {
                   <FontAwesome5 name="gift" size={18} color="#FFF" />
                 </View>
                 <View style={styles.cardInfo}>
-                  <Text style={styles.cardTitle}>Entregar Presente de {partnerName}</Text>
-                  <Text style={styles.cardSub}>Você comprou o presente! Entregue na vida real e marque na Loja.</Text>
+                  <Text style={styles.cardTitle}>
+                    {t("deliver_gift_to_partner_title", userLang, { name: partnerName }) || `Entregar Presente de ${partnerName}`}
+                  </Text>
+                  <Text style={styles.cardSub}>
+                    {t("deliver_gift_to_partner_sub", userLang) || "Você comprou o presente! Entregue na vida real e marque na Loja."}
+                  </Text>
                 </View>
                 <FontAwesome5 name="chevron-right" size={14} color="#202D3A" />
               </TouchableOpacity>
@@ -482,8 +516,12 @@ export default function VidaScreen({ navigation }: any) {
                   <FontAwesome5 name="heart" size={18} color="#FFF" />
                 </View>
                 <View style={styles.cardInfo}>
-                  <Text style={styles.cardTitle}>Confirmar Recebimento de Presente</Text>
-                  <Text style={styles.cardSub}>{partnerName} te entregou um presente! Confirme o recebimento na Loja.</Text>
+                  <Text style={styles.cardTitle}>
+                    {t("confirm_gift_receipt_title", userLang) || "Confirmar Recebimento de Presente"}
+                  </Text>
+                  <Text style={styles.cardSub}>
+                    {t("confirm_gift_receipt_sub", userLang, { name: partnerName }) || `${partnerName} te entregou um presente! Confirme o recebimento na Loja.`}
+                  </Text>
                 </View>
                 <FontAwesome5 name="chevron-right" size={14} color="#202D3A" />
               </TouchableOpacity>
@@ -514,13 +552,13 @@ export default function VidaScreen({ navigation }: any) {
                 <View style={styles.cardInfo}>
                   <Text style={styles.cardTitle}>
                     {hasEnoughBondsToBuy
-                      ? `Comprar Presente de ${partnerName}`
-                      : `Saldo Insuficiente para Presente`}
+                      ? t("buy_partner_gift_title", userLang, { name: partnerName }) || `Comprar Presente de ${partnerName}`
+                      : t("insufficient_bonds_gift_title", userLang) || `Saldo Insuficiente para Presente`}
                   </Text>
                   <Text style={styles.cardSub}>
                     {hasEnoughBondsToBuy
-                      ? `Você tem ${userBonds} Bonds. Compre o carinho da Semana ${currentWeek}!`
-                      : `Você tem ${userBonds}/150 Bonds. Complete missões na Home para pontuar!`}
+                      ? t("buy_partner_gift_sub", userLang, { bonds: userBonds, week: currentWeek }) || `Você tem ${userBonds} Bonds. Compre o carinho da Semana ${currentWeek}!`
+                      : t("insufficient_bonds_gift_sub", userLang, { bonds: userBonds }) || `Você tem ${userBonds}/150 Bonds. Complete missões na Home para pontuar!`}
                   </Text>
                 </View>
                 <FontAwesome5 name="chevron-right" size={14} color="#AFAFAF" />
@@ -537,8 +575,12 @@ export default function VidaScreen({ navigation }: any) {
                   <FontAwesome5 name="heart" size={18} color="#D066B3" />
                 </View>
                 <View style={styles.cardInfo}>
-                  <Text style={styles.cardTitle}>Escolher Seu Presente da Semana {currentWeek}</Text>
-                  <Text style={styles.cardSub}>Defina no app o mimo que você gostaria de receber.</Text>
+                  <Text style={styles.cardTitle}>
+                    {t("choose_my_weekly_gift_title", userLang, { week: currentWeek }) || `Escolher Seu Presente da Semana ${currentWeek}`}
+                  </Text>
+                  <Text style={styles.cardSub}>
+                    {t("choose_my_weekly_gift_sub", userLang) || "Defina no app o mimo que você gostaria de receber."}
+                  </Text>
                 </View>
                 <FontAwesome5 name="chevron-right" size={14} color="#AFAFAF" />
               </TouchableOpacity>
@@ -548,8 +590,10 @@ export default function VidaScreen({ navigation }: any) {
 
         <View style={styles.section}>
           <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>SUAS AÇÕES DA VIDA</Text>
-            
+            <Text style={styles.sectionTitle}>
+              {t("your_life_habits_title", userLang) || "SUAS AÇÕES DA VIDA"}
+            </Text>
+
             <TouchableOpacity
               style={styles.cogButton}
               activeOpacity={0.7}
@@ -562,7 +606,7 @@ export default function VidaScreen({ navigation }: any) {
           {allActiveHabits.length === 0 ? (
             <View style={styles.emptyBox}>
               <Text style={styles.emptyText}>
-                Nenhum hábito ativo. Clique na engrenagem para ativar hábitos!
+                {t("empty_active_habits_msg", userLang) || "Nenhum hábito ativo. Clique na engrenagem para ativar hábitos!"}
               </Text>
             </View>
           ) : (

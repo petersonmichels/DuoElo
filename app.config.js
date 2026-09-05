@@ -3,7 +3,7 @@ module.exports = {
     name: "DuoElo",
     slug: "duelo",
     scheme: "duoelo",
-    version: "1.0.1",
+    version: "1.0.2",
     orientation: "portrait",
     icon: "./src/assets/icon.png",
     userInterfaceStyle: "dark",
@@ -15,10 +15,10 @@ module.exports = {
     },
     
     ios: {
-      supportsTablet: false,
+      supportsTablet: true, // 👈 Ajustado para suporte nativo ao iPad Air
       usesAppleSignIn: true,
       bundleIdentifier: "lu.barnx.duoelo",
-      buildNumber: "13",
+      buildNumber: "16",
       googleServicesFile:
         process.env.GOOGLE_SERVICES_INFO_PLIST || "./GoogleService-Info.plist",
       infoPlist: {
@@ -47,7 +47,7 @@ module.exports = {
       },
     },
     android: {
-      versionCode: 13,
+      versionCode: 16,
       package: "lu.barnx.duoelo",
       googleServicesFile:
         process.env.GOOGLE_SERVICES_JSON || "./google-services.json",

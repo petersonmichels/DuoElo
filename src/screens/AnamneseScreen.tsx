@@ -41,22 +41,45 @@ const SUPPORTED_LANGUAGES = [
   { code: "ja", flag: "🇯🇵" },
 ];
 
+export interface AnamnesisOption {
+  label: string;
+  score: number;
+  tag: string;
+  icon: string;
+  color: string;
+}
+
+export interface AnamnesisQuestion {
+  id: string;
+  title: string;
+  text: string;
+  options: AnamnesisOption[];
+}
+
+export interface SelectedAnswer {
+  questionId: string;
+  pillar: string;
+  score: number;
+  tag: string;
+  label: string;
+}
+
 export default function AnamneseScreen({ navigation, route }: any) {
   const [screenState, setScreenState] = useState<
     "intro" | "questions" | "calculating" | "result" | "locked"
   >("intro");
   const [currentIndex, setCurrentIndex] = useState(0);
 
-  const [questionsBank, setQuestionsBank] = useState<any[]>([]);
+  const [questionsBank, setQuestionsBank] = useState<AnamnesisQuestion[]>([]);
   const [isLoadingQuestions, setIsLoadingQuestions] = useState(true);
   const [isCheckingUser, setIsCheckingUser] = useState(true);
 
   const [currentUserData, setCurrentUserData] = useState<any>(null);
-  const [selectedAnswers, setSelectedAnswers] = useState<any[]>([]);
+  const [selectedAnswers, setSelectedAnswers] = useState<SelectedAnswer[]>([]);
 
   const [finalTemperature, setFinalTemperature] = useState(100);
   const [finalRisk, setFinalRisk] = useState(10);
-  const [priorityPillars, setPriorityPillars] = useState<any[]>([]);
+  const [priorityPillars, setPriorityPillars] = useState<{ name: string; health: number }[]>([]);
 
   const [isSaving, setIsSaving] = useState(false);
   const [isSkipping, setIsSkipping] = useState(false);
@@ -65,7 +88,7 @@ export default function AnamneseScreen({ navigation, route }: any) {
 
   const [userLang, setUserLang] = useState("pt-BR");
   const [loadingMsg, setLoadingMsg] = useState(
-    t("anamnesis_loading_start", userLang)
+    t("anamnesis_loading_start", userLang) || "Mapeando Diagnóstico..."
   );
 
   const [isLangModalVisible, setIsLangModalVisible] = useState(false);
@@ -118,11 +141,10 @@ export default function AnamneseScreen({ navigation, route }: any) {
   // 🎯 CARREGAMENTO DE PERGUNTAS COM TRAVA DE SEGURANÇA CONTRA OFFLINE
   const loadQuestionsFromFirebase = async (langToFetch: string) => {
     setIsLoadingQuestions(true);
-    
-    // Timeout de segurança para não travar a tela se o Firestore falhar
+
     const fallbackTimer = setTimeout(() => {
       setIsLoadingQuestions(false);
-    }, 3000);
+    }, 3500);
 
     try {
       let q = query(
@@ -139,18 +161,19 @@ export default function AnamneseScreen({ navigation, route }: any) {
         qSnap = await getDocs(q);
       }
 
-      const loadedQuestions: any[] = [];
+      const loadedQuestions: AnamnesisQuestion[] = [];
       qSnap.forEach((docSnap) => {
         const data = docSnap.data();
         loadedQuestions.push({
           id: data.question_id || docSnap.id,
           title:
             data.pillar ||
-            `${t("connection_axis", langToFetch)} ${data.module_id || 1}`,
+            `${t("connection_axis", langToFetch) || "Eixo de Conexão"} ${data.module_id || 1}`,
           text:
             data.translations?.[langToFetch] ||
             data.translations?.["pt-BR"] ||
-            t("question_not_found", langToFetch),
+            t("question_not_found", langToFetch) ||
+            "Pergunta não encontrada.",
           options: (data.options || []).map((opt: any, index: number) => {
             let defaultIcon = "smile-beam";
             let defaultColor = "#67D4A8";
@@ -175,7 +198,8 @@ export default function AnamneseScreen({ navigation, route }: any) {
                 opt.translations?.[langToFetch] ||
                 opt.translations?.["pt-BR"] ||
                 opt.label ||
-                t("option_default", langToFetch),
+                t("option_default", langToFetch) ||
+                "Opção de Resposta",
               score: Number(opt.points ?? opt.score ?? fallbackScore),
               tag: opt.tag || "sintonia_geral",
               icon: opt.icon || defaultIcon,
@@ -217,7 +241,6 @@ export default function AnamneseScreen({ navigation, route }: any) {
   useEffect(() => {
     let isMounted = true;
 
-    // Timeout de segurança para inicialização geral do usuário
     const safetyCheckTimer = setTimeout(() => {
       if (isMounted && isCheckingUser) {
         setIsCheckingUser(false);
@@ -443,7 +466,7 @@ export default function AnamneseScreen({ navigation, route }: any) {
     }
   };
 
-  const handleAnswer = (option: any) => {
+  const handleAnswer = (option: AnamnesisOption) => {
     if (isAnimating) return;
     setIsAnimating(true);
 
@@ -497,12 +520,11 @@ export default function AnamneseScreen({ navigation, route }: any) {
     });
   };
 
-  const startCalculation = (finalAnswers: any[]) => {
+  const startCalculation = (finalAnswers: SelectedAnswer[]) => {
     setScreenState("calculating");
     loadingProgress.setValue(0);
 
-    const pillarStats: Record<string, { sumHealth: number; count: number }> =
-      {};
+    const pillarStats: Record<string, { sumHealth: number; count: number }> = {};
     let totalSumHealth = 0;
     let validAnswersCount = 0;
 
@@ -510,12 +532,12 @@ export default function AnamneseScreen({ navigation, route }: any) {
       const q = questionsBank.find((qb) => qb.id === ans.questionId);
       if (!q) return;
 
-      const pillar = ans.pillar || t("default_pillar_name", userLang);
+      const pillar = ans.pillar || t("default_pillar_name", userLang) || "Sintonia Geral";
       if (!pillarStats[pillar]) {
         pillarStats[pillar] = { sumHealth: 0, count: 0 };
       }
 
-      const scores = q.options.map((o: any) => Number(o.score) || 0);
+      const scores = q.options.map((o) => Number(o.score) || 0);
       const qMin = Math.min(...scores);
       const qMax = Math.max(...scores);
 
@@ -556,7 +578,7 @@ export default function AnamneseScreen({ navigation, route }: any) {
     calculatedPillars.sort((a, b) => a.health - b.health);
     setPriorityPillars(calculatedPillars);
 
-    setLoadingMsg(t("loading_step_1", userLang));
+    setLoadingMsg(t("loading_step_1", userLang) || "Avaliando dinâmica da relação...");
     Animated.timing(loadingProgress, {
       toValue: 100,
       duration: 4000,
@@ -564,9 +586,9 @@ export default function AnamneseScreen({ navigation, route }: any) {
       useNativeDriver: false,
     }).start();
 
-    setTimeout(() => setLoadingMsg(t("loading_step_2", userLang)), 1200);
-    setTimeout(() => setLoadingMsg(t("loading_step_3", userLang)), 2200);
-    setTimeout(() => setLoadingMsg(t("loading_step_4", userLang)), 3200);
+    setTimeout(() => setLoadingMsg(t("loading_step_2", userLang) || "Processando pontos de ruído..."), 1200);
+    setTimeout(() => setLoadingMsg(t("loading_step_3", userLang) || "Mapeando pilares prioritários..."), 2200);
+    setTimeout(() => setLoadingMsg(t("loading_step_4", userLang) || "Calibrando tarefas personalizadas..."), 3200);
 
     setTimeout(() => {
       setScreenState("result");
@@ -598,12 +620,11 @@ export default function AnamneseScreen({ navigation, route }: any) {
       safeAnswers.forEach((ans) => {
         const q = questionsBank.find((qb) => qb.id === ans.questionId);
         if (q && ans.tag && ans.tag !== "sintonia_geral") {
-          const scores = q.options.map((o: any) => Number(o.score) || 0);
+          const scores = q.options.map((o) => Number(o.score) || 0);
           const qMin = Math.min(...scores);
           const qMax = Math.max(...scores);
           const firstOptScore = Number(q.options[0]?.score) || 0;
-          const lastOptScore =
-            Number(q.options[q.options.length - 1]?.score) || 0;
+          const lastOptScore = Number(q.options[q.options.length - 1]?.score) || 0;
           const isHighGood = firstOptScore > lastOptScore;
 
           const range = qMax - qMin;
@@ -631,7 +652,7 @@ export default function AnamneseScreen({ navigation, route }: any) {
         priorityModules:
           priorityModulesNames.length > 0
             ? priorityModulesNames
-            : [t("default_pillar_name", userLang)],
+            : [t("default_pillar_name", userLang) || "Sintonia Geral"],
         diagnosticTagsEncrypted: encryptedTags,
         anamnesisScoresEncrypted: encryptedScores,
         anamnesisCompletedAt: new Date().toISOString(),
@@ -943,7 +964,7 @@ export default function AnamneseScreen({ navigation, route }: any) {
             showsVerticalScrollIndicator={false}
           >
             <View style={styles.answersContainer}>
-              {question.options.map((opt: any, i: number) => {
+              {question.options.map((opt, i) => {
                 const isSelected =
                   currentAnswer && currentAnswer.label === opt.label;
 
@@ -1251,7 +1272,7 @@ export default function AnamneseScreen({ navigation, route }: any) {
                 }}
               >
                 <Text style={styles.bottomSheetButtonPrimaryText}>
-                  {customAlert.confirmText || t("btn_understand", userLang)}
+                  {customAlert.confirmText || t("btn_understand", userLang) || "Entendido"}
                 </Text>
               </TouchableOpacity>
 

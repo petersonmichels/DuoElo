@@ -3430,11 +3430,10 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     audit_gift_redeemed:
       "Bon échangé dans la boutique. Semaines: {{week}}, GiftID: {{giftId}}",
   },
-
-  de: {
+de: {
     welcome_title: "Willkommen bei DuoElo!",
     loading_journey_sub: "Ihre Beziehungsreise wird geladen...",
-    life_habits_section_title: "LEBEN SGEWOHNHEITEN",
+    life_habits_section_title: "LEBENSGEWOHNHEITEN",
     menu_configure_habits:
       "Tägliche und wöchentliche Gewohnheiten konfigurieren",
     menu_configure_habits_sub: "Passen Sie Ihre Ziele im VIDA-Feed an",
@@ -3538,7 +3537,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     week_theme_6: "Sprachen der Liebe",
     week_theme_7: "Finanzen zu zweit",
     week_theme_8: "Lebensprojekte",
-    week_theme_9: "Komprawoche & Lachen",
+    week_theme_9: "Komplizenschaft & Lachen",
     week_theme_10: "Vergebung & Neuanfang",
     week_theme_11: "Tiefe Verbindung",
     week_theme_12: "Dankbarkeitsritual",
@@ -4154,7 +4153,6 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
   ja: {
     welcome_title: "DuoEloへようこそ！",
     loading_journey_sub: "二人の絆の旅を読み込んでいます...",
-    // 🟢 VIDA & ATOMIC HABITS
     life_habits_section_title: "生活習慣",
     menu_configure_habits: "毎日の習慣と毎週の習慣を設定する",
     menu_configure_habits_sub: "VIDAフィードで目標をカスタマイズする",
@@ -4188,7 +4186,6 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     habit_gratitude_sub: "今日感謝していることを1つ共有する",
     confirm_delete_custom_habit_msg: "本当にこのカスタム習慣を削除しますか？",
 
-    // Password & Security
     pwd_req_header: "データとパートナーシップのセキュリティと機密性を維持するために必要です。\n\nパスワードの要件：",
     pwd_req_min_len: "• 8文字以上",
     pwd_req_upper: "• 大文字を1文字以上含む",
@@ -4200,7 +4197,6 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     weak_password_title: "弱いパスワード",
     weak_password_msg: "パスワードは、大文字、小文字、数字、特殊文字を含む8文字以上である必要があります。",
 
-    // 🔑 Security PIN
     checking_security_msg: "セキュリティを確認中...",
     pin_modal_title_unlock: "🔒 PINまたはFace ID",
     pin_modal_title_create: "🔑 セキュリティPINの作成",
@@ -4231,7 +4227,6 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     pin_btn_confirm: "PINを確認",
     pin_btn_create: "PINを登録",
 
-    // Visual Guides & Bottom Tabs
     tab_tasks: "VIDA",
     tab_match: "マッチ",
     tab_shop: "ショップ",
@@ -4241,7 +4236,6 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     guide_orange_label: "オレンジ色:",
     guide_orange_desc: "日中に二人で一緒に行うタスク。",
 
-    // Weekly Themes
     week_theme_1: "コミュニケーションと調和",
     week_theme_2: "情熱を再び灯す",
     week_theme_3: "対立の解決と管理",
@@ -4256,7 +4250,6 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     week_theme_12: "感謝の儀式",
     week_theme_13: "固い絆の誓い",
 
-    // General / Alerts
     btn_understand: "了解しました",
     btn_ok: "OK",
     modal_close: "閉じる",
@@ -4266,7 +4259,6 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     ops_title: "おっと！",
     warning_label: "⚠️ 注意:",
 
-    // Auth & Account
     invalid_username_format_msg: "ユーザー名には半角英数字とアンダーバー (_) のみ使用できます。",
     account_created_success_title: "アカウント作成成功！ 🎉",
     account_created_verify_email_msg: "確認リンクをメールで送信しました。ログイン前に受信トレイをご確認ください。",
@@ -4334,7 +4326,6 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     apple_login_error_title: "ログインエラー",
     apple_login_error_msg: "Appleログインを完了できませんでした。",
 
-    // 🔔 Push Notifications
     play_push_title: "▶️ はじめる時間です！",
     play_push_body: "{{name}} さんが再生を押して、今日のジャーニーを待っています！",
     lesson_completed_push_title: "✨ レッスン完了！",
@@ -4346,7 +4337,6 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     gift_confirmed_push_title: "受取が確認されました！ ❤️",
     gift_confirmed_push_body: "{{name}} さんが「{{gift}}」の受け取りを確認しました！",
 
-    // ShopScreen
     available_bonds: "利用可能なBONDS",
     partner_desires_title: "🎁 {{name}} さんの欲しいもの",
     partner_desires_sub: "{{name}} さんが受け取りたがっているギフトをプレゼントしましょう！",
@@ -4380,7 +4370,6 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     error_save: "ギフトを保存できませんでした。",
     error_register: "現在ギフトを登録できません。",
 
-    // AnamneseScreen
     anamnesis_loading_start: "診断の質問を読み込んでいます...",
     anamnesis_bonus_unlocked_title: "🎉 ボーナス解除！",
     anamnesis_bonus_unlocked_msg: "診断完了で +150 BONDS 獲得しました！ショップでご利用いただけます。",
@@ -4436,7 +4425,6 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     btn_unlock_my_journey: "ジャーニーを解除する",
     btn_postpone_rescue: "後でレスキューを開始する",
 
-    // MatchScreen
     partner_default_name: "パートナー",
     mysterious_user: "ミステリアスなユーザー",
     code_copied_title: "コードをコピーしました！ 📋",
@@ -4487,7 +4475,6 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     daily_reminder_push_title: "✨ DuoElo - 二人の時間！",
     daily_reminder_push_body: "今日のデイリーミッションが準備できました。",
 
-    // InvitePartnerScreen
     invite_whatsapp_message: "二人でDuoEloの90日間の旅を始めましょう！アプリをダウンロードしてコードを入力してね: *{{code}}* 👇\n\nhttps://duoelo.com/app",
     whatsapp_not_found_title: "WhatsAppが見つかりません",
     whatsapp_not_found_msg: "コードをコピーして直接送信してください！",
@@ -4510,7 +4497,6 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     btn_already_have_code: "すでにコードを持っています",
     welcome_duoelo_msg: "DuoEloへようこそ！",
 
-    // MissionExecutionScreen
     btn_complete_gold_label: "ゴールドチャレンジ完了",
     fallback_mission_concept: "時間とともに、会話が減ってしまうことがあります。目を見つめ合う時間を大切にしましょう。",
     fallback_mission_action: "今日はパートナーと向き合って手を握り、言葉を交わさず2分間お互いの目を見つめ合いましょう。",
@@ -4542,7 +4528,6 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     btn_do_real_life: "今すぐ現実で実践する 🚀",
     btn_already_did_register: "実践したので記録する ✓",
 
-    // HomeScreen
     welcome_loading_msg: "DuoEloへようこそ！読み込み中...",
     sub_required_completion_msg: "登録して90日目までのすべてのコースを解放しましょう。",
     solo_journey_generated_title: "ソロコース生成完了！ 🚀",
@@ -4627,7 +4612,6 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     reset_error_title: "リセットエラー",
     reset_error_msg: "接続を確認するか、再ログインしてください。",
 
-    // MissionRewardScreen
     daily_mission_completed_label: "デイリーミッション完了",
     streak_maintained_label: "連続達成記録維持中",
     cupid_awake_title: "キューピッドが目覚めました！ 🎉",
@@ -4638,7 +4622,6 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     day_counter_text: "第 {{day}} 日 / {{total}}",
     btn_continue_label: "次へ進む",
 
-    // PaywallScreen
     sub_error_title: "プラン利用不可",
     free_trial_3_days_badge: "3日間無料体験",
     btn_start_free_trial_cta: "3日間の無料体験を開始",
@@ -4701,7 +4684,6 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     period_annual_word: "年額",
     secure_payment_env: "100% 安全な決済環境",
 
-    // ProfileScreen
     verify_email_sent_title: "メール送信完了！ ✉️",
     verify_email_sent_msg: "確認リンクを送信しました。メールをご確認ください。",
     wait_title: "お待ちください",

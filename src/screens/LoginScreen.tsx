@@ -213,7 +213,6 @@ export default function LoginScreen({ navigation }: any) {
     setIsLoading(true);
     try {
       await sendPasswordResetEmail(auth, cleanEmail);
-      setIsLoading(false);
       showCustomAlert(
         t("forgot_pwd_success_title", userLang) || "E-mail Enviado!",
         t("forgot_pwd_success_msg", userLang, { email: cleanEmail }) || `Instruções enviadas para ${cleanEmail}`,
@@ -221,7 +220,6 @@ export default function LoginScreen({ navigation }: any) {
         "#67D4A8"
       );
     } catch (error: any) {
-      setIsLoading(false);
       let errorMsg = t("forgot_pwd_error_default", userLang) || "Não foi possível enviar o e-mail de redefinição.";
       if (
         error?.code === "auth/user-not-found" ||
@@ -238,6 +236,8 @@ export default function LoginScreen({ navigation }: any) {
         "times-circle",
         "#D96C6C"
       );
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -589,7 +589,6 @@ export default function LoginScreen({ navigation }: any) {
 
       const userRef = doc(db, "users", user.uid);
 
-      // 🛡️ TRATAMENTO DE ERRO DE CONEXÃO DO FIRESTORE
       try {
         const userSnap = await getDoc(userRef);
 
@@ -992,24 +991,31 @@ export default function LoginScreen({ navigation }: any) {
               <View style={styles.dividerLine} />
             </View>
 
-            <View style={styles.socialIconsWrapper}>
+            {/* 🍏 BOTÕES DE LOGIN SOCIAL COMPATÍVEIS COM HIG (APPLE & GOOGLE) */}
+            <View style={styles.socialButtonsContainer}>
               <TouchableOpacity
+                style={styles.googleBtn}
                 onPress={() => handleSocialLogin("Google")}
                 disabled={isLoading}
-                style={isLoading ? { opacity: 0.5 } : {}}
-                hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                activeOpacity={0.8}
               >
-                <FontAwesome5 name="google" size={32} color="#EA4335" />
+                <FontAwesome5 name="google" size={18} color="#EA4335" />
+                <Text style={styles.googleBtnText}>Google</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
-                onPress={() => handleSocialLogin("Apple")}
-                disabled={isLoading}
-                style={isLoading ? { opacity: 0.5 } : {}}
-                hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-              >
-                <FontAwesome5 name="apple" size={36} color="#202D3A" />
-              </TouchableOpacity>
+              {Platform.OS === "ios" && (
+                <AppleAuthentication.AppleAuthenticationButton
+                  buttonType={
+                    AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN
+                  }
+                  buttonStyle={
+                    AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
+                  }
+                  cornerRadius={12}
+                  style={styles.appleBtn}
+                  onPress={() => handleSocialLogin("Apple")}
+                />
+              )}
             </View>
 
             <View style={styles.toggleContainer}>
@@ -1336,13 +1342,39 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: "Montserrat_600SemiBold",
   },
-  socialIconsWrapper: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 40,
+
+  /* 🍏 BOTÕES DE LOGIN SOCIAL COMPATÍVEIS COM HIG (APPLE & GOOGLE) */
+  socialButtonsContainer: {
+    width: "100%",
+    gap: 12,
     marginBottom: 25,
   },
+  googleBtn: {
+    flexDirection: "row",
+    height: 48,
+    backgroundColor: "#FFF",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#D1D9E0",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  googleBtnText: {
+    fontSize: 16,
+    color: "#202D3A",
+    fontFamily: "Montserrat_600SemiBold",
+  },
+  appleBtn: {
+    width: "100%",
+    height: 48,
+  },
+
   toggleContainer: {
     flexDirection: "row",
     justifyContent: "center",

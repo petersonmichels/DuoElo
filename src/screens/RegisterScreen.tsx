@@ -12,7 +12,7 @@ import {
   setDoc,
   where,
 } from "firebase/firestore";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -39,7 +39,25 @@ export default function RegisterScreen({ navigation }: any) {
   const [isLoading, setIsLoading] = useState(false);
 
   // Idioma do usuário (padrão pt-BR)
-  const userLang = "pt-BR";
+  const [userLang, setUserLang] = useState("pt-BR");
+
+  useEffect(() => {
+    const currentUid = auth.currentUser?.uid;
+    if (currentUid) {
+      const fetchLang = async () => {
+        try {
+          const userSnap = await getDocs(
+            query(collection(db, "users"), where("uid", "==", currentUid))
+          );
+          if (!userSnap.empty) {
+            const data = userSnap.docs[0].data();
+            if (data.language) setUserLang(data.language);
+          }
+        } catch (e) {}
+      };
+      fetchLang();
+    }
+  }, []);
 
   // ESTADO DE ALERTAS PERSONALIZADOS
   const [customAlert, setCustomAlert] = useState({

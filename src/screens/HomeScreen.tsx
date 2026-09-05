@@ -127,7 +127,6 @@ const WEEKLY_PROGRESSION_ICONS = [
   "gift",
 ];
 
-// 📝 TEMAS DE CADA SEMANA EXIBIDOS NO BANNER SUPERIOR
 const DEFAULT_WEEK_THEMES: { [key: number]: string } = {
   1: "Comunicação & Sintonia",
   2: "Reacendendo a Chama",
@@ -385,7 +384,7 @@ export default function HomeScreen({ navigation }: any) {
   const currentStep = nextAvailableStep;
   const isJourneyFinished = currentStep >= totalStepsInModule;
 
-  // 🛡️ TRAVA DE SEGURANÇA CONTRA CONGELAMENTO DE CARREGAMENTO
+  // 🛡️ TRAVA DE SEGURANÇA CONTRA CONGELAMENTO E ERRO DE CONEXÃO
   useEffect(() => {
     let isMounted = true;
     const timer = setTimeout(() => {
@@ -414,7 +413,7 @@ export default function HomeScreen({ navigation }: any) {
         setHasUnreadNotifications(!snapshot.empty);
       },
       (err) => {
-        console.log("[HomeScreen] Listener de notificações encerrado:", err);
+        // Ignora erros de desconexão e mantém cache
       }
     );
 
@@ -482,10 +481,10 @@ export default function HomeScreen({ navigation }: any) {
         }
       });
 
+      // Listener com fallback offline seguro
       unsubscribeUser = onSnapshot(
         doc(db, "users", currentUid),
         (docSnap) => {
-          if (!auth.currentUser) return;
           if (docSnap.exists()) {
             const data = docSnap.data();
             setUserData(data);
@@ -498,9 +497,7 @@ export default function HomeScreen({ navigation }: any) {
         },
         (error) => {
           setLoading(false);
-          if (error.code === "permission-denied") {
-            console.log("[HomeScreen] Listener de usuário encerrado.");
-          }
+          // Modo offline - carrega normalmente usando o estado local já populado
         }
       );
     }, 50);
@@ -533,13 +530,10 @@ export default function HomeScreen({ navigation }: any) {
       unsubscribePartner = onSnapshot(
         doc(db, "users", userData.partnerId),
         (docSnap) => {
-          if (!auth.currentUser) return;
           if (docSnap.exists()) setPartnerData(docSnap.data());
         },
         (error) => {
-          if (error.code === "permission-denied") {
-            console.log("[HomeScreen] Listener de parceiro encerrado.");
-          }
+          // Ignora erros de rede e lê do cache
         }
       );
     }, 50);
@@ -2027,8 +2021,8 @@ export default function HomeScreen({ navigation }: any) {
                     );
                   } else {
                     showCustomAlert(
-                      "Jornada em Andamento",
-                      "Continue realizando as tarefas diárias para desbloquear a conquista do Dia 90!",
+                      t("journey_in_progress_title", userLang) || "Jornada em Andamento",
+                      t("journey_in_progress_msg", userLang) || "Continue realizando as tarefas diárias para desbloquear a conquista do Dia 90!",
                       "lock",
                       "#202D3A"
                     );

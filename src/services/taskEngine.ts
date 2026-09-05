@@ -11,11 +11,11 @@ import { t } from "../i18n/translations";
 
 export type MultiLanguageText = {
   pt: string;
-  en: string;
-  es: string;
-  fr: string;
-  de: string;
-  ja: string;
+  en?: string;
+  es?: string;
+  fr?: string;
+  de?: string;
+  ja?: string;
 };
 
 export interface MissionTask {
@@ -43,7 +43,7 @@ function getLocalDateString(date: Date): string {
  * Normaliza um campo de texto bruto ou objeto para a interface MultiLanguageText.
  */
 function resolveMultiLangText(
-  raw: any,
+  raw: unknown,
   fallbackText: string = "",
   userLang: string = "pt-BR"
 ): MultiLanguageText {
@@ -61,14 +61,15 @@ function resolveMultiLangText(
   }
 
   if (typeof raw === "object" && raw !== null) {
-    const ptText = raw["pt-BR"] || raw["pt"] || defaultFallback;
+    const rawObj = raw as Record<string, string>;
+    const ptText = rawObj["pt-BR"] || rawObj["pt"] || defaultFallback;
     return {
       pt: ptText,
-      en: raw["en"] || ptText,
-      es: raw["es"] || ptText,
-      fr: raw["fr"] || ptText,
-      de: raw["de"] || ptText,
-      ja: raw["ja"] || ptText,
+      en: rawObj["en"] || ptText,
+      es: rawObj["es"] || ptText,
+      fr: rawObj["fr"] || ptText,
+      de: rawObj["de"] || ptText,
+      ja: rawObj["ja"] || ptText,
     };
   }
 
@@ -123,7 +124,7 @@ export async function getDailySniperTask(
     for (const moduleId of priorityModules) {
       const tasksRef = collection(db, "tasks");
 
-      // Consulta flexível aceitando 'phase' ou 'day'
+      // 1. Consulta por 'moduleId' e 'phase'
       let q = query(
         tasksRef,
         where("moduleId", "==", moduleId),
@@ -132,6 +133,7 @@ export async function getDailySniperTask(
 
       let querySnapshot = await getDocs(q);
 
+      // 2. Consulta por 'moduleId' e 'day'
       if (querySnapshot.empty) {
         q = query(
           tasksRef,
@@ -141,13 +143,19 @@ export async function getDailySniperTask(
         querySnapshot = await getDocs(q);
       }
 
-      // Fallback para campo module_id com sublinhado
+      // 3. Consulta por 'module_id' (snake_case)
       if (querySnapshot.empty) {
         q = query(
           tasksRef,
           where("module_id", "==", moduleId),
           where("day", "==", currentPhase)
         );
+        querySnapshot = await getDocs(q);
+      }
+
+      // 4. Fallback: Consulta apenas por 'moduleId' sem restrição de fase
+      if (querySnapshot.empty) {
+        q = query(tasksRef, where("moduleId", "==", moduleId));
         querySnapshot = await getDocs(q);
       }
 
@@ -186,8 +194,9 @@ export async function getDailySniperTask(
 
     console.log("🎯 [SNIPER] Fase concluída para os módulos prioritários!");
     return null;
-  } catch (error: any) {
-    if (error?.code === "permission-denied") {
+  } catch (error: unknown) {
+    const err = error as { code?: string };
+    if (err?.code === "permission-denied") {
       console.log("[SNIPER_SERVICE] Permissão expirada ou sessão encerrada.");
       return null;
     }

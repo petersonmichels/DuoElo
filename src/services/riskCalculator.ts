@@ -46,7 +46,9 @@ export function calculateThermometer(
 
   if (answers && Array.isArray(answers)) {
     answers.forEach((answer) => {
-      const points = Number(answer.points) || 0;
+      // Sanitização defensiva para garantir intervalo numérico válido (1 a 10)
+      const rawPoints = Number(answer.points) || 1;
+      const points = Math.max(1, Math.min(10, rawPoints));
       const weight = MODULE_WEIGHTS[answer.moduleId] || 1.0;
       const moduleRisk = points * weight;
 
@@ -56,6 +58,13 @@ export function calculateThermometer(
       if (points >= 8 && !criticalModules.includes(answer.moduleId)) {
         criticalModules.push(answer.moduleId);
       }
+    });
+
+    // Ordena módulos críticos priorizando os de maior peso clínico
+    criticalModules.sort((a, b) => {
+      const weightA = MODULE_WEIGHTS[a] || 1.0;
+      const weightB = MODULE_WEIGHTS[b] || 1.0;
+      return weightB - weightA;
     });
   }
 

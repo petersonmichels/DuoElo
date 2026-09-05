@@ -2,6 +2,7 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // 🔒 FUNÇÕES AUXILIARES DE SEGURANÇA
     function isAuthenticated() {
       return request.auth != null;
     }
@@ -10,23 +11,50 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // 🔒 Permite alterar outro usuário APENAS nos campos necessários do Match
+    // 🔒 PERMITE QUE O PARCEIRO ATIVE O STATUS PREMIUM DO OUTRO NO PLANO DUO
+    function isPartnerUpdatingPremium() {
+      let data = request.resource.data;
+      let affected = data.diff(resource.data).affectedKeys();
+      
+      return isAuthenticated()
+        && resource.data.partnerId == request.auth.uid
+        && affected.hasOnly(['isPremium', 'isPartnerPremium', 'planType'])
+        && (data.isPremium is bool)
+        && (data.isPartnerPremium is bool)
+        && (data.planType is string);
+    }
+
+    // 🔒 VALIDAÇÃO ESTRITA DE TIPOS E CAMPOS PERMITIDOS NO MATCH DE CASAIS
     function isUpdatingMatchData() {
-      return isAuthenticated() && 
-        request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['pendingMatchRequest', 'sentMatchRequestTo', 'partnerId', 'isSoloMode', 'matchStatus']);
+      let data = request.resource.data;
+      let affected = data.diff(resource.data).affectedKeys();
+      
+      return isAuthenticated()
+        // 1. Restringe a alteração APENAS às chaves do fluxo de Match
+        && affected.hasOnly(['pendingMatchRequest', 'sentMatchRequestTo', 'partnerId', 'isSoloMode', 'matchStatus'])
+        
+        // 2. Validação estrita dos tipos de dados enviados
+        && (data.matchStatus in ['pending', 'accepted', 'declined', 'none'])
+        && (data.partnerId is string || data.partnerId == null)
+        && (data.sentMatchRequestTo is string || data.sentMatchRequestTo == null)
+        && (data.pendingMatchRequest is string || data.pendingMatchRequest == null)
+        && (data.isSoloMode is bool);
     }
 
     // 👤 PERFIL DO USUÁRIO & SUBCOLEÇÕES PRIVADAS
     match /users/{userId} {
       allow read: if isAuthenticated();
       allow create, delete: if isOwner(userId);
-      // Permite alterar se for o próprio dono OU se for uma solicitação/aceite de Match
-      allow update: if isOwner(userId) || isUpdatingMatchData();
+      // Permite alterar se for o próprio dono, se for convite/aceite de match, ou se for o parceiro ativando o Plano Duo
+      allow update: if isOwner(userId) || isUpdatingMatchData() || isPartnerUpdatingPremium();
 
-      // 🔔 SUBCOLEÇÃO DE NOTIFICAÇÕES (Permite que parceiros gravem notificações de Match)
+      // 🔔 SUBCOLEÇÃO DE NOTIFICAÇÕES (Dono lê/apaga; parceiros criam)
       match /notifications/{notificationId} {
-        allow read, write: if isAuthenticated();
+        allow read, delete: if isOwner(userId);
+        allow create: if isAuthenticated() 
+          && request.resource.data.title is string 
+          && request.resource.data.body is string;
+        allow update: if false;
       }
 
       // 🎁 SUBCOLEÇÕES DA LOJA
@@ -35,13 +63,24 @@ service cloud.firestore {
         allow write: if isOwner(userId);
       }
 
-      // 📔 SUBCOLEÇÃO DE DIÁRIOS
+      // 📔 SUBCOLEÇÃO DE DIÁRIOS (100% Privado)
       match /journals/{journalId} {
         allow read, write: if isOwner(userId);
       }
     }
 
-    // 📚 CONTEÚDOS PÚBLICOS E ANAMNESE (Somente Leitura)
+    // 💑 CASAIS E JORNADA SINCRONIZADA (Isolamento por Membros do Casal)
+    match /couples/{coupleId} {
+      allow read, update: if isAuthenticated() && (request.auth.uid in resource.data.partners);
+      allow create: if isAuthenticated();
+    }
+
+    match /couples/{coupleId}/{allSubcollections=**} {
+      allow read, write: if isAuthenticated() && 
+        (request.auth.uid in get(/databases/$(database)/documents/couples/$(coupleId)).data.partners);
+    }
+
+    // 📚 CONTEÚDOS PÚBLICOS E ANAMNESE (Somente Leitura para Usuários)
     match /courses/{document=**} {
       allow read: if isAuthenticated();
       allow write: if false;
@@ -77,7 +116,7 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // 🛡️ COLEÇÃO DE AUDITORIA (AUDIT_LOGS - Gravação Imutável)
+    // 🛡️ COLEÇÃO DE AUDITORIA (AUDIT_LOGS - Permitir escrita logada ou apenas Admin)
     match /audit_logs/{logId} {
       allow create: if isAuthenticated();
       allow read, update, delete: if false;

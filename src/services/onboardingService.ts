@@ -1,5 +1,10 @@
-import { doc, serverTimestamp, setDoc } from "firebase/firestore";
+import {
+  doc,
+  serverTimestamp,
+  setDoc,
+} from "firebase/firestore";
 import { db } from "../config/firebase";
+import { t } from "../i18n/translations";
 import { logAuditEvent } from "./auditService";
 import {
   AnamnesisAnswer,
@@ -27,7 +32,9 @@ export async function processUserOnboarding(
   userLang: string = "pt-BR"
 ): Promise<OnboardingProcessResult> {
   if (!userId) {
-    throw new Error("ID do usuário é obrigatório para processar o onboarding.");
+    throw new Error(
+      t("error_user_id_required", userLang) || "ID do usuário é obrigatório para processar o onboarding."
+    );
   }
 
   const userRef = doc(db, "users", userId);
@@ -53,7 +60,14 @@ export async function processUserOnboarding(
 
   try {
     // Converte diagnosisResult para objeto JS puro antes do envio ao Firestore
-    const rawDiagnosis = diagnosisResult ? JSON.parse(JSON.stringify(diagnosisResult)) : null;
+    let rawDiagnosis = null;
+    if (diagnosisResult) {
+      try {
+        rawDiagnosis = JSON.parse(JSON.stringify(diagnosisResult));
+      } catch (e) {
+        rawDiagnosis = null;
+      }
+    }
 
     // Gravação segura no Firestore usando merge: true
     await setDoc(
@@ -89,12 +103,15 @@ export async function processUserOnboarding(
       courseId: "curso_duoelo",
       priorityModules,
     };
-  } catch (error: any) {
-    if (error?.code === "permission-denied") {
+  } catch (error: unknown) {
+    const err = error as { code?: string };
+    if (err?.code === "permission-denied") {
       console.log("[ONBOARDING_SERVICE] Permissão encerrada durante a gravação.");
     } else {
       console.error("[ONBOARDING_ERROR] Erro ao finalizar onboarding:", error);
     }
-    throw new Error("Não foi possível salvar a matrícula do usuário.");
+    throw new Error(
+      t("error_save_onboarding", userLang) || "Não foi possível salvar a matrícula do usuário."
+    );
   }
 }

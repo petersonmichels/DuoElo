@@ -3,7 +3,7 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { doc, onSnapshot } from "firebase/firestore";
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -47,6 +47,9 @@ const PulsingVidaIcon = ({ color, uid }: { color: string; uid: string | undefine
     if (!uid || !auth.currentUser) return;
     const todayStr = new Date().toISOString().split("T")[0];
 
+    let unSubRedemptions: (() => void) | null = null;
+    let unSubDesires: (() => void) | null = null;
+
     const unsubscribeUser = onSnapshot(
       doc(db, "users", uid),
       (snap) => {
@@ -80,7 +83,11 @@ const PulsingVidaIcon = ({ color, uid }: { color: string; uid: string | undefine
             data.habitsCompletedDate !== todayStr ||
             (data.completedHabitsToday || []).length === 0;
 
-          const unSubRedemptions = onSnapshot(
+          // Limpa subscrições anteriores se existirem antes de criar novas
+          if (unSubRedemptions) unSubRedemptions();
+          if (unSubDesires) unSubDesires();
+
+          unSubRedemptions = onSnapshot(
             doc(db, "users", uid, "shop", "redemptions"),
             (redemptionSnap) => {
               if (!auth.currentUser) return;
@@ -89,7 +96,7 @@ const PulsingVidaIcon = ({ color, uid }: { color: string; uid: string | undefine
                 ([_, value]: [string, any]) => value?.status === "bought"
               );
 
-              const unSubDesires = onSnapshot(
+              unSubDesires = onSnapshot(
                 doc(db, "users", uid, "shop", "desires"),
                 (desiresSnap) => {
                   if (!auth.currentUser) return;
@@ -114,16 +121,12 @@ const PulsingVidaIcon = ({ color, uid }: { color: string; uid: string | undefine
                     console.log("[AppNavigator] Listener de desejos encerrado.");
                 }
               );
-
-              return () => unSubDesires();
             },
             (err) => {
               if (err.code === "permission-denied")
                 console.log("[AppNavigator] Listener de compras encerrado.");
             }
           );
-
-          return () => unSubRedemptions();
         }
       },
       (err) => {
@@ -132,7 +135,11 @@ const PulsingVidaIcon = ({ color, uid }: { color: string; uid: string | undefine
       }
     );
 
-    return () => unsubscribeUser();
+    return () => {
+      if (unSubDesires) unSubDesires();
+      if (unSubRedemptions) unSubRedemptions();
+      unsubscribeUser();
+    };
   }, [uid]);
 
   useEffect(() => {

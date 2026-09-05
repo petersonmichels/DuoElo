@@ -1,7 +1,7 @@
 {
   "cli": {
     "version": ">= 21.7.0",
-    "appVersionSource": "remote"
+    "appVersionSource": "local"
   },
   "build": {
     "development": {
@@ -30,9 +30,11 @@
       }
     },
     "production": {
-      "autoIncrement": true,
       "distribution": "store",
       "node": "22.13.0",
+      "ios": {
+        "image": "latest"
+      },
       "env": {
         "EXPO_PUBLIC_APP_ENV": "production",
         "SENTRY_DISABLE_AUTO_UPLOAD": "true",

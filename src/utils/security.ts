@@ -36,7 +36,7 @@ function encodeBase64(input: string): string {
 }
 
 function decodeBase64(input: string): string {
-  let str = input.replace(/=+$/, "");
+  let str = input.replace(/[\s\r\n]+/g, "").replace(/=+$/, "");
   let output = "";
   for (
     let bc = 0, bs = 0, buffer, i = 0;
@@ -68,9 +68,13 @@ export async function setMasterPassword(password: string, userUid?: string): Pro
   } else {
     const SecureStore = getSecureStore();
     if (SecureStore) {
-      await SecureStore.setItemAsync(aliasKey, hashedPassword, {
-        keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
-      });
+      try {
+        await SecureStore.setItemAsync(aliasKey, hashedPassword, {
+          keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY || 0,
+        });
+      } catch (e) {
+        await AsyncStorage.setItem(aliasKey, hashedPassword);
+      }
     } else {
       await AsyncStorage.setItem(aliasKey, hashedPassword);
     }
@@ -99,9 +103,21 @@ export async function verifyMasterPassword(password: string, userUid?: string): 
   } else {
     const SecureStore = getSecureStore();
     if (SecureStore) {
-      savedHash = await SecureStore.getItemAsync(aliasKey);
-      if (!savedHash && userUid) savedHash = await SecureStore.getItemAsync(MASTER_KEY_ALIAS);
-    } else {
+      try {
+        savedHash = await SecureStore.getItemAsync(aliasKey);
+      } catch (e) {
+        savedHash = null;
+      }
+      if (!savedHash && userUid) {
+        try {
+          savedHash = await SecureStore.getItemAsync(MASTER_KEY_ALIAS);
+        } catch (e) {
+          savedHash = null;
+        }
+      }
+    }
+    
+    if (!savedHash) {
       savedHash = await AsyncStorage.getItem(aliasKey);
       if (!savedHash && userUid) savedHash = await AsyncStorage.getItem(MASTER_KEY_ALIAS);
     }
@@ -112,7 +128,7 @@ export async function verifyMasterPassword(password: string, userUid?: string): 
 }
 
 /**
- * 🔐 Criptografia SHA-256 + Stream XOR para reflexões do diário (Suporta Emojis e UTF-8)
+ * 🔐 Criptografia SHA-256 + Stream XOR para reflexões do diário (Suporta Emojis e UTF-8 nativo)
  */
 export async function encryptText(
   text: string,
@@ -127,12 +143,10 @@ export async function encryptText(
       secretKey + "_duoelo_e2ee"
     );
 
-    let utf8Text = text;
-    try {
-      utf8Text = unescape(encodeURIComponent(text));
-    } catch (e) {
-      utf8Text = text;
-    }
+    // Converte a string UTF-8 para uma sequência segura de percent-encoding (suporta emojis de 4 bytes)
+    const utf8Text = encodeURIComponent(text).replace(/%([0-9A-F]{2})/g, (_, p1) =>
+      String.fromCharCode(parseInt(p1, 16))
+    );
 
     let encrypted = "";
     for (let i = 0; i < utf8Text.length; i++) {
@@ -182,20 +196,26 @@ export async function decryptText(
       secretKey + "_duoelo_e2ee"
     );
 
-    let decrypted = "";
+    let decryptedRaw = "";
     for (let i = 0; i < rawEncrypted.length; i++) {
       const charCode = rawEncrypted.charCodeAt(i);
       const keyChar = keyHash.charCodeAt(i % keyHash.length);
-      decrypted += String.fromCharCode(charCode ^ keyChar);
+      decryptedRaw += String.fromCharCode(charCode ^ keyChar);
     }
 
     try {
-      const cleanText = decodeURIComponent(escape(decrypted));
+      // Reconstitui a string UTF-8 original tratando percent-encoding e emojis corretamente
+      const percentEncoded = decryptedRaw
+        .split("")
+        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+        .join("");
+
+      const cleanText = decodeURIComponent(percentEncoded);
       const result = cleanText.replace(/[\u0000-\u001F\u007F-\u009F\uFFFD]/g, "").trim();
       if (result && result.length > 0) return result;
     } catch (e) {}
 
-    const fallbackClean = rawEncrypted.replace(/[\u0000-\u001F\u007F-\u009F\uFFFD]/g, "").trim();
+    const fallbackClean = decryptedRaw.replace(/[\u0000-\u001F\u007F-\u009F\uFFFD]/g, "").trim();
     if (fallbackClean && fallbackClean.length > 0) {
       return fallbackClean;
     }

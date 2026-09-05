@@ -1,6 +1,6 @@
 {
   "name": "duoelo",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "main": "expo/AppEntry.js",
   "private": true,
   "scripts": {
@@ -11,8 +11,8 @@
     "lint": "expo lint",
     "doctor": "npx expo-doctor",
     "check-build": "npx expo-doctor && npx expo prebuild --clean",
-    "build:ios": "npm run check-build && git add . && (git commit -m 'build: versao ios validada' || true) && git push origin main && eas build --platform ios --profile production",
-    "build:android": "npm run check-build && git add . && (git commit -m 'build: versao android validada' || true) && git push origin main && eas build --platform android --profile production"
+    "build:ios": "npm run check-build && git add . && (git commit -m 'build: versao 1.0.2 ios validada' || true) && git push origin main && eas build --platform ios --auto-submit",
+    "build:android": "npm run check-build && git add . && (git commit -m 'build: versao 1.0.2 android validada' || true) && git push origin main && eas build --platform android --auto-submit"
   },
   "dependencies": {
     "@expo-google-fonts/montserrat": "^0.4.2",
@@ -25,7 +25,6 @@
     "@react-navigation/native": "^7.3.18",
     "@react-navigation/native-stack": "^7.18.10",
     "dotenv": "^17.4.2",
-    "eslint-config-expo": "~57.0.2",
     "expo": "~57.0.18",
     "expo-apple-authentication": "~57.0.1",
     "expo-auth-session": "~57.0.10",

@@ -64,9 +64,9 @@ export async function logAuditEvent(
     };
 
     await setDoc(auditRef, payload);
-  } catch (error: any) {
-    // Trata graciosamente caso a permissão expire durante o logout/exclusão da conta
-    if (error?.code === "permission-denied") {
+  } catch (error: unknown) {
+    const err = error as { code?: string };
+    if (err?.code === "permission-denied") {
       console.log("[AUDIT_SERVICE] Registro de auditoria ignorado (sessão em encerramento).");
     } else {
       console.warn("[AUDIT_SERVICE_WARNING] Falha ao registrar log de auditoria:", error);

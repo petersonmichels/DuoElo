@@ -80,7 +80,7 @@ function encodeBase64(input: string): string {
 }
 
 function decodeBase64(input: string): string {
-  let str = input.replace(/=+$/, "");
+  let str = input.replace(/[\s\r\n]+/g, "").replace(/=+$/, "");
   let output = "";
   for (
     let bc = 0, bs = 0, buffer: any, i = 0;
@@ -196,7 +196,7 @@ export async function verifySecurityPin(pin: string): Promise<boolean> {
   }
 }
 
-// 🛑 CORREÇÃO CRÍTICA NA AUTENTICAÇÃO BIOMÉTRICA
+// 🛑 AUTENTICAÇÃO BIOMÉTRICA SEGURA
 export async function authenticateWithBiometrics(
   userLang = "pt-BR"
 ): Promise<boolean> {
@@ -252,9 +252,14 @@ export async function encryptText(
       uid + "duoelo_secret_salt"
     );
 
+    // Suporte nativo a Emojis e UTF-8
+    const utf8Text = encodeURIComponent(text).replace(/%([0-9A-F]{2})/g, (_, p1) =>
+      String.fromCharCode(parseInt(p1, 16))
+    );
+
     let encrypted = "";
-    for (let i = 0; i < text.length; i++) {
-      const charCode = text.charCodeAt(i);
+    for (let i = 0; i < utf8Text.length; i++) {
+      const charCode = utf8Text.charCodeAt(i);
       const keyChar = keyHash.charCodeAt(i % keyHash.length);
       encrypted += String.fromCharCode(charCode ^ keyChar);
     }
@@ -289,16 +294,27 @@ export async function decryptText(
       Crypto.CryptoDigestAlgorithm.SHA256,
       uid + "duoelo_secret_salt"
     );
-    let decrypted = "";
+    let decryptedRaw = "";
 
     for (let i = 0; i < rawEncrypted.length; i++) {
       const charCode = rawEncrypted.charCodeAt(i);
       const keyChar = keyHash.charCodeAt(i % keyHash.length);
-      decrypted += String.fromCharCode(charCode ^ keyChar);
+      decryptedRaw += String.fromCharCode(charCode ^ keyChar);
     }
 
-    const cleanResult = decrypted.replace(/[\u0000-\u001F\u007F-\u009F\uFFFD]/g, "").trim();
-    if (cleanResult && cleanResult.length > 0) return cleanResult;
+    try {
+      const percentEncoded = decryptedRaw
+        .split("")
+        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+        .join("");
+
+      const cleanText = decodeURIComponent(percentEncoded);
+      const result = cleanText.replace(/[\u0000-\u001F\u007F-\u009F\uFFFD]/g, "").trim();
+      if (result && result.length > 0) return result;
+    } catch (e) {}
+
+    const fallbackClean = decryptedRaw.replace(/[\u0000-\u001F\u007F-\u009F\uFFFD]/g, "").trim();
+    if (fallbackClean && fallbackClean.length > 0) return fallbackClean;
   } catch (e) {}
 
   return t("decryption_failed_warn", userLang) || "⚠️ Falha ao descriptografar.";

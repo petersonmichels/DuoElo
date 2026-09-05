@@ -1,8 +1,10 @@
 const { getDefaultConfig } = require('@expo/metro-config');
 
-const defaultConfig = getDefaultConfig(__dirname);
+const config = getDefaultConfig(__dirname);
 
-// Permite que o Metro resolva arquivos .cjs usados pelo SDK do Firebase v10+
-defaultConfig.resolver.sourceExts.push('cjs');
+// Garante a resolução de arquivos .cjs (Firebase v10+) sem duplicar extensões
+config.resolver.sourceExts = Array.from(
+  new Set([...config.resolver.sourceExts, 'cjs'])
+);
 
-module.exports = defaultConfig;
+module.exports = config;

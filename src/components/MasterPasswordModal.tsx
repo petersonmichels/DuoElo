@@ -222,7 +222,7 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
         setIsLoading(false);
         onSuccess(pinInput);
       }
-    } catch (error) {
+    } catch (error: unknown) {
       setIsLoading(false);
       setErrorMessage(
         t("pin_process_error_msg", userLanguage) ||

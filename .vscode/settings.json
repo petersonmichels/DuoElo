@@ -3,8 +3,11 @@
     "source.fixAll.eslint": "explicit",
     "source.organizeImports": "explicit"
   },
+  "js/ts.validate.enabled": true,
+  "js/ts.tsc.autoDetect": "off",
   "search.exclude": {
     "**/node_modules": true,
+    "**/functions/node_modules": true,
     "**/lib": true,
     "**/.expo": true,
     "**/android": true,
@@ -17,6 +20,7 @@
   },
   "files.watcherExclude": {
     "**/node_modules/**": true,
+    "**/functions/node_modules/**": true,
     "**/lib/**": true,
     "**/.expo/**": true
   }

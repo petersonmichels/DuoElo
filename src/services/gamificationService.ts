@@ -79,7 +79,7 @@ export async function completeDailyTask(
       currentStreak = 1;
     }
 
-    const earnedCoins = pointsPE || 10; // Valor de Bonds concedidos por tarefa
+    const earnedCoins = Math.max(0, pointsPE || 10); // Valor de Bonds concedidos por tarefa
 
     // --- ATUALIZAÇÃO BLINDADA NO FIREBASE ---
     await updateDoc(userRef, {
@@ -102,8 +102,9 @@ export async function completeDailyTask(
       newStreak: currentStreak,
       earnedCoins: earnedCoins,
     };
-  } catch (error: any) {
-    if (error?.code === "permission-denied") {
+  } catch (error: unknown) {
+    const err = error as { code?: string };
+    if (err?.code === "permission-denied") {
       console.log("[GAMIFICATION_SERVICE] Permissão expirada ou sessão encerrada.");
       return {
         success: false,

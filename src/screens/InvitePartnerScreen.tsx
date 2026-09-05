@@ -23,7 +23,7 @@ export default function InvitePartnerScreen({ navigation }: any) {
   const [connectionStep, setConnectionStep] = useState(0);
 
   // Estado do código gerado dinamicamente
-  const [myInviteCode, setMyInviteCode] = useState("CARREGANDO...");
+  const [myInviteCode, setMyInviteCode] = useState("DUE-000");
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
 
   // Animação de pulsação para o estado "Aguardando"
@@ -48,10 +48,10 @@ export default function InvitePartnerScreen({ navigation }: any) {
     setDoc(
       doc(db, "users", currentUid),
       { myInviteCode: code },
-      { merge: true },
+      { merge: true }
     ).catch(() => {});
 
-    // Escutador em tempo real: desabilita graciosamente em caso de logout
+    // Escutador em tempo real com resiliência offline
     const unsubscribe = onSnapshot(
       doc(db, "users", currentUid),
       (docSnap) => {
@@ -90,7 +90,7 @@ export default function InvitePartnerScreen({ navigation }: any) {
             duration: 1000,
             useNativeDriver: true,
           }),
-        ]),
+        ])
       ).start();
     } else {
       pulseAnim.setValue(1);
@@ -100,10 +100,11 @@ export default function InvitePartnerScreen({ navigation }: any) {
   // AÇÃO PRINCIPAL COM O WHATSAPP E NAVEGAÇÃO INTELIGENTE
   const handleMainAction = async () => {
     if (connectionStep === 0) {
+      const activeCode = myInviteCode !== "CARREGANDO..." ? myInviteCode : "DUE-000";
       const message =
         t("invite_whatsapp_message", userLang, {
-          code: myInviteCode,
-        }) || `Olá! Baixe o DuoElo para conectarmos nosso elo. Use meu código de convite: ${myInviteCode}`;
+          code: activeCode,
+        }) || `Olá! Baixe o DuoElo para conectarmos nosso elo. Use meu código de convite: ${activeCode}`;
       const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
 
       try {
@@ -114,7 +115,7 @@ export default function InvitePartnerScreen({ navigation }: any) {
         } else {
           Alert.alert(
             t("whatsapp_not_found_title", userLang) || "WhatsApp não Encontrado",
-            t("whatsapp_not_found_msg", userLang) || "Compartilhe seu código manualmente com seu amor.",
+            t("whatsapp_not_found_msg", userLang) || "Compartilhe seu código manualmente com seu amor."
           );
           setConnectionStep(1);
         }
@@ -134,11 +135,14 @@ export default function InvitePartnerScreen({ navigation }: any) {
         } else {
           Alert.alert(
             t("waiting_partner_alert_title", userLang) || "Aguardando Seu Amor",
-            t("waiting_partner_alert_msg", userLang) || "Assim que seu parceiro aceitar o convite, vocês estarão conectados!",
+            t("waiting_partner_alert_msg", userLang) || "Assim que seu parceiro aceitar o convite, vocês estarão conectados!"
           );
         }
       } catch (e) {
-        console.error("Erro ao verificar status do parceiro:", e);
+        Alert.alert(
+          t("connection_error_title", userLang) || "Erro de Conexão",
+          t("connection_error_msg", userLang) || "Verifique sua conexão com a internet e tente novamente."
+        );
       } finally {
         setIsCheckingStatus(false);
       }
@@ -151,7 +155,7 @@ export default function InvitePartnerScreen({ navigation }: any) {
           await setDoc(
             doc(db, "users", currentUid),
             { isSoloMode: false },
-            { merge: true },
+            { merge: true }
           );
 
           // 📜 REGISTRO DE AUDITORIA DE SEGURANÇA (PARTNER_LINKED)
@@ -173,7 +177,7 @@ export default function InvitePartnerScreen({ navigation }: any) {
           let isUserPremium = Boolean(userData?.isPremium);
           if (!isUserPremium && userData?.partnerId) {
             const partnerSnap = await getDoc(
-              doc(db, "users", userData.partnerId),
+              doc(db, "users", userData.partnerId)
             );
             if (partnerSnap.exists() && partnerSnap.data()?.isPremium) {
               isUserPremium = true;

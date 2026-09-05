@@ -31,8 +31,9 @@ const firebaseConfig = {
 export const app: FirebaseApp =
   getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// 2. Auth Singleton
+// 2. Auth Singleton com suporte a Fast Refresh e armazenamento assíncrono nativo
 let authInstance: Auth;
+
 if (Platform.OS === "web") {
   authInstance = getAuth(app);
 } else {
@@ -41,17 +42,19 @@ if (Platform.OS === "web") {
     authInstance = initializeAuth(app, {
       persistence: getReactNativePersistence(ReactNativeAsyncStorage),
     });
-  } catch {
+  } catch (e: unknown) {
+    // Caso o Auth já tenha sido inicializado durante o Fast Refresh / Hot Reloading
     authInstance = getAuth(app);
   }
 }
+
 export const auth: Auth = authInstance;
 
 // 3. Firestore Singleton
 export const db: Firestore = getFirestore(app);
 export const getDb = (): Firestore => db;
 
-// 4. Functions Singleton
+// 4. Functions Singleton (Região do Luxemburgo / Europa)
 export const functions: Functions = getFunctions(app, "europe-west1");
 export const getFunctionsInstance = (): Functions => functions;
 

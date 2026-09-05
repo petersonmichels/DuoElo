@@ -1,0 +1,12 @@
+{
+  "projectTitle": "DuoElo Platform",
+  "description": "App mobile em React Native (Expo) e CRM/Backend em Next.js",
+  "folders": ["src", "functions", "firestore.rules"],
+  "excludeFolders": ["node_modules", ".expo", ".next", "dist", "functions/lib"],
+  "rules": [
+    "Firebase Firestore com Security Rules nativas e atômicas",
+    "CRM Next.js 14+ com autenticação via Bearer Token e NextAuth",
+    "In-App Purchases gerenciados via RevenueCat Webhooks",
+    "Em conformidade estrita com LGPD / GDPR (BARNX S.À R.L.-S)"
+  ]
+}

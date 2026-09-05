@@ -91,13 +91,14 @@ export default function MissionExecutionScreen({
         field["pt-BR"] ||
         field["pt"] ||
         field["en"] ||
-        t(fallbackKey, userLanguage)
+        t(fallbackKey, userLanguage) ||
+        "Conteúdo da missão indisponível no momento."
       );
     }
     if (typeof field === "string") {
       return field;
     }
-    return t(fallbackKey, userLanguage);
+    return t(fallbackKey, userLanguage) || "Conteúdo da missão indisponível no momento.";
   };
 
   const conceptText = extractText(
@@ -726,7 +727,7 @@ export default function MissionExecutionScreen({
                     <Pressable
                       onPress={handleFinish}
                       disabled={isFinishing}
-                      style={({ pressed }) => [
+                      style={({ pressed }: { pressed: boolean }) => [
                         styles.victory3DFace,
                         isGold && styles.victory3DFaceGold,
                         { transform: [{ translateY: pressed ? 0 : -6 }] },

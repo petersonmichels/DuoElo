@@ -18,15 +18,17 @@ const isExpoGo =
 
 // Configuração global em primeiro plano
 if (!isExpoGo) {
-  Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowAlert: true,
-      shouldPlaySound: true,
-      shouldSetBadge: true,
-      shouldShowBanner: true,
-      shouldShowList: true,
-    }),
-  });
+  try {
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
+        shouldShowBanner: true,
+        shouldShowList: true,
+      }),
+    });
+  } catch (e) {}
 }
 
 export interface AppNotification {
@@ -77,8 +79,13 @@ export async function saveNotificationToFirestore(
       createdAt: nowISO,
       senderUid: auth.currentUser?.uid || null,
     });
-  } catch (error) {
-    console.error("[NOTIF_SERVICE] Erro ao gravar histórico:", error);
+  } catch (error: unknown) {
+    const err = error as { code?: string };
+    if (err?.code === "permission-denied") {
+      console.log("[NOTIF_SERVICE] Sessão em encerramento ou permissão negada.");
+    } else {
+      console.warn("[NOTIF_SERVICE] Aviso ao salvar notificação localmente:", error);
+    }
   }
 }
 
