@@ -33,6 +33,7 @@ import Svg, { Circle } from "react-native-svg";
 import { MasterPasswordModal } from "../components/MasterPasswordModal";
 import { NotificationsModal } from "../components/NotificationsModal";
 import { auth, db } from "../config/firebase";
+import { SUPPORTED_LANGUAGES, getLanguageFlag } from "../constants/languages";
 import { t } from "../i18n/translations";
 import {
   scheduleDailyReminder,
@@ -107,16 +108,6 @@ async function registerForPushNotificationsAsync(): Promise<string | null> {
   return token;
 }
 
-const SUPPORTED_LANGUAGES = [
-  { code: "pt-BR", flag: "🇧🇷" },
-  { code: "pt-PT", flag: "🇵🇹" },
-  { code: "en", flag: "🇺🇸" },
-  { code: "es", flag: "🇪🇸" },
-  { code: "fr", flag: "🇫🇷" },
-  { code: "de", flag: "🇩🇪" },
-  { code: "ja", flag: "🇯🇵" },
-];
-
 const WEEKLY_PROGRESSION_ICONS = [
   "map-pin",
   "compass",
@@ -126,22 +117,6 @@ const WEEKLY_PROGRESSION_ICONS = [
   "gem",
   "gift",
 ];
-
-const DEFAULT_WEEK_THEMES: { [key: number]: string } = {
-  1: "Comunicação & Sintonia",
-  2: "Reacendendo a Chama",
-  3: "Gestão de Conflitos",
-  4: "Intimidade & Cuidado",
-  5: "ADM & Rotina do Casal",
-  6: "Linguagens do Amor",
-  7: "ADM & Finanças a Dois",
-  8: "Projetos de Vida",
-  9: "Cumplicidade & Riso",
-  10: "Perdão & Recomeço",
-  11: "Conexão Profunda",
-  12: "Ritual de Agradecimento",
-  13: "Pacto Inquebrável",
-};
 
 const SegmentedRing = ({ progress = 0, size = 106 }) => {
   const radius = size / 2 - 4;
@@ -412,9 +387,7 @@ export default function HomeScreen({ navigation }: any) {
       (snapshot) => {
         setHasUnreadNotifications(!snapshot.empty);
       },
-      (err) => {
-        // Ignora erros de desconexão e mantém cache
-      }
+      (err) => {}
     );
 
     return () => unsubscribeNotifs();
@@ -481,7 +454,6 @@ export default function HomeScreen({ navigation }: any) {
         }
       });
 
-      // Listener com fallback offline seguro
       unsubscribeUser = onSnapshot(
         doc(db, "users", currentUid),
         (docSnap) => {
@@ -497,7 +469,6 @@ export default function HomeScreen({ navigation }: any) {
         },
         (error) => {
           setLoading(false);
-          // Modo offline - carrega normalmente usando o estado local já populado
         }
       );
     }, 50);
@@ -532,9 +503,7 @@ export default function HomeScreen({ navigation }: any) {
         (docSnap) => {
           if (docSnap.exists()) setPartnerData(docSnap.data());
         },
-        (error) => {
-          // Ignora erros de rede e lê do cache
-        }
+        (error) => {}
       );
     }, 50);
 
@@ -1386,12 +1355,11 @@ export default function HomeScreen({ navigation }: any) {
       return staticKeyTranslation;
     }
 
-    return DEFAULT_WEEK_THEMES[weekNum] || t("connection_rescue", userLang) || "Módulo do Elo";
+    return t(`week_theme_${weekNum}`, userLang) || t("connection_rescue", userLang) || "Módulo do Elo";
   };
 
   const bannerWeekTheme = getDisplayThemeForWeek(visibleWeek);
-  const currentFlag =
-    SUPPORTED_LANGUAGES.find((l) => l.code === userLang)?.flag || "🇧🇷";
+  const currentFlag = getLanguageFlag(userLang);
 
   if (loading) {
     return (

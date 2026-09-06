@@ -25,21 +25,12 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { auth, db } from "../config/firebase";
 
+import { SUPPORTED_LANGUAGES, getLanguageFlag } from "../constants/languages";
 import { t } from "../i18n/translations";
 import { logAuditEvent } from "../services/auditService";
 import { encryptText } from "../services/securityService";
 
 const { width } = Dimensions.get("window");
-
-const SUPPORTED_LANGUAGES = [
-  { code: "pt-BR", flag: "🇧🇷" },
-  { code: "pt-PT", flag: "🇵🇹" },
-  { code: "en", flag: "🇺🇸" },
-  { code: "es", flag: "🇪🇸" },
-  { code: "fr", flag: "🇫🇷" },
-  { code: "de", flag: "🇩🇪" },
-  { code: "ja", flag: "🇯🇵" },
-];
 
 export interface AnamnesisOption {
   label: string;
@@ -789,8 +780,7 @@ export default function AnamneseScreen({ navigation, route }: any) {
     );
   }
 
-  const currentFlag =
-    SUPPORTED_LANGUAGES.find((l) => l.code === userLang)?.flag || "🇧🇷";
+  const currentFlag = getLanguageFlag(userLang);
 
   const renderLocked = () => (
     <View style={styles.centerContainer}>

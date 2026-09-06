@@ -564,7 +564,7 @@ export default function MatchScreen({ navigation }: any) {
       if (querySnapshot.empty) {
         showCustomAlert(
           t("match_not_found_title", userLang) || "Não Encontrado",
-          t("match_not_found_msg", userLang) || "Nenhum usuário localizado com esses dados.",
+          t("match_not_found_msg", userLang) || "Nenum usuário localizado com esses dados.",
           "search-minus",
           "#EAB64A",
         );

@@ -473,7 +473,7 @@ export default function ShopScreen({ userData, partnerData, navigation, route }:
             numberOfLines={1}
             ellipsizeMode="tail"
           >
-            Desejos de {partnerName}
+            {t("partner_wishes_tab", userLang, { name: partnerName }) || `Desejos de ${partnerName}`}
           </Text>
         </TouchableOpacity>
 
@@ -490,7 +490,7 @@ export default function ShopScreen({ userData, partnerData, navigation, route }:
             numberOfLines={1}
             ellipsizeMode="tail"
           >
-            Sua Lista
+            {t("my_wishlist_tab", userLang) || "Sua Lista"}
           </Text>
         </TouchableOpacity>
       </View>
@@ -520,21 +520,25 @@ export default function ShopScreen({ userData, partnerData, navigation, route }:
                 </View>
                 <Text style={styles.emptyCardTitle}>
                   {hasReceivedInvite
-                    ? "Convite de Match Recebido!"
+                    ? t("invite_received_title", userLang) || "Convite de Match Recebido!"
                     : hasSentInvite
-                    ? "Aguardando Confirmação do Match"
-                    : "Conectar Seu Amor"}
+                    ? t("waiting_match_confirmation_title", userLang) || "Aguardando Confirmação do Match"
+                    : t("connect_partner_title", userLang) || "Conectar Seu Amor"}
                 </Text>
                 <Text style={styles.emptyCardText}>
                   {hasReceivedInvite
-                    ? "Alguém te enviou um convite de conexão! Toque aqui para aceitar."
+                    ? t("invite_received_card_sub", userLang) || "Alguém te enviou um convite de conexão! Toque aqui para aceitar."
                     : hasSentInvite
-                    ? "Seu convite foi enviado! Toque para ver o status no Match."
+                    ? t("invite_sent_waiting_sub", userLang) || "Seu convite foi enviado! Toque para ver o status no Match."
                     : t("no_match_text", userLang) || "Toque aqui para fazer o Match e ver a lista de desejos do seu amor!"}
                 </Text>
                 <View style={styles.btnMatchMini}>
                   <Text style={styles.btnMatchMiniText}>
-                    {hasReceivedInvite ? "Responder Convite" : hasSentInvite ? "Ver Status do Convite" : "Fazer Match Agora"}
+                    {hasReceivedInvite
+                      ? t("btn_respond_invite", userLang) || "Responder Convite"
+                      : hasSentInvite
+                      ? t("btn_view_invite_status", userLang) || "Ver Status do Convite"
+                      : t("match_now_button", userLang) || "Fazer Match Agora"}
                   </Text>
                   <FontAwesome5 name="chevron-right" size={12} color="#FFF" />
                 </View>
@@ -594,7 +598,7 @@ export default function ShopScreen({ userData, partnerData, navigation, route }:
                               <Text style={styles.btnBuyText}>
                                 {currentBonds >= 150
                                   ? t("btn_buy", userLang) || "COMPRAR (150 BONDS)"
-                                  : "SALDO INSUFICIENTE (150 BONDS)"}
+                                  : t("btn_insufficient_bonds", userLang) || "SALDO INSUFICIENTE (150 BONDS)"}
                               </Text>
                             </>
                           )}

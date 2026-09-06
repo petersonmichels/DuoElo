@@ -333,7 +333,9 @@ export default function VidaScreen({ navigation }: any) {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>LIFE</Text>
+        <Text style={styles.headerTitle}>
+          {t("life_habits_title", userLang) || "VIDA"}
+        </Text>
         <Text style={styles.headerSub}>
           {t("life_header_sub", userLang) || "Tecnologia para viver o mundo real"}
         </Text>

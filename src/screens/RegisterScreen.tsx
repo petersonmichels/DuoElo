@@ -12,9 +12,10 @@ import {
   setDoc,
   where,
 } from "firebase/firestore";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  FlatList,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -28,6 +29,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { auth, authControls, db } from "../config/firebase";
 
+import { COUNTRY_CODES, CountryData } from "../constants/countries";
 import { t } from "../i18n/translations";
 import { logAuditEvent } from "../services/auditService";
 import { isStrongPassword } from "../services/securityService";
@@ -36,6 +38,13 @@ export default function RegisterScreen({ navigation }: any) {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  
+  // 📱 Estados de DDI e Telefone Internacional
+  const [selectedCountry, setSelectedCountry] = useState<CountryData>(COUNTRY_CODES[0]);
+  const [localPhone, setLocalPhone] = useState("");
+  const [isCountryModalVisible, setIsCountryModalVisible] = useState(false);
+  const [searchCountry, setSearchCountry] = useState("");
+
   const [isLoading, setIsLoading] = useState(false);
 
   // Idioma do usuário (padrão pt-BR)
@@ -58,6 +67,25 @@ export default function RegisterScreen({ navigation }: any) {
       fetchLang();
     }
   }, []);
+
+  // 📞 Formatador de Telefone Internacional conforme o DDI
+  const formatLocalNumber = useCallback((text: string, country = selectedCountry) => {
+    let cleaned = text.replace(/\D/g, "");
+
+    if (country.code === "BR") {
+      if (cleaned.length <= 2) return cleaned;
+      if (cleaned.length <= 6) return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2)}`;
+      if (cleaned.length <= 10)
+        return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2, 6)}-${cleaned.slice(6)}`;
+      return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2, 7)}-${cleaned.slice(7, 11)}`;
+    }
+
+    if (cleaned.length <= 3) return cleaned;
+    if (cleaned.length <= 6) return `${cleaned.slice(0, 3)} ${cleaned.slice(3)}`;
+    if (cleaned.length <= 9)
+      return `${cleaned.slice(0, 3)} ${cleaned.slice(3, 6)} ${cleaned.slice(6)}`;
+    return `${cleaned.slice(0, 3)} ${cleaned.slice(3, 6)} ${cleaned.slice(6, 12)}`;
+  }, [selectedCountry]);
 
   // ESTADO DE ALERTAS PERSONALIZADOS
   const [customAlert, setCustomAlert] = useState({
@@ -95,6 +123,8 @@ export default function RegisterScreen({ navigation }: any) {
       .trim()
       .toLowerCase()
       .replace(/[^a-z0-9_]/g, "");
+
+    const fullPhone = localPhone ? `${selectedCountry.ddi} ${localPhone}`.trim() : "";
 
     if (!cleanEmail || !password || !cleanUsername) {
       showCustomAlert(
@@ -164,7 +194,7 @@ export default function RegisterScreen({ navigation }: any) {
       );
       const uid = userCredential.user.uid;
 
-      // 4. Cria o documento oficial no Firestore
+      // 4. Cria o documento oficial no Firestore (Sem campos fiscais de endereço)
       const myGeneratedCode = uid.substring(0, 6).toUpperCase();
       const userDataToSave: any = {
         uid: uid,
@@ -173,6 +203,10 @@ export default function RegisterScreen({ navigation }: any) {
         displayName: cleanUsername,
         billingFirstName: cleanUsername,
         billingLastName: "",
+        billingPhone: fullPhone,
+        phone: fullPhone,
+        phoneNumber: fullPhone,
+        countryCode: selectedCountry.code,
         language: userLang,
         myInviteCode: myGeneratedCode,
         createdAt: new Date().toISOString(),
@@ -240,6 +274,13 @@ export default function RegisterScreen({ navigation }: any) {
     }
   };
 
+  const filteredCountries = COUNTRY_CODES.filter(
+    (c) =>
+      c.name.toLowerCase().includes(searchCountry.toLowerCase()) ||
+      c.ddi.includes(searchCountry) ||
+      c.code.toLowerCase().includes(searchCountry.toLowerCase())
+  );
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView
@@ -297,6 +338,33 @@ export default function RegisterScreen({ navigation }: any) {
                 onChangeText={setEmail}
                 autoCapitalize="none"
                 keyboardType="email-address"
+                editable={!isLoading}
+              />
+            </View>
+
+            {/* 📱 CAMPO DE TELEFONE COM SELETOR DE DDI DE 175 PAÍSES */}
+            <View style={styles.phoneContainer}>
+              <TouchableOpacity
+                style={styles.countryPickerBtn}
+                onPress={() => setIsCountryModalVisible(true)}
+                disabled={isLoading}
+              >
+                <Text style={styles.flagText}>{selectedCountry.flag}</Text>
+                <Text style={styles.ddiText}>{selectedCountry.ddi}</Text>
+                <FontAwesome5 name="chevron-down" size={10} color="#60646C" />
+              </TouchableOpacity>
+
+              <TextInput
+                style={styles.phoneInput}
+                placeholder={selectedCountry.code === "BR" ? "(99) 99999-9999" : "661 123 456"}
+                placeholderTextColor="#AFAFAF"
+                keyboardType="phone-pad"
+                value={localPhone}
+                onChangeText={(txt) => {
+                  const formatted = formatLocalNumber(txt, selectedCountry);
+                  setLocalPhone(formatted);
+                }}
+                maxLength={selectedCountry.code === "BR" ? 15 : 16}
                 editable={!isLoading}
               />
             </View>
@@ -364,6 +432,62 @@ export default function RegisterScreen({ navigation }: any) {
         </ScrollView>
       </KeyboardAvoidingView>
 
+      {/* 🌐 MODAL DE SELEÇÃO DE PAÍS / DDI */}
+      <Modal visible={isCountryModalVisible} transparent animationType="slide">
+        <TouchableOpacity
+          style={styles.bottomSheetOverlay}
+          activeOpacity={1}
+          onPress={() => setIsCountryModalVisible(false)}
+        >
+          <View style={styles.bottomSheetContainer}>
+            <View style={styles.bottomSheetHandle} />
+            <Text style={styles.bottomSheetTitle}>
+              {t("select_country_title", userLang) || "Selecione o País"}
+            </Text>
+
+            <View style={styles.searchBox}>
+              <FontAwesome5 name="search" size={14} color="#AFAFAF" />
+              <TextInput
+                style={styles.searchInput}
+                placeholder={t("placeholder_search_country", userLang) || "Buscar país ou DDI..."}
+                placeholderTextColor="#AFAFAF"
+                value={searchCountry}
+                onChangeText={setSearchCountry}
+              />
+            </View>
+
+            <FlatList
+              data={filteredCountries}
+              keyExtractor={(item) => item.code + item.ddi}
+              style={{ width: "100%", maxHeight: 300 }}
+              showsVerticalScrollIndicator={false}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[
+                    styles.langOptionItem,
+                    selectedCountry.code === item.code && styles.langOptionItemActive,
+                  ]}
+                  onPress={() => {
+                    setSelectedCountry(item);
+                    setIsCountryModalVisible(false);
+                    const formatted = formatLocalNumber(localPhone, item);
+                    setLocalPhone(formatted);
+                    setSearchCountry("");
+                  }}
+                >
+                  <Text style={{ fontSize: 22, marginRight: 12 }}>{item.flag}</Text>
+                  <Text style={styles.langOptionText}>{item.name}</Text>
+                  <Text style={{ fontFamily: "Montserrat_700Bold", color: "#60646C" }}>
+                    {item.ddi}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* MODAL DE ALERTA CUSTOMIZADO */}
       <Modal visible={customAlert.visible} transparent animationType="slide">
         <View style={styles.bottomSheetOverlay}>
           <View style={styles.bottomSheetContainer}>
@@ -482,6 +606,40 @@ const styles = StyleSheet.create({
     color: "#202D3A",
     fontFamily: "Montserrat_600SemiBold",
   },
+  phoneContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFF",
+    borderWidth: 1,
+    borderColor: "#D1D9E0",
+    borderRadius: 16,
+    overflow: "hidden",
+    marginBottom: 15,
+  },
+  countryPickerBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#E8F4F1",
+    paddingHorizontal: 12,
+    paddingVertical: 16,
+    gap: 6,
+    borderRightWidth: 1,
+    borderRightColor: "#D1D9E0",
+  },
+  flagText: { fontSize: 16 },
+  ddiText: {
+    fontSize: 13,
+    fontFamily: "Montserrat_700Bold",
+    color: "#202D3A",
+  },
+  phoneInput: {
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 16,
+    fontSize: 15,
+    color: "#202D3A",
+    fontFamily: "Montserrat_600SemiBold",
+  },
   actionWrapper: {
     marginTop: 10,
     marginBottom: 20,
@@ -550,6 +708,43 @@ const styles = StyleSheet.create({
     backgroundColor: "#D1D9E0",
     borderRadius: 3,
     marginBottom: 20,
+  },
+  searchBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F0F4F8",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 16,
+    gap: 8,
+    width: "100%",
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: "#202D3A",
+    fontFamily: "Montserrat_400Regular",
+  },
+  langOptionItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginBottom: 8,
+    backgroundColor: "#F0F4F8",
+  },
+  langOptionItemActive: {
+    backgroundColor: "#E8F4F1",
+    borderWidth: 1,
+    borderColor: "#67D4A8",
+  },
+  langOptionText: {
+    flex: 1,
+    fontFamily: "Montserrat_600SemiBold",
+    fontSize: 15,
+    color: "#202D3A",
   },
   alertIconContainer: {
     width: 60,

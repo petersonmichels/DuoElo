@@ -29,9 +29,11 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import Purchases from "react-native-purchases";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { auth, authControls, db } from "../config/firebase";
 
+import { getLanguageFlag, SUPPORTED_LANGUAGES } from "../constants/languages";
 import { t } from "../i18n/translations";
 import { logAuditEvent } from "../services/auditService";
 import {
@@ -42,16 +44,6 @@ import {
 } from "../services/securityService";
 
 const { width } = Dimensions.get("window");
-
-const SUPPORTED_LANGUAGES = [
-  { code: "pt-BR", flag: "🇧🇷" },
-  { code: "pt-PT", flag: "🇵🇹" },
-  { code: "en", flag: "🇺🇸" },
-  { code: "es", flag: "🇪🇸" },
-  { code: "fr", flag: "🇫🇷" },
-  { code: "de", flag: "🇩🇪" },
-  { code: "ja", flag: "🇯🇵" },
-];
 
 const isExpoGo =
   Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
@@ -344,7 +336,18 @@ export default function LoginScreen({ navigation }: any) {
     }
   };
 
+  // 🎯 CORREÇÃO ERRO 1: Sincronização de ID com react-native-purchases (RevenueCat)
   const finalizeAuth = async (wasCreated: boolean) => {
+    const uid = auth.currentUser?.uid;
+
+    if (uid) {
+      try {
+        await Purchases.logIn(uid);
+      } catch (rcError) {
+        console.warn("[RevenueCat LogIn Notice]: Falha ao associar ID no RevenueCat", rcError);
+      }
+    }
+
     if (wasCreated) {
       await signOut(auth);
       setIsLoading(false);
@@ -358,7 +361,6 @@ export default function LoginScreen({ navigation }: any) {
       );
     } else {
       setIsLoading(false);
-      const uid = auth.currentUser?.uid;
       if (uid) {
         await triggerPinCheck(uid);
       } else if (navigation && navigation.navigate) {
@@ -488,7 +490,7 @@ export default function LoginScreen({ navigation }: any) {
         if (authControls) authControls.isCreatingAccount = false;
       }
 
-      finalizeAuth(isNewUser);
+      await finalizeAuth(isNewUser);
     } catch (error: any) {
       if (authControls) authControls.isCreatingAccount = false;
       setIsLoading(false);
@@ -638,8 +640,7 @@ export default function LoginScreen({ navigation }: any) {
         console.warn("[Firestore Notice]: Conexão lentíssima ou offline. Seguiu com login local.", firestoreError);
       }
 
-      setIsLoading(false);
-      await triggerPinCheck(user.uid);
+      await finalizeAuth(false);
     } catch (error: any) {
       setIsLoading(false);
 
@@ -794,8 +795,7 @@ export default function LoginScreen({ navigation }: any) {
         console.warn("[Apple Firestore Notice]: Seguiu localmente sem sincronizar profile.", firestoreError);
       }
 
-      setIsLoading(false);
-      await triggerPinCheck(user.uid);
+      await finalizeAuth(false);
     } catch (error: any) {
       setIsLoading(false);
       if (error?.code === "ERR_REQUEST_CANCELED") {
@@ -821,8 +821,7 @@ export default function LoginScreen({ navigation }: any) {
     }
   };
 
-  const currentFlag =
-    SUPPORTED_LANGUAGES.find((l) => l.code === userLang)?.flag || "🇧🇷";
+  const currentFlag = getLanguageFlag(userLang);
 
   return (
     <SafeAreaView style={styles.container}>

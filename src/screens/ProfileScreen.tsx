@@ -31,10 +31,12 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import Purchases from "react-native-purchases";
+import Purchases, { CustomerInfo } from "react-native-purchases";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { auth, db } from "../config/firebase";
 
+import { COUNTRY_CODES } from "../constants/countries";
+import { SUPPORTED_LANGUAGES } from "../constants/languages";
 import { t } from "../i18n/translations";
 import { logAuditEvent } from "../services/auditService";
 import { clearSecurityPin } from "../services/securityService";
@@ -44,47 +46,12 @@ const isExpoGo =
 
 let GoogleSignin: any = null;
 
-const SUPPORTED_LANGUAGES = [
-  { code: "pt-BR", flag: "🇧🇷", label: "Português (Brasil)" },
-  { code: "pt-PT", flag: "🇵🇹", label: "Português (Portugal)" },
-  { code: "en", flag: "🇺🇸", label: "English" },
-  { code: "es", flag: "🇪🇸", label: "Español" },
-  { code: "fr", flag: "🇫🇷", label: "Français" },
-  { code: "de", flag: "🇩🇪", label: "Deutsch" },
-  { code: "ja", flag: "🇯🇵", label: "日本語" },
-];
-
-const COUNTRY_CODES = [
-  { code: "BR", flag: "🇧🇷", ddi: "+55", name: "Brasil" },
-  { code: "PT", flag: "🇵🇹", ddi: "+351", name: "Portugal" },
-  { code: "US", flag: "🇺🇸", ddi: "+1", name: "EUA / Canadá" },
-  { code: "ES", flag: "🇪🇸", ddi: "+34", name: "Espanha" },
-  { code: "FR", flag: "🇫🇷", ddi: "+33", name: "França" },
-  { code: "DE", flag: "🇩🇪", ddi: "+49", name: "Alemanha" },
-  { code: "IT", flag: "🇮🇹", ddi: "+39", name: "Itália" },
-  { code: "GB", flag: "🇬🇧", ddi: "+44", name: "Reino Unido" },
-  { code: "LU", flag: "🇱🇺", ddi: "+352", name: "Luxemburgo" },
-  { code: "CH", flag: "🇨🇭", ddi: "+41", name: "Suíça" },
-  { code: "AR", flag: "🇦🇷", ddi: "+54", name: "Argentina" },
-  { code: "MX", flag: "🇲🇽", ddi: "+52", name: "México" },
-  { code: "CL", flag: "🇨🇱", ddi: "+56", name: "Chile" },
-  { code: "CO", flag: "🇨🇴", ddi: "+57", name: "Colômbia" },
-  { code: "UY", flag: "🇺🇾", ddi: "+598", name: "Uruguai" },
-  { code: "BE", flag: "🇧🇪", ddi: "+32", name: "Bélgica" },
-  { code: "NL", flag: "🇳🇱", ddi: "+31", name: "Holanda" },
-  { code: "IE", flag: "🇮🇪", ddi: "+353", name: "Irlanda" },
-  { code: "AU", flag: "🇦🇺", ddi: "+61", name: "Austrália" },
-  { code: "JP", flag: "🇯🇵", ddi: "+81", name: "Japão" },
-];
-
 export default function ProfileScreen({ navigation }: any) {
   const [userData, setUserData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [address, setAddress] = useState("");
-  const [zipCode, setZipCode] = useState("");
 
   const [selectedCountry, setSelectedCountry] = useState(COUNTRY_CODES[0]);
   const [localPhone, setLocalPhone] = useState("");
@@ -102,6 +69,7 @@ export default function ProfileScreen({ navigation }: any) {
 
   const [userLang, setUserLang] = useState("pt-BR");
   const [isLangModalVisible, setIsLangModalVisible] = useState(false);
+  const [isPremiumActive, setIsPremiumActive] = useState(false);
 
   const userListenerUnsubscribe = useRef<(() => void) | null>(null);
 
@@ -152,9 +120,17 @@ export default function ProfileScreen({ navigation }: any) {
     }, [])
   );
 
+  // 🎯 REVENUECAT LISTENER E ESCUTA REATIVA DO USUÁRIO
   useEffect(() => {
     const currentUid = auth.currentUser?.uid;
     if (!currentUid) return;
+
+    const customerInfoListener = (info: CustomerInfo) => {
+      const active = info.entitlements.active['premium'] !== undefined;
+      setIsPremiumActive(active);
+    };
+
+    Purchases.addCustomerInfoUpdateListener(customerInfoListener);
 
     const appStateSubscription = AppState.addEventListener(
       "change",
@@ -179,12 +155,11 @@ export default function ProfileScreen({ navigation }: any) {
           setBypassDailyLock(data.bypassDailyLock || false);
           setEnableHaptics(data.enableHaptics !== false);
           if (data.language) setUserLang(data.language);
+          if (data.isPremium !== undefined) setIsPremiumActive(Boolean(data.isPremium));
 
           if (isFirstLoad.current) {
             setFirstName(data.billingFirstName || data.firstName || "");
             setLastName(data.billingLastName || data.lastName || "");
-            setAddress(data.billingAddress || data.fullAddress || data.address || "");
-            setZipCode(data.billingZipCode || data.billingZip || data.zipCode || "");
 
             const rawPhone = data.billingPhone || data.phone || data.phoneNumber || "";
             parseInitialPhone(rawPhone);
@@ -205,6 +180,7 @@ export default function ProfileScreen({ navigation }: any) {
     userListenerUnsubscribe.current = unsubscribeUser;
 
     return () => {
+      Purchases.removeCustomerInfoUpdateListener(customerInfoListener);
       if (userListenerUnsubscribe.current) {
         userListenerUnsubscribe.current();
       }
@@ -243,6 +219,7 @@ export default function ProfileScreen({ navigation }: any) {
       billingPhone: fullNumber,
       phone: fullNumber,
       phoneNumber: fullNumber,
+      countryCode: country.code,
     });
   };
 
@@ -270,15 +247,6 @@ export default function ProfileScreen({ navigation }: any) {
     } finally {
       setIsSendingEmail(false);
     }
-  };
-
-  const handleZipChange = (text: string) => {
-    let cleaned = text.replace(/\D/g, "");
-    let formatted = cleaned;
-    if (cleaned.length > 5) {
-      formatted = `${cleaned.slice(0, 5)}-${cleaned.slice(5, 8)}`;
-    }
-    setZipCode(formatted);
   };
 
   const processImageResult = async (result: ImagePicker.ImagePickerResult) => {
@@ -539,12 +507,12 @@ export default function ProfileScreen({ navigation }: any) {
                     "Por motivos de segurança, você precisa fazer login novamente no aplicativo para confirmar a exclusão da sua conta.",
                   [
                     {
-                      text: "Fazer Login Novamente",
+                      text: t("btn_login_again", userLang) || "Fazer Login Novamente",
                       onPress: async () => {
                         await signOut(auth);
                       },
                     },
-                    { text: "Cancelar", style: "cancel" },
+                    { text: t("modal_cancel", userLang) || "Cancelar", style: "cancel" },
                   ]
                 );
               } else {
@@ -570,10 +538,21 @@ export default function ProfileScreen({ navigation }: any) {
       Linking.openURL("https://play.google.com/store/account/subscriptions");
   };
 
+  // 🎯 CORREÇÃO ERRO 1: Restauração de Compras Reativa
   const handleRestorePurchases = async () => {
+    setLoading(true);
     try {
       const restoredInfo = await Purchases.restorePurchases();
-      if (Object.keys(restoredInfo.entitlements.active).length > 0) {
+      const hasActiveEntitlement = restoredInfo.entitlements.active['premium'] !== undefined;
+
+      setIsPremiumActive(hasActiveEntitlement);
+
+      const currentUid = auth.currentUser?.uid;
+      if (currentUid) {
+        await setDoc(doc(db, "users", currentUid), { isPremium: hasActiveEntitlement }, { merge: true });
+      }
+
+      if (hasActiveEntitlement) {
         Alert.alert(
           t("sub_restored_title", userLang) || "Compras Restauradas",
           t("sub_restored_msg", userLang) || "Sua assinatura foi identificada e restaurada com sucesso."
@@ -584,11 +563,13 @@ export default function ProfileScreen({ navigation }: any) {
           t("no_active_sub_msg", userLang) || "Nenhuma assinatura ativa localizada para esta conta."
         );
       }
-    } catch (e) {
+    } catch (e: any) {
       Alert.alert(
         t("error_title", userLang) || "Erro",
-        t("restore_purchases_error_msg", userLang) || "Falha ao consultar compras restauradas."
+        e?.message || t("restore_purchases_error_msg", userLang) || "Falha ao consultar compras restauradas."
       );
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -636,8 +617,6 @@ export default function ProfileScreen({ navigation }: any) {
   const rawPhoto = userData?.photoURL || userData?.photoUrl;
   const myPhoto: string | null = isValidPhoto(rawPhoto) ? String(rawPhoto) : null;
   const avatarKey: string = myPhoto ? myPhoto.substring(0, 50) : "default-avatar";
-
-  const isPremium = userData?.isPremium || false;
 
   const displayUsername = userData?.username
     ? `@${userData.username}`
@@ -738,7 +717,7 @@ export default function ProfileScreen({ navigation }: any) {
               </TouchableOpacity>
             )}
 
-            {isPremium ? (
+            {isPremiumActive ? (
               <View style={[styles.premiumBadge, { marginTop: 15 }]}>
                 <FontAwesome5 name="crown" size={12} color="#202D3A" />
                 <Text style={styles.premiumText}>
@@ -796,7 +775,7 @@ export default function ProfileScreen({ navigation }: any) {
             </View>
           </View>
 
-          {/* 📝 FORMULÁRIO DE DADOS PESSOAIS */}
+          {/* 📝 FORMULÁRIO DE DADOS PESSOAIS ENXUTO (SEM ENDEREÇO E CEP) */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>{t("personal_data_autosave_title", userLang) || "DADOS PESSOAIS"}</Text>
             <View style={styles.formCard}>
@@ -836,70 +815,30 @@ export default function ProfileScreen({ navigation }: any) {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>{t("full_address_label", userLang) || "Endereço Completo"}</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder={t("full_address_placeholder", userLang) || "Rua, Número, Bairro"}
-                  placeholderTextColor="#AFAFAF"
-                  value={address}
-                  onChangeText={setAddress}
-                  onBlur={() =>
-                    handleAutoSave({
-                      billingAddress: address,
-                      fullAddress: address,
-                      address: address,
-                    })
-                  }
-                />
-              </View>
+                <Text style={styles.inputLabel}>{t("phone_label", userLang) || "Telefone"}</Text>
+                <View style={styles.phoneContainer}>
+                  <TouchableOpacity
+                    style={styles.countryPickerBtn}
+                    onPress={() => setIsCountryModalVisible(true)}
+                  >
+                    <Text style={styles.flagText}>{selectedCountry.flag}</Text>
+                    <Text style={styles.ddiText}>{selectedCountry.ddi}</Text>
+                    <FontAwesome5 name="chevron-down" size={10} color="#60646C" />
+                  </TouchableOpacity>
 
-              <View style={styles.rowFields}>
-                <View style={[styles.inputGroup, { flex: 0.38 }]}>
-                  <Text style={styles.inputLabel}>{t("zip_code_label", userLang) || "CEP"}</Text>
                   <TextInput
-                    style={styles.input}
-                    placeholder="00000-000"
+                    style={styles.phoneInput}
+                    placeholder={selectedCountry.code === "BR" ? "(99) 99999-9999" : "661 123 456"}
                     placeholderTextColor="#AFAFAF"
-                    keyboardType="number-pad"
-                    value={zipCode}
-                    onChangeText={handleZipChange}
-                    onBlur={() =>
-                      handleAutoSave({
-                        billingZipCode: zipCode,
-                        billingZip: zipCode,
-                        zipCode: zipCode,
-                      })
-                    }
-                    maxLength={9}
+                    keyboardType="phone-pad"
+                    value={localPhone}
+                    onChangeText={(txt) => {
+                      const formatted = formatLocalNumber(txt, selectedCountry);
+                      setLocalPhone(formatted);
+                    }}
+                    onBlur={() => savePhoneWithDDI(localPhone, selectedCountry)}
+                    maxLength={selectedCountry.code === "BR" ? 15 : 16}
                   />
-                </View>
-
-                <View style={[styles.inputGroup, { flex: 0.62 }]}>
-                  <Text style={styles.inputLabel}>{t("phone_label", userLang) || "Telefone"}</Text>
-                  <View style={styles.phoneContainer}>
-                    <TouchableOpacity
-                      style={styles.countryPickerBtn}
-                      onPress={() => setIsCountryModalVisible(true)}
-                    >
-                      <Text style={styles.flagText}>{selectedCountry.flag}</Text>
-                      <Text style={styles.ddiText}>{selectedCountry.ddi}</Text>
-                      <FontAwesome5 name="chevron-down" size={10} color="#60646C" />
-                    </TouchableOpacity>
-
-                    <TextInput
-                      style={styles.phoneInput}
-                      placeholder={selectedCountry.code === "BR" ? "(99) 99999-9999" : "661 123 456"}
-                      placeholderTextColor="#AFAFAF"
-                      keyboardType="phone-pad"
-                      value={localPhone}
-                      onChangeText={(txt) => {
-                        const formatted = formatLocalNumber(txt, selectedCountry);
-                        setLocalPhone(formatted);
-                      }}
-                      onBlur={() => savePhoneWithDDI(localPhone, selectedCountry)}
-                      maxLength={selectedCountry.code === "BR" ? 15 : 16}
-                    />
-                  </View>
                 </View>
               </View>
             </View>
@@ -980,9 +919,9 @@ export default function ProfileScreen({ navigation }: any) {
                   <FontAwesome5 name="mobile-alt" size={16} color="#67D4A8" />
                 </View>
                 <View style={{ flex: 1, flexShrink: 1 }}>
-                  <Text style={styles.menuOptionText}>{t("haptics_label", userLang) || "Vibração Tátil (Haptics)"}</Text>
+                  <Text style={styles.menuOptionText}>{t("haptics_title", userLang) || "Resposta Tátil (Haptics)"}</Text>
                   <Text style={{ fontSize: 11, color: "#60646C", marginTop: 2, fontFamily: "Montserrat_400Regular" }}>
-                    {t("haptics_desc", userLang) || "Vibração ao tocar nos botões do app"}
+                    {t("haptics_subtitle", userLang) || "Vibração tátil ao concluir ações e interagir"}
                   </Text>
                 </View>
               </View>
@@ -1056,7 +995,7 @@ export default function ProfileScreen({ navigation }: any) {
             </Text>
           </TouchableOpacity>
 
-          <Text style={styles.versionText}>DuoElo v1.0.2 (Build 16)</Text>
+          <Text style={styles.versionText}>DuoElo v1.0.3 (Build 17)</Text>
         </ScrollView>
       </KeyboardAvoidingView>
 
