@@ -1,4 +1,4 @@
-import { collection, doc, setDoc } from "firebase/firestore";
+import { addDoc, collection } from "firebase/firestore";
 import { Platform } from "react-native";
 import { db } from "../config/firebase";
 import { t } from "../i18n/translations";
@@ -31,7 +31,6 @@ export interface AuditLogPayload {
 
 /**
  * Grava um log de auditoria imutável na coleção 'audit_logs' do Firestore.
- * Atende às exigências de conformidade LGPD, GDPR e regulamentações internacionais.
  */
 export async function logAuditEvent(
   uid: string,
@@ -42,7 +41,7 @@ export async function logAuditEvent(
   if (!uid) return;
 
   try {
-    const auditRef = doc(collection(db, "audit_logs"));
+    const auditCollectionRef = collection(db, "audit_logs");
 
     const translatedFallback = t(`audit_action_${action.toLowerCase()}`, userLang);
     
@@ -63,13 +62,9 @@ export async function logAuditEvent(
       language: userLang,
     };
 
-    await setDoc(auditRef, payload);
+    await addDoc(auditCollectionRef, payload);
   } catch (error: unknown) {
-    const err = error as { code?: string };
-    if (err?.code === "permission-denied") {
-      console.log("[AUDIT_SERVICE] Registro de auditoria ignorado (sessão em encerramento).");
-    } else {
-      console.warn("[AUDIT_SERVICE_WARNING] Falha ao registrar log de auditoria:", error);
-    }
+    // 🛡️ Captura silenciosa para evitar travar o fluxo do usuário em caso de permissão negada
+    console.warn("[AUDIT_SERVICE] Falha ao registrar log de auditoria:", error);
   }
 }

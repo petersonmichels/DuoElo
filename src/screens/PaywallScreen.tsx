@@ -110,7 +110,7 @@ export default function PaywallScreen({ navigation }: any) {
     };
   }, []);
 
-  // 🎯 MAPEAMENTO COMPATÍVEL COM APP STORE (iOS) E PLAY STORE (ANDROID)
+  // 🎯 MAPEAMENTO RIGOROSO DE SKUS DO REVENUECAT & APP STORE / PLAY STORE
   const findPackage = (
     category: "duo" | "individual",
     period: "mensal" | "trimestral" | "anual"
@@ -119,64 +119,54 @@ export default function PaywallScreen({ navigation }: any) {
       const prodId = pkg.product.identifier.toLowerCase();
       const pkgId = pkg.identifier.toLowerCase();
 
-      // Identifica se o produto pertence ao catálogo DUO
-      const isDuoProduct =
-        prodId.includes("duo.") ||
-        prodId.includes("duo_") ||
-        pkgId.includes("duo");
-
-      // Identifica se o produto pertence ao catálogo SOLO (Individual)
-      const isSoloProduct =
-        prodId.includes("solo.") ||
-        (prodId.includes("duoelo_") && !prodId.includes("duoelo_duo_")) ||
-        pkgId.includes("solo");
-
       if (category === "individual") {
-        if (isDuoProduct && !isSoloProduct) return false;
-
         if (period === "mensal") {
           return (
+            pkgId === "solo_monthly" ||
+            prodId === "lu.barnx.duoelo.solo.monthly" ||
             prodId.includes("solo.monthly") ||
-            prodId.includes("duoelo_mensal") ||
-            pkgId.includes("solo_monthly")
+            prodId.includes("duoelo_mensal")
           );
         }
         if (period === "trimestral") {
           return (
+            pkgId === "solo_three_month" ||
+            prodId === "lu.barnx.duoelo.solo.quarterly" ||
             prodId.includes("solo.quarterly") ||
-            prodId.includes("duoelo_trimestral") ||
-            pkgId.includes("solo_quarterly")
+            prodId.includes("duoelo_trimestral")
           );
         }
         if (period === "anual") {
           return (
+            pkgId === "solo_annual" ||
+            prodId === "lu.barnx.duoelo.solo.annual" ||
             prodId.includes("solo.annual") ||
-            prodId.includes("duoelo_anual") ||
-            pkgId.includes("solo_annual")
+            prodId.includes("duoelo_anual")
           );
         }
       } else {
-        if (isSoloProduct && !isDuoProduct) return false;
-
         if (period === "mensal") {
           return (
+            pkgId === "$rc_monthly" ||
+            prodId === "lu.barnx.duoelo.duo.monthly" ||
             prodId.includes("duo.monthly") ||
-            prodId.includes("duoelo_duo_mensal") ||
-            pkgId.includes("duo_monthly")
+            prodId.includes("duoelo_duo_mensal")
           );
         }
         if (period === "trimestral") {
           return (
+            pkgId === "$rc_three_month" ||
+            prodId === "lu.barnx.duoelo.duo.quarterly" ||
             prodId.includes("duo.quarterly") ||
-            prodId.includes("duoelo_duo_trimestral") ||
-            pkgId.includes("duo_quarterly")
+            prodId.includes("duoelo_duo_trimestral")
           );
         }
         if (period === "anual") {
           return (
+            pkgId === "$rc_annual" ||
+            prodId === "lu.barnx.duoelo.duo.annual" ||
             prodId.includes("duo.annual") ||
-            prodId.includes("duoelo_duo_anual") ||
-            pkgId.includes("duo_annual")
+            prodId.includes("duoelo_duo_anual")
           );
         }
       }

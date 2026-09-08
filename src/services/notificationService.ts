@@ -90,6 +90,16 @@ export async function saveNotificationToFirestore(
 }
 
 /**
+ * Helper interno para validar tokens de Push da Expo
+ */
+function isValidExpoPushToken(token?: string): boolean {
+  if (!token || typeof token !== "string") return false;
+  return (
+    token.startsWith("ExponentPushToken[") || token.startsWith("ExpoPushToken[")
+  );
+}
+
+/**
  * 💌 Notificação ao ENVIAR um convite de Match
  */
 export async function sendMatchNotificationToPartner(
@@ -112,7 +122,7 @@ export async function sendMatchNotificationToPartner(
 
   await saveNotificationToFirestore(pushTitle, pushMessage, "MATCH_INVITE", partnerUid);
 
-  if (partnerPushToken && !isExpoGo) {
+  if (isValidExpoPushToken(partnerPushToken) && !isExpoGo) {
     try {
       await fetch("https://exp.host/--/api/v2/push/send", {
         method: "POST",
@@ -158,7 +168,7 @@ export async function sendMatchAcceptNotification(
 
   await saveNotificationToFirestore(pushTitle, pushMessage, "MATCH_ACCEPT", partnerUid);
 
-  if (partnerPushToken && !isExpoGo) {
+  if (isValidExpoPushToken(partnerPushToken) && !isExpoGo) {
     try {
       await fetch("https://exp.host/--/api/v2/push/send", {
         method: "POST",
@@ -204,7 +214,7 @@ export async function sendPlayNotificationToPartner(
 
   await saveNotificationToFirestore(pushTitle, pushMessage, "PLAY_STARTED", partnerUid);
 
-  if (partnerPushToken && !isExpoGo) {
+  if (isValidExpoPushToken(partnerPushToken) && !isExpoGo) {
     try {
       await fetch("https://exp.host/--/api/v2/push/send", {
         method: "POST",
@@ -250,7 +260,7 @@ export async function sendLessonCompletedNotification(
 
   await saveNotificationToFirestore(pushTitle, pushMessage, "LESSON_COMPLETED", partnerUid);
 
-  if (partnerPushToken && !isExpoGo) {
+  if (isValidExpoPushToken(partnerPushToken) && !isExpoGo) {
     try {
       await fetch("https://exp.host/--/api/v2/push/send", {
         method: "POST",
@@ -297,7 +307,7 @@ export async function sendGiftNotification(
 
   await saveNotificationToFirestore(pushTitle, pushMessage, "GIFT_RECEIVED", partnerUid);
 
-  if (partnerPushToken && !isExpoGo) {
+  if (isValidExpoPushToken(partnerPushToken) && !isExpoGo) {
     try {
       await fetch("https://exp.host/--/api/v2/push/send", {
         method: "POST",
@@ -344,7 +354,7 @@ export async function sendGiftConfirmedNotification(
 
   await saveNotificationToFirestore(pushTitle, pushMessage, "GIFT_CONFIRMED", partnerUid);
 
-  if (partnerPushToken && !isExpoGo) {
+  if (isValidExpoPushToken(partnerPushToken) && !isExpoGo) {
     try {
       await fetch("https://exp.host/--/api/v2/push/send", {
         method: "POST",

@@ -6,9 +6,9 @@ import {
   getDocs,
   onSnapshot,
   query,
+  runTransaction,
   setDoc,
   where,
-  writeBatch
 } from "firebase/firestore";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -210,6 +210,7 @@ export default function MatchScreen({ navigation }: any) {
     return () => unsubscribe();
   }, [currentUid]);
 
+  // 🎯 RECONCILIAÇÃO ABRANGENTE E SEGURA DO PLANO DUO
   useEffect(() => {
     if (userData && userData.partnerId) {
       const unsubscribePartner = onSnapshot(
@@ -220,10 +221,26 @@ export default function MatchScreen({ navigation }: any) {
             const pData = docSnap.data();
             setPartnerData(pData);
 
-            if (pData.isPremium && !userData.isPremium && currentUid) {
+            // 🛡️ Avalia se o parceiro possui Plano Duo ativo de forma abrangente
+            const isPartnerDuoBuyer = Boolean(
+              pData.isPremium &&
+              pData.partnerId === currentUid &&
+              (
+                pData.planType === "duo" ||
+                pData.subscriptionCategory === "duo" ||
+                (pData.activeProductId && pData.activeProductId.includes("duo"))
+              )
+            );
+
+            if (isPartnerDuoBuyer && !userData.isPremium && currentUid) {
               await setDoc(
                 doc(db, "users", currentUid),
-                { isPremium: true, isPartnerPremium: true },
+                {
+                  isPremium: true,
+                  isPartnerPremium: true,
+                  planType: "duo",
+                  activeProductId: pData.activeProductId || "duo_inherited"
+                },
                 { merge: true },
               );
             }
@@ -336,44 +353,66 @@ export default function MatchScreen({ navigation }: any) {
           style: "destructive",
           onPress: async () => {
             const partnerUid = userData?.partnerId;
-            if (!currentUid) return;
+            if (!currentUid || !partnerUid) return;
 
             setIsDisconnecting(true);
             try {
-              const batch = writeBatch(db);
+              await runTransaction(db, async (transaction) => {
+                const myRef = doc(db, "users", currentUid);
+                const partnerRef = doc(db, "users", partnerUid);
 
-              const myUserRef = doc(db, "users", currentUid);
-              const resetPayload: any = {
-                partnerId: null,
-                matchStatus: "disconnected",
-                isSoloMode: false,
-                myTrail: null,
-                isReadyToStart: false,
-                hasPressedPlay: false,
-                sentMatchRequestTo: null,
-                pendingMatchRequest: null,
-              };
+                const mySnap = await transaction.get(myRef);
+                const partnerSnap = await transaction.get(partnerRef);
 
-              if (userData?.isPartnerPremium) {
-                resetPayload.isPremium = false;
-                resetPayload.isPartnerPremium = false;
-                resetPayload.planType = "free";
-              }
+                if (!mySnap.exists() || !partnerSnap.exists()) {
+                  throw new Error("Dados de usuário inconsistentes.");
+                }
 
-              batch.set(myUserRef, resetPayload, { merge: true });
+                const myData = mySnap.data();
+                const pData = partnerSnap.data();
 
-              if (partnerUid) {
-                const partnerUserRef = doc(db, "users", partnerUid);
-                batch.set(partnerUserRef, resetPayload, { merge: true });
-              }
+                const iAmRealBuyer = Boolean(myData.activeProductId && myData.isPremium);
+                const partnerIsRealBuyer = Boolean(pData.activeProductId && pData.isPremium);
 
-              await batch.commit();
+                const myPayload: any = {
+                  partnerId: null,
+                  matchStatus: "disconnected",
+                  isSoloMode: true,
+                  sentMatchRequestTo: null,
+                  pendingMatchRequest: null,
+                };
+
+                if (!iAmRealBuyer) {
+                  myPayload.isPremium = false;
+                  myPayload.isPartnerPremium = false;
+                  myPayload.planType = "free";
+                  myPayload.activeProductId = null;
+                }
+
+                const partnerPayload: any = {
+                  partnerId: null,
+                  matchStatus: "disconnected",
+                  isSoloMode: true,
+                  sentMatchRequestTo: null,
+                  pendingMatchRequest: null,
+                };
+
+                if (!partnerIsRealBuyer) {
+                  partnerPayload.isPremium = false;
+                  partnerPayload.isPartnerPremium = false;
+                  partnerPayload.planType = "free";
+                  partnerPayload.activeProductId = null;
+                }
+
+                transaction.set(myRef, myPayload, { merge: true });
+                transaction.set(partnerRef, partnerPayload, { merge: true });
+              });
 
               try {
                 await logAuditEvent(
                   currentUid,
                   "PARTNER_UNLINKED",
-                  `Desvinculação efetuada com o parceiro ${partnerUid || "desconhecido"}`,
+                  `Desvinculação efetuada com o parceiro ${partnerUid}`,
                   userLang
                 );
               } catch (auditErr) {}
@@ -407,14 +446,13 @@ export default function MatchScreen({ navigation }: any) {
 
     setIsMatching(true);
     try {
-      const batch = writeBatch(db);
-      const myRef = doc(db, "users", currentUid);
-      const targetRef = doc(db, "users", targetUid);
+      await runTransaction(db, async (transaction) => {
+        const myRef = doc(db, "users", currentUid);
+        const targetRef = doc(db, "users", targetUid);
 
-      batch.set(myRef, { sentMatchRequestTo: null }, { merge: true });
-      batch.set(targetRef, { pendingMatchRequest: null }, { merge: true });
-
-      await batch.commit();
+        transaction.set(myRef, { sentMatchRequestTo: null }, { merge: true });
+        transaction.set(targetRef, { pendingMatchRequest: null }, { merge: true });
+      });
 
       showCustomAlert(
         t("invite_canceled_title", userLang) || "Convite Cancelado",
@@ -440,32 +478,52 @@ export default function MatchScreen({ navigation }: any) {
 
     setIsMatching(true);
     try {
-      const batch = writeBatch(db);
-      const myUserRef = doc(db, "users", currentUid);
-      const senderUserRef = doc(db, "users", senderUid);
+      await runTransaction(db, async (transaction) => {
+        const myRef = doc(db, "users", currentUid);
+        const senderRef = doc(db, "users", senderUid);
 
-      const payload = {
-        partnerId: senderUid,
-        isSoloMode: false,
-        hasCompletedAnamnesis: true,
-        anamnesisLocked: true,
-        pendingMatchRequest: null,
-        sentMatchRequestTo: null,
-      };
+        const mySnap = await transaction.get(myRef);
+        const senderSnap = await transaction.get(senderRef);
 
-      const senderPayload = {
-        partnerId: currentUid,
-        isSoloMode: false,
-        hasCompletedAnamnesis: true,
-        anamnesisLocked: true,
-        pendingMatchRequest: null,
-        sentMatchRequestTo: null,
-      };
+        if (!mySnap.exists() || !senderSnap.exists()) {
+          throw new Error("Usuários não encontrados.");
+        }
 
-      batch.set(myUserRef, payload, { merge: true });
-      batch.set(senderUserRef, senderPayload, { merge: true });
+        const senderData = senderSnap.data();
 
-      await batch.commit();
+        const senderIsDuoBuyer = Boolean(
+          senderData.isPremium &&
+          (
+            senderData.planType === "duo" ||
+            senderData.subscriptionCategory === "duo" ||
+            senderData.activeProductId?.includes("duo")
+          )
+        );
+
+        const myPayload: any = {
+          partnerId: senderUid,
+          isSoloMode: false,
+          pendingMatchRequest: null,
+          sentMatchRequestTo: null,
+        };
+
+        if (senderIsDuoBuyer) {
+          myPayload.isPremium = true;
+          myPayload.isPartnerPremium = true;
+          myPayload.planType = "duo";
+          myPayload.activeProductId = senderData.activeProductId || "duo_inherited";
+        }
+
+        const senderPayload: any = {
+          partnerId: currentUid,
+          isSoloMode: false,
+          pendingMatchRequest: null,
+          sentMatchRequestTo: null,
+        };
+
+        transaction.set(myRef, myPayload, { merge: true });
+        transaction.set(senderRef, senderPayload, { merge: true });
+      });
 
       try {
         await logAuditEvent(
@@ -501,14 +559,13 @@ export default function MatchScreen({ navigation }: any) {
 
     setIsMatching(true);
     try {
-      const batch = writeBatch(db);
-      const myRef = doc(db, "users", currentUid);
-      const senderRef = doc(db, "users", senderUid);
+      await runTransaction(db, async (transaction) => {
+        const myRef = doc(db, "users", currentUid);
+        const senderRef = doc(db, "users", senderUid);
 
-      batch.set(myRef, { pendingMatchRequest: null }, { merge: true });
-      batch.set(senderRef, { sentMatchRequestTo: null }, { merge: true });
-
-      await batch.commit();
+        transaction.set(myRef, { pendingMatchRequest: null }, { merge: true });
+        transaction.set(senderRef, { sentMatchRequestTo: null }, { merge: true });
+      });
 
       showCustomAlert(
         t("invite_rejected_title", userLang) || "Convite Recusado",
@@ -564,7 +621,7 @@ export default function MatchScreen({ navigation }: any) {
       if (querySnapshot.empty) {
         showCustomAlert(
           t("match_not_found_title", userLang) || "Não Encontrado",
-          t("match_not_found_msg", userLang) || "Nenum usuário localizado com esses dados.",
+          t("match_not_found_msg", userLang) || "Nenhum usuário localizado com esses dados.",
           "search-minus",
           "#EAB64A",
         );
@@ -625,45 +682,48 @@ export default function MatchScreen({ navigation }: any) {
       const myName = userData?.billingFirstName || userData?.displayName || "Seu Amor";
       const myPhoto = userData?.photoURL || userData?.photoUrl || null;
 
-      const batch = writeBatch(db);
-      const myRef = doc(db, "users", currentUser.uid);
-      const pendingRef = doc(db, "users", pendingMatchPartner.id);
+      await runTransaction(db, async (transaction) => {
+        const myRef = doc(db, "users", currentUser.uid);
+        const pendingRef = doc(db, "users", pendingMatchPartner.id);
 
-      batch.set(
-        myRef,
-        {
-          sentMatchRequestTo: {
-            toUid: pendingMatchPartner.id,
-            toName: pendingMatchPartner.data?.billingFirstName || pendingMatchPartner.data?.displayName || "Seu Amor",
-            requestedAt: new Date().toISOString(),
+        transaction.set(
+          myRef,
+          {
+            sentMatchRequestTo: {
+              toUid: pendingMatchPartner.id,
+              toName: pendingMatchPartner.data?.billingFirstName || pendingMatchPartner.data?.displayName || "Seu Amor",
+              requestedAt: new Date().toISOString(),
+            },
           },
-        },
-        { merge: true }
-      );
+          { merge: true }
+        );
 
-      batch.set(
-        pendingRef,
-        {
-          pendingMatchRequest: {
-            fromUid: currentUser.uid,
-            fromName: myName,
-            fromPhoto: myPhoto,
-            requestedAt: new Date().toISOString(),
+        transaction.set(
+          pendingRef,
+          {
+            pendingMatchRequest: {
+              fromUid: currentUser.uid,
+              fromName: myName,
+              fromPhoto: myPhoto,
+              requestedAt: new Date().toISOString(),
+            },
           },
-        },
-        { merge: true }
-      );
-
-      await batch.commit();
+          { merge: true }
+        );
+      });
 
       try {
-        await sendMatchNotificationToPartner(
-          pendingMatchPartner.data?.pushToken || "",
-          pendingMatchPartner.id,
-          myName,
-          userLang
-        );
-      } catch (e) {}
+        if (pendingMatchPartner.data?.pushToken) {
+          await sendMatchNotificationToPartner(
+            pendingMatchPartner.data.pushToken,
+            pendingMatchPartner.id,
+            myName,
+            userLang
+          );
+        }
+      } catch (pushErr) {
+        console.warn("[MatchScreen] Notificação push não entregue:", pushErr);
+      }
 
       try {
         await logAuditEvent(
@@ -672,7 +732,9 @@ export default function MatchScreen({ navigation }: any) {
           `Solicitação de convite enviada para o parceiro ID: ${pendingMatchPartner.id}`,
           userLang
         );
-      } catch (e) {}
+      } catch (auditErr) {
+        console.warn("[MatchScreen] Falha silenciosa no log de auditoria:", auditErr);
+      }
 
       setInviteCodeInput("");
       setPendingMatchPartner(null);
@@ -684,6 +746,7 @@ export default function MatchScreen({ navigation }: any) {
         "#67D4A8"
       );
     } catch (error: any) {
+      console.error("[MatchScreen] Erro na transação do Match:", error);
       showCustomAlert(
         t("match_error_title", userLang) || "Erro no Convite",
         t("match_error_msg", userLang) || "Falha ao enviar o convite de conexão.",

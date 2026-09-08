@@ -612,11 +612,12 @@ export default function HomeScreen({ navigation }: any) {
 
   const isMatchOrSoloDone = hasPartner || isSoloMode;
 
+  // 🎯 TRAVA DE SEGURANÇA ESTRITA DA TRILHA: AMBOS PRECISAM DE ANAMNESE CONCLUÍDA SE HOUVER PARCEIRO
   const isTrailUnlocked =
     hasCompletedAnamnesis &&
     isPremium &&
     (iAmReady || partnerIsReady) &&
-    (isSoloMode || !hasPartner || partnerCompletedAnamnesis || partnerIsReady);
+    (isSoloMode || (!hasPartner ? true : partnerCompletedAnamnesis));
 
   const getTargetStepIndex = () => {
     return nextAvailableStep;
@@ -786,10 +787,22 @@ export default function HomeScreen({ navigation }: any) {
     }, 2000);
   };
 
+  // 🎯 APERTO DE MÃO DE INÍCIO COM TRAVA DE SEGURANÇA DE ANAMNESE
   const handleStartHandshake = async () => {
     if (!currentUid) return;
-    setIsGeneratingJourney(true);
 
+    if (hasPartner && !partnerCompletedAnamnesis) {
+      showCustomAlert(
+        t("waiting_partner_title", userLang) || "Aguardando o Amor ⏳",
+        t("waiting_partner_msg", userLang, { name: pName }) || `${pName} ainda precisa responder à Anamnese inicial para liberar a jornada do casal.`,
+        "hourglass-half",
+        "#EAB64A",
+        t("btn_understand", userLang) || "Entendi"
+      );
+      return;
+    }
+
+    setIsGeneratingJourney(true);
     const targetPartnerId = userData?.partnerId || partnerData?.id || null;
 
     try {
@@ -961,7 +974,7 @@ export default function HomeScreen({ navigation }: any) {
       if (!partnerCompletedAnamnesis) {
         showCustomAlert(
           t("waiting_partner_title", userLang) || "Aguardando o Amor ⏳",
-          t("waiting_partner_msg", userLang, { name: pName }) || `${pName} ainda está preenchendo a avaliação inicial.`,
+          t("waiting_partner_msg", userLang, { name: pName }) || `${pName} ainda precisa responder à Anamnese inicial para liberar a jornada do casal.`,
           "hourglass-half",
           "#EAB64A",
           t("btn_understand", userLang) || "Entendi"
@@ -1013,6 +1026,16 @@ export default function HomeScreen({ navigation }: any) {
       return;
     }
 
+    if (hasPartner && !partnerCompletedAnamnesis) {
+      showCustomAlert(
+        t("waiting_partner_title", userLang) || "Aguardando o Amor ⏳",
+        t("waiting_partner_msg", userLang, { name: pName }) || `${pName} ainda precisa responder à Anamnese inicial.`,
+        "hourglass-half",
+        "#EAB64A"
+      );
+      return;
+    }
+
     if (!isPremium) {
       showCustomAlert(
         t("sub_required_title", userLang) || "Assinatura Necessária",
@@ -1032,7 +1055,7 @@ export default function HomeScreen({ navigation }: any) {
     if (isWaiting && !isCompleted) {
       showCustomAlert(
         t("all_in_good_time_title", userLang) || "Tudo a Seu Tempo",
-        t("all_in_good_time_msg", userLang) || "A próxima missão estará disponível amanhã!",
+        t("all_in_good_time_msg", userLang) || "A próxima missão estará disponível ammanhã!",
         "hourglass-half",
         "#202D3A"
       );

@@ -147,7 +147,7 @@ export default function InvitePartnerScreen({ navigation }: any) {
         setIsCheckingStatus(false);
       }
     } else if (connectionStep === 2) {
-      // 🔒 ROTEAMENTO INTELIGENTE PÓS-MATCH
+      // 🔒 ROTEAMENTO INTELIGENTE PÓS-MATCH (VALIDAÇÃO DE HERANÇA RÍGIDA DUO)
       const currentUid = auth.currentUser?.uid;
       if (currentUid) {
         try {
@@ -175,12 +175,22 @@ export default function InvitePartnerScreen({ navigation }: any) {
           }
 
           let isUserPremium = Boolean(userData?.isPremium);
+
+          // 🛡️ VALIDAÇÃO DE HERANÇA RÍGIDA: Só herda se o parceiro for COMPRADOR DIREO DO PLANO DUO
           if (!isUserPremium && userData?.partnerId) {
             const partnerSnap = await getDoc(
               doc(db, "users", userData.partnerId)
             );
-            if (partnerSnap.exists() && partnerSnap.data()?.isPremium) {
-              isUserPremium = true;
+            if (partnerSnap.exists()) {
+              const partnerData = partnerSnap.data();
+              const isPartnerDuoBuyer = Boolean(
+                partnerData?.isPremium &&
+                partnerData?.partnerId === currentUid &&
+                (partnerData?.planType === "duo" || partnerData?.activeProductId?.includes("duo"))
+              );
+              if (isPartnerDuoBuyer) {
+                isUserPremium = true;
+              }
             }
           }
 

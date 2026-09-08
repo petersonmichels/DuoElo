@@ -239,8 +239,18 @@ export default function VidaScreen({ navigation }: any) {
   const isSoloMode = !!userData?.isSoloMode;
   const pendingMatchRequest = userData?.pendingMatchRequest;
 
-  const hasName = !!(userData?.billingFirstName || userData?.firstName || userData?.displayName);
-  const hasPhone = !!(userData?.billingPhone || userData?.phone || userData?.phoneNumber);
+  // 🎯 VERIFICAÇÃO ROBUSTA DE DADOS PESSOAIS COMPLETOS
+  const hasName = Boolean(
+    (userData?.billingFirstName && userData.billingFirstName.trim().length > 0) ||
+    (userData?.firstName && userData.firstName.trim().length > 0) ||
+    (userData?.displayName && userData.displayName.trim().length > 0)
+  );
+
+  const rawPhone = String(
+    userData?.billingPhone || userData?.phone || userData?.phoneNumber || ""
+  ).trim();
+  const hasPhone = rawPhone.length > 5;
+
   const hasCompleteProfileData = hasName && hasPhone;
 
   // 🎯 VERIFICA SE A BÚSSOLA/ANAMNESE FOI CONCLUÍDA OU BLOQUEADA

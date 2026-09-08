@@ -57,6 +57,20 @@ const LANGUAGE_TO_COUNTRY_CODE: Record<string, string> = {
   ja: "JP",
 };
 
+// 🌐 Helper para sanitizar o código do idioma enviado na URL dos links legais
+const getLegalUrlLangParam = (lang: string): string => {
+  const langMap: Record<string, string> = {
+    "pt-BR": "pt",
+    "pt-PT": "pt",
+    en: "en",
+    es: "es",
+    fr: "fr",
+    de: "de",
+    ja: "ja",
+  };
+  return langMap[lang] || "en";
+};
+
 export default function ProfileScreen({ navigation }: any) {
   const [userData, setUserData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -83,6 +97,13 @@ export default function ProfileScreen({ navigation }: any) {
   const [isPremiumActive, setIsPremiumActive] = useState(false);
 
   const userListenerUnsubscribe = useRef<(() => void) | null>(null);
+
+  // 📌 Leitura dinâmica da versão/build a partir do app.config.js
+  const appVersion = Constants.expoConfig?.version || "1.0.3";
+  const buildNumber =
+    Constants.expoConfig?.ios?.buildNumber ||
+    Constants.expoConfig?.android?.versionCode ||
+    "17";
 
   const formatLocalNumber = useCallback((text: string, country = selectedCountry) => {
     let cleaned = text.replace(/\D/g, "");
@@ -131,14 +152,15 @@ export default function ProfileScreen({ navigation }: any) {
     }, [])
   );
 
-  // 🎯 REVENUECAT LISTENER E ESCUTA REATIVA DO USUÁRIO
+  // 🎯 REVENUECAT LISTENER E ESCUTA REATIVA DO USUÁRIO (COM HERANÇA DUO)
   useEffect(() => {
     const currentUid = auth.currentUser?.uid;
     if (!currentUid) return;
 
     const customerInfoListener = (info: CustomerInfo) => {
-      const active = info.entitlements.active['premium'] !== undefined;
-      setIsPremiumActive(active);
+      const activeInStore = info.entitlements.active['premium'] !== undefined;
+      // 🛡️ Mantém Premium ativo se a compra veio da loja OU se o Firestore indicava herança
+      setIsPremiumActive((prev) => activeInStore || prev);
     };
 
     try {
@@ -168,7 +190,10 @@ export default function ProfileScreen({ navigation }: any) {
           setBypassDailyLock(data.bypassDailyLock || false);
           setEnableHaptics(data.enableHaptics !== false);
           if (data.language) setUserLang(data.language);
-          if (data.isPremium !== undefined) setIsPremiumActive(Boolean(data.isPremium));
+
+          // 🛡️ RECONCILIAÇÃO DE STATUS: Considera isPremium OU isPartnerPremium do Firestore
+          const hasHeritedDuo = Boolean(data.isPremium || data.isPartnerPremium);
+          setIsPremiumActive(hasHeritedDuo);
 
           if (isFirstLoad.current) {
             setFirstName(data.billingFirstName || data.firstName || "");
@@ -179,7 +204,6 @@ export default function ProfileScreen({ navigation }: any) {
             if (rawPhone) {
               parseInitialPhone(rawPhone);
             } else {
-              // 💡 Se não houver telefone salvo, define o DDI padrão pelo idioma
               const defaultCountryCode = LANGUAGE_TO_COUNTRY_CODE[data.language || "pt-BR"] || "BR";
               const matchedCountry = COUNTRY_CODES.find((c) => c.code === defaultCountryCode);
               if (matchedCountry) {
@@ -608,12 +632,10 @@ export default function ProfileScreen({ navigation }: any) {
     );
   };
 
-  // 🎯 Atualização do idioma + sugestão automática de DDI (se telefone estiver limpo)
   const handleSelectLanguage = async (newLang: string) => {
     setUserLang(newLang);
     setIsLangModalVisible(false);
 
-    // Se o usuário ainda não tiver digitado/salvo número de telefone, sugere o DDI do idioma
     if (!localPhone.trim()) {
       const defaultCountryCode = LANGUAGE_TO_COUNTRY_CODE[newLang] || "BR";
       const matchedCountry = COUNTRY_CODES.find((c) => c.code === defaultCountryCode);
@@ -817,7 +839,7 @@ export default function ProfileScreen({ navigation }: any) {
             </View>
           </View>
 
-          {/* 📝 FORMULÁRIO DE DADOS PESSOAIS */}
+          {/* 📝 FORMULÁRIO DE DADOS PESSOAIS (COM AUTOSAVE SINCRONIZADO) */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>{t("personal_data_autosave_title", userLang)}</Text>
             <View style={styles.formCard}>
@@ -830,12 +852,14 @@ export default function ProfileScreen({ navigation }: any) {
                     placeholderTextColor="#AFAFAF"
                     value={firstName}
                     onChangeText={setFirstName}
-                    onBlur={() =>
+                    onBlur={() => {
+                      const clean = firstName.trim();
                       handleAutoSave({
-                        billingFirstName: firstName,
-                        firstName: firstName,
-                      })
-                    }
+                        billingFirstName: clean,
+                        firstName: clean,
+                        displayName: `${clean} ${lastName.trim()}`.trim(),
+                      });
+                    }}
                   />
                 </View>
                 <View style={[styles.inputGroup, styles.halfInput]}>
@@ -846,12 +870,14 @@ export default function ProfileScreen({ navigation }: any) {
                     placeholderTextColor="#AFAFAF"
                     value={lastName}
                     onChangeText={setLastName}
-                    onBlur={() =>
+                    onBlur={() => {
+                      const clean = lastName.trim();
                       handleAutoSave({
-                        billingLastName: lastName,
-                        lastName: lastName,
-                      })
-                    }
+                        billingLastName: clean,
+                        lastName: clean,
+                        displayName: `${firstName.trim()} ${clean}`.trim(),
+                      });
+                    }}
                   />
                 </View>
               </View>
@@ -911,7 +937,10 @@ export default function ProfileScreen({ navigation }: any) {
 
             <TouchableOpacity
               style={styles.menuOption}
-              onPress={() => openUrl(`https://duoelo.lu/termos?lang=${userLang}`)}
+              onPress={() => {
+                const legalLang = getLegalUrlLangParam(userLang);
+                openUrl(`https://duoelo.lu/termos?lang=${legalLang}`);
+              }}
             >
               <View style={styles.menuOptionLeft}>
                 <View style={[styles.menuIconBg, { backgroundColor: "#F0F4F8" }]}>
@@ -924,7 +953,10 @@ export default function ProfileScreen({ navigation }: any) {
 
             <TouchableOpacity
               style={styles.menuOption}
-              onPress={() => openUrl(`https://duoelo.lu/privacidade?lang=${userLang}`)}
+              onPress={() => {
+                const legalLang = getLegalUrlLangParam(userLang);
+                openUrl(`https://duoelo.lu/privacidade?lang=${legalLang}`);
+              }}
             >
               <View style={styles.menuOptionLeft}>
                 <View style={[styles.menuIconBg, { backgroundColor: "#F0F4F8" }]}>
@@ -960,7 +992,7 @@ export default function ProfileScreen({ navigation }: any) {
                 <View style={[styles.menuIconBg, { backgroundColor: "#F0F4F8" }]}>
                   <FontAwesome5 name="mobile-alt" size={16} color="#67D4A8" />
                 </View>
-                <View style={{ flex: 1, flexShrink: 1 }}>
+                <View style={{ flex: 1, flexShrink: 1, paddingRight: 8 }}>
                   <Text style={styles.menuOptionText}>
                     {t("haptics_label", userLang)}
                   </Text>
@@ -983,7 +1015,7 @@ export default function ProfileScreen({ navigation }: any) {
                 <View style={[styles.menuIconBg, { backgroundColor: "#F0F4F8" }]}>
                   <FontAwesome5 name="unlock-alt" size={16} color="#EAB64A" />
                 </View>
-                <View style={{ flex: 1, flexShrink: 1 }}>
+                <View style={{ flex: 1, flexShrink: 1, paddingRight: 8 }}>
                   <Text style={styles.menuOptionText}>{t("bypass_lock_label", userLang)}</Text>
                   <Text style={{ fontSize: 11, color: "#60646C", marginTop: 2, fontFamily: "Montserrat_400Regular" }}>
                     {t("bypass_lock_desc", userLang)}
@@ -1039,7 +1071,9 @@ export default function ProfileScreen({ navigation }: any) {
             </Text>
           </TouchableOpacity>
 
-          <Text style={styles.versionText}>DuoElo v1.0.3 (Build 17)</Text>
+          <Text style={styles.versionText}>
+            {`DuoElo v${appVersion} (Build ${buildNumber})`}
+          </Text>
         </ScrollView>
       </KeyboardAvoidingView>
 

@@ -85,9 +85,6 @@ export default function AnamneseScreen({ navigation, route }: any) {
   const [isLangModalVisible, setIsLangModalVisible] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
 
-  const isGuestOrHasPartner =
-    route?.params?.isPartnerPremium || currentUserData?.partnerId;
-
   const [customAlert, setCustomAlert] = useState({
     visible: false,
     title: "",
@@ -323,6 +320,7 @@ export default function AnamneseScreen({ navigation, route }: any) {
 
   const handleStart = () => setScreenState("questions");
 
+  // 🎯 PULAR ANAMNESE -> REDIRECIONA SEMPRE PARA A HOME
   const handleSkipAnamnesis = () => {
     showCustomAlert(
       t("skip_anamnesis_title", userLang) || "Pular Anamnese",
@@ -355,11 +353,8 @@ export default function AnamneseScreen({ navigation, route }: any) {
               userLang
             );
 
-            if (isGuestOrHasPartner) {
-              navigation.navigate("Match");
-            } else {
-              navigation.navigate("MainTabs", { screen: "Home" });
-            }
+            // 🎯 DIRETO PARA A HOME
+            navigation.navigate("MainTabs", { screen: "Home" });
           } catch (e) {
             console.log("Erro ao salvar perfil padrão:", e);
           } finally {
@@ -723,22 +718,7 @@ export default function AnamneseScreen({ navigation, route }: any) {
       return;
     }
 
-    if (!currentUserData?.partnerId) {
-      showCustomAlert(
-        t("solo_mode_alert_title", userLang) || "Modo Solo Ativo",
-        t("solo_mode_alert_msg", userLang) || "Você pode conectar seu amor agora ou continuar solo.",
-        "user-friends",
-        "#EAB64A",
-        t("btn_send_partner_invite", userLang) || "Conectar Parceiro",
-        () => navigation.navigate("Match"),
-        t("btn_continue_solo_for_now", userLang) || "Continuar Solo",
-        async () => {
-          await executePlayAction();
-        }
-      );
-      return;
-    }
-
+    // 🎯 DIRETO PARA A EXECUÇÃO E NAVEGAÇÃO PARA HOME
     await executePlayAction();
   };
 

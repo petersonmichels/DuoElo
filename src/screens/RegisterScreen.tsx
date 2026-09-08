@@ -194,7 +194,7 @@ export default function RegisterScreen({ navigation }: any) {
       );
       const uid = userCredential.user.uid;
 
-      // 4. Cria o documento oficial no Firestore (Sem campos fiscais de endereço)
+      // 4. Cria o documento oficial no Firestore (Com inicialização explícita do plano)
       const myGeneratedCode = uid.substring(0, 6).toUpperCase();
       const userDataToSave: any = {
         uid: uid,
@@ -211,6 +211,7 @@ export default function RegisterScreen({ navigation }: any) {
         myInviteCode: myGeneratedCode,
         createdAt: new Date().toISOString(),
         isPremium: false,
+        planType: "free",
         hasCompletedAnamnesis: false,
         totalPE: 0,
         streak: 0,
