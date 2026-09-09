@@ -1,7 +1,7 @@
 import { FontAwesome5 } from "@expo/vector-icons";
 import { signOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -51,6 +51,45 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
   const [errorMessage, setErrorMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  // 🎯 DECLARAÇÃO DA BIOMETRIA ANTES DO USEEFFECT PARA EVITAR ERRO DE DECLARAÇÃO
+  const triggerBiometrics = useCallback(async () => {
+    try {
+      const res: any = await authenticateWithBiometrics();
+
+      const isSuccess = typeof res === "boolean" ? res : Boolean(res?.success);
+
+      if (isSuccess) {
+        setSessionUnlocked(true);
+        const uid = auth.currentUser?.uid;
+        if (uid) {
+          try {
+            await logAuditEvent(
+              uid,
+              "MASTER_PASSWORD_VERIFIED",
+              "Acesso ao cofre liberado via Biometria/Rosto",
+              userLanguage
+            );
+          } catch {
+            // Log de auditoria concluído
+          }
+        }
+        onSuccess("BIOMETRIC_UNLOCKED");
+      } else {
+        if (res?.error !== "user_cancel" && res?.error !== "system_cancel") {
+          setErrorMessage(
+            t("biometric_error_msg", userLanguage) ||
+              "Não foi possível autenticar com o Rosto/Biometria."
+          );
+        }
+      }
+    } catch {
+      setErrorMessage(
+        t("biometric_error_msg", userLanguage) ||
+          "Não foi possível autenticar com o Rosto/Biometria."
+      );
+    }
+  }, [onSuccess, userLanguage]);
+
   useEffect(() => {
     let isMounted = true;
 
@@ -80,7 +119,9 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
                   hasFirestorePin = true;
                 }
               }
-            } catch (err) {}
+            } catch {
+              // Ignora erro de busca silenciosamente
+            }
           }
 
           const pinExists = Boolean(hasLocalPin || hasFirestorePin);
@@ -97,7 +138,7 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
               }, 300);
             }
           }
-        } catch (e) {
+        } catch {
           if (isMounted) {
             setIsPinCreated(false);
             setIsCheckingPinStatus(false);
@@ -111,43 +152,7 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [visible]);
-
-  const triggerBiometrics = async () => {
-    try {
-      const res: any = await authenticateWithBiometrics();
-
-      const isSuccess = typeof res === "boolean" ? res : Boolean(res?.success);
-
-      if (isSuccess) {
-        setSessionUnlocked(true);
-        const uid = auth.currentUser?.uid;
-        if (uid) {
-          try {
-            await logAuditEvent(
-              uid,
-              "MASTER_PASSWORD_VERIFIED",
-              "Acesso ao cofre liberado via Biometria/Rosto",
-              userLanguage
-            );
-          } catch (e) {}
-        }
-        onSuccess("BIOMETRIC_UNLOCKED");
-      } else {
-        if (res?.error !== "user_cancel" && res?.error !== "system_cancel") {
-          setErrorMessage(
-            t("biometric_error_msg", userLanguage) ||
-              "Não foi possível autenticar com o Rosto/Biometria."
-          );
-        }
-      }
-    } catch (err) {
-      setErrorMessage(
-        t("biometric_error_msg", userLanguage) ||
-          "Não foi possível autenticar com o Rosto/Biometria."
-      );
-    }
-  };
+  }, [visible, triggerBiometrics]);
 
   const handleBiometricPress = () => {
     setErrorMessage("");
@@ -183,7 +188,9 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
                 "Acesso ao cofre liberado via PIN de Segurança",
                 userLanguage
               );
-            } catch (e) {}
+            } catch {
+              // Log de auditoria concluído
+            }
           }
           setIsLoading(false);
           onSuccess(pinInput);
@@ -215,14 +222,16 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
               "Senha Mestra / PIN de Segurança cadastrado com sucesso",
               userLanguage
             );
-          } catch (e) {}
+          } catch {
+            // Log de auditoria concluído
+          }
         }
 
         setIsPinCreated(true);
         setIsLoading(false);
         onSuccess(pinInput);
       }
-    } catch (error: unknown) {
+    } catch {
       setIsLoading(false);
       setErrorMessage(
         t("pin_process_error_msg", userLanguage) ||
@@ -254,7 +263,9 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
                   "Redefinição de PIN solicitada com deslogamento",
                   userLanguage
                 );
-              } catch (e) {}
+              } catch {
+                // Log de auditoria concluído
+              }
             }
             await clearSecurityPin();
             await signOut(auth);

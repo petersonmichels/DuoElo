@@ -27,6 +27,7 @@ import { auth, db } from "../config/firebase";
 
 import { SUPPORTED_LANGUAGES, getLanguageFlag } from "../constants/languages";
 import { t } from "../i18n/translations";
+import { audioService } from "../services/AudioService";
 import { logAuditEvent } from "../services/auditService";
 import { encryptText } from "../services/securityService";
 
@@ -303,6 +304,9 @@ export default function AnamneseScreen({ navigation, route }: any) {
   }, []);
 
   const handleChangeLanguage = async (langCode: string) => {
+    if (audioService.getSfxEnabled()) {
+      audioService.play("click");
+    }
     setUserLang(langCode);
     setIsLangModalVisible(false);
 
@@ -318,10 +322,44 @@ export default function AnamneseScreen({ navigation, route }: any) {
     loadQuestionsFromFirebase(langCode);
   };
 
-  const handleStart = () => setScreenState("questions");
+  const handleStart = () => {
+    if (audioService.getSfxEnabled()) {
+      audioService.play("click");
+    }
+    setScreenState("questions");
+  };
 
-  // 🎯 PULAR ANAMNESE -> REDIRECIONA SEMPRE PARA A HOME
+  // 🛡️ NAVEGAÇÃO PROTEGIDA PÓS-DIAGNÓSTICO
+  const handleProtectedNavigation = () => {
+    const isDuoPlan =
+      currentUserData?.planType === "duo" ||
+      currentUserData?.subscriptionCategory === "duo";
+    const hasPartner = Boolean(
+      currentUserData?.partnerId || currentUserData?.hasPartner
+    );
+
+    if (isDuoPlan && !hasPartner) {
+      showCustomAlert(
+        t("partner_required_title", userLang) || "A jornada fica melhor a dois!",
+        t("partner_required_msg", userLang) ||
+          "O DuoElo foi feito para ser transformador em casal. Convide seu parceiro agora para sincronizarem as missões e acompanharem a evolução juntos!",
+        "user-friends",
+        "#EAB64A",
+        t("btn_connect_partner", userLang) || "Conectar Agora",
+        () => {
+          navigation.navigate("MainTabs", { screen: "Match" });
+        }
+      );
+    } else {
+      navigation.navigate("MainTabs", { screen: "Home" });
+    }
+  };
+
+  // 🎯 PULAR ANAMNESE -> SALVA E VALIDA PARCEIRO DUO
   const handleSkipAnamnesis = () => {
+    if (audioService.getSfxEnabled()) {
+      audioService.play("click");
+    }
     showCustomAlert(
       t("skip_anamnesis_title", userLang) || "Pular Anamnese",
       t("skip_anamnesis_msg", userLang) || "Deseja usar o perfil de sintonia padrão?",
@@ -353,8 +391,7 @@ export default function AnamneseScreen({ navigation, route }: any) {
               userLang
             );
 
-            // 🎯 DIRETO PARA A HOME
-            navigation.navigate("MainTabs", { screen: "Home" });
+            handleProtectedNavigation();
           } catch (e) {
             console.log("Erro ao salvar perfil padrão:", e);
           } finally {
@@ -366,6 +403,9 @@ export default function AnamneseScreen({ navigation, route }: any) {
   };
 
   const handleSafeClose = () => {
+    if (audioService.getSfxEnabled()) {
+      audioService.play("click");
+    }
     if (navigation.canGoBack()) {
       navigation.goBack();
     } else {
@@ -375,6 +415,10 @@ export default function AnamneseScreen({ navigation, route }: any) {
 
   const handleBack = () => {
     if (isAnimating) return;
+
+    if (audioService.getSfxEnabled()) {
+      audioService.play("click");
+    }
 
     if (currentIndex > 0) {
       setIsAnimating(true);
@@ -413,6 +457,10 @@ export default function AnamneseScreen({ navigation, route }: any) {
 
   const handleForward = () => {
     if (isAnimating) return;
+
+    if (audioService.getSfxEnabled()) {
+      audioService.play("click");
+    }
 
     if (
       currentIndex < selectedAnswers.length &&
@@ -454,6 +502,11 @@ export default function AnamneseScreen({ navigation, route }: any) {
 
   const handleAnswer = (option: AnamnesisOption) => {
     if (isAnimating) return;
+
+    if (audioService.getSfxEnabled()) {
+      audioService.play("click");
+    }
+
     setIsAnimating(true);
 
     const newAnswers = [...selectedAnswers];
@@ -578,6 +631,9 @@ export default function AnamneseScreen({ navigation, route }: any) {
 
     setTimeout(() => {
       setScreenState("result");
+      if (audioService.getSfxEnabled()) {
+        audioService.play("success");
+      }
       animateThermometer(finalTempRaw);
     }, 4200);
   };
@@ -690,7 +746,8 @@ export default function AnamneseScreen({ navigation, route }: any) {
           { merge: true }
         );
       }
-      navigation.navigate("MainTabs", { screen: "Home" });
+
+      handleProtectedNavigation();
     } catch (error) {
       console.error("Erro ao registrar Play:", error);
     } finally {
@@ -699,6 +756,10 @@ export default function AnamneseScreen({ navigation, route }: any) {
   };
 
   const handlePressPlayWithValidation = async () => {
+    if (audioService.getSfxEnabled()) {
+      audioService.play("click");
+    }
+
     if (
       !currentUserData?.hasCompletedAnamnesis &&
       selectedAnswers.length === 0
@@ -718,11 +779,13 @@ export default function AnamneseScreen({ navigation, route }: any) {
       return;
     }
 
-    // 🎯 DIRETO PARA A EXECUÇÃO E NAVEGAÇÃO PARA HOME
     await executePlayAction();
   };
 
   const handleGoToPaywall = async () => {
+    if (audioService.getSfxEnabled()) {
+      audioService.play("click");
+    }
     if (isSaving) return;
     setIsSaving(true);
     await saveAssessmentToFirebase();
@@ -736,11 +799,14 @@ export default function AnamneseScreen({ navigation, route }: any) {
   };
 
   const handleSaveAndSkip = async () => {
+    if (audioService.getSfxEnabled()) {
+      audioService.play("click");
+    }
     if (isSkipping) return;
     setIsSkipping(true);
     await saveAssessmentToFirebase();
     setIsSkipping(false);
-    navigation.navigate("MainTabs", { screen: "Home" });
+    handleProtectedNavigation();
   };
 
   if (isLoadingQuestions || isCheckingUser) {
@@ -782,7 +848,12 @@ export default function AnamneseScreen({ navigation, route }: any) {
       <TouchableOpacity
         style={[styles.primaryBtn, { paddingHorizontal: 40, marginBottom: 12 }]}
         activeOpacity={0.8}
-        onPress={() => navigation.navigate("MainTabs", { screen: "Home" })}
+        onPress={() => {
+          if (audioService.getSfxEnabled()) {
+            audioService.play("click");
+          }
+          navigation.navigate("MainTabs", { screen: "Home" });
+        }}
       >
         <FontAwesome5 name="home" size={16} color="#FFF" />
         <Text style={styles.primaryBtnText}>
@@ -804,7 +875,12 @@ export default function AnamneseScreen({ navigation, route }: any) {
 
       <TouchableOpacity
         style={styles.floatingLangBtn}
-        onPress={() => setIsLangModalVisible(true)}
+        onPress={() => {
+          if (audioService.getSfxEnabled()) {
+            audioService.play("click");
+          }
+          setIsLangModalVisible(true);
+        }}
       >
         <Text style={{ fontSize: 26 }}>{currentFlag}</Text>
       </TouchableOpacity>

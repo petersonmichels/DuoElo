@@ -1,0 +1,131 @@
+appId: host.exp.Exponent
+---
+
+# ======================================================
+# PASSO 1: CRIAR CONTA DA MULHER
+# ======================================================
+- extendedWaitUntil:
+    visible: "Comece sua jornada"
+    timeout: 5000
+
+- tapOn: "Nome de usuário (ex: joao_silva)"
+- inputText: "mariasilva"
+
+- tapOn: "Seu e-mail"
+- inputText: "maria.test12345@duoelo.com"
+
+- tapOn: "Sua senha (mín 6 letras)"
+- inputText: "Senha#Forte123!"
+
+- hideKeyboard
+- tapOn: "CRIAR MINHA CONTA"
+
+# Fecha Modal "Conta Criada! 🎉"
+- extendedWaitUntil:
+    visible: "ENTRAR"
+    timeout: 5000
+- tapOn: "ENTRAR"
+
+# Login automático ou direto após criar
+- extendedWaitUntil:
+    visible: "Feminino"
+    timeout: 10000
+
+# Anamnese / Perfil (Mulher)
+- tapOn: "Feminino"
+- tapOn: "Continuar"
+
+- extendedWaitUntil:
+    visible: "Fortalecer conexão"
+    timeout: 5000
+- tapOn: "Fortalecer conexão"
+- tapOn: "Continuar"
+
+# Assinatura Premium / Checkout
+- extendedWaitUntil:
+    visible: "Assinar em 1 Clique"
+    timeout: 5000
+- tapOn: "Assinar em 1 Clique"
+
+# Salvar / Copiar Código de Match
+- extendedWaitUntil:
+    visible: "Seu Código de Conexão"
+    timeout: 5000
+
+# Desconectar perfil da Mulher
+- tapOn: "Configurações"
+- tapOn: "Sair da conta"
+
+
+# ======================================================
+# PASSO 2: CRIAR CONTA DO HOMEM
+# ======================================================
+- extendedWaitUntil:
+    visible: "Comece sua jornada"
+    timeout: 5000
+
+- tapOn: "Nome de usuário (ex: joao_silva)"
+- inputText: "joaosilva"
+
+- tapOn: "Seu e-mail"
+- inputText: "joao.test12345@duoelo.com"
+
+- tapOn: "Sua senha (mín 6 letras)"
+- inputText: "Senha#Forte123!"
+
+- hideKeyboard
+- tapOn: "CRIAR MINHA CONTA"
+
+# Fecha Modal "Conta Criada! 🎉"
+- extendedWaitUntil:
+    visible: "ENTRAR"
+    timeout: 5000
+- tapOn: "ENTRAR"
+
+# Anamnese (Homem)
+- extendedWaitUntil:
+    visible: "Masculino"
+    timeout: 10000
+- tapOn: "Masculino"
+- tapOn: "Continuar"
+
+- extendedWaitUntil:
+    visible: "Melhorar comunicação"
+    timeout: 5000
+- tapOn: "Melhorar comunicação"
+- tapOn: "Continuar"
+
+
+# ======================================================
+# PASSO 3: REALIZAR O MATCH ENTRE O CASAL
+# ======================================================
+- extendedWaitUntil:
+    visible: "Possui código do seu par?"
+    timeout: 5000
+
+- tapOn: "CÓDIGO OU @USER"
+- inputText: "MARIA123"
+- hideKeyboard
+- tapOn: "Enviar Convite"
+
+- extendedWaitUntil:
+    visible: "Match Realizado!"
+    timeout: 5000
+
+
+# ======================================================
+# PASSO 4: DAR PLAY E ENVIAR PRESENTE
+# ======================================================
+- extendedWaitUntil:
+    visible: "Dar Play"
+    timeout: 5000
+- tapOn: "Dar Play"
+
+- extendedWaitUntil:
+    visible: "Escolha um Presente"
+    timeout: 5000
+- tapOn: "Jantar Romântico"
+- tapOn: "Confirmar Envio"
+
+# Validação final do ciclo
+- assertVisible: "Presente Enviado com Sucesso!"

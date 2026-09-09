@@ -34,7 +34,9 @@ import { MasterPasswordModal } from "../components/MasterPasswordModal";
 import { NotificationsModal } from "../components/NotificationsModal";
 import { auth, db } from "../config/firebase";
 import { SUPPORTED_LANGUAGES, getLanguageFlag } from "../constants/languages";
+import { executePlayWithGuard } from "../hooks/usePlayGuard";
 import { t } from "../i18n/translations";
+import { audioService } from "../services/AudioService";
 import {
   scheduleDailyReminder,
   sendLessonCompletedNotification,
@@ -895,8 +897,12 @@ export default function HomeScreen({ navigation }: any) {
     }
   };
 
+  // 🛡️ BOTÃO DE PLAY DA HOMESCREEN COM ÁUDIO E GUARD CENTRALIZADO
   const handlePolitePlayTrigger = () => {
     triggerHaptic("medium");
+
+    // 🔊 TOCA O ÁUDIO 'MATCH' RESPEITANDO A CHAVE SFX
+    audioService.play("match");
 
     if (!isPremium) {
       showCustomAlert(
@@ -933,29 +939,12 @@ export default function HomeScreen({ navigation }: any) {
               { merge: true }
             );
 
-            if (hasPartner) {
-              if (!partnerCompletedAnamnesis) {
-                setIsGeneratingJourney(false);
-                showCustomAlert(
-                  t("waiting_partner_title", userLang) || "Aguardando o Amor ⏳",
-                  t("waiting_partner_msg", userLang, { name: pName }) || `${pName} ainda está preenchendo a avaliação inicial.`,
-                  "hourglass-half",
-                  "#EAB64A",
-                  t("btn_understand", userLang) || "Entendi"
-                );
-                return;
-              }
-              await handleStartHandshake();
-            } else if (isSoloMode) {
-              await handleStartSolo();
-            } else {
-              await setDoc(
-                doc(db, "users", currentUid),
-                { isSoloMode: true },
-                { merge: true }
-              );
-              await handleStartSolo();
-            }
+            await executePlayWithGuard({
+              userData,
+              userLang,
+              navigation,
+              showCustomAlert,
+            });
           } catch (error) {
             setIsGeneratingJourney(false);
             showCustomAlert(
@@ -970,41 +959,13 @@ export default function HomeScreen({ navigation }: any) {
       return;
     }
 
-    if (hasPartner) {
-      if (!partnerCompletedAnamnesis) {
-        showCustomAlert(
-          t("waiting_partner_title", userLang) || "Aguardando o Amor ⏳",
-          t("waiting_partner_msg", userLang, { name: pName }) || `${pName} ainda precisa responder à Anamnese inicial para liberar a jornada do casal.`,
-          "hourglass-half",
-          "#EAB64A",
-          t("btn_understand", userLang) || "Entendi"
-        );
-        return;
-      }
-      handleStartHandshake();
-    } else if (isSoloMode) {
-      handleStartSolo();
-    } else {
-      showCustomAlert(
-        t("better_together_title", userLang) || "Melhor Juntos",
-        t("better_together_msg", userLang) || "Deseja convidar seu parceiro ou continuar em modo solo?",
-        "user-friends",
-        "#EAB64A",
-        t("btn_send_invite", userLang) || "Conectar Amor",
-        () => navigation.navigate("Match"),
-        t("btn_continue_solo", userLang) || "Continuar Solo",
-        async () => {
-          if (currentUid) {
-            await setDoc(
-              doc(db, "users", currentUid),
-              { isSoloMode: true },
-              { merge: true }
-            );
-            handleStartSolo();
-          }
-        }
-      );
-    }
+    // 🎯 EXECUTA A GUARDA CENTRALIZADA
+    executePlayWithGuard({
+      userData,
+      userLang,
+      navigation,
+      showCustomAlert,
+    });
   };
 
   const handleOpenMission = async (
@@ -1055,7 +1016,7 @@ export default function HomeScreen({ navigation }: any) {
     if (isWaiting && !isCompleted) {
       showCustomAlert(
         t("all_in_good_time_title", userLang) || "Tudo a Seu Tempo",
-        t("all_in_good_time_msg", userLang) || "A próxima missão estará disponível ammanhã!",
+        t("all_in_good_time_msg", userLang) || "A próxima missão estará disponível amanhã!",
         "hourglass-half",
         "#202D3A"
       );
@@ -2169,7 +2130,7 @@ export default function HomeScreen({ navigation }: any) {
                 }}
               >
                 <Text style={styles.bottomSheetButtonPrimaryText}>
-                  {customAlert.confirmText || t("btn_understand", userLang) || "Entendi"}
+                  {customAlert.confirmText || t("btn_understand", userLang) || "Entendido"}
                 </Text>
               </TouchableOpacity>
 

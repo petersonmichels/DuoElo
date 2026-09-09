@@ -6,14 +6,17 @@ import { doc, onSnapshot } from "firebase/firestore";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Animated,
   Platform,
   StyleSheet,
+  TouchableOpacity,
   View,
 } from "react-native";
 
 import { auth, authControls, db } from "../config/firebase";
 import { t } from "../i18n/translations";
+import { audioService } from "../services/AudioService";
 
 import AnamneseScreen from "../screens/AnamneseScreen";
 import HabitsConfigScreen from "../screens/HabitsConfigScreen";
@@ -83,7 +86,6 @@ const PulsingVidaIcon = ({ color, uid }: { color: string; uid: string | undefine
             data.habitsCompletedDate !== todayStr ||
             (data.completedHabitsToday || []).length === 0;
 
-          // Limpa subscrições anteriores se existirem antes de criar novas
           if (unSubRedemptions) unSubRedemptions();
           if (unSubDesires) unSubDesires();
 
@@ -241,6 +243,7 @@ function ShopScreenWrapper(props: any) {
 
 function MainTabs() {
   const [userLang, setUserLang] = useState("pt-BR");
+  const [userData, setUserData] = useState<any>(null);
   const currentUid = auth.currentUser?.uid;
 
   useEffect(() => {
@@ -254,6 +257,7 @@ function MainTabs() {
           if (!auth.currentUser) return;
           if (docSnap.exists()) {
             const data = docSnap.data();
+            setUserData(data);
             if (data?.language) {
               setUserLang(data.language);
             }
@@ -280,6 +284,18 @@ function MainTabs() {
         tabBarShowLabel: true,
         tabBarActiveTintColor: "#1A2F3B",
         tabBarInactiveTintColor: "#AFAFAF",
+        tabBarButton: (props: any) => (
+          <TouchableOpacity
+            {...props}
+            soundEnabled={audioService.getSfxEnabled()}
+            onPress={(e) => {
+              if (audioService.getSfxEnabled()) {
+                audioService.play("click");
+              }
+              props.onPress?.(e);
+            }}
+          />
+        ),
         tabBarStyle: {
           backgroundColor: "#FFFFFF",
           borderTopWidth: 0,
@@ -326,8 +342,35 @@ function MainTabs() {
         component={HomeScreen}
         listeners={({ navigation }: { navigation: any }) => ({
           tabPress: (e: any) => {
-            e.preventDefault();
-            navigation.navigate("Home");
+            if (audioService.getSfxEnabled()) {
+              audioService.play("click");
+            }
+
+            // 🎯 CHECAGEM DE PLAY SOLO OU CONECTAR PARCEIRO
+            const noPartner = !userData?.partnerId;
+            const notSolo = !userData?.isSoloMode;
+
+            if (noPartner && notSolo) {
+              e.preventDefault();
+              Alert.alert(
+                t("play_mode_title", userLang) || "Modo de Jogo",
+                t("play_mode_msg", userLang) ||
+                  "Você pode conectar-se com seu parceiro(a) na aba Match ou jogar no modo Solo.",
+                [
+                  {
+                    text: t("btn_connect_partner", userLang) || "Conectar Parceiro",
+                    onPress: () => navigation.navigate("Match"),
+                  },
+                  {
+                    text: t("btn_play_solo", userLang) || "Jogar Solo",
+                    onPress: () => navigation.navigate("Home"),
+                  },
+                ]
+              );
+            } else {
+              e.preventDefault();
+              navigation.navigate("Home");
+            }
           },
         })}
         options={{
@@ -381,7 +424,6 @@ export default function AppNavigator() {
   useEffect(() => {
     let isMounted = true;
 
-    // 🛡️ TIMEOUT DE SEGURANÇA: Desbloqueia a verificação em no máximo 2.5s se a rede/auth oscilar
     const forceUnlockTimer = setTimeout(() => {
       if (isMounted && loading) {
         setLoading(false);

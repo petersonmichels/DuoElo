@@ -9,13 +9,14 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { auth, db } from "../config/firebase";
 
+import { Button3D } from "../components/Effects3D";
 import { t } from "../i18n/translations";
+import { audioService } from "../services/AudioService";
 import { logAuditEvent } from "../services/auditService";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -146,6 +147,9 @@ export default function MissionRewardScreen({ navigation, route }: any) {
 
   useEffect(() => {
     let isMounted = true;
+
+    // 🔊 DISPARO DO ÁUDIO DE CONQUISTA/RECOMPENSA DE MISSÃO
+    audioService.play("success");
 
     const fetchUserData = async () => {
       const uid = auth.currentUser?.uid;
@@ -283,7 +287,6 @@ export default function MissionRewardScreen({ navigation, route }: any) {
   });
 
   const handleContinue = () => {
-    triggerHaptic("light");
     navigation.reset({
       index: 0,
       routes: [
@@ -489,17 +492,12 @@ export default function MissionRewardScreen({ navigation, route }: any) {
         </Animated.View>
       </ScrollView>
 
-      {/* BOTÃO FIXO DE CONTINUAR */}
+      {/* BOTÃO 3D FIXO DE CONTINUAR */}
       <View style={styles.footer}>
-        <TouchableOpacity
-          style={styles.continueBtn}
-          activeOpacity={0.8}
+        <Button3D
+          title={t("btn_continue_label", userLang) || "CONTINUAR"}
           onPress={handleContinue}
-        >
-          <Text style={styles.continueBtnText}>
-            {t("btn_continue_label", userLang) || "CONTINUAR"}
-          </Text>
-        </TouchableOpacity>
+        />
       </View>
     </SafeAreaView>
   );
@@ -675,24 +673,5 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF",
     borderTopWidth: 1,
     borderTopColor: "#D1D9E0",
-  },
-  continueBtn: {
-    width: "100%",
-    backgroundColor: "#202D3A",
-    paddingVertical: 18,
-    borderRadius: 16,
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#202D3A",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  continueBtnText: {
-    color: "#FFF",
-    fontSize: 16,
-    fontFamily: "Montserrat_900Black",
-    letterSpacing: 1.5,
   },
 });

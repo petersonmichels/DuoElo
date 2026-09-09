@@ -31,6 +31,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { MatchCelebration } from "../components/MatchCelebration";
 import { auth, db } from "../config/firebase";
 import { t } from "../i18n/translations";
 import { logAuditEvent } from "../services/auditService";
@@ -129,6 +130,7 @@ export default function MatchScreen({ navigation }: any) {
   const [pendingMatchPartner, setPendingMatchPartner] = useState<any>(null);
   const [isMatchConfirmationVisible, setIsMatchConfirmationVisible] = useState(false);
   const [hasMatchExploded, setHasMatchExploded] = useState(false);
+  const [showMatchCelebration, setShowMatchCelebration] = useState(false);
 
   const leftAvatarAnim = useRef(new Animated.Value(-SCREEN_WIDTH * 0.7)).current;
   const rightAvatarAnim = useRef(new Animated.Value(SCREEN_WIDTH * 0.7)).current;
@@ -342,6 +344,7 @@ export default function MatchScreen({ navigation }: any) {
     }
   };
 
+  // 🛡️ DESVINCULAÇÃO COMPLETA E UNIFICADA DO PARCEIRO
   const handleDisconnectPartner = () => {
     Alert.alert(
       t("disconnect_confirm_title", userLang) || "Desconectar Parceiro(a)",
@@ -374,10 +377,15 @@ export default function MatchScreen({ navigation }: any) {
                 const iAmRealBuyer = Boolean(myData.activeProductId && myData.isPremium);
                 const partnerIsRealBuyer = Boolean(pData.activeProductId && pData.isPremium);
 
+                // 🎯 LIMPEZA TOTAL E PADRONIZADA DE AMBOS OS LADOS
                 const myPayload: any = {
                   partnerId: null,
+                  hasPartner: false,
                   matchStatus: "disconnected",
-                  isSoloMode: true,
+                  isSoloMode: false,
+                  isReadyToStart: false,
+                  hasPressedPlay: false,
+                  myTrail: [],
                   sentMatchRequestTo: null,
                   pendingMatchRequest: null,
                 };
@@ -391,8 +399,12 @@ export default function MatchScreen({ navigation }: any) {
 
                 const partnerPayload: any = {
                   partnerId: null,
+                  hasPartner: false,
                   matchStatus: "disconnected",
-                  isSoloMode: true,
+                  isSoloMode: false,
+                  isReadyToStart: false,
+                  hasPressedPlay: false,
+                  myTrail: [],
                   sentMatchRequestTo: null,
                   pendingMatchRequest: null,
                 };
@@ -502,6 +514,7 @@ export default function MatchScreen({ navigation }: any) {
 
         const myPayload: any = {
           partnerId: senderUid,
+          hasPartner: true,
           isSoloMode: false,
           pendingMatchRequest: null,
           sentMatchRequestTo: null,
@@ -516,6 +529,7 @@ export default function MatchScreen({ navigation }: any) {
 
         const senderPayload: any = {
           partnerId: currentUid,
+          hasPartner: true,
           isSoloMode: false,
           pendingMatchRequest: null,
           sentMatchRequestTo: null,
@@ -534,13 +548,8 @@ export default function MatchScreen({ navigation }: any) {
         );
       } catch (e) {}
 
-      triggerHaptic("success");
-      showCustomAlert(
-        t("elo_connected_title", userLang) || "Elo Conectado! ❤️",
-        t("elo_connected_msg", userLang) || "Vocês agora estão vinculados e prontos para iniciar a jornada!",
-        "heart",
-        "#67D4A8"
-      );
+      // 💖 Dispara a animação festiva e o áudio de Match
+      setShowMatchCelebration(true);
     } catch (e) {
       showCustomAlert(
         t("error_accept_title", userLang) || "Erro ao Aceitar",
@@ -822,6 +831,13 @@ export default function MatchScreen({ navigation }: any) {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Overlay de Animação e Áudio de Match ao Aceitar Convite */}
+      {showMatchCelebration && (
+        <MatchCelebration
+          onAnimationEnd={() => setShowMatchCelebration(false)}
+        />
+      )}
+
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}
@@ -1189,7 +1205,7 @@ export default function MatchScreen({ navigation }: any) {
               }}
             >
               <Text style={styles.bottomSheetButtonPrimaryText}>
-                {t("btn_understand", userLang) || "Entendi"}
+                {t("btn_understand", userLang) || "Entendido"}
               </Text>
             </TouchableOpacity>
           </View>

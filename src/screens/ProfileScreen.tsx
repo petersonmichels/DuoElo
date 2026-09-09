@@ -7,6 +7,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   getDocs,
   onSnapshot,
   setDoc,
@@ -38,6 +39,7 @@ import { auth, db } from "../config/firebase";
 import { COUNTRY_CODES } from "../constants/countries";
 import { SUPPORTED_LANGUAGES } from "../constants/languages";
 import { t } from "../i18n/translations";
+import { audioService } from "../services/AudioService";
 import { logAuditEvent } from "../services/auditService";
 import { clearSecurityPin } from "../services/securityService";
 
@@ -90,6 +92,7 @@ export default function ProfileScreen({ navigation }: any) {
 
   const [bypassDailyLock, setBypassDailyLock] = useState(false);
   const [enableHaptics, setEnableHaptics] = useState(true);
+  const [enableSfx, setEnableSfx] = useState(true);
   const isFirstLoad = useRef(true);
 
   const [userLang, setUserLang] = useState("pt-BR");
@@ -98,12 +101,12 @@ export default function ProfileScreen({ navigation }: any) {
 
   const userListenerUnsubscribe = useRef<(() => void) | null>(null);
 
-  // 📌 Leitura dinâmica da versão/build a partir do app.config.js
+  // 📌 Leitura dinâmica da versão/build
   const appVersion = Constants.expoConfig?.version || "1.0.3";
   const buildNumber =
     Constants.expoConfig?.ios?.buildNumber ||
     Constants.expoConfig?.android?.versionCode ||
-    "17";
+    "19";
 
   const formatLocalNumber = useCallback((text: string, country = selectedCountry) => {
     let cleaned = text.replace(/\D/g, "");
@@ -152,14 +155,18 @@ export default function ProfileScreen({ navigation }: any) {
     }, [])
   );
 
-  // 🎯 REVENUECAT LISTENER E ESCUTA REATIVA DO USUÁRIO (COM HERANÇA DUO)
+  // 🎯 REVENUECAT LISTENER E ESCUTA REATIVA DO USUÁRIO
   useEffect(() => {
     const currentUid = auth.currentUser?.uid;
     if (!currentUid) return;
 
+    // Inicialização da trava de som via local storage
+    audioService.init().then((sfxState) => {
+      setEnableSfx(sfxState);
+    });
+
     const customerInfoListener = (info: CustomerInfo) => {
-      const activeInStore = info.entitlements.active['premium'] !== undefined;
-      // 🛡️ Mantém Premium ativo se a compra veio da loja OU se o Firestore indicava herança
+      const activeInStore = Object.keys(info.entitlements.active).length > 0;
       setIsPremiumActive((prev) => activeInStore || prev);
     };
 
@@ -189,9 +196,9 @@ export default function ProfileScreen({ navigation }: any) {
           setUserData(data);
           setBypassDailyLock(data.bypassDailyLock || false);
           setEnableHaptics(data.enableHaptics !== false);
+
           if (data.language) setUserLang(data.language);
 
-          // 🛡️ RECONCILIAÇÃO DE STATUS: Considera isPremium OU isPartnerPremium do Firestore
           const hasHeritedDuo = Boolean(data.isPremium || data.isPartnerPremium);
           setIsPremiumActive(hasHeritedDuo);
 
@@ -245,7 +252,7 @@ export default function ProfileScreen({ navigation }: any) {
     }).start(callback);
   };
 
-  const handleAutoSave = async (fields: { [key: string]: string }) => {
+  const handleAutoSave = async (fields: { [key: string]: any }) => {
     const currentUid = auth.currentUser?.uid;
     if (!currentUid) return;
 
@@ -419,6 +426,35 @@ export default function ProfileScreen({ navigation }: any) {
     }
   };
 
+  // 🔊 ALTERAÇÃO SÍNCRONA E PERSISTÊNCIA DE EFEITOS SONOROS
+  const toggleEnableSfx = async (value: boolean) => {
+    const currentUid = auth.currentUser?.uid;
+    
+    // 1. Atualização imediata do estado visual
+    setEnableSfx(value);
+    
+    // 2. Trava imediata na memória do AudioService e no AsyncStorage
+    await audioService.setSfxEnabled(value);
+
+    // 3. Toca o clique de feedback apenas se foi LIGADO
+    if (value) {
+      audioService.play("click");
+    }
+
+    // 4. Persistência no Firestore
+    if (currentUid) {
+      try {
+        await setDoc(
+          doc(db, "users", currentUid),
+          { enableSfx: value },
+          { merge: true }
+        );
+      } catch (e) {
+        console.warn("[ProfileScreen] Erro ao salvar estado de SFX no Firestore:", e);
+      }
+    }
+  };
+
   const handleLogout = () => {
     Alert.alert(
       t("logout_title", userLang),
@@ -486,15 +522,31 @@ export default function ProfileScreen({ navigation }: any) {
                   detailsText,
                   userLang
                 );
-              } catch (auditErr) {
-                console.log("[ProfileScreen] Log de auditoria concluído.");
-              }
+              } catch (auditErr) {}
 
               if (userData?.partnerId) {
                 try {
+                  const partnerSnap = await getDoc(doc(db, "users", userData.partnerId));
+                  const partnerData = partnerSnap.exists() ? partnerSnap.data() : null;
+
+                  const partnerUpdates: any = {
+                    partnerId: null,
+                    hasPartner: false,
+                    isSoloMode: false,
+                    isReadyToStart: false,
+                    hasPressedPlay: false,
+                    myTrail: [],
+                  };
+
+                  if (!partnerData?.activeProductId) {
+                    partnerUpdates.isPremium = false;
+                    partnerUpdates.isPartnerPremium = false;
+                    partnerUpdates.planType = "free";
+                  }
+
                   await setDoc(
                     doc(db, "users", userData.partnerId),
-                    { partnerId: null, isSoloMode: false },
+                    partnerUpdates,
                     { merge: true }
                   );
                 } catch (e) {}
@@ -585,30 +637,57 @@ export default function ProfileScreen({ navigation }: any) {
     setLoading(true);
     try {
       const restoredInfo = await Purchases.restorePurchases();
-      const hasActiveEntitlement = restoredInfo.entitlements.active['premium'] !== undefined;
-
-      setIsPremiumActive(hasActiveEntitlement);
+      const hasActiveEntitlement = Object.keys(restoredInfo.entitlements.active).length > 0;
 
       const currentUid = auth.currentUser?.uid;
-      if (currentUid) {
-        await setDoc(doc(db, "users", currentUid), { isPremium: hasActiveEntitlement }, { merge: true });
-      }
+      if (currentUid && hasActiveEntitlement) {
+        const activeSubId = restoredInfo.activeSubscriptions[0] || "";
+        const isDuoPlan = activeSubId.includes("duo") || activeSubId.includes("_duo_");
 
-      if (hasActiveEntitlement) {
+        const userUpdates: any = {
+          isPremium: true,
+          planType: isDuoPlan ? "duo" : "solo",
+          activeProductId: activeSubId,
+        };
+
+        await setDoc(doc(db, "users", currentUid), userUpdates, { merge: true });
+
+        if (isDuoPlan && userData?.partnerId) {
+          try {
+            await setDoc(
+              doc(db, "users", userData.partnerId),
+              { isPremium: true, isPartnerPremium: true, planType: "duo" },
+              { merge: true }
+            );
+          } catch (partnerErr) {}
+        }
+
+        try {
+          await logAuditEvent(
+            currentUid,
+            "PURCHASE_RESTORED",
+            "Restauração de compras concluída com sucesso no perfil",
+            userLang
+          );
+        } catch (aErr) {}
+
+        setIsPremiumActive(true);
+
         Alert.alert(
-          t("sub_restored_title", userLang),
-          t("sub_restored_msg", userLang)
+          t("sub_restored_title", userLang) || "Compras Restauradas",
+          t("sub_restored_msg", userLang) || "Sua assinatura ativa foi restaurada com sucesso."
         );
       } else {
+        setIsPremiumActive(false);
         Alert.alert(
-          t("no_active_sub_title", userLang),
-          t("no_active_sub_msg", userLang)
+          t("no_active_sub_title", userLang) || "Nenhuma Assinatura Ativa",
+          t("no_active_sub_msg", userLang) || "Não encontramos assinaturas ativas vinculadas à sua conta na loja."
         );
       }
     } catch (e: any) {
       Alert.alert(
-        t("error_title", userLang),
-        e?.message || t("restore_purchases_error_msg", userLang)
+        t("error_title", userLang) || "Erro",
+        e?.message || t("restore_purchases_error_msg", userLang) || "Erro ao restaurar compras."
       );
     } finally {
       setLoading(false);
@@ -839,7 +918,7 @@ export default function ProfileScreen({ navigation }: any) {
             </View>
           </View>
 
-          {/* 📝 FORMULÁRIO DE DADOS PESSOAIS (COM AUTOSAVE SINCRONIZADO) */}
+          {/* 📝 FORMULÁRIO DE DADOS PESSOAIS */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>{t("personal_data_autosave_title", userLang)}</Text>
             <View style={styles.formCard}>
@@ -1007,6 +1086,29 @@ export default function ProfileScreen({ navigation }: any) {
                 ios_backgroundColor="#D1D9E0"
                 onValueChange={toggleEnableHaptics}
                 value={enableHaptics}
+              />
+            </View>
+
+            <View style={[styles.menuOption, { paddingVertical: 12 }]}>
+              <View style={styles.menuOptionLeft}>
+                <View style={[styles.menuIconBg, { backgroundColor: "#F0F4F8" }]}>
+                  <FontAwesome5 name="volume-up" size={16} color="#EAB64A" />
+                </View>
+                <View style={{ flex: 1, flexShrink: 1, paddingRight: 8 }}>
+                  <Text style={styles.menuOptionText}>
+                    {t("sfx_title", userLang)}
+                  </Text>
+                  <Text style={{ fontSize: 11, color: "#60646C", marginTop: 2, fontFamily: "Montserrat_400Regular" }}>
+                    {t("sfx_subtitle", userLang)}
+                  </Text>
+                </View>
+              </View>
+              <Switch
+                trackColor={{ false: "#D1D9E0", true: "#67D4A8" }}
+                thumbColor={"#FFF"}
+                ios_backgroundColor="#D1D9E0"
+                onValueChange={toggleEnableSfx}
+                value={enableSfx}
               />
             </View>
 

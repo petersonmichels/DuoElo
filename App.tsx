@@ -3,8 +3,8 @@ import "react-native-get-random-values";
 
 import { NavigationContainer } from "@react-navigation/native";
 import * as SplashScreen from "expo-splash-screen";
-import { useCallback, useEffect } from "react";
-import { ActivityIndicator, LogBox, Platform, View } from "react-native";
+import { useCallback, useEffect, useState } from "react";
+import { LogBox, Platform, TouchableOpacity, View } from "react-native";
 import Purchases from "react-native-purchases";
 import { enableScreens } from "react-native-screens";
 
@@ -17,7 +17,9 @@ import {
   useFonts,
 } from "@expo-google-fonts/montserrat";
 
+import { SplashLogo3D } from "./src/components/SplashLogo3D";
 import AppNavigator from "./src/navigation/AppNavigator";
+import { audioService } from "./src/services/AudioService";
 
 // 🚀 ATIVA O SUPORTE A TELAS NATIVAS DE ALTA PERFORMANCE
 enableScreens(true);
@@ -33,6 +35,8 @@ LogBox.ignoreLogs([
 ]);
 
 export default function App() {
+  const [isSplashAnimationDone, setIsSplashAnimationDone] = useState(false);
+
   const [fontsLoaded, fontError] = useFonts({
     Montserrat_400Regular,
     Montserrat_600SemiBold,
@@ -40,7 +44,26 @@ export default function App() {
     Montserrat_900Black,
   });
 
-  // 🛡️ TIMEOUT OBRIGATÓRIO PARA FECHAR A SPLASH SCREEN (Evita tela travada)
+  // 🔊 INICIALIZAÇÃO DO SERVIÇO DE ÁUDIO E DESATIVAÇÃO DO SOM NATIVO DO ANDROID
+  useEffect(() => {
+    const initAudio = async () => {
+      const isSfxActive = await audioService.init();
+
+      // 🛡️ BLOQUEIA O BIPE NATIVO DO ANDROID NOS BOTÕES SE O SFX ESTIVER DESLIGADO
+      if (Platform.OS === "android") {
+        (TouchableOpacity as any).defaultProps = {
+          ...(TouchableOpacity as any).defaultProps,
+          soundEnabled: isSfxActive,
+        };
+      }
+    };
+
+    initAudio().catch((err) => {
+      console.log("[AUDIO_SERVICE] Erro ao inicializar áudio:", err);
+    });
+  }, []);
+
+  // 🛡️ TIMEOUT OBRIGATÓRIO PARA FECHAR A SPLASH SCREEN NATIVA (Evita tela travada)
   useEffect(() => {
     const forceHideSplashTimer = setTimeout(() => {
       SplashScreen.hideAsync().catch(() => {});
@@ -68,7 +91,6 @@ export default function App() {
 
         if (apiKey && apiKey.trim().length > 0) {
           if (isMounted) {
-            // Purchases.configure lança um aviso no LogBox se já configurado (que já tratamos com o LogBox.ignore)
             Purchases.configure({ apiKey });
           }
         } else if (__DEV__) {
@@ -88,7 +110,7 @@ export default function App() {
     };
   }, []);
 
-  // 🎨 LIBERA A SPLASH SCREEN QUANDO AS FONTES FOREM CARREGADAS
+  // 🎨 LIBERA A SPLASH SCREEN NATIVA E EXIBE A ABERTURA ANIMADA
   const onLayoutRootView = useCallback(async () => {
     if (fontsLoaded || fontError) {
       try {
@@ -97,7 +119,8 @@ export default function App() {
     }
   }, [fontsLoaded, fontError]);
 
-  if (!fontsLoaded && !fontError) {
+  // Exibe o Logo Pulsante 3D durante o carregamento
+  if ((!fontsLoaded && !fontError) || !isSplashAnimationDone) {
     return (
       <View
         style={{
@@ -106,8 +129,11 @@ export default function App() {
           alignItems: "center",
           backgroundColor: "#0F0F12",
         }}
+        onLayout={onLayoutRootView}
       >
-        <ActivityIndicator size="large" color="#EAB64A" />
+        <SplashLogo3D
+          onAnimationComplete={() => setIsSplashAnimationDone(true)}
+        />
       </View>
     );
   }

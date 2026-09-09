@@ -19,6 +19,8 @@ import {
 } from "react-native";
 import { auth, db } from "../config/firebase";
 import { t } from "../i18n/translations";
+import { audioService } from "../services/AudioService";
+import { Button3D } from "./Effects3D";
 
 interface NotificationsModalProps {
   visible: boolean;
@@ -84,6 +86,11 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
     };
   }, [visible]);
 
+  const handleClose = () => {
+    audioService.play("click");
+    onClose();
+  };
+
   // 🎨 MAPEAMENTO COMPLETO DE ÍCONES E CORES POR TIPO DE NOTIFICAÇÃO
   const getNotificationIcon = (type?: string) => {
     switch (type) {
@@ -131,7 +138,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
 
   return (
     <Modal visible={visible} transparent animationType="slide">
-      <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={onClose}>
+      <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={handleClose}>
         <TouchableOpacity
           activeOpacity={1}
           style={styles.container}
@@ -143,7 +150,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
             <Text style={styles.title}>
               {t("notifications_title", userLanguage) || "Notificações"}
             </Text>
-            <TouchableOpacity onPress={onClose}>
+            <TouchableOpacity onPress={handleClose}>
               <FontAwesome5 name="times" size={18} color="#60646C" />
             </TouchableOpacity>
           </View>
@@ -210,11 +217,13 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
             />
           )}
 
-          <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
-            <Text style={styles.closeBtnText}>
-              {t("modal_close", userLanguage) || "Fechar"}
-            </Text>
-          </TouchableOpacity>
+          {/* 🔘 BOTÃO 3D GAMIFICADO */}
+          <View style={styles.footer}>
+            <Button3D
+              title={t("modal_close", userLanguage) || "Fechar"}
+              onPress={handleClose}
+            />
+          </View>
         </TouchableOpacity>
       </TouchableOpacity>
     </Modal>
@@ -331,17 +340,8 @@ const styles = StyleSheet.create({
     fontFamily: "Montserrat_400Regular",
     color: "#60646C",
   },
-  closeBtn: {
+  footer: {
     width: "100%",
-    paddingVertical: 16,
-    borderRadius: 16,
-    backgroundColor: "#202D3A",
-    alignItems: "center",
     marginTop: 15,
-  },
-  closeBtnText: {
-    fontFamily: "Montserrat_700Bold",
-    color: "#FFF",
-    fontSize: 16,
   },
 });

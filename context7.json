@@ -1,12 +1,80 @@
 {
-  "projectTitle": "DuoElo Platform",
-  "description": "App mobile em React Native (Expo) e CRM/Backend em Next.js",
-  "folders": ["src", "functions", "firestore.rules"],
-  "excludeFolders": ["node_modules", ".expo", ".next", "dist", "functions/lib"],
-  "rules": [
-    "Firebase Firestore com Security Rules nativas e atômicas",
-    "CRM Next.js 14+ com autenticação via Bearer Token e NextAuth",
-    "In-App Purchases gerenciados via RevenueCat Webhooks",
-    "Em conformidade estrita com LGPD / GDPR (BARNX S.À R.L.-S)"
-  ]
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "projectName": "DuoElo",
+  "version": "1.0.3",
+  "buildNumber": 16,
+  "releaseTargetDate": "2026-09-10",
+  "status": "IN_STORE_REVIEW",
+  "architecture": {
+    "framework": "Expo / React Native (SDK 57)",
+    "database": "Firebase Firestore",
+    "authentication": "Firebase Auth (Email, Apple, Google)",
+    "subscriptions": "RevenueCat (react-native-purchases)",
+    "buildSystem": "EAS Build (Expo Application Services)"
+  },
+  "compliance": {
+    "gdpr": {
+      "article17": {
+        "status": "COMPLIANT",
+        "mechanism": "Account deletion flow via CRM & Firebase Admin trigger"
+      }
+    },
+    "storePricing": {
+      "soloAnnual": {
+        "productId": "lu.barnx.duoelo.solo.annual",
+        "price": "€ 59.99",
+        "status": "CONFIGURED_IN_APP_STORE_CONNECT"
+      }
+    }
+  },
+  "testingAndSecurity": {
+    "codeIntegrity": {
+      "typeCheck": "PASSED (tsc --noEmit)",
+      "linting": "PASSED (expo lint)",
+      "securityAudit": "PASSED (npm audit --audit-level=high)"
+    },
+    "pentest": {
+      "target": "Firebase Firestore Rules",
+      "tool": "@firebase/rules-unit-testing",
+      "result": "3/3 PASSED"
+    },
+    "e2eBusinessSuite": {
+      "framework": "Jest",
+      "command": "npm run test:flow",
+      "result": "12/12 PASSED (0.56s)",
+      "coveredFlows": [
+        "Registration (Username validation, strong password)",
+        "Anamnese Onboarding (Gender, Objective)",
+        "Checkout 1-Click Premium Upgrade",
+        "Couple Match Linking (DUO- Code)",
+        "Daily Play Interaction Session",
+        "Gift Shop & Delivery Mechanism",
+        "Shared Couple Journal",
+        "Push Notifications Triggering",
+        "Secure Logout & Token Invalidation",
+        "Package.json Version Alignment"
+      ]
+    }
+  },
+  "databaseSchema": {
+    "collections": {
+      "users": {
+        "fields": ["uid", "username", "email", "gender", "objective", "plan", "matchCode", "coupleId", "createdAt"]
+      },
+      "couples": {
+        "fields": ["coupleId", "partnerA", "partnerB", "status", "createdAt"]
+      },
+      "journal": {
+        "fields": ["entryId", "coupleId", "authorId", "text", "createdAt"]
+      },
+      "gifts": {
+        "fields": ["giftId", "senderId", "receiverId", "type", "status", "createdAt"]
+      }
+    }
+  },
+  "endpointsAndIntegrations": {
+    "crmApi": "/api/*",
+    "webhooks": "RevenueCat Subscription Webhooks (Bearer Auth)",
+    "supportEmails": ["help@duoelo.lu", "privacy@duoelo.lu"]
+  }
 }

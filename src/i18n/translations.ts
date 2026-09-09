@@ -10,6 +10,12 @@ export type LanguageCode =
 // Unificação de todas as traduções
 export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
  "pt-BR": {
+  sfx_title: "Efeitos Sonoros",
+    sfx_subtitle: "Sons de clique, conquistas e interações gamificadas",
+    partner_required_title: "A jornada fica melhor a dois!",
+    partner_required_msg: "O DuoElo foi feito para ser transformador em casal. Convide seu parceiro agora para sincronizarem as missões e acompanharem a evolução juntos!",
+    btn_connect_partner: "Conectar Agora",
+    audit_action_play_pressed: "Ação de Play executada na jornada",
     frequency_daily: "Diário",
     frequency_weekly: "Semanal",
     FREQUENCY_DAILY: "Diário",
@@ -824,6 +830,12 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
   },
 
   "pt-PT": {
+    sfx_title: "Efeitos Sonoros",
+    sfx_subtitle: "Sons de clique, conquistas e interações gamificadas",
+    partner_required_title: "A jornada fica melhor a dois!",
+    partner_required_msg: "O DuoElo foi feito para ser transformador em casal. Convide seu parceiro agora para sincronizarem as missões e acompanharem a evolução juntos!",
+    btn_connect_partner: "Conectar Agora",
+    audit_action_play_pressed: "Ação de Play executada na jornada",
     frequency_daily: "Diário",
     frequency_weekly: "Semanal",
     FREQUENCY_DAILY: "Diário",
@@ -1622,6 +1634,12 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
   },
 
   en: {
+    sfx_title: "Sound Effects",
+    sfx_subtitle: "Click sounds, achievements, and gamified interactions",
+    partner_required_title: "The journey is better together!",
+    partner_required_msg: "DuoElo was built to be transformative for couples. Invite your partner now to sync missions and track your growth together!",
+    btn_connect_partner: "Connect Now",
+    audit_action_play_pressed: "Play action executed in journey",
     frequency_daily: "Daily",
     frequency_weekly: "Weekly",
     FREQUENCY_DAILY: "Daily",
@@ -2420,6 +2438,12 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
   },
 
   es: {
+    sfx_title: "Efectos de Sonido",
+    sfx_subtitle: "Sonidos de clic, logros e interacciones gamificadas",
+    partner_required_title: "¡El viaje es mejor de a dos!",
+    partner_required_msg: "DuoElo fue creado para ser transformador en pareja. ¡Invita a tu pareja ahora para sincronizar misiones y evolucionar juntos!",
+    btn_connect_partner: "Conectar Ahora",
+    audit_action_play_pressed: "Acción de Play ejecutada en el viaje",
     FREQUENCY_DAILY: "Diario",
     FREQUENCY_WEEKLY: "Semanal",
     frequency_daily: "Diario",
@@ -3224,6 +3248,12 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
   },
 
   fr: {
+    sfx_title: "Effets Sonores",
+    sfx_subtitle: "Sons de clic, succès et interactions gamifiées",
+    partner_required_title: "Le voyage est meilleur à deux !",
+    partner_required_msg: "DuoElo a été conçu pour être transformateur en couple. Invitez votre partenaire dès maintenant pour synchroniser vos missions et évoluer ensemble !",
+    btn_connect_partner: "Connecter Maintenant",
+    audit_action_play_pressed: "Action Play exécutée dans le parcours",
     frequency_daily: "Quotidien",
     frequency_weekly: "Hebdomadaire",
     FREQUENCY_DAILY: "Quotidien",
@@ -3981,8 +4011,13 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
       "Cadeau récupéré à la Semaine {{week}}",
   },
 
-  de: {
-    frequency_daily: "Täglich",
+  de: { 
+    sfx_title: "Soundeffekte",
+    sfx_subtitle: "Klicksounds, Erfolge und spielerische Interaktionen",
+    partner_required_title: "Die Reise ist gemeinsam besser!",
+    partner_required_msg: "DuoElo wurde entwickelt, um für Paare etwas zu bewirken. Laden Sie Ihren Partner jetzt ein, um Missionen zu synchronisieren und gemeinsam zu wachsen!",
+    btn_connect_partner: "Jetzt Verbinden",
+    audit_action_play_pressed: "Play-Aktion auf der Reise ausgeführt",    frequency_daily: "Täglich",
     frequency_weekly: "Wöchentlich",
     FREQUENCY_DAILY: "Täglich",
     FREQUENCY_WEEKLY: "Wöchentlich",
@@ -4791,6 +4826,12 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
   },
 
   ja: {
+    sfx_title: "効果音",
+    sfx_subtitle: "クリック音、実績、ゲーミフィケーションの相互作用",
+    partner_required_title: "ふたりでの旅がもっと素晴らしい！",
+    partner_required_msg: "DuoEloはカップルの絆を深めるために作られました。今すぐパートナーを招待してミッションを同期し、一緒に成長しましょう！",
+    btn_connect_partner: "今すぐ接続",
+    audit_action_play_pressed: "ジャーニーでプレイアクションが実行されました",
     frequency_daily: "毎日",
     frequency_weekly: "毎週",
     FREQUENCY_DAILY: "毎日",

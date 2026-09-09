@@ -17,7 +17,8 @@ export type AuditAction =
   | "MASTER_PASSWORD_RESET_REQUESTED"
   | "SUBSCRIPTION_ACTIVATED"
   | "PURCHASE_RESTORED"
-  | "GIFT_REDEEMED";
+  | "GIFT_REDEEMED"
+  | "PLAY_PRESSED"; // 👈 Adicionada a nova ação para o PlayGuard
 
 export interface AuditLogPayload {
   uid: string;
