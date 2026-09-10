@@ -31,8 +31,9 @@ import {
 } from "react-native";
 import Purchases from "react-native-purchases";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { auth, authControls, db } from "../config/firebase";
 
+import { CustomAlertModal } from "../components/CustomAlertModal";
+import { auth, authControls, db } from "../config/firebase";
 import { getLanguageFlag, SUPPORTED_LANGUAGES } from "../constants/languages";
 import { t } from "../i18n/translations";
 import { logAuditEvent } from "../services/auditService";
@@ -54,7 +55,7 @@ if (!isExpoGo) {
   try {
     const googleModule = require("@react-native-google-signin/google-signin");
     GoogleSignin = googleModule.GoogleSignin;
-    statusCodes = googleModule.statusCodes;
+    statusCodes = googleModule.statusCodes || {};
   } catch (e) {
     console.log("GoogleSignin indisponível neste ambiente.");
   }
@@ -65,7 +66,9 @@ export default function LoginScreen({ navigation }: any) {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleSigningIn, setIsGoogleSigningIn] = useState(false);
 
   const [userLang, setUserLang] = useState("pt-BR");
   const [isLangModalVisible, setIsLangModalVisible] = useState(false);
@@ -82,7 +85,7 @@ export default function LoginScreen({ navigation }: any) {
     message: "",
     icon: "info-circle",
     color: "#202D3A",
-    confirmText: t("btn_understand", userLang) || "Entendi",
+    confirmText: t("btn_understand", userLang) || "Entendido",
     onConfirm: null as (() => void) | null,
     secondaryText: "",
     onSecondary: null as (() => void) | null,
@@ -97,18 +100,15 @@ export default function LoginScreen({ navigation }: any) {
   const btnIcon = isLogin ? "sign-in-alt" : "arrow-right";
   const btnTextColor = isLogin ? "#FFF" : "#202D3A";
 
-  // 🔑 CONFIGURAÇÃO SEGURA DO GOOGLE SIGN-IN
   useEffect(() => {
     if (!isExpoGo && GoogleSignin) {
       try {
         const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
-        if (webClientId) {
-          GoogleSignin.configure({
-            webClientId: webClientId,
-            offlineAccess: true,
-            scopes: ["profile", "email"],
-          });
-        }
+        GoogleSignin.configure({
+          webClientId: webClientId || undefined,
+          offlineAccess: true,
+          scopes: ["profile", "email"],
+        });
       } catch (e) {
         console.log("Erro ao configurar GoogleSignin:", e);
       }
@@ -171,7 +171,7 @@ export default function LoginScreen({ navigation }: any) {
     message: string,
     icon = "info-circle",
     color = "#202D3A",
-    confirmText = t("btn_understand", userLang) || "Entendi",
+    confirmText = t("btn_understand", userLang) || "Entendido",
     onConfirm: (() => void) | null = null,
     secondaryText = "",
     onSecondary: (() => void) | null = null
@@ -336,7 +336,6 @@ export default function LoginScreen({ navigation }: any) {
     }
   };
 
-  // 🎯 CORREÇÃO ERRO 1: Sincronização de ID com react-native-purchases (RevenueCat)
   const finalizeAuth = async (wasCreated: boolean) => {
     const uid = auth.currentUser?.uid;
 
@@ -566,9 +565,11 @@ export default function LoginScreen({ navigation }: any) {
       return;
     }
 
-    if (isLoading) return;
+    if (isLoading || isGoogleSigningIn) return;
 
     setIsLoading(true);
+    setIsGoogleSigningIn(true);
+
     try {
       await GoogleSignin.hasPlayServices({
         showPlayServicesUpdateDialog: true,
@@ -579,10 +580,14 @@ export default function LoginScreen({ navigation }: any) {
       } catch (e) {}
 
       const signInResult = await GoogleSignin.signIn();
-      const idToken = signInResult.data?.idToken || signInResult.idToken;
+      const idToken =
+        signInResult?.data?.idToken ||
+        signInResult?.idToken;
 
       if (!idToken) {
-        throw new Error("Token ID do Google não retornado.");
+        setIsLoading(false);
+        setIsGoogleSigningIn(false);
+        return;
       }
 
       const credential = GoogleAuthProvider.credential(idToken);
@@ -642,19 +647,23 @@ export default function LoginScreen({ navigation }: any) {
 
       await finalizeAuth(false);
     } catch (error: any) {
-      setIsLoading(false);
+      console.log("[Google Sign-In Error Code]:", error?.code, error?.message);
 
-      if (
-        error?.code === statusCodes?.SIGN_IN_IN_PROGRESS ||
-        error?.code === statusCodes?.IN_PROGRESS ||
+      const isCancelled =
         error?.code === statusCodes?.SIGN_IN_CANCELLED ||
         error?.code === "12501" ||
-        error?.message?.includes("cancel")
-      ) {
+        error?.code === "ERR_REQUEST_CANCELED" ||
+        error?.message?.toLowerCase().includes("cancel");
+
+      const isInProgress =
+        error?.code === statusCodes?.IN_PROGRESS ||
+        error?.code === statusCodes?.SIGN_IN_IN_PROGRESS;
+
+      if (isCancelled || isInProgress) {
+        setIsLoading(false);
+        setIsGoogleSigningIn(false);
         return;
       }
-
-      console.error("[Google Sign-In Error]:", error);
 
       showCustomAlert(
         t("login_canceled_title", userLang) || "Falha na Conexão",
@@ -662,6 +671,9 @@ export default function LoginScreen({ navigation }: any) {
         "times-circle",
         "#D96C6C"
       );
+    } finally {
+      setIsLoading(false);
+      setIsGoogleSigningIn(false);
     }
   };
 
@@ -925,13 +937,24 @@ export default function LoginScreen({ navigation }: any) {
                 style={styles.inputIcon}
               />
               <TextInput
-                style={styles.input}
+                style={[styles.input, { flex: 1 }]}
                 placeholder={t("placeholder_password", userLang) || "Sua Senha"}
                 placeholderTextColor="#AFAFAF"
-                secureTextEntry
+                secureTextEntry={!showPassword}
                 value={password}
                 onChangeText={setPassword}
               />
+              <TouchableOpacity
+                style={styles.eyeIconBtn}
+                onPress={() => setShowPassword(!showPassword)}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              >
+                <FontAwesome5
+                  name={showPassword ? "eye-slash" : "eye"}
+                  size={18}
+                  color="#60646C"
+                />
+              </TouchableOpacity>
             </View>
 
             {isLogin && (
@@ -990,16 +1013,21 @@ export default function LoginScreen({ navigation }: any) {
               <View style={styles.dividerLine} />
             </View>
 
-            {/* 🍏 BOTÕES DE LOGIN SOCIAL COMPATÍVEIS COM HIG (APPLE & GOOGLE) */}
             <View style={styles.socialButtonsContainer}>
               <TouchableOpacity
-                style={styles.googleBtn}
+                style={[styles.googleBtn, isGoogleSigningIn && { opacity: 0.6 }]}
                 onPress={() => handleSocialLogin("Google")}
-                disabled={isLoading}
+                disabled={isLoading || isGoogleSigningIn}
                 activeOpacity={0.8}
               >
-                <FontAwesome5 name="google" size={18} color="#EA4335" />
-                <Text style={styles.googleBtnText}>Google</Text>
+                {isGoogleSigningIn ? (
+                  <ActivityIndicator size="small" color="#EA4335" />
+                ) : (
+                  <>
+                    <FontAwesome5 name="google" size={18} color="#EA4335" />
+                    <Text style={styles.googleBtnText}>Google</Text>
+                  </>
+                )}
               </TouchableOpacity>
 
               {Platform.OS === "ios" && (
@@ -1145,61 +1173,18 @@ export default function LoginScreen({ navigation }: any) {
         </TouchableOpacity>
       </Modal>
 
-      {/* MODAL DE ALERTAS CUSTOMIZADOS */}
-      <Modal visible={customAlert.visible} transparent animationType="fade">
-        <View style={styles.bottomSheetOverlay}>
-          <View style={styles.bottomSheetContainer}>
-            <View style={styles.bottomSheetHandle} />
-
-            <View
-              style={[
-                styles.alertIconContainer,
-                { backgroundColor: customAlert.color + "20" },
-              ]}
-            >
-              <FontAwesome5
-                name={customAlert.icon}
-                size={30}
-                color={customAlert.color}
-              />
-            </View>
-
-            <Text style={styles.bottomSheetTitle}>{customAlert.title}</Text>
-            <Text style={styles.bottomSheetText}>{customAlert.message}</Text>
-
-            <View style={{ width: "100%", gap: 10, marginTop: 10 }}>
-              <TouchableOpacity
-                style={[
-                  styles.bottomSheetButtonPrimary,
-                  { backgroundColor: customAlert.color },
-                ]}
-                onPress={() => {
-                  setCustomAlert({ ...customAlert, visible: false });
-                  if (customAlert.onConfirm) customAlert.onConfirm();
-                }}
-              >
-                <Text style={styles.bottomSheetButtonPrimaryText}>
-                  {customAlert.confirmText || t("btn_understand", userLang) || "Entendi"}
-                </Text>
-              </TouchableOpacity>
-
-              {customAlert.secondaryText ? (
-                <TouchableOpacity
-                  style={styles.bottomSheetButtonSecondary}
-                  onPress={() => {
-                    setCustomAlert({ ...customAlert, visible: false });
-                    if (customAlert.onSecondary) customAlert.onSecondary();
-                  }}
-                >
-                  <Text style={styles.bottomSheetButtonSecondaryText}>
-                    {customAlert.secondaryText}
-                  </Text>
-                </TouchableOpacity>
-              ) : null}
-            </View>
-          </View>
-        </View>
-      </Modal>
+      <CustomAlertModal
+        visible={customAlert.visible}
+        title={customAlert.title}
+        message={customAlert.message}
+        icon={customAlert.icon}
+        color={customAlert.color}
+        confirmText={customAlert.confirmText}
+        onConfirm={customAlert.onConfirm}
+        secondaryText={customAlert.secondaryText}
+        onSecondary={customAlert.onSecondary}
+        onClose={() => setCustomAlert((prev) => ({ ...prev, visible: false }))}
+      />
     </SafeAreaView>
   );
 }
@@ -1288,6 +1273,11 @@ const styles = StyleSheet.create({
     color: "#202D3A",
     fontFamily: "Montserrat_600SemiBold",
   },
+  eyeIconBtn: {
+    padding: 10,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   pinInputStyle: {
     backgroundColor: "#F0F4F8",
     borderRadius: 12,
@@ -1342,7 +1332,6 @@ const styles = StyleSheet.create({
     fontFamily: "Montserrat_600SemiBold",
   },
 
-  /* 🍏 BOTÕES DE LOGIN SOCIAL COMPATÍVEIS COM HIG (APPLE & GOOGLE) */
   socialButtonsContainer: {
     width: "100%",
     gap: 12,

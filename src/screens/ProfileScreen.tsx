@@ -15,7 +15,6 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Animated,
   AppState,
   FlatList,
@@ -34,6 +33,7 @@ import {
 } from "react-native";
 import Purchases, { CustomerInfo } from "react-native-purchases";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { CustomAlertModal } from "../components/CustomAlertModal";
 import { auth, db } from "../config/firebase";
 
 import { COUNTRY_CODES } from "../constants/countries";
@@ -48,7 +48,6 @@ const isExpoGo =
 
 let GoogleSignin: any = null;
 
-// 🌐 Mapeamento padrão de idioma para o país correspondente (DDI)
 const LANGUAGE_TO_COUNTRY_CODE: Record<string, string> = {
   "pt-BR": "BR",
   "pt-PT": "PT",
@@ -59,7 +58,6 @@ const LANGUAGE_TO_COUNTRY_CODE: Record<string, string> = {
   ja: "JP",
 };
 
-// 🌐 Helper para sanitizar o código do idioma enviado na URL dos links legais
 const getLegalUrlLangParam = (lang: string): string => {
   const langMap: Record<string, string> = {
     "pt-BR": "pt",
@@ -101,7 +99,41 @@ export default function ProfileScreen({ navigation }: any) {
 
   const userListenerUnsubscribe = useRef<(() => void) | null>(null);
 
-  // 📌 Leitura dinâmica da versão/build
+  const [customAlert, setCustomAlert] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    icon: "info-circle",
+    color: "#202D3A",
+    confirmText: t("btn_understand", userLang) || "Entendido",
+    onConfirm: null as (() => void) | null,
+    secondaryText: "",
+    onSecondary: null as (() => void) | null,
+  });
+
+  const showCustomAlert = (
+    title: string,
+    message: string,
+    icon = "info-circle",
+    color = "#202D3A",
+    confirmText = t("btn_understand", userLang) || "Entendido",
+    onConfirm: (() => void) | null = null,
+    secondaryText = "",
+    onSecondary: (() => void) | null = null
+  ) => {
+    setCustomAlert({
+      visible: true,
+      title,
+      message,
+      icon,
+      color,
+      confirmText,
+      onConfirm,
+      secondaryText,
+      onSecondary,
+    });
+  };
+
   const appVersion = Constants.expoConfig?.version || "1.0.3";
   const buildNumber =
     Constants.expoConfig?.ios?.buildNumber ||
@@ -155,12 +187,10 @@ export default function ProfileScreen({ navigation }: any) {
     }, [])
   );
 
-  // 🎯 REVENUECAT LISTENER E ESCUTA REATIVA DO USUÁRIO
   useEffect(() => {
     const currentUid = auth.currentUser?.uid;
     if (!currentUid) return;
 
-    // Inicialização da trava de som via local storage
     audioService.init().then((sfxState) => {
       setEnableSfx(sfxState);
     });
@@ -284,20 +314,26 @@ export default function ProfileScreen({ navigation }: any) {
     setIsSendingEmail(true);
     try {
       await sendEmailVerification(auth.currentUser);
-      Alert.alert(
-        t("verify_email_sent_title", userLang),
-        t("verify_email_sent_msg", userLang)
+      showCustomAlert(
+        t("verify_email_sent_title", userLang) || "E-mail de Verificação Enviado",
+        t("verify_email_sent_msg", userLang) || "Confira sua caixa de entrada para confirmar o e-mail.",
+        "check-circle",
+        "#67D4A8"
       );
     } catch (error: any) {
       if (error.code === "auth/too-many-requests") {
-        Alert.alert(
-          t("wait_title", userLang),
-          t("verify_email_too_many_msg", userLang)
+        showCustomAlert(
+          t("wait_title", userLang) || "Aguarde",
+          t("verify_email_too_many_msg", userLang) || "Muitas solicitações enviadas. Tente novamente mais tarde.",
+          "hourglass-half",
+          "#EAB64A"
         );
       } else {
-        Alert.alert(
-          t("error_title", userLang),
-          t("verify_email_error_msg", userLang)
+        showCustomAlert(
+          t("error_title", userLang) || "Erro",
+          t("verify_email_error_msg", userLang) || "Não foi possível enviar o e-mail de verificação.",
+          "times-circle",
+          "#D96C6C"
         );
       }
     } finally {
@@ -314,9 +350,11 @@ export default function ProfileScreen({ navigation }: any) {
         : asset.uri;
 
       if (imageUri.length > 900000) {
-        Alert.alert(
-          t("photo_too_large_title", userLang),
-          t("photo_too_large_msg", userLang)
+        showCustomAlert(
+          t("photo_too_large_title", userLang) || "Foto Muito Grande",
+          t("photo_too_large_msg", userLang) || "Escolha uma imagem de menor tamanho.",
+          "exclamation-triangle",
+          "#EAB64A"
         );
         return;
       }
@@ -330,9 +368,11 @@ export default function ProfileScreen({ navigation }: any) {
             { merge: true }
           );
         } catch (e) {
-          Alert.alert(
-            t("error_title", userLang),
-            t("update_photo_error_msg", userLang)
+          showCustomAlert(
+            t("error_title", userLang) || "Erro",
+            t("update_photo_error_msg", userLang) || "Não foi possível atualizar a foto.",
+            "times-circle",
+            "#D96C6C"
           );
         } finally {
           setLoading(false);
@@ -342,57 +382,53 @@ export default function ProfileScreen({ navigation }: any) {
   };
 
   const handlePickImage = () => {
-    Alert.alert(
-      t("profile_photo_prompt_title", userLang),
-      t("profile_photo_prompt_msg", userLang),
-      [
-        {
-          text: t("btn_take_photo", userLang),
-          onPress: async () => {
-            const permissionResult =
-              await ImagePicker.requestCameraPermissionsAsync();
-            if (permissionResult.granted === false) {
-              Alert.alert(
-                t("permission_title", userLang),
-                t("camera_permission_msg", userLang)
-              );
-              return;
-            }
-            const result = await ImagePicker.launchCameraAsync({
-              mediaTypes: "images",
-              allowsEditing: true,
-              aspect: [1, 1],
-              quality: 0.1,
-              base64: true,
-            });
-            processImageResult(result);
-          },
-        },
-        {
-          text: t("btn_choose_gallery", userLang),
-          onPress: async () => {
-            const permissionResult =
-              await ImagePicker.requestMediaLibraryPermissionsAsync();
-            if (permissionResult.granted === false) {
-              Alert.alert(
-                t("permission_title", userLang),
-                t("gallery_permission_msg", userLang)
-              );
-              return;
-            }
-            const result = await ImagePicker.launchImageLibraryAsync({
-              mediaTypes: "images",
-              allowsEditing: true,
-              aspect: [1, 1],
-              quality: 0.1,
-              base64: true,
-            });
-            processImageResult(result);
-          },
-        },
-        { text: t("modal_cancel", userLang), style: "cancel" },
-      ],
-      { cancelable: true }
+    showCustomAlert(
+      t("profile_photo_prompt_title", userLang) || "Foto do Perfil",
+      t("profile_photo_prompt_msg", userLang) || "Escolha de onde deseja selecionar sua foto:",
+      "camera",
+      "#202D3A",
+      t("btn_take_photo", userLang) || "Câmera",
+      async () => {
+        const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+        if (permissionResult.granted === false) {
+          showCustomAlert(
+            t("permission_title", userLang) || "Permissão Necessária",
+            t("camera_permission_msg", userLang) || "Permita o acesso à câmera para continuar.",
+            "ban",
+            "#EAB64A"
+          );
+          return;
+        }
+        const result = await ImagePicker.launchCameraAsync({
+          mediaTypes: "images",
+          allowsEditing: true,
+          aspect: [1, 1],
+          quality: 0.1,
+          base64: true,
+        });
+        processImageResult(result);
+      },
+      t("btn_choose_gallery", userLang) || "Galeria",
+      async () => {
+        const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (permissionResult.granted === false) {
+          showCustomAlert(
+            t("permission_title", userLang) || "Permissão Necessária",
+            t("gallery_permission_msg", userLang) || "Permita o acesso à galeria para continuar.",
+            "ban",
+            "#EAB64A"
+          );
+          return;
+        }
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: "images",
+          allowsEditing: true,
+          aspect: [1, 1],
+          quality: 0.1,
+          base64: true,
+        });
+        processImageResult(result);
+      }
     );
   };
 
@@ -426,22 +462,15 @@ export default function ProfileScreen({ navigation }: any) {
     }
   };
 
-  // 🔊 ALTERAÇÃO SÍNCRONA E PERSISTÊNCIA DE EFEITOS SONOROS
   const toggleEnableSfx = async (value: boolean) => {
     const currentUid = auth.currentUser?.uid;
-    
-    // 1. Atualização imediata do estado visual
     setEnableSfx(value);
-    
-    // 2. Trava imediata na memória do AudioService e no AsyncStorage
     await audioService.setSfxEnabled(value);
 
-    // 3. Toca o clique de feedback apenas se foi LIGADO
     if (value) {
       audioService.play("click");
     }
 
-    // 4. Persistência no Firestore
     if (currentUid) {
       try {
         await setDoc(
@@ -456,173 +485,169 @@ export default function ProfileScreen({ navigation }: any) {
   };
 
   const handleLogout = () => {
-    Alert.alert(
-      t("logout_title", userLang),
-      t("logout_msg", userLang),
-      [
-        { text: t("modal_cancel", userLang), style: "cancel" },
-        {
-          text: t("btn_logout", userLang),
-          style: "destructive",
-          onPress: async () => {
+    showCustomAlert(
+      t("logout_title", userLang) || "Sair da Conta",
+      t("logout_msg", userLang) || "Deseja encerar sua sessão atual no aplicativo?",
+      "sign-out-alt",
+      "#EAB64A",
+      t("btn_logout", userLang) || "Sim, Sair",
+      async () => {
+        try {
+          if (userListenerUnsubscribe.current) {
+            userListenerUnsubscribe.current();
+          }
+
+          if (GoogleSignin && typeof GoogleSignin.signOut === "function") {
             try {
-              if (userListenerUnsubscribe.current) {
-                userListenerUnsubscribe.current();
-              }
-
-              if (GoogleSignin && typeof GoogleSignin.signOut === "function") {
-                try {
-                  await GoogleSignin.signOut();
-                } catch (e) {}
-              }
-              await clearSecurityPin();
-
-              await signOut(auth);
-            } catch (error) {
-              console.error("Erro ao deslogar:", error);
-            }
-          },
-        },
-      ]
+              await GoogleSignin.signOut();
+            } catch (e) {}
+          }
+          await clearSecurityPin();
+          await signOut(auth);
+        } catch (error) {
+          console.error("Erro ao deslogar:", error);
+        }
+      },
+      t("modal_cancel", userLang) || "Cancelar",
+      () => {}
     );
   };
 
   const handleDeleteAccount = () => {
-    Alert.alert(
-      t("delete_account_title", userLang),
-      t("delete_account_warning_msg", userLang),
-      [
-        { text: t("modal_cancel", userLang), style: "cancel" },
-        {
-          text: t("btn_yes_delete", userLang),
-          style: "destructive",
-          onPress: async () => {
-            const user = auth.currentUser;
-            if (!user || !user.uid) return;
+    showCustomAlert(
+      t("delete_account_title", userLang) || "Excluir Conta Permanentemente?",
+      t("delete_account_warning_msg", userLang) || "Atenção: Essa ação apaga todo o seu histórico, conquistas e vínculo de forma irreversível.",
+      "user-slash",
+      "#D96C6C",
+      t("btn_yes_delete", userLang) || "Sim, Apagar Tudo",
+      async () => {
+        const user = auth.currentUser;
+        if (!user || !user.uid) return;
 
-            setLoading(true);
-            const uidString = String(user.uid);
-            const partnerString = userData?.partnerId
-              ? String(userData.partnerId)
-              : "sem_parceiro";
+        setLoading(true);
+        const uidString = String(user.uid);
+        const partnerString = userData?.partnerId
+          ? String(userData.partnerId)
+          : "sem_parceiro";
 
+        try {
+          if (userListenerUnsubscribe.current) {
+            userListenerUnsubscribe.current();
+          }
+
+          try {
+            const detailsText = t("audit_account_deleted", userLang, {
+              partner: partnerString,
+            });
+
+            await logAuditEvent(
+              uidString,
+              "ACCOUNT_EXCLUSION_REQUESTED",
+              detailsText,
+              userLang
+            );
+          } catch (auditErr) {}
+
+          if (userData?.partnerId) {
             try {
-              if (userListenerUnsubscribe.current) {
-                userListenerUnsubscribe.current();
+              const partnerSnap = await getDoc(doc(db, "users", userData.partnerId));
+              const partnerData = partnerSnap.exists() ? partnerSnap.data() : null;
+
+              const partnerUpdates: any = {
+                partnerId: null,
+                hasPartner: false,
+                isSoloMode: false,
+                isReadyToStart: false,
+                hasPressedPlay: false,
+                myTrail: [],
+              };
+
+              if (!partnerData?.activeProductId) {
+                partnerUpdates.isPremium = false;
+                partnerUpdates.isPartnerPremium = false;
+                partnerUpdates.planType = "free";
               }
 
-              try {
-                const detailsText = t("audit_account_deleted", userLang, {
-                  partner: partnerString,
-                });
+              await setDoc(
+                doc(db, "users", userData.partnerId),
+                partnerUpdates,
+                { merge: true }
+              );
+            } catch (e) {}
+          }
 
-                await logAuditEvent(
-                  uidString,
-                  "ACCOUNT_EXCLUSION_REQUESTED",
-                  detailsText,
-                  userLang
-                );
-              } catch (auditErr) {}
+          if (userData?.sentMatchRequestTo?.toUid) {
+            try {
+              await setDoc(
+                doc(db, "users", userData.sentMatchRequestTo.toUid),
+                { pendingMatchRequest: null },
+                { merge: true }
+              );
+            } catch (e) {}
+          }
 
-              if (userData?.partnerId) {
-                try {
-                  const partnerSnap = await getDoc(doc(db, "users", userData.partnerId));
-                  const partnerData = partnerSnap.exists() ? partnerSnap.data() : null;
+          try {
+            const journalsSnap = await getDocs(
+              collection(db, "users", uidString, "journals")
+            );
+            const deleteJournalsPromises = journalsSnap.docs.map((d) =>
+              deleteDoc(d.ref)
+            );
+            await Promise.all(deleteJournalsPromises);
+          } catch (e) {}
 
-                  const partnerUpdates: any = {
-                    partnerId: null,
-                    hasPartner: false,
-                    isSoloMode: false,
-                    isReadyToStart: false,
-                    hasPressedPlay: false,
-                    myTrail: [],
-                  };
+          try {
+            const shopDocs = ["desires", "redemptions", "confirmations"];
+            const shopPromises = shopDocs.map((docName) =>
+              deleteDoc(doc(db, "users", uidString, "shop", docName))
+            );
+            await Promise.all(shopPromises);
+          } catch (e) {}
 
-                  if (!partnerData?.activeProductId) {
-                    partnerUpdates.isPremium = false;
-                    partnerUpdates.isPartnerPremium = false;
-                    partnerUpdates.planType = "free";
-                  }
+          try {
+            await deleteDoc(doc(db, "users", uidString));
+          } catch (e) {}
 
-                  await setDoc(
-                    doc(db, "users", userData.partnerId),
-                    partnerUpdates,
-                    { merge: true }
-                  );
-                } catch (e) {}
-              }
+          await clearSecurityPin();
 
-              if (userData?.sentMatchRequestTo?.toUid) {
-                try {
-                  await setDoc(
-                    doc(db, "users", userData.sentMatchRequestTo.toUid),
-                    { pendingMatchRequest: null },
-                    { merge: true }
-                  );
-                } catch (e) {}
-              }
+          if (GoogleSignin && typeof GoogleSignin.signOut === "function") {
+            try {
+              await GoogleSignin.signOut();
+            } catch (e) {}
+          }
 
-              try {
-                const journalsSnap = await getDocs(
-                  collection(db, "users", uidString, "journals")
-                );
-                const deleteJournalsPromises = journalsSnap.docs.map((d) =>
-                  deleteDoc(d.ref)
-                );
-                await Promise.all(deleteJournalsPromises);
-              } catch (e) {}
-
-              try {
-                const shopDocs = ["desires", "redemptions", "confirmations"];
-                const shopPromises = shopDocs.map((docName) =>
-                  deleteDoc(doc(db, "users", uidString, "shop", docName))
-                );
-                await Promise.all(shopPromises);
-              } catch (e) {}
-
-              try {
-                await deleteDoc(doc(db, "users", uidString));
-              } catch (e) {}
-
-              await clearSecurityPin();
-
-              if (GoogleSignin && typeof GoogleSignin.signOut === "function") {
-                try {
-                  await GoogleSignin.signOut();
-                } catch (e) {}
-              }
-
-              await deleteUser(user);
-            } catch (error: any) {
-              if (
-                error.code === "auth/requires-recent-login" ||
-                error.message?.includes("requires-recent-login")
-              ) {
-                Alert.alert(
-                  t("security_title", userLang),
-                  t("reauth_required_delete_msg", userLang),
-                  [
-                    {
-                      text: t("btn_login_again", userLang),
-                      onPress: async () => {
-                        await signOut(auth);
-                      },
-                    },
-                    { text: t("modal_cancel", userLang), style: "cancel" },
-                  ]
-                );
-              } else {
-                Alert.alert(
-                  t("delete_error_title", userLang),
-                  t("delete_error_msg", userLang)
-                );
-              }
-            } finally {
-              setLoading(false);
-            }
-          },
-        },
-      ]
+          await deleteUser(user);
+        } catch (error: any) {
+          if (
+            error.code === "auth/requires-recent-login" ||
+            error.message?.includes("requires-recent-login")
+          ) {
+            showCustomAlert(
+              t("security_title", userLang) || "Reautenticação Necessária",
+              t("reauth_required_delete_msg", userLang) || "Por motivos de segurança, faça login novamente para confirmar a exclusão.",
+              "lock",
+              "#EAB64A",
+              t("btn_login_again", userLang) || "Fazer Login Novamente",
+              async () => {
+                await signOut(auth);
+              },
+              t("modal_cancel", userLang) || "Cancelar",
+              () => {}
+            );
+          } else {
+            showCustomAlert(
+              t("delete_error_title", userLang) || "Erro ao Excluir",
+              t("delete_error_msg", userLang) || "Não foi possível excluir sua conta no momento.",
+              "times-circle",
+              "#D96C6C"
+            );
+          }
+        } finally {
+          setLoading(false);
+        }
+      },
+      t("modal_cancel", userLang) || "Cancelar",
+      () => {}
     );
   };
 
@@ -673,21 +698,27 @@ export default function ProfileScreen({ navigation }: any) {
 
         setIsPremiumActive(true);
 
-        Alert.alert(
+        showCustomAlert(
           t("sub_restored_title", userLang) || "Compras Restauradas",
-          t("sub_restored_msg", userLang) || "Sua assinatura ativa foi restaurada com sucesso."
+          t("sub_restored_msg", userLang) || "Sua assinatura ativa foi restaurada com sucesso.",
+          "check-circle",
+          "#67D4A8"
         );
       } else {
         setIsPremiumActive(false);
-        Alert.alert(
+        showCustomAlert(
           t("no_active_sub_title", userLang) || "Nenhuma Assinatura Ativa",
-          t("no_active_sub_msg", userLang) || "Não encontramos assinaturas ativas vinculadas à sua conta na loja."
+          t("no_active_sub_msg", userLang) || "Não encontramos assinaturas ativas vinculadas à sua conta na loja.",
+          "info-circle",
+          "#EAB64A"
         );
       }
     } catch (e: any) {
-      Alert.alert(
+      showCustomAlert(
         t("error_title", userLang) || "Erro",
-        e?.message || t("restore_purchases_error_msg", userLang) || "Erro ao restaurar compras."
+        e?.message || t("restore_purchases_error_msg", userLang) || "Erro ao restaurar compras.",
+        "times-circle",
+        "#D96C6C"
       );
     } finally {
       setLoading(false);
@@ -704,9 +735,11 @@ export default function ProfileScreen({ navigation }: any) {
 
   const openUrl = (url: string) => {
     Linking.openURL(url).catch(() =>
-      Alert.alert(
-        t("error_title", userLang),
-        t("cannot_open_page_msg", userLang)
+      showCustomAlert(
+        t("error_title", userLang) || "Erro",
+        t("cannot_open_page_msg", userLang) || "Não foi possível abrir o link.",
+        "times-circle",
+        "#D96C6C"
       )
     );
   };
@@ -1276,6 +1309,19 @@ export default function ProfileScreen({ navigation }: any) {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      <CustomAlertModal
+        visible={customAlert.visible}
+        title={customAlert.title}
+        message={customAlert.message}
+        icon={customAlert.icon}
+        color={customAlert.color}
+        confirmText={customAlert.confirmText}
+        onConfirm={customAlert.onConfirm}
+        secondaryText={customAlert.secondaryText}
+        onSecondary={customAlert.onSecondary}
+        onClose={() => setCustomAlert((prev) => ({ ...prev, visible: false }))}
+      />
     </SafeAreaView>
   );
 }

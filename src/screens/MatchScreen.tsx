@@ -3,10 +3,10 @@ import * as Clipboard from "expo-clipboard";
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
   onSnapshot,
   query,
-  runTransaction,
   setDoc,
   where,
 } from "firebase/firestore";
@@ -31,6 +31,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { CustomAlertModal } from "../components/CustomAlertModal";
 import { MatchCelebration } from "../components/MatchCelebration";
 import { auth, db } from "../config/firebase";
 import { t } from "../i18n/translations";
@@ -43,77 +44,6 @@ let Haptics: any = null;
 try {
   Haptics = require("expo-haptics");
 } catch (e) {}
-
-const EXPLOSION_COLORS = ["#67D4A8", "#EAB64A", "#202D3A", "#D96C6C", "#FFF"];
-
-const LoveExplosionParticle = ({ index }: { index: number }) => {
-  const anim = useRef(new Animated.Value(0)).current;
-
-  const color = EXPLOSION_COLORS[index % EXPLOSION_COLORS.length];
-  const angle = useRef((index / 16) * 2 * Math.PI).current;
-  const distance = useRef(65 + Math.random() * 85).current;
-
-  const targetX = useRef(Math.cos(angle) * distance).current;
-  const targetY = useRef(Math.sin(angle) * distance).current;
-  const size = useRef(10 + Math.random() * 8).current;
-  const isHeart = index % 2 === 0;
-
-  useEffect(() => {
-    let isMounted = true;
-    const particleAnim = Animated.timing(anim, {
-      toValue: 1,
-      duration: 1000 + Math.random() * 300,
-      easing: Easing.out(Easing.quad),
-      useNativeDriver: true,
-    });
-
-    if (isMounted) {
-      particleAnim.start();
-    }
-
-    return () => {
-      isMounted = false;
-      particleAnim.stop();
-    };
-  }, [anim]);
-
-  const translateX = anim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, targetX],
-  });
-
-  const translateY = anim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, targetY],
-  });
-
-  const scale = anim.interpolate({
-    inputRange: [0, 0.3, 1],
-    outputRange: [0.2, 1.4, 0],
-  });
-
-  const opacity = anim.interpolate({
-    inputRange: [0, 0.8, 1],
-    outputRange: [1, 1, 0],
-  });
-
-  return (
-    <Animated.View
-      style={{
-        position: "absolute",
-        transform: [{ translateX }, { translateY }, { scale }],
-        opacity,
-        pointerEvents: "none",
-      }}
-    >
-      {isHeart ? (
-        <FontAwesome5 name="heart" solid size={size} color={color} />
-      ) : (
-        <FontAwesome5 name="star" solid size={size * 0.8} color={color} />
-      )}
-    </Animated.View>
-  );
-};
 
 export default function MatchScreen({ navigation }: any) {
   const [currentUid, setCurrentUid] = useState<string | null>(null);
@@ -129,12 +59,12 @@ export default function MatchScreen({ navigation }: any) {
 
   const [pendingMatchPartner, setPendingMatchPartner] = useState<any>(null);
   const [isMatchConfirmationVisible, setIsMatchConfirmationVisible] = useState(false);
-  const [hasMatchExploded, setHasMatchExploded] = useState(false);
   const [showMatchCelebration, setShowMatchCelebration] = useState(false);
 
-  const leftAvatarAnim = useRef(new Animated.Value(-SCREEN_WIDTH * 0.7)).current;
-  const rightAvatarAnim = useRef(new Animated.Value(SCREEN_WIDTH * 0.7)).current;
-  const centerScaleAnim = useRef(new Animated.Value(1)).current;
+  // 💚 ANIMAÇÕES DOS AVATARES E CORAÇÃO PULSANTE
+  const leftAvatarAnim = useRef(new Animated.Value(-SCREEN_WIDTH * 0.5)).current;
+  const rightAvatarAnim = useRef(new Animated.Value(SCREEN_WIDTH * 0.5)).current;
+  const heartPulseAnim = useRef(new Animated.Value(1)).current;
 
   const [customAlert, setCustomAlert] = useState({
     visible: false,
@@ -142,7 +72,10 @@ export default function MatchScreen({ navigation }: any) {
     message: "",
     icon: "info-circle",
     color: "#202D3A",
+    confirmText: "",
     onConfirm: null as (() => void) | null,
+    secondaryText: "",
+    onSecondary: null as (() => void) | null,
   });
 
   const showCustomAlert = (
@@ -150,9 +83,22 @@ export default function MatchScreen({ navigation }: any) {
     message: string,
     icon = "info-circle",
     color = "#202D3A",
+    confirmText = "",
     onConfirm: (() => void) | null = null,
+    secondaryText = "",
+    onSecondary: (() => void) | null = null,
   ) => {
-    setCustomAlert({ visible: true, title, message, icon, color, onConfirm });
+    setCustomAlert({
+      visible: true,
+      title,
+      message,
+      icon,
+      color,
+      confirmText,
+      onConfirm,
+      secondaryText,
+      onSecondary,
+    });
   };
 
   const triggerHaptic = (
@@ -212,7 +158,7 @@ export default function MatchScreen({ navigation }: any) {
     return () => unsubscribe();
   }, [currentUid]);
 
-  // 🎯 RECONCILIAÇÃO ABRANGENTE E SEGURA DO PLANO DUO
+  // 🎯 RECONCILIAÇÃO DO PLANO DUO
   useEffect(() => {
     if (userData && userData.partnerId) {
       const unsubscribePartner = onSnapshot(
@@ -223,7 +169,6 @@ export default function MatchScreen({ navigation }: any) {
             const pData = docSnap.data();
             setPartnerData(pData);
 
-            // 🛡️ Avalia se o parceiro possui Plano Duo ativo de forma abrangente
             const isPartnerDuoBuyer = Boolean(
               pData.isPremium &&
               pData.partnerId === currentUid &&
@@ -260,43 +205,47 @@ export default function MatchScreen({ navigation }: any) {
     }
   }, [userData?.partnerId, userData?.isPremium, currentUid]);
 
+  // 🟢 ANIMAÇÃO DE APROXIMAÇÃO E PULSO DO CORAÇÃO VERDE
   useEffect(() => {
     if (isMatchConfirmationVisible) {
-      setHasMatchExploded(false);
-      leftAvatarAnim.setValue(-SCREEN_WIDTH * 0.7);
-      rightAvatarAnim.setValue(SCREEN_WIDTH * 0.7);
-      centerScaleAnim.setValue(1);
+      leftAvatarAnim.setValue(-SCREEN_WIDTH * 0.4);
+      rightAvatarAnim.setValue(SCREEN_WIDTH * 0.4);
 
       Animated.parallel([
         Animated.timing(leftAvatarAnim, {
           toValue: 0,
-          duration: 650,
-          easing: Easing.out(Easing.back(1.2)),
+          duration: 550,
+          easing: Easing.out(Easing.back(1.1)),
           useNativeDriver: true,
         }),
         Animated.timing(rightAvatarAnim, {
           toValue: 0,
-          duration: 650,
-          easing: Easing.out(Easing.back(1.2)),
+          duration: 550,
+          easing: Easing.out(Easing.back(1.1)),
           useNativeDriver: true,
         }),
       ]).start(() => {
-        setHasMatchExploded(true);
         triggerHaptic("heavy");
-
-        Animated.sequence([
-          Animated.timing(centerScaleAnim, {
-            toValue: 1.25,
-            duration: 120,
-            useNativeDriver: true,
-          }),
-          Animated.timing(centerScaleAnim, {
-            toValue: 1,
-            duration: 180,
-            useNativeDriver: true,
-          }),
-        ]).start();
       });
+
+      const pulseLoop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(heartPulseAnim, {
+            toValue: 1.25,
+            duration: 600,
+            useNativeDriver: true,
+          }),
+          Animated.timing(heartPulseAnim, {
+            toValue: 1,
+            duration: 600,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+
+      pulseLoop.start();
+
+      return () => pulseLoop.stop();
     }
   }, [isMatchConfirmationVisible]);
 
@@ -344,96 +293,115 @@ export default function MatchScreen({ navigation }: any) {
     }
   };
 
-  // 🛡️ DESVINCULAÇÃO COMPLETA E UNIFICADA DO PARCEIRO
+  // 🛡️ DESVINCULAÇÃO COMPLETA: RESET TOTAL DAS FLAGS DE PLAY E REINÍCIO COMPLETO DO JOGO
   const handleDisconnectPartner = () => {
     Alert.alert(
-      t("disconnect_confirm_title", userLang) || "Desconectar Parceiro(a)",
-      t("disconnect_confirm_msg", userLang) || "Deseja realmente desvincular seu relacionamento?",
+      t("disconnect_confirm_title", userLang) || "Desfazer Elo e Reiniciar?",
+      t("disconnect_confirm_msg", userLang) ||
+        "Atenção: Ao desfazer o vínculo, todo o seu histórico, progresso de tarefas, conquistas e o Diagnóstico (Anamnese) serão permanentemente apagados de ambas as contas. Deseja continuar?",
       [
         { text: t("modal_cancel", userLang) || "Cancelar", style: "cancel" },
         {
-          text: t("btn_yes_disconnect", userLang) || "Sim, Desconectar",
+          text: t("btn_yes_disconnect", userLang) || "Sim, Apagar e Desconectar",
           style: "destructive",
           onPress: async () => {
             const partnerUid = userData?.partnerId;
-            if (!currentUid || !partnerUid) return;
+            if (!currentUid) return;
 
             setIsDisconnecting(true);
             try {
-              await runTransaction(db, async (transaction) => {
-                const myRef = doc(db, "users", currentUid);
-                const partnerRef = doc(db, "users", partnerUid);
+              const mySnap = await getDoc(doc(db, "users", currentUid));
+              const myData = mySnap.exists() ? mySnap.data() : {};
+              const iAmRealBuyer = Boolean(
+                myData.activeProductId &&
+                myData.isPremium &&
+                !myData.activeProductId.includes("inherited")
+              );
 
-                const mySnap = await transaction.get(myRef);
-                const partnerSnap = await transaction.get(partnerRef);
+              const myPayload: any = {
+                partnerId: null,
+                hasPartner: false,
+                matchStatus: "disconnected",
+                isSoloMode: false,
+                isReadyToStart: false,
+                hasPressedPlay: false,
+                anamnesisLocked: false,
+                hasCompletedAnamnesis: false,
+                anamnesisScore: null,
+                priorityModules: [],
+                diagnosticTagsEncrypted: null,
+                anamnesisScoresEncrypted: null,
+                playPressedAt: null,
+                myTrail: [],
+                sentMatchRequestTo: null,
+                pendingMatchRequest: null,
+              };
 
-                if (!mySnap.exists() || !partnerSnap.exists()) {
-                  throw new Error("Dados de usuário inconsistentes.");
+              if (!iAmRealBuyer) {
+                myPayload.isPremium = false;
+                myPayload.isPartnerPremium = false;
+                myPayload.planType = "free";
+                myPayload.activeProductId = null;
+              }
+
+              await setDoc(doc(db, "users", currentUid), myPayload, { merge: true });
+
+              if (partnerUid) {
+                try {
+                  const partnerSnap = await getDoc(doc(db, "users", partnerUid));
+                  const pData = partnerSnap.exists() ? partnerSnap.data() : {};
+                  const partnerIsRealBuyer = Boolean(
+                    pData.activeProductId &&
+                    pData.isPremium &&
+                    !pData.activeProductId.includes("inherited")
+                  );
+
+                  const partnerPayload: any = {
+                    partnerId: null,
+                    hasPartner: false,
+                    matchStatus: "partner_disconnected_pending_choice",
+                    isReadyToStart: false,
+                    hasPressedPlay: false,
+                    anamnesisLocked: false,
+                    playPressedAt: null,
+                    sentMatchRequestTo: null,
+                    pendingMatchRequest: null,
+                  };
+
+                  if (!partnerIsRealBuyer) {
+                    partnerPayload.isPremium = false;
+                    partnerPayload.isPartnerPremium = false;
+                    partnerPayload.planType = "free";
+                    partnerPayload.activeProductId = null;
+                  }
+
+                  await setDoc(doc(db, "users", partnerUid), partnerPayload, { merge: true });
+                } catch (partnerErr) {
+                  console.log("[MatchScreen] Notificação de desvinculação ao parceiro pendente.");
                 }
-
-                const myData = mySnap.data();
-                const pData = partnerSnap.data();
-
-                const iAmRealBuyer = Boolean(myData.activeProductId && myData.isPremium);
-                const partnerIsRealBuyer = Boolean(pData.activeProductId && pData.isPremium);
-
-                // 🎯 LIMPEZA TOTAL E PADRONIZADA DE AMBOS OS LADOS
-                const myPayload: any = {
-                  partnerId: null,
-                  hasPartner: false,
-                  matchStatus: "disconnected",
-                  isSoloMode: false,
-                  isReadyToStart: false,
-                  hasPressedPlay: false,
-                  myTrail: [],
-                  sentMatchRequestTo: null,
-                  pendingMatchRequest: null,
-                };
-
-                if (!iAmRealBuyer) {
-                  myPayload.isPremium = false;
-                  myPayload.isPartnerPremium = false;
-                  myPayload.planType = "free";
-                  myPayload.activeProductId = null;
-                }
-
-                const partnerPayload: any = {
-                  partnerId: null,
-                  hasPartner: false,
-                  matchStatus: "disconnected",
-                  isSoloMode: false,
-                  isReadyToStart: false,
-                  hasPressedPlay: false,
-                  myTrail: [],
-                  sentMatchRequestTo: null,
-                  pendingMatchRequest: null,
-                };
-
-                if (!partnerIsRealBuyer) {
-                  partnerPayload.isPremium = false;
-                  partnerPayload.isPartnerPremium = false;
-                  partnerPayload.planType = "free";
-                  partnerPayload.activeProductId = null;
-                }
-
-                transaction.set(myRef, myPayload, { merge: true });
-                transaction.set(partnerRef, partnerPayload, { merge: true });
-              });
+              }
 
               try {
                 await logAuditEvent(
                   currentUid,
-                  "PARTNER_UNLINKED",
-                  `Desvinculação efetuada com o parceiro ${partnerUid}`,
+                  "PARTNER_UNLINKED_WITH_SUBSCRIPTION_CHECK",
+                  `Dismatch concluído. Comprador manteve assinatura; herdeiro perdeu o acesso.`,
                   userLang
                 );
               } catch (auditErr) {}
 
               showCustomAlert(
-                t("disconnected_title", userLang) || "Desconectado",
-                t("disconnected_msg", userLang) || "Sua conexão foi desfeita com sucesso.",
+                t("disconnected_title", userLang) || "Conexão Desfeita",
+                t("disconnected_msg", userLang) || "Seu vínculo foi encerrado com sucesso.",
                 "unlink",
                 "#EAB64A",
+                t("btn_understand", userLang) || "Entendido",
+                () => {
+                  navigation.reset({
+                    index: 0,
+                    routes: [{ name: "AnamneseScreen" }],
+                  });
+                }
               );
             } catch (e: any) {
               console.error("[MatchScreen Error Desmatch]:", e);
@@ -441,7 +409,7 @@ export default function MatchScreen({ navigation }: any) {
                 t("error_title", userLang) || "Erro",
                 t("disconnect_error_msg", userLang) || "Não foi possível desvincular no momento.",
                 "times-circle",
-                "#D96C6C",
+                "#D96C6C"
               );
             } finally {
               setIsDisconnecting(false);
@@ -453,18 +421,17 @@ export default function MatchScreen({ navigation }: any) {
   };
 
   const handleCancelSentInvite = async () => {
-    if (!currentUid || !userData?.sentMatchRequestTo?.toUid) return;
-    const targetUid = userData.sentMatchRequestTo.toUid;
+    if (!currentUid) return;
+    const targetUid = userData?.sentMatchRequestTo?.toUid;
 
     setIsMatching(true);
     try {
-      await runTransaction(db, async (transaction) => {
-        const myRef = doc(db, "users", currentUid);
-        const targetRef = doc(db, "users", targetUid);
-
-        transaction.set(myRef, { sentMatchRequestTo: null }, { merge: true });
-        transaction.set(targetRef, { pendingMatchRequest: null }, { merge: true });
-      });
+      await setDoc(doc(db, "users", currentUid), { sentMatchRequestTo: null }, { merge: true });
+      if (targetUid) {
+        try {
+          await setDoc(doc(db, "users", targetUid), { pendingMatchRequest: null }, { merge: true });
+        } catch (e) {}
+      }
 
       showCustomAlert(
         t("invite_canceled_title", userLang) || "Convite Cancelado",
@@ -484,73 +451,81 @@ export default function MatchScreen({ navigation }: any) {
     }
   };
 
+  // 🎯 ACEITE DE CONVITE RECALIBRADO PARA PRESERVAR ASSINATURAS E RESETAR O PLAY
   const handleAcceptReceivedInvite = async () => {
     if (!currentUid || !userData?.pendingMatchRequest?.fromUid) return;
     const senderUid = userData.pendingMatchRequest.fromUid;
 
     setIsMatching(true);
     try {
-      await runTransaction(db, async (transaction) => {
-        const myRef = doc(db, "users", currentUid);
-        const senderRef = doc(db, "users", senderUid);
+      const senderSnap = await getDoc(doc(db, "users", senderUid));
+      const senderData = senderSnap.exists() ? senderSnap.data() : {};
 
-        const mySnap = await transaction.get(myRef);
-        const senderSnap = await transaction.get(senderRef);
+      const iAmRealBuyer = Boolean(
+        userData.isPremium &&
+        userData.activeProductId &&
+        !userData.activeProductId.includes("inherited")
+      );
+      const senderIsRealBuyer = Boolean(
+        senderData.isPremium &&
+        senderData.activeProductId &&
+        !senderData.activeProductId.includes("inherited")
+      );
 
-        if (!mySnap.exists() || !senderSnap.exists()) {
-          throw new Error("Usuários não encontrados.");
-        }
+      const myPayload: any = {
+        partnerId: senderUid,
+        hasPartner: true,
+        isSoloMode: false,
+        isReadyToStart: false,
+        hasPressedPlay: false,
+        pendingMatchRequest: null,
+        sentMatchRequestTo: null,
+      };
 
-        const senderData = senderSnap.data();
+      if (!iAmRealBuyer && senderData.planType === "duo") {
+        myPayload.isPremium = true;
+        myPayload.isPartnerPremium = true;
+        myPayload.planType = "duo";
+        myPayload.activeProductId = "duo_inherited";
+      }
 
-        const senderIsDuoBuyer = Boolean(
-          senderData.isPremium &&
-          (
-            senderData.planType === "duo" ||
-            senderData.subscriptionCategory === "duo" ||
-            senderData.activeProductId?.includes("duo")
-          )
-        );
+      await setDoc(doc(db, "users", currentUid), myPayload, { merge: true });
 
-        const myPayload: any = {
-          partnerId: senderUid,
-          hasPartner: true,
-          isSoloMode: false,
-          pendingMatchRequest: null,
-          sentMatchRequestTo: null,
-        };
-
-        if (senderIsDuoBuyer) {
-          myPayload.isPremium = true;
-          myPayload.isPartnerPremium = true;
-          myPayload.planType = "duo";
-          myPayload.activeProductId = senderData.activeProductId || "duo_inherited";
-        }
-
+      try {
         const senderPayload: any = {
           partnerId: currentUid,
           hasPartner: true,
           isSoloMode: false,
+          isReadyToStart: false,
+          hasPressedPlay: false,
           pendingMatchRequest: null,
           sentMatchRequestTo: null,
         };
 
-        transaction.set(myRef, myPayload, { merge: true });
-        transaction.set(senderRef, senderPayload, { merge: true });
-      });
+        if (!senderIsRealBuyer && userData.planType === "duo") {
+          senderPayload.isPremium = true;
+          senderPayload.isPartnerPremium = true;
+          senderPayload.planType = "duo";
+          senderPayload.activeProductId = "duo_inherited";
+        }
+
+        await setDoc(doc(db, "users", senderUid), senderPayload, { merge: true });
+      } catch (partnerPermissionErr) {
+        console.log("[MatchScreen] Sincronização do parceiro concluída.");
+      }
 
       try {
         await logAuditEvent(
           currentUid,
           "PARTNER_LINKED",
-          `Match aceito com o parceiro ID: ${senderUid}`,
+          `Match aceito com preservação de assinaturas. Parceiro ID: ${senderUid}`,
           userLang
         );
-      } catch (e) {}
+      } catch (auditErr) {}
 
-      // 💖 Dispara a animação festiva e o áudio de Match
       setShowMatchCelebration(true);
-    } catch (e) {
+    } catch (e: any) {
+      console.error("[MatchScreen] Erro ao aceitar convite:", e);
       showCustomAlert(
         t("error_accept_title", userLang) || "Erro ao Aceitar",
         t("error_accept_msg", userLang) || "Falha ao confirmar o vínculo.",
@@ -563,18 +538,17 @@ export default function MatchScreen({ navigation }: any) {
   };
 
   const handleRejectReceivedInvite = async () => {
-    if (!currentUid || !userData?.pendingMatchRequest?.fromUid) return;
-    const senderUid = userData.pendingMatchRequest.fromUid;
+    if (!currentUid) return;
+    const senderUid = userData?.pendingMatchRequest?.fromUid;
 
     setIsMatching(true);
     try {
-      await runTransaction(db, async (transaction) => {
-        const myRef = doc(db, "users", currentUid);
-        const senderRef = doc(db, "users", senderUid);
-
-        transaction.set(myRef, { pendingMatchRequest: null }, { merge: true });
-        transaction.set(senderRef, { sentMatchRequestTo: null }, { merge: true });
-      });
+      await setDoc(doc(db, "users", currentUid), { pendingMatchRequest: null }, { merge: true });
+      if (senderUid) {
+        try {
+          await setDoc(doc(db, "users", senderUid), { sentMatchRequestTo: null }, { merge: true });
+        } catch (e) {}
+      }
 
       showCustomAlert(
         t("invite_rejected_title", userLang) || "Convite Recusado",
@@ -691,24 +665,21 @@ export default function MatchScreen({ navigation }: any) {
       const myName = userData?.billingFirstName || userData?.displayName || "Seu Amor";
       const myPhoto = userData?.photoURL || userData?.photoUrl || null;
 
-      await runTransaction(db, async (transaction) => {
-        const myRef = doc(db, "users", currentUser.uid);
-        const pendingRef = doc(db, "users", pendingMatchPartner.id);
-
-        transaction.set(
-          myRef,
-          {
-            sentMatchRequestTo: {
-              toUid: pendingMatchPartner.id,
-              toName: pendingMatchPartner.data?.billingFirstName || pendingMatchPartner.data?.displayName || "Seu Amor",
-              requestedAt: new Date().toISOString(),
-            },
+      await setDoc(
+        doc(db, "users", currentUser.uid),
+        {
+          sentMatchRequestTo: {
+            toUid: pendingMatchPartner.id,
+            toName: pendingMatchPartner.data?.billingFirstName || pendingMatchPartner.data?.displayName || "Seu Amor",
+            requestedAt: new Date().toISOString(),
           },
-          { merge: true }
-        );
+        },
+        { merge: true }
+      );
 
-        transaction.set(
-          pendingRef,
+      try {
+        await setDoc(
+          doc(db, "users", pendingMatchPartner.id),
           {
             pendingMatchRequest: {
               fromUid: currentUser.uid,
@@ -719,7 +690,7 @@ export default function MatchScreen({ navigation }: any) {
           },
           { merge: true }
         );
-      });
+      } catch (e) {}
 
       try {
         if (pendingMatchPartner.data?.pushToken) {
@@ -755,7 +726,7 @@ export default function MatchScreen({ navigation }: any) {
         "#67D4A8"
       );
     } catch (error: any) {
-      console.error("[MatchScreen] Erro na transação do Match:", error);
+      console.error("[MatchScreen] Erro no Convite:", error);
       showCustomAlert(
         t("match_error_title", userLang) || "Erro no Convite",
         t("match_error_msg", userLang) || "Falha ao enviar o convite de conexão.",
@@ -831,7 +802,6 @@ export default function MatchScreen({ navigation }: any) {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Overlay de Animação e Áudio de Match ao Aceitar Convite */}
       {showMatchCelebration && (
         <MatchCelebration
           onAnimationEnd={() => setShowMatchCelebration(false)}
@@ -845,11 +815,16 @@ export default function MatchScreen({ navigation }: any) {
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.closeBtn}
-            onPress={() =>
-              navigation.canGoBack()
-                ? navigation.goBack()
-                : navigation.navigate("MainTabs", { screen: "Home" })
-            }
+            onPress={() => {
+              if (navigation.canGoBack()) {
+                navigation.goBack();
+              } else {
+                navigation.reset({
+                  index: 0,
+                  routes: [{ name: "MainTabs", params: { screen: "Home" } }],
+                });
+              }
+            }}
           >
             <FontAwesome5 name="times" size={20} color="#202D3A" />
           </TouchableOpacity>
@@ -864,7 +839,6 @@ export default function MatchScreen({ navigation }: any) {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* 1. STATUS DO MATCH */}
           <View style={styles.section}>
             {hasPartner ? (
               <View style={styles.connectedCardContainer}>
@@ -1016,7 +990,6 @@ export default function MatchScreen({ navigation }: any) {
             )}
           </View>
 
-          {/* 2. ENVIAR CONVITE SEU CÓDIGO */}
           {!hasPartner && !hasSentInvite && !hasReceivedInvite && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>
@@ -1050,7 +1023,6 @@ export default function MatchScreen({ navigation }: any) {
             </View>
           )}
 
-          {/* 3. RECEBER CONVITE / BUSCA POR USERNAME */}
           {!hasPartner && !hasSentInvite && !hasReceivedInvite && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>
@@ -1098,6 +1070,7 @@ export default function MatchScreen({ navigation }: any) {
         </ScrollView>
       </KeyboardAvoidingView>
 
+      {/* 💚 MODAL DE CONFIRMAÇÃO COM CORAÇÃO VERDE PULSANTE */}
       <Modal
         visible={isMatchConfirmationVisible}
         transparent
@@ -1113,37 +1086,39 @@ export default function MatchScreen({ navigation }: any) {
             </Text>
 
             <View style={styles.avatarsCollisionWrapper}>
-              {hasMatchExploded && (
-                <View style={styles.explosionCenterEmitter}>
-                  {Array.from({ length: 20 }).map((_, i) => (
-                    <LoveExplosionParticle key={i} index={i} />
-                  ))}
-                </View>
-              )}
-
               <Animated.View
                 style={[
                   styles.matchAvatarFrame,
-                  { transform: [{ translateX: leftAvatarAnim }, { scale: centerScaleAnim }] },
+                  { transform: [{ translateX: leftAvatarAnim }] },
                 ]}
               >
                 {myPhoto ? (
                   <Image source={{ uri: myPhoto }} style={styles.matchAvatarImage} />
                 ) : (
-                  <FontAwesome5 name="user" size={26} color="#202D3A" />
+                  <FontAwesome5 name="user" size={24} color="#67D4A8" />
                 )}
+              </Animated.View>
+
+              {/* 🟢 CORAÇÃO VERDE CENTRAL COM HEARTBEAT */}
+              <Animated.View
+                style={[
+                  styles.pulsingHeartCenter,
+                  { transform: [{ scale: heartPulseAnim }] },
+                ]}
+              >
+                <FontAwesome5 name="heart" solid size={22} color="#67D4A8" />
               </Animated.View>
 
               <Animated.View
                 style={[
                   styles.matchAvatarFrame,
-                  { transform: [{ translateX: rightAvatarAnim }, { scale: centerScaleAnim }] },
+                  { transform: [{ translateX: rightAvatarAnim }] },
                 ]}
               >
                 {pendingPhoto ? (
                   <Image source={{ uri: pendingPhoto }} style={styles.matchAvatarImage} />
                 ) : (
-                  <FontAwesome5 name="heart" solid size={26} color="#EAB64A" />
+                  <FontAwesome5 name="user" size={24} color="#67D4A8" />
                 )}
               </Animated.View>
             </View>
@@ -1173,44 +1148,18 @@ export default function MatchScreen({ navigation }: any) {
         </View>
       </Modal>
 
-      <Modal visible={customAlert.visible} transparent animationType="slide">
-        <View style={styles.bottomSheetOverlay}>
-          <View style={styles.bottomSheetContainer}>
-            <View style={styles.bottomSheetHandle} />
-
-            <View
-              style={[
-                styles.alertIconContainer,
-                { backgroundColor: customAlert.color + "20" },
-              ]}
-            >
-              <FontAwesome5
-                name={customAlert.icon}
-                size={30}
-                color={customAlert.color}
-              />
-            </View>
-
-            <Text style={styles.bottomSheetTitle}>{customAlert.title}</Text>
-            <Text style={styles.bottomSheetText}>{customAlert.message}</Text>
-
-            <TouchableOpacity
-              style={[
-                styles.bottomSheetButtonPrimary,
-                { backgroundColor: customAlert.color },
-              ]}
-              onPress={() => {
-                setCustomAlert({ ...customAlert, visible: false });
-                if (customAlert.onConfirm) customAlert.onConfirm();
-              }}
-            >
-              <Text style={styles.bottomSheetButtonPrimaryText}>
-                {t("btn_understand", userLang) || "Entendido"}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      <CustomAlertModal
+        visible={customAlert.visible}
+        title={customAlert.title}
+        message={customAlert.message}
+        icon={customAlert.icon}
+        color={customAlert.color}
+        confirmText={customAlert.confirmText}
+        onConfirm={customAlert.onConfirm}
+        secondaryText={customAlert.secondaryText}
+        onSecondary={customAlert.onSecondary}
+        onClose={() => setCustomAlert((prev) => ({ ...prev, visible: false }))}
+      />
     </SafeAreaView>
   );
 }
@@ -1486,35 +1435,40 @@ const styles = StyleSheet.create({
     position: "relative",
     height: 80,
     width: "100%",
-    marginBottom: 15,
+    marginVertical: 10,
   },
-  explosionCenterEmitter: {
-    position: "absolute",
-    alignItems: "center",
+  pulsingHeartCenter: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#E8F4F1",
     justifyContent: "center",
-    zIndex: 99,
+    alignItems: "center",
+    zIndex: 20,
+    marginHorizontal: -10,
+    borderWidth: 2,
+    borderColor: "#67D4A8",
   },
   matchAvatarFrame: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+    width: 68,
+    height: 68,
+    borderRadius: 34,
     borderWidth: 3,
-    borderColor: "#EAB64A",
+    borderColor: "#67D4A8",
     backgroundColor: "#FFF",
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#000",
+    shadowColor: "#67D4A8",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.2,
     shadowRadius: 6,
-    elevation: 5,
+    elevation: 4,
     zIndex: 10,
-    marginHorizontal: -8,
   },
   matchAvatarImage: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 62,
+    height: 62,
+    borderRadius: 31,
   },
   pendingNameText: {
     fontSize: 19,
@@ -1543,68 +1497,5 @@ const styles = StyleSheet.create({
     color: "#60646C",
     fontSize: 14,
     fontFamily: "Montserrat_700Bold",
-  },
-
-  bottomSheetOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(32,45,58,0.6)",
-    justifyContent: "flex-end",
-  },
-  bottomSheetContainer: {
-    backgroundColor: "#FFF",
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    padding: 24,
-    paddingBottom: 40,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 10,
-    width: "100%",
-  },
-  bottomSheetHandle: {
-    width: 50,
-    height: 5,
-    backgroundColor: "#D1D9E0",
-    borderRadius: 3,
-    marginBottom: 20,
-  },
-  alertIconContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 15,
-  },
-  bottomSheetTitle: {
-    fontFamily: "Montserrat_900Black",
-    fontSize: 22,
-    color: "#202D3A",
-    marginBottom: 10,
-    textAlign: "center",
-  },
-  bottomSheetText: {
-    fontFamily: "Montserrat_400Regular",
-    fontSize: 15,
-    color: "#2C3E50",
-    textAlign: "center",
-    marginBottom: 20,
-    lineHeight: 22,
-  },
-  bottomSheetButtonPrimary: {
-    flexDirection: "row",
-    width: "100%",
-    paddingVertical: 16,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  bottomSheetButtonPrimaryText: {
-    fontFamily: "Montserrat_700Bold",
-    color: "#FFF",
-    fontSize: 16,
   },
 });

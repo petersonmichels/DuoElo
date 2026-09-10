@@ -1,13 +1,15 @@
 import { FontAwesome5 } from "@expo/vector-icons";
+import { useAudioPlayer } from "expo-audio";
+import * as Haptics from "expo-haptics";
 import { signOut } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Animated,
   Dimensions,
   Linking,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -17,6 +19,7 @@ import {
 } from "react-native";
 import Purchases, { PurchasesPackage } from "react-native-purchases";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { CustomAlertModal } from "../components/CustomAlertModal";
 import { auth, db } from "../config/firebase";
 
 import { t } from "../i18n/translations";
@@ -39,9 +42,51 @@ export default function PaywallScreen({ navigation }: any) {
   >([]);
   const [hasPartner, setHasPartner] = useState(false);
   const [partnerId, setPartnerId] = useState<string | null>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+
+  // 🔊 Áudio Celebrativo de Sucesso
+  const successPlayer = useAudioPlayer(
+    require("../../assets/sounds/success.mp3")
+  );
 
   // 🌐 Estado dinâmico do Idioma
   const [userLang, setUserLang] = useState("pt-BR");
+
+  // 🔔 ESTADO DO ALERT CUSTOMIZADO (Design System DuoElo)
+  const [customAlert, setCustomAlert] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    icon: "info-circle",
+    color: "#202D3A",
+    confirmText: t("btn_understand", userLang) || "Entendido",
+    onConfirm: null as (() => void) | null,
+    secondaryText: "",
+    onSecondary: null as (() => void) | null,
+  });
+
+  const showCustomAlert = (
+    title: string,
+    message: string,
+    icon = "info-circle",
+    color = "#202D3A",
+    confirmText = t("btn_understand", userLang) || "Entendido",
+    onConfirm: (() => void) | null = null,
+    secondaryText = "",
+    onSecondary: (() => void) | null = null
+  ) => {
+    setCustomAlert({
+      visible: true,
+      title,
+      message,
+      icon,
+      color,
+      confirmText,
+      onConfirm,
+      secondaryText,
+      onSecondary,
+    });
+  };
 
   const slideAnim = useRef(new Animated.Value(50)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -232,15 +277,13 @@ export default function PaywallScreen({ navigation }: any) {
       const currentUid = auth.currentUser?.uid;
 
       if (!currentUid) {
-        Alert.alert(
+        showCustomAlert(
           t("session_expired_title", userLang) || "Sessão Expirada",
           t("session_expired_sub_msg", userLang) || "Por favor, faça login novamente.",
-          [
-            {
-              text: t("btn_go_to_login", userLang) || "Ir para Login",
-              onPress: handleForceLogout,
-            },
-          ]
+          "user-lock",
+          "#EAB64A",
+          t("btn_go_to_login", userLang) || "Ir para Login",
+          handleForceLogout
         );
         setIsProcessing(false);
         return;
@@ -249,9 +292,11 @@ export default function PaywallScreen({ navigation }: any) {
       const pkgToPurchase = findPackage(planCategory, selectedPlan);
 
       if (!pkgToPurchase) {
-        Alert.alert(
+        showCustomAlert(
           t("plan_unavailable_title", userLang) || "Plano Indisponível",
-          t("plan_unavailable_msg", userLang) || "Não foi possível carregar as informações do plano na loja. Tente novamente em instantes."
+          t("plan_unavailable_msg", userLang) || "Não foi possível carregar as informações do plano na loja. Tente novamente em instantes.",
+          "exclamation-triangle",
+          "#EAB64A"
         );
         setIsProcessing(false);
         return;
@@ -291,33 +336,18 @@ export default function PaywallScreen({ navigation }: any) {
         userLang
       );
 
-      Alert.alert(
-        t("sub_confirmed_title", userLang) || "Assinatura Confirmada!",
-        t("sub_confirmed_msg", userLang, {
-          category: planCategory === "duo" ? "Duo" : "Solo",
-          plan: selectedPlan,
-          partnerBonus:
-            hasPartner && planCategory === "duo"
-              ? t("sub_confirmed_partner_bonus", userLang) || "Seu parceiro também recebeu acesso!"
-              : "",
-        }) || "Sua jornada agora está totalmente liberada.",
-        [
-          {
-            text: t("btn_access_app", userLang) || "Acessar o App",
-            onPress: () => {
-              navigation.reset({
-                index: 0,
-                routes: [
-                  {
-                    name: "MainTabs",
-                    params: { screen: "Home" },
-                  },
-                ],
-              });
-            },
-          },
-        ]
-      );
+      // 🔊 Efeito Sonoro e Vibração Tátil de Sucesso
+      try {
+        await Haptics.notificationAsync(
+          Haptics.NotificationFeedbackType.Success
+        );
+        successPlayer.play();
+      } catch (audioErr) {
+        console.warn("[PaywallScreen] Erro ao reproduzir som de sucesso:", audioErr);
+      }
+
+      // 🎉 Exibe o Modal Celebrativo de Sucesso
+      setShowSuccessModal(true);
     } catch (error: any) {
       // 🛑 TRATAMENTO SILENCIOSO DE CANCELAMENTO VOLUNTÁRIO
       if (
@@ -328,9 +358,11 @@ export default function PaywallScreen({ navigation }: any) {
         return;
       }
 
-      Alert.alert(
+      showCustomAlert(
         t("sub_error_title", userLang) || "Erro na Assinatura",
-        t("sub_error_msg", userLang) || "Não foi possível concluir o pagamento."
+        t("sub_error_msg", userLang) || "Não foi possível concluir o pagamento.",
+        "times-circle",
+        "#D96C6C"
       );
     } finally {
       setIsProcessing(false);
@@ -377,24 +409,31 @@ export default function PaywallScreen({ navigation }: any) {
           );
         }
 
-        Alert.alert(
+        try {
+          await Haptics.notificationAsync(
+            Haptics.NotificationFeedbackType.Success
+          );
+          successPlayer.play();
+        } catch (audioErr) {}
+
+        showCustomAlert(
           t("sub_restored_title", userLang) || "Compras Restauradas",
           t("sub_restored_msg", userLang) || "Sua assinatura ativa foi restaurada com sucesso.",
-          [
-            {
-              text: t("btn_go_to_start", userLang) || "Ir para Início",
-              onPress: () =>
-                navigation.reset({
-                  index: 0,
-                  routes: [{ name: "MainTabs", params: { screen: "Home" } }],
-                }),
-            },
-          ]
+          "check-circle",
+          "#67D4A8",
+          t("btn_go_to_start", userLang) || "Ir para Início",
+          () =>
+            navigation.reset({
+              index: 0,
+              routes: [{ name: "MainTabs", params: { screen: "Home" } }],
+            })
         );
       } else {
-        Alert.alert(
+        showCustomAlert(
           t("no_active_sub_title", userLang) || "Nenhuma Assinatura Ativa",
-          t("no_active_sub_msg", userLang) || "Não encontramos assinaturas vinculadas a esta conta de loja."
+          t("no_active_sub_msg", userLang) || "Não encontramos assinaturas vinculadas a esta conta de loja.",
+          "info-circle",
+          "#EAB64A"
         );
       }
     } catch (error: any) {
@@ -405,9 +444,11 @@ export default function PaywallScreen({ navigation }: any) {
         return;
       }
 
-      Alert.alert(
+      showCustomAlert(
         t("error_title", userLang) || "Erro",
-        t("restore_purchases_error_msg", userLang) || "Erro ao restaurar compras."
+        t("restore_purchases_error_msg", userLang) || "Erro ao restaurar compras.",
+        "times-circle",
+        "#D96C6C"
       );
     } finally {
       setIsProcessing(false);
@@ -416,9 +457,11 @@ export default function PaywallScreen({ navigation }: any) {
 
   const openUrl = (url: string) => {
     Linking.openURL(url).catch(() =>
-      Alert.alert(
+      showCustomAlert(
         t("error_title", userLang) || "Erro",
-        t("cannot_open_page_msg", userLang) || "Não foi possível abrir o link."
+        t("cannot_open_page_msg", userLang) || "Não foi possível abrir o link.",
+        "times-circle",
+        "#D96C6C"
       )
     );
   };
@@ -803,6 +846,79 @@ export default function PaywallScreen({ navigation }: any) {
           {t("secure_payment_env", userLang) || "Ambiente de Pagamento 100% Seguro"}
         </Text>
       </View>
+
+      {/* 🎉 MODAL CELEBRATIVO DE CONFIRMAÇÃO DE COMPRA */}
+      <Modal
+        visible={showSuccessModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {}}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalIconBg}>
+              <FontAwesome5 name="heart" solid size={40} color="#67D4A8" />
+            </View>
+
+            <Text style={styles.modalTitle}>
+              {t("sub_confirmed_title", userLang) || "Assinatura Confirmada!"}
+            </Text>
+
+            <Text style={styles.modalSub}>
+              {t("sub_confirmed_msg", userLang, {
+                category: planCategory === "duo" ? "Duo" : "Solo",
+                plan: selectedPlan,
+                partnerBonus: "",
+              }) || "Sua jornada agora está totalmente liberada."}
+            </Text>
+
+            {hasPartner && planCategory === "duo" && (
+              <View style={styles.modalPartnerBadge}>
+                <FontAwesome5 name="user-check" size={14} color="#03543F" />
+                <Text style={styles.modalPartnerText}>
+                  {t("sub_confirmed_partner_bonus", userLang) || "Seu parceiro também recebeu acesso!"}
+                </Text>
+              </View>
+            )}
+
+            <TouchableOpacity
+              style={styles.modalCtaBtn}
+              activeOpacity={0.8}
+              onPress={() => {
+                setShowSuccessModal(false);
+                navigation.reset({
+                  index: 0,
+                  routes: [
+                    {
+                      name: "MainTabs",
+                      params: { screen: "Home" },
+                    },
+                  ],
+                });
+              }}
+            >
+              <Text style={styles.modalCtaText}>
+                {t("btn_access_app", userLang) || "ACESSAR O APP"}
+              </Text>
+              <FontAwesome5 name="arrow-right" size={16} color="#202D3A" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 🔔 MODAL DE ALERTA PADRONIZADO DA APLICAÇÃO */}
+      <CustomAlertModal
+        visible={customAlert.visible}
+        title={customAlert.title}
+        message={customAlert.message}
+        icon={customAlert.icon}
+        color={customAlert.color}
+        confirmText={customAlert.confirmText}
+        onConfirm={customAlert.onConfirm}
+        secondaryText={customAlert.secondaryText}
+        onSecondary={customAlert.onSecondary}
+        onClose={() => setCustomAlert((prev) => ({ ...prev, visible: false }))}
+      />
     </View>
   );
 }
@@ -1159,5 +1275,83 @@ const styles = StyleSheet.create({
     color: "#60646C",
     fontSize: 11,
     fontFamily: "Montserrat_600SemiBold",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(15, 15, 18, 0.75)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 24,
+  },
+  modalCard: {
+    width: "100%",
+    backgroundColor: "#FFF",
+    borderRadius: 24,
+    padding: 28,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 15,
+    elevation: 10,
+  },
+  modalIconBg: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "#E8F4F1",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 20,
+    borderWidth: 3,
+    borderColor: "#67D4A8",
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontFamily: "Montserrat_900Black",
+    color: "#202D3A",
+    textAlign: "center",
+    marginBottom: 10,
+  },
+  modalSub: {
+    fontSize: 14,
+    fontFamily: "Montserrat_400Regular",
+    color: "#60646C",
+    textAlign: "center",
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  modalPartnerBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#DEF7EC",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    gap: 8,
+    marginBottom: 24,
+    width: "100%",
+  },
+  modalPartnerText: {
+    fontSize: 12,
+    fontFamily: "Montserrat_700Bold",
+    color: "#03543F",
+    flex: 1,
+  },
+  modalCtaBtn: {
+    flexDirection: "row",
+    backgroundColor: "#EAB64A",
+    width: "100%",
+    paddingVertical: 16,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 10,
+  },
+  modalCtaText: {
+    fontSize: 15,
+    fontFamily: "Montserrat_900Black",
+    color: "#202D3A",
+    letterSpacing: 0.5,
   },
 });

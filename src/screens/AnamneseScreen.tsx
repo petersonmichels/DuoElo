@@ -23,9 +23,11 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { CustomAlertModal } from "../components/CustomAlertModal";
 import { auth, db } from "../config/firebase";
 
 import { SUPPORTED_LANGUAGES, getLanguageFlag } from "../constants/languages";
+import { executePlayWithGuard } from "../hooks/usePlayGuard";
 import { t } from "../i18n/translations";
 import { audioService } from "../services/AudioService";
 import { logAuditEvent } from "../services/auditService";
@@ -93,9 +95,9 @@ export default function AnamneseScreen({ navigation, route }: any) {
     icon: "info-circle",
     color: "#202D3A",
     confirmText: "",
-    onConfirm: null as any,
+    onConfirm: null as (() => void) | null,
     secondaryText: "",
-    onSecondary: null as any,
+    onSecondary: null as (() => void) | null,
   });
 
   const showCustomAlert = (
@@ -104,9 +106,9 @@ export default function AnamneseScreen({ navigation, route }: any) {
     icon = "info-circle",
     color = "#202D3A",
     confirmText = "",
-    onConfirm: any = null,
+    onConfirm: (() => void) | null = null,
     secondaryText = "",
-    onSecondary: any = null
+    onSecondary: (() => void) | null = null,
   ) => {
     setCustomAlert({
       visible: true,
@@ -304,9 +306,6 @@ export default function AnamneseScreen({ navigation, route }: any) {
   }, []);
 
   const handleChangeLanguage = async (langCode: string) => {
-    if (audioService.getSfxEnabled()) {
-      audioService.play("click");
-    }
     setUserLang(langCode);
     setIsLangModalVisible(false);
 
@@ -323,43 +322,21 @@ export default function AnamneseScreen({ navigation, route }: any) {
   };
 
   const handleStart = () => {
-    if (audioService.getSfxEnabled()) {
-      audioService.play("click");
-    }
     setScreenState("questions");
   };
 
-  // 🛡️ NAVEGAÇÃO PROTEGIDA PÓS-DIAGNÓSTICO
-  const handleProtectedNavigation = () => {
-    const isDuoPlan =
-      currentUserData?.planType === "duo" ||
-      currentUserData?.subscriptionCategory === "duo";
-    const hasPartner = Boolean(
-      currentUserData?.partnerId || currentUserData?.hasPartner
-    );
-
-    if (isDuoPlan && !hasPartner) {
-      showCustomAlert(
-        t("partner_required_title", userLang) || "A jornada fica melhor a dois!",
-        t("partner_required_msg", userLang) ||
-          "O DuoElo foi feito para ser transformador em casal. Convide seu parceiro agora para sincronizarem as missões e acompanharem a evolução juntos!",
-        "user-friends",
-        "#EAB64A",
-        t("btn_connect_partner", userLang) || "Conectar Agora",
-        () => {
-          navigation.navigate("MainTabs", { screen: "Match" });
-        }
-      );
-    } else {
-      navigation.navigate("MainTabs", { screen: "Home" });
-    }
+  // 🛡️ NAVEGAÇÃO PROTEGIDA PÓS-DIAGNÓSTICO VIA PLAYGUARD CENTRALIZADO
+  const handleProtectedNavigation = async () => {
+    await executePlayWithGuard({
+      userData: currentUserData,
+      userLang,
+      navigation,
+      showCustomAlert,
+    });
   };
 
   // 🎯 PULAR ANAMNESE -> SALVA E VALIDA PARCEIRO DUO
   const handleSkipAnamnesis = () => {
-    if (audioService.getSfxEnabled()) {
-      audioService.play("click");
-    }
     showCustomAlert(
       t("skip_anamnesis_title", userLang) || "Pular Anamnese",
       t("skip_anamnesis_msg", userLang) || "Deseja usar o perfil de sintonia padrão?",
@@ -391,7 +368,7 @@ export default function AnamneseScreen({ navigation, route }: any) {
               userLang
             );
 
-            handleProtectedNavigation();
+            await handleProtectedNavigation();
           } catch (e) {
             console.log("Erro ao salvar perfil padrão:", e);
           } finally {
@@ -403,9 +380,6 @@ export default function AnamneseScreen({ navigation, route }: any) {
   };
 
   const handleSafeClose = () => {
-    if (audioService.getSfxEnabled()) {
-      audioService.play("click");
-    }
     if (navigation.canGoBack()) {
       navigation.goBack();
     } else {
@@ -415,10 +389,6 @@ export default function AnamneseScreen({ navigation, route }: any) {
 
   const handleBack = () => {
     if (isAnimating) return;
-
-    if (audioService.getSfxEnabled()) {
-      audioService.play("click");
-    }
 
     if (currentIndex > 0) {
       setIsAnimating(true);
@@ -457,10 +427,6 @@ export default function AnamneseScreen({ navigation, route }: any) {
 
   const handleForward = () => {
     if (isAnimating) return;
-
-    if (audioService.getSfxEnabled()) {
-      audioService.play("click");
-    }
 
     if (
       currentIndex < selectedAnswers.length &&
@@ -502,10 +468,6 @@ export default function AnamneseScreen({ navigation, route }: any) {
 
   const handleAnswer = (option: AnamnesisOption) => {
     if (isAnimating) return;
-
-    if (audioService.getSfxEnabled()) {
-      audioService.play("click");
-    }
 
     setIsAnimating(true);
 
@@ -733,21 +695,7 @@ export default function AnamneseScreen({ navigation, route }: any) {
     setIsSaving(true);
     try {
       await saveAssessmentToFirebase();
-
-      const userId = auth.currentUser?.uid;
-      if (userId) {
-        await setDoc(
-          doc(db, "users", userId),
-          {
-            hasPressedPlay: true,
-            anamnesisLocked: true,
-            playPressedAt: new Date().toISOString(),
-          },
-          { merge: true }
-        );
-      }
-
-      handleProtectedNavigation();
+      await handleProtectedNavigation();
     } catch (error) {
       console.error("Erro ao registrar Play:", error);
     } finally {
@@ -756,10 +704,6 @@ export default function AnamneseScreen({ navigation, route }: any) {
   };
 
   const handlePressPlayWithValidation = async () => {
-    if (audioService.getSfxEnabled()) {
-      audioService.play("click");
-    }
-
     if (
       !currentUserData?.hasCompletedAnamnesis &&
       selectedAnswers.length === 0
@@ -783,9 +727,6 @@ export default function AnamneseScreen({ navigation, route }: any) {
   };
 
   const handleGoToPaywall = async () => {
-    if (audioService.getSfxEnabled()) {
-      audioService.play("click");
-    }
     if (isSaving) return;
     setIsSaving(true);
     await saveAssessmentToFirebase();
@@ -799,14 +740,11 @@ export default function AnamneseScreen({ navigation, route }: any) {
   };
 
   const handleSaveAndSkip = async () => {
-    if (audioService.getSfxEnabled()) {
-      audioService.play("click");
-    }
     if (isSkipping) return;
     setIsSkipping(true);
     await saveAssessmentToFirebase();
     setIsSkipping(false);
-    handleProtectedNavigation();
+    await handleProtectedNavigation();
   };
 
   if (isLoadingQuestions || isCheckingUser) {
@@ -849,9 +787,6 @@ export default function AnamneseScreen({ navigation, route }: any) {
         style={[styles.primaryBtn, { paddingHorizontal: 40, marginBottom: 12 }]}
         activeOpacity={0.8}
         onPress={() => {
-          if (audioService.getSfxEnabled()) {
-            audioService.play("click");
-          }
           navigation.navigate("MainTabs", { screen: "Home" });
         }}
       >
@@ -876,9 +811,6 @@ export default function AnamneseScreen({ navigation, route }: any) {
       <TouchableOpacity
         style={styles.floatingLangBtn}
         onPress={() => {
-          if (audioService.getSfxEnabled()) {
-            audioService.play("click");
-          }
           setIsLangModalVisible(true);
         }}
       >
@@ -1284,61 +1216,19 @@ export default function AnamneseScreen({ navigation, route }: any) {
         </TouchableOpacity>
       </Modal>
 
-      {/* MODAL DE ALERTAS COM SUPORTE A BOTAO SECUNDARIO */}
-      <Modal visible={customAlert.visible} transparent animationType="slide">
-        <View style={styles.bottomSheetOverlay}>
-          <View style={styles.bottomSheetContainer}>
-            <View style={styles.bottomSheetHandle} />
-
-            <View
-              style={[
-                styles.alertIconContainer,
-                { backgroundColor: customAlert.color + "20" },
-              ]}
-            >
-              <FontAwesome5
-                name={customAlert.icon}
-                size={30}
-                color={customAlert.color}
-              />
-            </View>
-
-            <Text style={styles.bottomSheetTitle}>{customAlert.title}</Text>
-            <Text style={styles.bottomSheetText}>{customAlert.message}</Text>
-
-            <View style={{ width: "100%", gap: 10, marginTop: 10 }}>
-              <TouchableOpacity
-                style={[
-                  styles.bottomSheetButtonPrimary,
-                  { backgroundColor: customAlert.color },
-                ]}
-                onPress={() => {
-                  setCustomAlert({ ...customAlert, visible: false });
-                  if (customAlert.onConfirm) customAlert.onConfirm();
-                }}
-              >
-                <Text style={styles.bottomSheetButtonPrimaryText}>
-                  {customAlert.confirmText || t("btn_understand", userLang) || "Entendido"}
-                </Text>
-              </TouchableOpacity>
-
-              {customAlert.secondaryText ? (
-                <TouchableOpacity
-                  style={styles.bottomSheetButtonSecondary}
-                  onPress={() => {
-                    setCustomAlert({ ...customAlert, visible: false });
-                    if (customAlert.onSecondary) customAlert.onSecondary();
-                  }}
-                >
-                  <Text style={styles.bottomSheetButtonSecondaryText}>
-                    {customAlert.secondaryText}
-                  </Text>
-                </TouchableOpacity>
-              ) : null}
-            </View>
-          </View>
-        </View>
-      </Modal>
+      {/* MODAL DE ALERTAS DA ANAMNESE PADRONIZADO */}
+      <CustomAlertModal
+        visible={customAlert.visible}
+        title={customAlert.title}
+        message={customAlert.message}
+        icon={customAlert.icon}
+        color={customAlert.color}
+        confirmText={customAlert.confirmText}
+        onConfirm={customAlert.onConfirm}
+        secondaryText={customAlert.secondaryText}
+        onSecondary={customAlert.onSecondary}
+        onClose={() => setCustomAlert((prev) => ({ ...prev, visible: false }))}
+      />
     </SafeAreaView>
   );
 }
@@ -1714,75 +1604,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: "Montserrat_700Bold",
     textDecorationLine: "underline",
-  },
-  bottomSheetOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(32,45,58,0.6)",
-    justifyContent: "flex-end",
-  },
-  bottomSheetContainer: {
-    backgroundColor: "#FFF",
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    padding: 24,
-    paddingBottom: 40,
-    alignItems: "center",
-    elevation: 10,
-    width: "100%",
-  },
-  bottomSheetHandle: {
-    width: 50,
-    height: 5,
-    backgroundColor: "#D1D9E0",
-    borderRadius: 3,
-    marginBottom: 20,
-  },
-  alertIconContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 15,
-  },
-  bottomSheetTitle: {
-    fontSize: 22,
-    fontFamily: "Montserrat_900Black",
-    color: "#202D3A",
-    marginBottom: 10,
-    textAlign: "center",
-  },
-  bottomSheetText: {
-    fontSize: 15,
-    color: "#2C3E50",
-    textAlign: "center",
-    marginBottom: 20,
-    lineHeight: 22,
-    fontFamily: "Montserrat_400Regular",
-  },
-  bottomSheetButtonPrimary: {
-    flexDirection: "row",
-    width: "100%",
-    paddingVertical: 16,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  bottomSheetButtonPrimaryText: {
-    color: "#FFF",
-    fontSize: 16,
-    fontFamily: "Montserrat_700Bold",
-  },
-  bottomSheetButtonSecondary: {
-    flexDirection: "row",
-    width: "100%",
-    paddingVertical: 16,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  bottomSheetButtonSecondaryText: {
-    color: "#2C3E50",
-    fontSize: 16,
-    fontFamily: "Montserrat_700Bold",
   },
 });

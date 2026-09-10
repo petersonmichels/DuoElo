@@ -41,6 +41,7 @@ module.exports = {
           {
             CFBundleURLSchemes: [
               "com.googleusercontent.apps.504286284116-akoj0ufb3q6rrfb2b3gpskbjaatgeqle",
+              "duoelo"
             ],
           },
         ],
@@ -74,6 +75,12 @@ module.exports = {
       "expo-asset",
       "expo-image",
       "expo-apple-authentication",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          iosUrlScheme: "com.googleusercontent.apps.504286284116-akoj0ufb3q6rrfb2b3gpskbjaatgeqle"
+        }
+      ],
       [
         "expo-notifications",
         {

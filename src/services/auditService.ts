@@ -10,6 +10,7 @@ export type AuditAction =
   | "JOURNAL_ENTRY_CREATED"
   | "PARTNER_LINKED"
   | "PARTNER_UNLINKED"
+  | "PARTNER_UNLINKED_WITH_SUBSCRIPTION_CHECK" // 👈 Chave necessária para a desvinculação com checagem de assinatura
   | "PARTNER_MATCH_REQUESTED"
   | "ACCOUNT_EXCLUSION_REQUESTED"
   | "MASTER_PASSWORD_CHANGED"
@@ -18,7 +19,7 @@ export type AuditAction =
   | "SUBSCRIPTION_ACTIVATED"
   | "PURCHASE_RESTORED"
   | "GIFT_REDEEMED"
-  | "PLAY_PRESSED"; // 👈 Adicionada a nova ação para o PlayGuard
+  | "PLAY_PRESSED";
 
 export interface AuditLogPayload {
   uid: string;

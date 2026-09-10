@@ -4,7 +4,6 @@ import { doc, getDoc } from "firebase/firestore";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -15,6 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { CustomAlertModal } from "../components/CustomAlertModal";
 import { auth, db } from "../config/firebase";
 import { t } from "../i18n/translations";
 import { logAuditEvent } from "../services/auditService";
@@ -51,7 +51,43 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
   const [errorMessage, setErrorMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  // 🎯 DECLARAÇÃO DA BIOMETRIA ANTES DO USEEFFECT PARA EVITAR ERRO DE DECLARAÇÃO
+  // 🔔 ESTADO DO ALERT CUSTOMIZADO (Design System DuoElo)
+  const [customAlert, setCustomAlert] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    icon: "info-circle",
+    color: "#202D3A",
+    confirmText: t("btn_understand", userLanguage) || "Entendido",
+    onConfirm: null as (() => void) | null,
+    secondaryText: "",
+    onSecondary: null as (() => void) | null,
+  });
+
+  const showCustomAlert = (
+    alertTitle: string,
+    message: string,
+    icon = "info-circle",
+    color = "#202D3A",
+    confirmText = t("btn_understand", userLanguage) || "Entendido",
+    onConfirm: (() => void) | null = null,
+    secondaryText = "",
+    onSecondary: (() => void) | null = null
+  ) => {
+    setCustomAlert({
+      visible: true,
+      title: alertTitle,
+      message,
+      icon,
+      color,
+      confirmText,
+      onConfirm,
+      secondaryText,
+      onSecondary,
+    });
+  };
+
+  // 🎯 DECLARAÇÃO DA BIOMETRIA
   const triggerBiometrics = useCallback(async () => {
     try {
       const res: any = await authenticateWithBiometrics();
@@ -240,39 +276,35 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
     }
   };
 
+  // 🔴 SUBSTITUIÇÃO DO ALERT.ALERT NATIVO PELO CUSTOM ALERT MODAL
   const handleForgotPin = () => {
-    Alert.alert(
+    showCustomAlert(
       t("reset_pin_title", userLanguage) || "Redefinir PIN de Segurança",
       t("reset_pin_msg", userLanguage) ||
-        "Para cadastrar um novo PIN, será necessário realizar o login novamente com sua conta por motivos de segurança. Deseja continuar?",
-      [
-        {
-          text: t("modal_cancel", userLanguage) || "Cancelar",
-          style: "cancel",
-        },
-        {
-          text: t("btn_reset_logout", userLanguage) || "Redefinir e Sair",
-          style: "destructive",
-          onPress: async () => {
-            const uid = auth.currentUser?.uid;
-            if (uid) {
-              try {
-                await logAuditEvent(
-                  uid,
-                  "MASTER_PASSWORD_RESET_REQUESTED",
-                  "Redefinição de PIN solicitada com deslogamento",
-                  userLanguage
-                );
-              } catch {
-                // Log de auditoria concluído
-              }
-            }
-            await clearSecurityPin();
-            await signOut(auth);
-            onCancel();
-          },
-        },
-      ]
+        "Para cadastrar um novo PIN, será necessário realizar o login novamente por motivos de segurança.",
+      "lock",
+      "#EAB64A",
+      t("btn_reset_logout", userLanguage) || "Redefinir e Sair",
+      async () => {
+        const uid = auth.currentUser?.uid;
+        if (uid) {
+          try {
+            await logAuditEvent(
+              uid,
+              "MASTER_PASSWORD_RESET_REQUESTED",
+              "Redefinição de PIN solicitada com deslogamento",
+              userLanguage
+            );
+          } catch {
+            // Log de auditoria concluído
+          }
+        }
+        await clearSecurityPin();
+        await signOut(auth);
+        onCancel();
+      },
+      t("modal_cancel", userLanguage) || "Cancelar",
+      () => {}
     );
   };
 
@@ -433,6 +465,20 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* 🔔 MODAL DE ALERTA PADRONIZADO DA APLICAÇÃO */}
+      <CustomAlertModal
+        visible={customAlert.visible}
+        title={customAlert.title}
+        message={customAlert.message}
+        icon={customAlert.icon}
+        color={customAlert.color}
+        confirmText={customAlert.confirmText}
+        onConfirm={customAlert.onConfirm}
+        secondaryText={customAlert.secondaryText}
+        onSecondary={customAlert.onSecondary}
+        onClose={() => setCustomAlert((prev) => ({ ...prev, visible: false }))}
+      />
     </Modal>
   );
 };

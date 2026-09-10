@@ -3,7 +3,6 @@ import { doc, onSnapshot, setDoc } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -14,7 +13,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-
+import { CustomAlertModal } from "../components/CustomAlertModal";
 import { auth, db } from "../config/firebase";
 import { t } from "../i18n/translations";
 
@@ -59,6 +58,42 @@ export default function HabitsConfigScreen({ navigation }: any) {
   const [selectedFrequency, setSelectedFrequency] = useState<"daily" | "weekly">("daily");
 
   const userLang = userData?.language || "pt-BR";
+
+  // 🔔 ESTADO DO ALERT CUSTOMIZADO (Design System DuoElo)
+  const [customAlert, setCustomAlert] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    icon: "info-circle",
+    color: "#202D3A",
+    confirmText: t("btn_understand", userLang) || "Entendido",
+    onConfirm: null as (() => void) | null,
+    secondaryText: "",
+    onSecondary: null as (() => void) | null,
+  });
+
+  const showCustomAlert = (
+    title: string,
+    message: string,
+    icon = "info-circle",
+    color = "#202D3A",
+    confirmText = t("btn_understand", userLang) || "Entendido",
+    onConfirm: (() => void) | null = null,
+    secondaryText = "",
+    onSecondary: (() => void) | null = null
+  ) => {
+    setCustomAlert({
+      visible: true,
+      title,
+      message,
+      icon,
+      color,
+      confirmText,
+      onConfirm,
+      secondaryText,
+      onSecondary,
+    });
+  };
 
   useEffect(() => {
     const currentUid = auth.currentUser?.uid;
@@ -156,37 +191,35 @@ export default function HabitsConfigScreen({ navigation }: any) {
   };
 
   const handleRemoveCustomHabit = (habitId: string) => {
-    Alert.alert(
+    showCustomAlert(
       t("attention_title", userLang) || "Atenção",
       t("confirm_delete_custom_habit_msg", userLang) || "Deseja realmente excluir este hábito personalizado?",
-      [
-        { text: t("modal_cancel", userLang) || "Cancelar", style: "cancel" },
-        {
-          text: t("btn_yes_delete", userLang) || "Excluir",
-          style: "destructive",
-          onPress: async () => {
-            const currentUid = auth.currentUser?.uid;
-            if (!currentUid) return;
-            triggerHaptic();
+      "trash-alt",
+      "#D96C6C",
+      t("btn_yes_delete", userLang) || "Excluir",
+      async () => {
+        const currentUid = auth.currentUser?.uid;
+        if (!currentUid) return;
+        triggerHaptic();
 
-            const updatedCustoms = customHabits.filter((h) => h.id !== habitId);
-            const updatedActive = activeHabits.filter((id) => id !== habitId);
+        const updatedCustoms = customHabits.filter((h) => h.id !== habitId);
+        const updatedActive = activeHabits.filter((id) => id !== habitId);
 
-            setCustomHabits(updatedCustoms);
-            setActiveHabits(updatedActive);
+        setCustomHabits(updatedCustoms);
+        setActiveHabits(updatedActive);
 
-            try {
-              await setDoc(
-                doc(db, "users", currentUid),
-                { customHabits: updatedCustoms, activeHabits: updatedActive },
-                { merge: true }
-              );
-            } catch (err) {
-              console.error("[HabitsConfigScreen] Erro ao remover hábito:", err);
-            }
-          },
-        },
-      ]
+        try {
+          await setDoc(
+            doc(db, "users", currentUid),
+            { customHabits: updatedCustoms, activeHabits: updatedActive },
+            { merge: true }
+          );
+        } catch (err) {
+          console.error("[HabitsConfigScreen] Erro ao remover hábito:", err);
+        }
+      },
+      t("modal_cancel", userLang) || "Cancelar",
+      () => {}
     );
   };
 
@@ -375,6 +408,20 @@ export default function HabitsConfigScreen({ navigation }: any) {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* 🔔 MODAL DE ALERTA PADRONIZADO DA APLICAÇÃO */}
+      <CustomAlertModal
+        visible={customAlert.visible}
+        title={customAlert.title}
+        message={customAlert.message}
+        icon={customAlert.icon}
+        color={customAlert.color}
+        confirmText={customAlert.confirmText}
+        onConfirm={customAlert.onConfirm}
+        secondaryText={customAlert.secondaryText}
+        onSecondary={customAlert.onSecondary}
+        onClose={() => setCustomAlert((prev) => ({ ...prev, visible: false }))}
+      />
     </SafeAreaView>
   );
 }

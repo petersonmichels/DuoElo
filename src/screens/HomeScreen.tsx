@@ -30,17 +30,17 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Circle } from "react-native-svg";
 
+import { CustomAlertModal } from "../components/CustomAlertModal";
 import { MasterPasswordModal } from "../components/MasterPasswordModal";
 import { NotificationsModal } from "../components/NotificationsModal";
 import { auth, db } from "../config/firebase";
-import { SUPPORTED_LANGUAGES, getLanguageFlag } from "../constants/languages";
+import { getLanguageFlag, SUPPORTED_LANGUAGES } from "../constants/languages";
 import { executePlayWithGuard } from "../hooks/usePlayGuard";
 import { t } from "../i18n/translations";
 import { audioService } from "../services/AudioService";
 import {
   scheduleDailyReminder,
   sendLessonCompletedNotification,
-  sendPlayNotificationToPartner,
 } from "../services/notificationService";
 import {
   isSessionUnlocked,
@@ -361,7 +361,49 @@ export default function HomeScreen({ navigation }: any) {
   const currentStep = nextAvailableStep;
   const isJourneyFinished = currentStep >= totalStepsInModule;
 
-  // 🛡️ TRAVA DE SEGURANÇA CONTRA CONGELAMENTO E ERRO DE CONEXÃO
+  // 🎯 DETECTA SE O PARCEIRO SOFREU DISMATCH E PRECISA DECIDIR (SEGUIR SOLO OU REINICIAR)
+  useEffect(() => {
+    if (userData?.matchStatus === "partner_disconnected_pending_choice" && currentUid) {
+      showCustomAlert(
+        t("dismatch_notice_title", userLang) || "Conexão Desfeita 💔",
+        t("dismatch_notice_msg", userLang) ||
+          "Seu relacionamento foi desvinculado pelo seu parceiro(a). Como deseja prosseguir com a sua jornada?",
+        "user-shield",
+        "#EAB64A",
+        t("btn_continue_solo", userLang) || "Continuar Solo (90 dias)",
+        async () => {
+          await setDoc(
+            doc(db, "users", currentUid),
+            {
+              matchStatus: "disconnected",
+              isSoloMode: true,
+            },
+            { merge: true }
+          );
+        },
+        t("btn_reset_all", userLang) || "Reiniciar do Zero",
+        async () => {
+          await setDoc(
+            doc(db, "users", currentUid),
+            {
+              matchStatus: "disconnected",
+              isSoloMode: false,
+              hasCompletedAnamnesis: false,
+              anamnesisScore: null,
+              priorityModules: [],
+              myTrail: [],
+            },
+            { merge: true }
+          );
+          navigation.reset({
+            index: 0,
+            routes: [{ name: "AnamneseScreen" }],
+          });
+        }
+      );
+    }
+  }, [userData?.matchStatus, currentUid]);
+
   useEffect(() => {
     let isMounted = true;
     const timer = setTimeout(() => {
@@ -605,21 +647,24 @@ export default function HomeScreen({ navigation }: any) {
 
   const hasPartner = Boolean(userData?.partnerId);
   const isSoloMode = Boolean(userData?.isSoloMode);
+
+  // 🎯 LÓGICA DE PRONTIDÃO RECALIBRADA PARA DISMATCH E MODO SOLO
   const iAmReady = Boolean(
-    userData?.isReadyToStart || userData?.hasPressedPlay || (userData?.currentPhase || 1) > 1
+    (hasPartner || isSoloMode) &&
+    (userData?.isReadyToStart || userData?.hasPressedPlay)
   );
+
   const partnerIsReady = Boolean(
-    partnerData?.isReadyToStart || partnerData?.hasPressedPlay || (partnerData?.currentPhase || 1) > 1
+    hasPartner &&
+    (partnerData?.isReadyToStart || partnerData?.hasPressedPlay)
   );
 
   const isMatchOrSoloDone = hasPartner || isSoloMode;
 
-  // 🎯 TRAVA DE SEGURANÇA ESTRITA DA TRILHA: AMBOS PRECISAM DE ANAMNESE CONCLUÍDA SE HOUVER PARCEIRO
-  const isTrailUnlocked =
-    hasCompletedAnamnesis &&
-    isPremium &&
-    (iAmReady || partnerIsReady) &&
-    (isSoloMode || (!hasPartner ? true : partnerCompletedAnamnesis));
+  const isCoupleReady = hasPartner && partnerCompletedAnamnesis && iAmReady && partnerIsReady;
+  const isSoloReady = !hasPartner && isSoloMode && iAmReady;
+
+  const isTrailUnlocked = hasCompletedAnamnesis && isPremium && (isCoupleReady || isSoloReady);
 
   const getTargetStepIndex = () => {
     return nextAvailableStep;
@@ -714,194 +759,9 @@ export default function HomeScreen({ navigation }: any) {
     t("partner_default_name", userLang) ||
     "Seu Amor";
 
-  const generateTrailMatrix = async (
-    uid: string,
-    partnerId: string | null,
-    isSolo: boolean
-  ) => {
-    try {
-      let q = query(collection(db, "tasks"), where("language", "==", userLang));
-      let snap = await getDocs(q);
-
-      if (snap.empty) {
-        q = query(collection(db, "tasks"), where("language", "==", "pt-BR"));
-        snap = await getDocs(q);
-      }
-
-      let allTasks = snap.docs
-        .map((d) => d.data())
-        .sort((a: any, b: any) => a.day - b.day);
-      let myPersonalTrail: number[] = [];
-
-      let isSecondaryPartner = false;
-      if (!isSolo && partnerId) {
-        isSecondaryPartner = uid > partnerId;
-      }
-
-      for (let i = 0; i < allTasks.length; i += 5) {
-        let chunk = allTasks.slice(i, i + 5).map((t) => t.day);
-
-        if (isSecondaryPartner && chunk.length > 1) {
-          const firstTask = chunk.shift();
-          if (firstTask !== undefined) {
-            chunk.push(firstTask);
-          }
-        }
-        myPersonalTrail.push(...chunk);
-      }
-
-      return myPersonalTrail;
-    } catch (error) {
-      return Array.from({ length: 90 }, (_, i) => i + 1);
-    }
-  };
-
-  const handleStartSolo = async () => {
-    setIsGeneratingJourney(true);
-
-    if (currentUid) {
-      const personalTrail = userData?.myTrail && userData.myTrail.length > 0 
-        ? userData.myTrail 
-        : await generateTrailMatrix(currentUid, null, true);
-      try {
-        await setDoc(
-          doc(db, "users", currentUid),
-          {
-            isReadyToStart: true,
-            hasPressedPlay: true,
-            anamnesisLocked: true,
-            myTrail: personalTrail,
-          },
-          { merge: true }
-        );
-      } catch (e) {}
-    }
-
-    setTimeout(async () => {
-      setIsGeneratingJourney(false);
-      triggerHaptic("success");
-      showCustomAlert(
-        t("solo_journey_generated_title", userLang) || "Jornada Gerada!",
-        t("solo_journey_generated_msg", userLang) || "Sua jornada solo foi configurada com sucesso.",
-        "check-circle",
-        "#67D4A8"
-      );
-    }, 2000);
-  };
-
-  // 🎯 APERTO DE MÃO DE INÍCIO COM TRAVA DE SEGURANÇA DE ANAMNESE
-  const handleStartHandshake = async () => {
-    if (!currentUid) return;
-
-    if (hasPartner && !partnerCompletedAnamnesis) {
-      showCustomAlert(
-        t("waiting_partner_title", userLang) || "Aguardando o Amor ⏳",
-        t("waiting_partner_msg", userLang, { name: pName }) || `${pName} ainda precisa responder à Anamnese inicial para liberar a jornada do casal.`,
-        "hourglass-half",
-        "#EAB64A",
-        t("btn_understand", userLang) || "Entendi"
-      );
-      return;
-    }
-
-    setIsGeneratingJourney(true);
-    const targetPartnerId = userData?.partnerId || partnerData?.id || null;
-
-    try {
-      if (partnerIsReady && partnerCompletedAnamnesis) {
-        const myTrail = userData?.myTrail && userData.myTrail.length > 0 
-          ? userData.myTrail 
-          : await generateTrailMatrix(currentUid, targetPartnerId, false);
-
-        await setDoc(
-          doc(db, "users", currentUid),
-          {
-            isReadyToStart: true,
-            hasPressedPlay: true,
-            isSoloMode: false,
-            anamnesisLocked: true,
-            myTrail: myTrail,
-          },
-          { merge: true }
-        );
-
-        if (targetPartnerId) {
-          const partnerTrail = partnerData?.myTrail && partnerData.myTrail.length > 0
-            ? partnerData.myTrail
-            : await generateTrailMatrix(targetPartnerId, currentUid, false);
-
-          await setDoc(
-            doc(db, "users", targetPartnerId),
-            {
-              isReadyToStart: true,
-              hasPressedPlay: true,
-              isSoloMode: false,
-              anamnesisLocked: true,
-              myTrail: partnerTrail,
-            },
-            { merge: true }
-          );
-
-          await sendPlayNotificationToPartner(
-            partnerData?.pushToken || "",
-            targetPartnerId,
-            userData?.displayName || "Seu Amor",
-            userLang
-          );
-        }
-
-        triggerHaptic("success");
-        showCustomAlert(
-          t("start_authorized_title", userLang) || "Jornada Iniciada!",
-          t("start_authorized_msg", userLang) || "O elo foi firmado com sucesso!",
-          "flag-checkered",
-          "#67D4A8"
-        );
-      } else {
-        await setDoc(
-          doc(db, "users", currentUid),
-          {
-            isReadyToStart: true,
-            hasPressedPlay: true,
-            anamnesisLocked: true,
-          },
-          { merge: true }
-        );
-
-        if (targetPartnerId) {
-          await sendPlayNotificationToPartner(
-            partnerData?.pushToken || "",
-            targetPartnerId,
-            userData?.displayName || "Seu Amor",
-            userLang
-          );
-        }
-
-        triggerHaptic("medium");
-        showCustomAlert(
-          t("green_light_given_title", userLang) || "Sinal Verde Dado",
-          t("green_light_given_msg", userLang, { name: pName }) || `Aguardando ${pName} para dar o play juntos.`,
-          "hourglass-half",
-          "#EAB64A"
-        );
-      }
-    } catch (e) {
-      showCustomAlert(
-        t("error_title", userLang) || "Erro",
-        t("error_try_again", userLang) || "Erro ao iniciar. Tente novamente.",
-        "times-circle",
-        "#D96C6C"
-      );
-    } finally {
-      setIsGeneratingJourney(false);
-    }
-  };
-
-  // 🛡️ BOTÃO DE PLAY DA HOMESCREEN COM ÁUDIO E GUARD CENTRALIZADO
   const handlePolitePlayTrigger = () => {
     triggerHaptic("medium");
 
-    // 🔊 TOCA O ÁUDIO 'MATCH' RESPEITANDO A CHAVE SFX
     audioService.play("match");
 
     if (!isPremium) {
@@ -959,7 +819,6 @@ export default function HomeScreen({ navigation }: any) {
       return;
     }
 
-    // 🎯 EXECUTA A GUARDA CENTRALIZADA
     executePlayWithGuard({
       userData,
       userLang,
@@ -2096,62 +1955,18 @@ export default function HomeScreen({ navigation }: any) {
         </View>
       </Modal>
 
-      <Modal visible={customAlert.visible} transparent animationType="slide">
-        <View style={styles.bottomSheetOverlay}>
-          <View style={styles.bottomSheetContainer}>
-            <View style={styles.bottomSheetHandle} />
-
-            <View
-              style={[
-                styles.alertIconContainer,
-                { backgroundColor: customAlert.color + "20" },
-              ]}
-            >
-              <FontAwesome5
-                name={customAlert.icon}
-                size={30}
-                color={customAlert.color}
-              />
-            </View>
-
-            <Text style={styles.bottomSheetTitle}>{customAlert.title}</Text>
-            <Text style={styles.bottomSheetText}>{customAlert.message}</Text>
-
-            <View style={{ width: "100%", gap: 10, marginTop: 10 }}>
-              <TouchableOpacity
-                style={[
-                  styles.bottomSheetButtonPrimary,
-                  { backgroundColor: customAlert.color },
-                ]}
-                onPress={() => {
-                  triggerHaptic("light");
-                  setCustomAlert({ ...customAlert, visible: false });
-                  if (customAlert.onConfirm) customAlert.onConfirm();
-                }}
-              >
-                <Text style={styles.bottomSheetButtonPrimaryText}>
-                  {customAlert.confirmText || t("btn_understand", userLang) || "Entendido"}
-                </Text>
-              </TouchableOpacity>
-
-              {customAlert.secondaryText ? (
-                <TouchableOpacity
-                  style={styles.bottomSheetButtonSecondary}
-                  onPress={() => {
-                    triggerHaptic("light");
-                    setCustomAlert({ ...customAlert, visible: false });
-                    if (customAlert.onSecondary) customAlert.onSecondary();
-                  }}
-                >
-                  <Text style={styles.bottomSheetButtonSecondaryText}>
-                    {customAlert.secondaryText}
-                  </Text>
-                </TouchableOpacity>
-              ) : null}
-            </View>
-          </View>
-        </View>
-      </Modal>
+      <CustomAlertModal
+        visible={customAlert.visible}
+        title={customAlert.title}
+        message={customAlert.message}
+        icon={customAlert.icon}
+        color={customAlert.color}
+        confirmText={customAlert.confirmText}
+        onConfirm={customAlert.onConfirm}
+        secondaryText={customAlert.secondaryText}
+        onSecondary={customAlert.onSecondary}
+        onClose={() => setCustomAlert((prev) => ({ ...prev, visible: false }))}
+      />
     </SafeAreaView>
   );
 }
@@ -2535,80 +2350,6 @@ const styles = StyleSheet.create({
     color: "#2C3E50",
     textAlign: "center",
     marginBottom: 20,
-  },
-  bottomSheetOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(32,45,58,0.6)",
-    justifyContent: "flex-end",
-  },
-  bottomSheetContainer: {
-    backgroundColor: "#FFF",
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    padding: 24,
-    paddingBottom: 40,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 10,
-    width: "100%",
-  },
-  bottomSheetHandle: {
-    width: 50,
-    height: 5,
-    backgroundColor: "#D1D9E0",
-    borderRadius: 3,
-    marginBottom: 20,
-  },
-  alertIconContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 15,
-  },
-  bottomSheetTitle: {
-    fontFamily: "Montserrat_900Black",
-    fontSize: 22,
-    color: "#202D3A",
-    marginBottom: 10,
-    textAlign: "center",
-  },
-  bottomSheetText: {
-    fontFamily: "Montserrat_400Regular",
-    fontSize: 15,
-    color: "#2C3E50",
-    textAlign: "center",
-    marginBottom: 20,
-    lineHeight: 22,
-  },
-  bottomSheetButtonPrimary: {
-    flexDirection: "row",
-    width: "100%",
-    paddingVertical: 16,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  bottomSheetButtonPrimaryText: {
-    fontFamily: "Montserrat_700Bold",
-    color: "#FFF",
-    fontSize: 16,
-  },
-  bottomSheetButtonSecondary: {
-    flexDirection: "row",
-    width: "100%",
-    paddingVertical: 16,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  bottomSheetButtonSecondaryText: {
-    fontFamily: "Montserrat_700Bold",
-    color: "#2C3E50",
-    fontSize: 16,
   },
   loadingCard: {
     width: "85%",

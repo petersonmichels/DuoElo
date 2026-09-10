@@ -2,7 +2,6 @@ import { FontAwesome5 } from "@expo/vector-icons";
 import { doc, onSnapshot, setDoc } from "firebase/firestore";
 import { useEffect, useRef, useState } from "react";
 import {
-  Alert,
   Animated,
   Linking,
   StyleSheet,
@@ -11,6 +10,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { CustomAlertModal } from "../components/CustomAlertModal";
 import { auth, db } from "../config/firebase";
 
 import { t } from "../i18n/translations";
@@ -20,6 +20,42 @@ export default function InvitePartnerScreen({ navigation }: any) {
   const [userLang, setUserLang] = useState("pt-BR");
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  // 🔔 ESTADO DO ALERT CUSTOMIZADO (Design System DuoElo)
+  const [customAlert, setCustomAlert] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    icon: "info-circle",
+    color: "#202D3A",
+    confirmText: t("btn_understand", userLang) || "Entendido",
+    onConfirm: null as (() => void) | null,
+    secondaryText: "",
+    onSecondary: null as (() => void) | null,
+  });
+
+  const showCustomAlert = (
+    title: string,
+    message: string,
+    icon = "info-circle",
+    color = "#202D3A",
+    confirmText = t("btn_understand", userLang) || "Entendido",
+    onConfirm: (() => void) | null = null,
+    secondaryText = "",
+    onSecondary: (() => void) | null = null
+  ) => {
+    setCustomAlert({
+      visible: true,
+      title,
+      message,
+      icon,
+      color,
+      confirmText,
+      onConfirm,
+      secondaryText,
+      onSecondary,
+    });
+  };
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
@@ -77,9 +113,11 @@ export default function InvitePartnerScreen({ navigation }: any) {
         await Linking.openURL(webUrl);
       }
     } catch (error) {
-      Alert.alert(
+      showCustomAlert(
         t("whatsapp_error_title", userLang) || "Erro no WhatsApp",
-        t("whatsapp_error_msg", userLang) || "Não foi possível abrir o aplicativo do WhatsApp."
+        t("whatsapp_error_msg", userLang) || "Não foi possível abrir o aplicativo do WhatsApp.",
+        "exclamation-triangle",
+        "#EAB64A"
       );
     }
   };
@@ -149,6 +187,20 @@ export default function InvitePartnerScreen({ navigation }: any) {
           </View>
         </Animated.View>
       </View>
+
+      {/* 🔔 MODAL DE ALERTA PADRONIZADO DA APLICAÇÃO */}
+      <CustomAlertModal
+        visible={customAlert.visible}
+        title={customAlert.title}
+        message={customAlert.message}
+        icon={customAlert.icon}
+        color={customAlert.color}
+        confirmText={customAlert.confirmText}
+        onConfirm={customAlert.onConfirm}
+        secondaryText={customAlert.secondaryText}
+        onSecondary={customAlert.onSecondary}
+        onClose={() => setCustomAlert((prev) => ({ ...prev, visible: false }))}
+      />
     </SafeAreaView>
   );
 }

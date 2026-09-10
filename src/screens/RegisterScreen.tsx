@@ -27,6 +27,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { CustomAlertModal } from "../components/CustomAlertModal";
 import { auth, authControls, db } from "../config/firebase";
 
 import { COUNTRY_CODES, CountryData } from "../constants/countries";
@@ -38,7 +39,7 @@ export default function RegisterScreen({ navigation }: any) {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  
+
   // 📱 Estados de DDI e Telefone Internacional
   const [selectedCountry, setSelectedCountry] = useState<CountryData>(COUNTRY_CODES[0]);
   const [localPhone, setLocalPhone] = useState("");
@@ -87,15 +88,17 @@ export default function RegisterScreen({ navigation }: any) {
     return `${cleaned.slice(0, 3)} ${cleaned.slice(3, 6)} ${cleaned.slice(6, 12)}`;
   }, [selectedCountry]);
 
-  // ESTADO DE ALERTAS PERSONALIZADOS
+  // ESTADO DE ALERTAS PERSONALIZADOS COM COMPATIBILIDADE DE TIPOS
   const [customAlert, setCustomAlert] = useState({
     visible: false,
     title: "",
     message: "",
     icon: "info-circle",
     color: "#202D3A",
-    confirmText: t("btn_understand", userLang) || "Entendi",
+    confirmText: t("btn_understand", userLang) || "Entendido",
     onConfirm: null as (() => void) | null,
+    secondaryText: "",
+    onSecondary: null as (() => void) | null,
   });
 
   const showCustomAlert = (
@@ -103,8 +106,10 @@ export default function RegisterScreen({ navigation }: any) {
     message: string,
     icon = "info-circle",
     color = "#202D3A",
-    confirmText = t("btn_understand", userLang) || "Entendi",
-    onConfirm: (() => void) | null = null
+    confirmText = t("btn_understand", userLang) || "Entendido",
+    onConfirm: (() => void) | null = null,
+    secondaryText = "",
+    onSecondary: (() => void) | null = null
   ) => {
     setCustomAlert({
       visible: true,
@@ -114,6 +119,8 @@ export default function RegisterScreen({ navigation }: any) {
       color,
       confirmText,
       onConfirm,
+      secondaryText,
+      onSecondary,
     });
   };
 
@@ -489,44 +496,18 @@ export default function RegisterScreen({ navigation }: any) {
       </Modal>
 
       {/* MODAL DE ALERTA CUSTOMIZADO */}
-      <Modal visible={customAlert.visible} transparent animationType="slide">
-        <View style={styles.bottomSheetOverlay}>
-          <View style={styles.bottomSheetContainer}>
-            <View style={styles.bottomSheetHandle} />
-
-            <View
-              style={[
-                styles.alertIconContainer,
-                { backgroundColor: customAlert.color + "20" },
-              ]}
-            >
-              <FontAwesome5
-                name={customAlert.icon}
-                size={30}
-                color={customAlert.color}
-              />
-            </View>
-
-            <Text style={styles.bottomSheetTitle}>{customAlert.title}</Text>
-            <Text style={styles.bottomSheetText}>{customAlert.message}</Text>
-
-            <TouchableOpacity
-              style={[
-                styles.bottomSheetButtonPrimary,
-                { backgroundColor: customAlert.color },
-              ]}
-              onPress={() => {
-                setCustomAlert({ ...customAlert, visible: false });
-                if (customAlert.onConfirm) customAlert.onConfirm();
-              }}
-            >
-              <Text style={styles.bottomSheetButtonPrimaryText}>
-                {customAlert.confirmText}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      <CustomAlertModal
+        visible={customAlert.visible}
+        title={customAlert.title}
+        message={customAlert.message}
+        icon={customAlert.icon}
+        color={customAlert.color}
+        confirmText={customAlert.confirmText}
+        onConfirm={customAlert.onConfirm}
+        secondaryText={customAlert.secondaryText}
+        onSecondary={customAlert.onSecondary}
+        onClose={() => setCustomAlert((prev) => ({ ...prev, visible: false }))}
+      />
     </SafeAreaView>
   );
 }
@@ -747,40 +728,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: "#202D3A",
   },
-  alertIconContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 15,
-  },
   bottomSheetTitle: {
     fontFamily: "Montserrat_900Black",
     fontSize: 22,
     color: "#202D3A",
     marginBottom: 10,
     textAlign: "center",
-  },
-  bottomSheetText: {
-    fontFamily: "Montserrat_400Regular",
-    fontSize: 15,
-    color: "#2C3E50",
-    textAlign: "center",
-    marginBottom: 20,
-    lineHeight: 22,
-  },
-  bottomSheetButtonPrimary: {
-    flexDirection: "row",
-    width: "100%",
-    paddingVertical: 16,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  bottomSheetButtonPrimaryText: {
-    fontFamily: "Montserrat_700Bold",
-    color: "#FFF",
-    fontSize: 16,
   },
 });

@@ -10,6 +10,15 @@ export type LanguageCode =
 // Unificação de todas as traduções
 export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
  "pt-BR": {
+    dismatch_notice_title: "Conexão Desfeita 💔",
+    dismatch_notice_msg: "Seu relacionamento foi desvinculado pelo seu parceiro(a). Como deseja prosseguir com a sua jornada?",
+    btn_continue_solo: "Continuar Solo (90 dias)",
+    btn_reset_all: "Reiniciar do Zero",
+    disconnect_confirm_title: "Desfazer Elo e Reiniciar?",
+    disconnect_confirm_msg: "Atenção: Ao desfazer a ligação, todo o seu histórico, progresso de tarefas, conquistas e o Diagnóstico (Anamnese) serão permanentemente apagados de ambas as contas. Deseja continuar?",
+    btn_yes_disconnect: "Sim, Apagar e Desconectar",
+    play_mode_title: "Conectar ou Jogar Solo?",
+    btn_play_solo: "Jogar no Modo Solo",
     plan_unavailable_title: "Plano Indisponível",
     plan_unavailable_msg: "Não foi possível carregar as informações do plano na loja. Tente novamente em instantes.",
     sfx_title: "Efeitos Sonoros",
@@ -407,10 +416,6 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     whatsapp_error_title: "Erro WhatsApp",
     whatsapp_error_msg:
       "Não foi possível abrir o WhatsApp.",
-    disconnect_confirm_title: "Desconectar Parceiro(a)",
-    disconnect_confirm_msg:
-      "Deseja realmente desvincular seu relacionamento?",
-    btn_yes_disconnect: "Sim, Desconectar",
     disconnected_title: "Desconectado",
     disconnected_msg:
       "Sua conexão foi desfeita com sucesso.",
@@ -576,7 +581,6 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     better_together_msg:
       "Deseja convidar seu parceiro ou continuar em modo solo?",
     btn_send_invite: "Conectar Amor",
-    btn_continue_solo: "Continuar Solo",
     assessment_pending_title: "Diagnóstico Pendente",
     assessment_pending_msg:
       "Preencha a Anamnese para desbloquear as tarefas.",
@@ -832,8 +836,17 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
   },
 
   "pt-PT": {
+    dismatch_notice_title: "Ligação Desfeita 💔",
+    dismatch_notice_msg: "A sua relação foi desligada pelo seu parceiro(a). Como deseja prosseguir com a sua jornada?",
+    btn_continue_solo: "Continuar Solo (90 dias)",
+    btn_reset_all: "Reiniciar do Zero",
+    disconnect_confirm_title: "Desfazer Elo e Reiniciar?",
+    disconnect_confirm_msg: "Atenção: Ao desfazer a ligação, todo o seu histórico, progresso de tarefas, conquistas e o Diagnóstico (Anamnese) serão permanentemente apagados de ambas as contas. Deseja continuar?",
+    btn_yes_disconnect: "Sim, Apagar e Desconectar",
+    play_mode_title: "Conectar ou Jogar Solo?",
+    btn_play_solo: "Jogar no Modo Solo",
     plan_unavailable_title: "Plano Indisponível",
-plan_unavailable_msg: "Não foi possível carregar as informações do plano na loja. Tente novamente em instantes.",
+    plan_unavailable_msg: "Não foi possível carregar as informações do plano na loja. Tente novamente em instantes.",
     sfx_title: "Efeitos Sonoros",
     sfx_subtitle: "Sons de clique, conquistas e interações gamificadas",
     partner_required_title: "A jornada fica melhor a dois!",
@@ -1216,10 +1229,6 @@ plan_unavailable_msg: "Não foi possível carregar as informações do plano na 
     whatsapp_error_title: "Erro ao Abrir WhatsApp",
     whatsapp_error_msg:
       "Não foi possível abrir o WhatsApp. Copie o código manualmente.",
-    disconnect_confirm_title: "Desconectar Parceiro",
-    disconnect_confirm_msg:
-      "Tem a certeza de que deseja desfazer a ligação? O seu histórico permanecerá intacto.",
-    btn_yes_disconnect: "Sim, Desconectar",
     disconnected_title: "Desconectado",
     disconnected_msg:
       "A ligação foi desfeita com sucesso.",
@@ -1382,7 +1391,6 @@ plan_unavailable_msg: "Não foi possível carregar as informações do plano na 
     better_together_msg:
       "Deseja convidar o seu parceiro ou continuar em modo solo?",
     btn_send_invite: "Ligar Amor",
-    btn_continue_solo: "Continuar Solo",
     assessment_pending_title: "Diagnóstico Pendente",
     assessment_pending_msg:
       "Preencha a Anamnese para desbloquear as tarefas.",
@@ -1638,8 +1646,17 @@ plan_unavailable_msg: "Não foi possível carregar as informações do plano na 
   },
 
   en: {
+    dismatch_notice_title: "Bond Unlinked 💔",
+    dismatch_notice_msg: "Your relationship was unlinked by your partner. How would you like to proceed with your journey?",
+    btn_continue_solo: "Continue Solo (90 days)",
+    btn_reset_all: "Reset from Scratch",
+    disconnect_confirm_title: "Unlink Bond and Reset Game?",
+    disconnect_confirm_msg: "Warning: Unlinking will permanently erase all history, task progress, achievements, and Assessment (Anamnesis) from both accounts. Do you wish to proceed?",
+    btn_yes_disconnect: "Yes, Erase and Disconnect",
+    play_mode_title: "Connect Partner or Play Solo?",
+    btn_play_solo: "Play Solo Mode",
     plan_unavailable_title: "Plan Unavailable",
-plan_unavailable_msg: "Unable to load plan information from the store. Please try again shortly.",
+    plan_unavailable_msg: "Unable to load plan information from the store. Please try again shortly.",
     sfx_title: "Sound Effects",
     sfx_subtitle: "Click sounds, achievements, and gamified interactions",
     partner_required_title: "The journey is better together!",
@@ -2022,10 +2039,6 @@ plan_unavailable_msg: "Unable to load plan information from the store. Please tr
     whatsapp_error_title: "WhatsApp Error",
     whatsapp_error_msg:
       "Could not open WhatsApp.",
-    disconnect_confirm_title: "Disconnect Partner",
-    disconnect_confirm_msg:
-      "Are you sure you want to disconnect?",
-    btn_yes_disconnect: "Yes, Disconnect",
     disconnected_title: "Disconnected",
     disconnected_msg:
       "Connection removed successfully.",
@@ -2188,7 +2201,6 @@ plan_unavailable_msg: "Unable to load plan information from the store. Please tr
     better_together_msg:
       "Do you want to invite your partner or continue solo?",
     btn_send_invite: "Connect Love",
-    btn_continue_solo: "Continue Solo",
     assessment_pending_title: "Diagnostic Pending",
     assessment_pending_msg:
       "Fill assessment to unlock tasks.",
@@ -2444,8 +2456,17 @@ plan_unavailable_msg: "Unable to load plan information from the store. Please tr
   },
 
   es: {
+    dismatch_notice_title: "Conexión Deshecha 💔",
+    dismatch_notice_msg: "Tu pareja ha desvinculado la relación. ¿Cómo deseas continuar tu camino?",
+    btn_continue_solo: "Continuar Solo (90 días)",
+    btn_reset_all: "Reiniciar desde Cero",
+    disconnect_confirm_title: "¿Deshacer Vínculo y Reiniciar?",
+    disconnect_confirm_msg: "Atención: Al deshacer el vínculo, todo el historial, progreso de tareas, logros y el Diagnóstico (Anamnesis) se borrarán permanentemente de ambas cuentas. ¿Deseas continuar?",
+    btn_yes_disconnect: "Sí, Borrar y Desconectar",
+    play_mode_title: "¿Conectar Pareja o Jugar Solo?",
+    btn_play_solo: "Jugar en Modo Solo",  
     plan_unavailable_title: "Plan No Disponible",
-plan_unavailable_msg: "No se pudo cargar la información del plan desde la tienda. Inténtelo de nuevo en unos momentos.",
+    plan_unavailable_msg: "No se pudo cargar la información del plan desde la tienda. Inténtelo de nuevo en unos momentos.",
     sfx_title: "Efectos de Sonido",
     sfx_subtitle: "Sonidos de clic, logros e interacciones gamificadas",
     partner_required_title: "¡El viaje es mejor de a dos!",
@@ -2834,10 +2855,6 @@ plan_unavailable_msg: "No se pudo cargar la información del plan desde la tiend
     whatsapp_error_title: "Error al Abrir WhatsApp",
     whatsapp_error_msg:
       "No se pudo abrir WhatsApp.",
-    disconnect_confirm_title: "Desconectar Pareja",
-    disconnect_confirm_msg:
-      "¿Deseas realmente desvincular tu relación?",
-    btn_yes_disconnect: "Sí, Desconectar",
     disconnected_title: "Desconectado",
     disconnected_msg:
       "Tu conexión se ha deshecho con éxito.",
@@ -3000,7 +3017,6 @@ plan_unavailable_msg: "No se pudo cargar la información del plan desde la tiend
     better_together_msg:
       "¿Deseas invitar a tu pareja o continuar en modo solo?",
     btn_send_invite: "Conectar Amor",
-    btn_continue_solo: "Continuar Solo",
     assessment_pending_title: "Diagnóstico Pendiente",
     assessment_pending_msg:
       "Completa la Anamnèse para desbloquear las tareas.",
@@ -3256,8 +3272,17 @@ plan_unavailable_msg: "No se pudo cargar la información del plan desde la tiend
   },
 
   fr: {
+    dismatch_notice_title: "Lien Défait 💔",
+    dismatch_notice_msg: "Votre relation a été déconnectée par votre partenaire. Comment souhaitez-vous continuer ?",
+    btn_continue_solo: "Continuer Solo (90 jours)",
+    btn_reset_all: "Réinitialiser de Zéro",
+    disconnect_confirm_title: "Défaire le Lien et Réinitialiser ?",
+    disconnect_confirm_msg: "Attention : En défaisant le lien, tout l'historique, le progrès des tâches, les succès et le Diagnostic (Anamnèse) seront définitivement effacés des deux comptes. Voulez-vous continuer ?",
+    btn_yes_disconnect: "Oui, Effacer et Déconnecter",
+    play_mode_title: "Partner verbinden oder Solo spielen?",
+    btn_play_solo: "Im Solo-Modus spielen",
     plan_unavailable_title: "Plan Indisponible",
-plan_unavailable_msg: "Impossible de charger les informations du forfait depuis la boutique. Veuillez réessayer dans quelques instants.",
+    plan_unavailable_msg: "Impossible de charger les informations du forfait depuis la boutique. Veuillez réessayer dans quelques instants.",
     title: "Effets Sonores",
     sfx_subtitle: "Sons de clic, succès et interactions gamifiées",
     partner_required_title: "Le voyage est meilleur à deux !",
@@ -3600,7 +3625,6 @@ plan_unavailable_msg: "Impossible de charger les informations du forfait depuis 
     solo_mode_alert_msg:
       "DuoElo est conçu pour rapprocher les couples.\n\nInviter votre amour débloque des missions croisées adaptées à vos besoins.\n\nSouhaitez-vous envoyer une invitation avant de commencer ?",
     btn_send_partner_invite: "Envoyer l'Invitation à Mon Amour",
-    btn_continue_solo: "Continuer en Mode Solo",
     assessment_pending_title: "Évaluation en Attente",
     assessment_pending_msg:
       "Complétez d'abord l'évaluation pour obtenir votre diagnostic exact.",
@@ -3680,10 +3704,6 @@ plan_unavailable_msg: "Impossible de charger les informations du forfait depuis 
     whatsapp_error_title: "Erreur WhatsApp",
     whatsapp_error_msg:
       "Impossible d'ouvrir WhatsApp. Veuillez copier le code manuellement.",
-    disconnect_confirm_title: "Déconnecter le Partenaire",
-    disconnect_confirm_msg:
-      "Voulez-vous vraiment rompre la connexion ? Votre progression reste sauvegardée.",
-    btn_yes_disconnect: "Oui, Déconnecter",
     disconnected_title: "Déconnecté",
     disconnected_msg:
       "La connexion a été rompu avec succès.",
@@ -4021,9 +4041,18 @@ plan_unavailable_msg: "Impossible de charger les informations du forfait depuis 
       "Cadeau récupéré à la Semaine {{week}}",
   },
 
-  de: { 
+  de: {
+    dismatch_notice_title: "Verbindung Getrennt 💔",
+    dismatch_notice_msg: "Ihre Beziehung wurde von Ihrem Partner getrennt. Wie möchten Sie Ihre Reise fortsetzen?",
+    btn_continue_solo: "Solo fortsetzen (90 Tage)",
+    btn_reset_all: "Von vorne beginnen",
+    disconnect_confirm_title: "Verbindung Trennen und Spiel Zurücksetzen?",
+    disconnect_confirm_msg: "Achtung: Durch das Trennen der Verbindung werden der gesamte Verlauf, Aufgabenfortschritte, Erfolge und die Diagnose (Anamnese) von beiden Konten dauerhaft gelöscht. Fortfahren?",
+    btn_yes_disconnect: "Ja, Löschen und Trennen",
+    play_mode_title: "Partner verbinden oder Solo spielen?",
+    btn_play_solo: "Im Solo-Modus spielen",
     plan_unavailable_title: "Tarif Nicht Verfügbar",
-plan_unavailable_msg: "Tarifinformationen konnten nicht geladen werden. Bitte versuchen Sie es in Kürze erneut.",
+    plan_unavailable_msg: "Tarifinformationen konnten nicht geladen werden. Bitte versuchen Sie es in Kürze erneut.",
     sfx_title: "Soundeffekte",
     sfx_subtitle: "Klicksounds, Erfolge und spielerische Interaktionen",
     partner_required_title: "Die Reise ist gemeinsam besser!",
@@ -4415,10 +4444,6 @@ plan_unavailable_msg: "Tarifinformationen konnten nicht geladen werden. Bitte ve
     whatsapp_error_title: "Fehler beim Öffnen von WhatsApp",
     whatsapp_error_msg:
       "WhatsApp konnte nicht geöffnet werden. Kopieren Sie den Code manuell.",
-    disconnect_confirm_title: "Partner trennen",
-    disconnect_confirm_msg:
-      "Möchten Sie die Verbindung wirklich trennen? Fortschritt und Punkte bleiben sicher.",
-    btn_yes_disconnect: "Ja, trennen",
     disconnected_title: "Getrennt",
     disconnected_msg:
       "Verbindung aufgehoben. Ihr individueller Fortschritt bleibt sicher gespeichert!",
@@ -4582,7 +4607,6 @@ plan_unavailable_msg: "Tarifinformationen konnten nicht geladen werden. Bitte ve
     better_together_msg:
       "Möchten Sie Ihren Partner einladen oder im Solo-Modus fortfahren?",
     btn_send_invite: "Schatz Verbinden",
-    btn_continue_solo: "Solo Fortfahren",
     assessment_pending_title: "Diagnose Ausstehend",
     assessment_pending_msg:
       "Füllen Sie die Analyse aus, um Aufgaben freizuschalten.",
@@ -4838,13 +4862,22 @@ plan_unavailable_msg: "Tarifinformationen konnten nicht geladen werden. Bitte ve
   },
 
   ja: {
+    dismatch_notice_title: "絆が解除されました 💔",
+    dismatch_notice_msg: "パートナーによって関係の接続が解除されました。旅をどのように進めますか？",
+    btn_continue_solo: "ソロで継続（90日間）",
+     btn_reset_all: "最初からリセット",
+    disconnect_confirm_title: "絆を解除してゲームをリセットしますか？",
+    disconnect_confirm_msg: "警告：絆を解除すると、両方のアカウントからすべての履歴、タスクの進捗、実績、および診断（問診）が永久に消去されます。続行しますか？",
+    btn_yes_disconnect: "はい、消去して切断します",
+    play_mode_title: "パートナーと接続、それともソロでプレイ？",
+    btn_play_solo: "ソロモードでプレイ",
+    btn_connect_partner: "パートナーを接続",
+    partner_required_msg: "DuoEloはカップルの関係を深めるために設計されています。今すぐパートナーを招待してミッションを同期し、一緒に成長しましょう！",
     plan_unavailable_title: "プラン利用不可",
-plan_unavailable_msg: "ストアからプラン情報を読み込めませんでした。しばらくしてからもう一度お試しください。",
+    plan_unavailable_msg: "ストアからプラン情報を読み込めませんでした。しばらくしてからもう一度お試しください。",
     sfx_title: "効果音",
     sfx_subtitle: "クリック音、実績、ゲーミフィケーションの相互作用",
     partner_required_title: "ふたりでの旅がもっと素晴らしい！",
-    partner_required_msg: "DuoEloはカップルの絆を深めるために作られました。今すぐパートナーを招待してミッションを同期し、一緒に成長しましょう！",
-    btn_connect_partner: "今すぐ接続",
     audit_action_play_pressed: "ジャーニーでプレイアクションが実行されました",
     frequency_daily: "毎日",
     frequency_weekly: "毎週",
@@ -5186,9 +5219,6 @@ plan_unavailable_msg: "ストアからプラン情報を読み込めませんで
     code_copied_msg: "招待コードをクリップボードにコピーしました。",
     whatsapp_error_title: "WhatsAppエラー",
     whatsapp_error_msg: "WhatsAppを開けませんでした。コードを直接コピーして送信してください。",
-    disconnect_confirm_title: "パートナーの解除",
-    disconnect_confirm_msg: "本当に接続を解除しますか？個人の履歴やポイントは安全に保持されます。",
-    btn_yes_disconnect: "はい、解除します",
     disconnected_title: "接続解除完了",
     disconnected_msg: "接続が解除されました。個人の進捗は安全に保存されています。",
     disconnect_error_msg: "現在接続を解除できません。",
@@ -5346,7 +5376,6 @@ plan_unavailable_msg: "ストアからプラン情報を読み込めませんで
     better_together_msg:
       "パートナーを招待しますか？それともソロモードで続行しますか？",
     btn_send_invite: "パートナーと接続",
-    btn_continue_solo: "ソロで続行",
     assessment_pending_title: "診断未完了",
     assessment_pending_msg:
       "タスクを解放するには診断を完了してください。",
