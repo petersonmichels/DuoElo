@@ -1,31 +1,55 @@
 import React, { useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import Animated, {
-    useAnimatedStyle,
-    useSharedValue,
-    withSequence,
-    withSpring,
-    withTiming
+  SharedValue,
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 import { audioService } from '../services/AudioService';
 
+// Worklets auxiliares puras para alterar os SharedValues fora do escopo de render do React
+function animatePressIn(translateY: SharedValue<number>) {
+  'worklet';
+  translateY.value = withSpring(4, { damping: 15 });
+}
+
+function animatePressOut(translateY: SharedValue<number>) {
+  'worklet';
+  translateY.value = withSpring(0, { damping: 15 });
+}
+
 // 1. Botão 3D Tátil
-export const Button3D = ({ title, onPress, style }: { title: string; onPress: () => void; style?: ViewStyle }) => {
-  const translateY = useSharedValue(0);
+export const Button3D = ({
+  title,
+  onPress,
+  style,
+}: {
+  title: string;
+  onPress: () => void;
+  style?: ViewStyle;
+}) => {
+  const translateY = useSharedValue<number>(0);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: translateY.value }],
   }));
 
+  const handlePressIn = () => {
+    animatePressIn(translateY);
+    audioService.play('click');
+  };
+
+  const handlePressOut = () => {
+    animatePressOut(translateY);
+  };
+
   return (
     <Pressable
-      onPressIn={() => {
-        translateY.value = withSpring(4, { damping: 15 });
-        audioService.play('click');
-      }}
-      onPressOut={() => {
-        translateY.value = withSpring(0, { damping: 15 });
-      }}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
       onPress={onPress}
       style={[styles.btnContainer, style]}
     >
@@ -37,9 +61,15 @@ export const Button3D = ({ title, onPress, style }: { title: string; onPress: ()
 };
 
 // 2. Header de Abertura Animado
-export const AnimatedHeroHeader = ({ title, subtitle }: { title: string; subtitle: string }) => {
-  const scale = useSharedValue(0.8);
-  const opacity = useSharedValue(0);
+export const AnimatedHeroHeader = ({
+  title,
+  subtitle,
+}: {
+  title: string;
+  subtitle: string;
+}) => {
+  const scale = useSharedValue<number>(0.8);
+  const opacity = useSharedValue<number>(0);
 
   useEffect(() => {
     opacity.value = withTiming(1, { duration: 600 });
@@ -48,7 +78,7 @@ export const AnimatedHeroHeader = ({ title, subtitle }: { title: string; subtitl
       withSpring(1.0, { damping: 12 })
     );
     audioService.play('click');
-  }, []);
+  }, [opacity, scale]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,

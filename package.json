@@ -13,10 +13,11 @@
     "type-check": "tsc --noEmit",
     "security-check": "npm audit --audit-level=high",
     "test": "jest",
+    "test:unit": "jest __tests__/services/ __tests__/hooks/",
     "test:pentest": "firebase emulators:exec --only firestore \"jest __tests__/security_rules.test.js\"",
     "test:flow": "jest __tests__/e2e_business_flow.test.js --runInBand",
     "test:e2e": "detox test -c ios.sim.debug",
-    "validate-app": "npm run type-check && npm run lint && npm run security-check",
+    "validate-app": "npm run type-check && npm run lint && npm run security-check && npm run test:unit",
     "check-build": "npx expo-doctor && npx expo prebuild --clean",
     "build:ios": "npm run validate-app && npm run check-build && git add . && (git commit -m 'build: versao 1.0.3 ios validada' || true) && git push origin main && eas build --platform ios --auto-submit",
     "build:android": "npm run validate-app && npm run check-build && git add . && (git commit -m 'build: versao 1.0.3 android validada' || true) && git push origin main && eas build --platform android --auto-submit"
