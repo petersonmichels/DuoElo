@@ -10,7 +10,9 @@ export type LanguageCode =
 // Unificação de todas as traduções
 export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
  "pt-BR": {
-  sfx_title: "Efeitos Sonoros",
+    plan_unavailable_title: "Plano Indisponível",
+    plan_unavailable_msg: "Não foi possível carregar as informações do plano na loja. Tente novamente em instantes.",
+    sfx_title: "Efeitos Sonoros",
     sfx_subtitle: "Sons de clique, conquistas e interações gamificadas",
     partner_required_title: "A jornada fica melhor a dois!",
     partner_required_msg: "O DuoElo foi feito para ser transformador em casal. Convide seu parceiro agora para sincronizarem as missões e acompanharem a evolução juntos!",
@@ -830,6 +832,8 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
   },
 
   "pt-PT": {
+    plan_unavailable_title: "Plano Indisponível",
+plan_unavailable_msg: "Não foi possível carregar as informações do plano na loja. Tente novamente em instantes.",
     sfx_title: "Efeitos Sonoros",
     sfx_subtitle: "Sons de clique, conquistas e interações gamificadas",
     partner_required_title: "A jornada fica melhor a dois!",
@@ -1634,6 +1638,8 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
   },
 
   en: {
+    plan_unavailable_title: "Plan Unavailable",
+plan_unavailable_msg: "Unable to load plan information from the store. Please try again shortly.",
     sfx_title: "Sound Effects",
     sfx_subtitle: "Click sounds, achievements, and gamified interactions",
     partner_required_title: "The journey is better together!",
@@ -2438,6 +2444,8 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
   },
 
   es: {
+    plan_unavailable_title: "Plan No Disponible",
+plan_unavailable_msg: "No se pudo cargar la información del plan desde la tienda. Inténtelo de nuevo en unos momentos.",
     sfx_title: "Efectos de Sonido",
     sfx_subtitle: "Sonidos de clic, logros e interacciones gamificadas",
     partner_required_title: "¡El viaje es mejor de a dos!",
@@ -3248,7 +3256,9 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
   },
 
   fr: {
-    sfx_title: "Effets Sonores",
+    plan_unavailable_title: "Plan Indisponible",
+plan_unavailable_msg: "Impossible de charger les informations du forfait depuis la boutique. Veuillez réessayer dans quelques instants.",
+    title: "Effets Sonores",
     sfx_subtitle: "Sons de clic, succès et interactions gamifiées",
     partner_required_title: "Le voyage est meilleur à deux !",
     partner_required_msg: "DuoElo a été conçu pour être transformateur en couple. Invitez votre partenaire dès maintenant pour synchroniser vos missions et évoluer ensemble !",
@@ -4012,6 +4022,8 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
   },
 
   de: { 
+    plan_unavailable_title: "Tarif Nicht Verfügbar",
+plan_unavailable_msg: "Tarifinformationen konnten nicht geladen werden. Bitte versuchen Sie es in Kürze erneut.",
     sfx_title: "Soundeffekte",
     sfx_subtitle: "Klicksounds, Erfolge und spielerische Interaktionen",
     partner_required_title: "Die Reise ist gemeinsam besser!",
@@ -4826,6 +4838,8 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
   },
 
   ja: {
+    plan_unavailable_title: "プラン利用不可",
+plan_unavailable_msg: "ストアからプラン情報を読み込めませんでした。しばらくしてからもう一度お試しください。",
     sfx_title: "効果音",
     sfx_subtitle: "クリック音、実績、ゲーミフィケーションの相互作用",
     partner_required_title: "ふたりでの旅がもっと素晴らしい！",

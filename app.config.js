@@ -3,7 +3,7 @@ module.exports = {
     name: "DuoElo",
     slug: "duelo",
     scheme: "duoelo",
-    version: "1.0.3", // 👈 Incrementado para a nova versão
+    version: "1.0.3",
     orientation: "portrait",
     icon: "./src/assets/icon.png",
     userInterfaceStyle: "dark",
@@ -18,7 +18,7 @@ module.exports = {
       supportsTablet: true,
       usesAppleSignIn: true,
       bundleIdentifier: "lu.barnx.duoelo",
-      buildNumber: "17", // 👈 Incrementado para a Build 17
+      buildNumber: "17",
       googleServicesFile:
         process.env.GOOGLE_SERVICES_INFO_PLIST || "./GoogleService-Info.plist",
       infoPlist: {
@@ -47,7 +47,7 @@ module.exports = {
       },
     },
     android: {
-      versionCode: 17, // 👈 Incrementado para acompanhar o iOS
+      versionCode: 17,
       package: "lu.barnx.duoelo",
       googleServicesFile:
         process.env.GOOGLE_SERVICES_JSON || "./google-services.json",
@@ -71,7 +71,8 @@ module.exports = {
       favicon: "./src/assets/favicon.png",
     },
     plugins: [
-      "expo-image", // 👈 Plugin adicionado para resolver o erro do expo doctor
+      "expo-asset",
+      "expo-image",
       "expo-apple-authentication",
       [
         "expo-notifications",

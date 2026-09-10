@@ -49,6 +49,20 @@ export default function PaywallScreen({ navigation }: any) {
   useEffect(() => {
     let isMounted = true;
 
+    // 🛡️ Intercepta e silencia o log handler nativo do RevenueCat para evitar o LogBox vermelho em cancelamento
+    Purchases.setLogHandler((logLevel, message) => {
+      if (
+        message.includes("USER_CANCELED") ||
+        message.includes("PurchaseCancelledError") ||
+        message.includes("Purchase was cancelled")
+      ) {
+        return;
+      }
+      if (logLevel === Purchases.LOG_LEVEL.ERROR) {
+        console.error("[RevenueCat]", message);
+      }
+    });
+
     const fetchUserData = async () => {
       const currentUid = auth.currentUser?.uid;
       if (currentUid) {
@@ -226,7 +240,7 @@ export default function PaywallScreen({ navigation }: any) {
               text: t("btn_go_to_login", userLang) || "Ir para Login",
               onPress: handleForceLogout,
             },
-          ],
+          ]
         );
         setIsProcessing(false);
         return;
@@ -236,8 +250,8 @@ export default function PaywallScreen({ navigation }: any) {
 
       if (!pkgToPurchase) {
         Alert.alert(
-          t("sub_error_title", userLang) || "Plano Indisponível",
-          t("sub_error_msg", userLang) || "Não foi possível carregar as informações do plano na loja. Tente novamente em instantes."
+          t("plan_unavailable_title", userLang) || "Plano Indisponível",
+          t("plan_unavailable_msg", userLang) || "Não foi possível carregar as informações do plano na loja. Tente novamente em instantes."
         );
         setIsProcessing(false);
         return;
@@ -263,7 +277,7 @@ export default function PaywallScreen({ navigation }: any) {
           await setDoc(
             doc(db, "users", partnerId),
             { isPremium: true, isPartnerPremium: true, planType: "duo" },
-            { merge: true },
+            { merge: true }
           );
         } catch (partnerErr) {
           console.warn("[PaywallScreen] Erro ao sincronizar parceiro no Duo:", partnerErr);
@@ -302,15 +316,22 @@ export default function PaywallScreen({ navigation }: any) {
               });
             },
           },
-        ],
+        ]
       );
     } catch (error: any) {
-      if (!error.userCancelled) {
-        Alert.alert(
-          t("sub_error_title", userLang) || "Erro na Assinatura",
-          t("sub_error_msg", userLang) || "Não foi possível concluir o pagamento."
-        );
+      // 🛑 TRATAMENTO SILENCIOSO DE CANCELAMENTO VOLUNTÁRIO
+      if (
+        error?.userCancelled ||
+        error?.code === Purchases.PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR
+      ) {
+        console.log("[PaywallScreen] Usuário cancelou a compra voluntariamente.");
+        return;
       }
+
+      Alert.alert(
+        t("sub_error_title", userLang) || "Erro na Assinatura",
+        t("sub_error_msg", userLang) || "Não foi possível concluir o pagamento."
+      );
     } finally {
       setIsProcessing(false);
     }
@@ -335,7 +356,7 @@ export default function PaywallScreen({ navigation }: any) {
               planType: isDuoPlan ? "duo" : "solo",
               activeProductId: activeSubId,
             },
-            { merge: true },
+            { merge: true }
           );
 
           if (isDuoPlan && partnerId) {
@@ -343,7 +364,7 @@ export default function PaywallScreen({ navigation }: any) {
               await setDoc(
                 doc(db, "users", partnerId),
                 { isPremium: true, isPartnerPremium: true, planType: "duo" },
-                { merge: true },
+                { merge: true }
               );
             } catch (partnerErr) {}
           }
@@ -368,18 +389,25 @@ export default function PaywallScreen({ navigation }: any) {
                   routes: [{ name: "MainTabs", params: { screen: "Home" } }],
                 }),
             },
-          ],
+          ]
         );
       } else {
         Alert.alert(
           t("no_active_sub_title", userLang) || "Nenhuma Assinatura Ativa",
-          t("no_active_sub_msg", userLang) || "Não encontramos assinaturas vinculadas a esta conta de loja.",
+          t("no_active_sub_msg", userLang) || "Não encontramos assinaturas vinculadas a esta conta de loja."
         );
       }
-    } catch (error) {
+    } catch (error: any) {
+      if (
+        error?.userCancelled ||
+        error?.code === Purchases.PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR
+      ) {
+        return;
+      }
+
       Alert.alert(
         t("error_title", userLang) || "Erro",
-        t("restore_purchases_error_msg", userLang) || "Erro ao restaurar compras.",
+        t("restore_purchases_error_msg", userLang) || "Erro ao restaurar compras."
       );
     } finally {
       setIsProcessing(false);
@@ -390,8 +418,8 @@ export default function PaywallScreen({ navigation }: any) {
     Linking.openURL(url).catch(() =>
       Alert.alert(
         t("error_title", userLang) || "Erro",
-        t("cannot_open_page_msg", userLang) || "Não foi possível abrir o link.",
-      ),
+        t("cannot_open_page_msg", userLang) || "Não foi possível abrir o link."
+      )
     );
   };
 
@@ -607,7 +635,7 @@ export default function PaywallScreen({ navigation }: any) {
 
                 const matchedPkg = findPackage(
                   planCategory,
-                  plan.id as "mensal" | "trimestral" | "anual",
+                  plan.id as "mensal" | "trimestral" | "anual"
                 );
 
                 const hasFreeTrial =
