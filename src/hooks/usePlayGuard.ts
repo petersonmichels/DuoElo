@@ -22,7 +22,7 @@ interface PlayGuardParams {
   ) => void;
 }
 
-// 🎯 FUNÇÃO PARA GERAR A MATRIZ DA TRILHA DE 90 DIAS DUAL
+// 🎯 GERAR A MATRIZ DA TRILHA DE 90 DIAS DUAL
 const generateTrailMatrix = async (
   uid: string,
   partnerId: string | null,
@@ -100,7 +100,7 @@ export const executePlayWithGuard = async ({
   const partnerUid = userData?.partnerId;
   const isSoloMode = Boolean(userData?.isSoloMode);
 
-  // 🛡️ ERRO 10: TRAVA DE PLANO SOLO PARA O PARCEIRO CONVIDADO
+  // 🛡️ TRAVA DE PLANO SOLO PARA O PARCEIRO CONVIDADO
   if (hasPartner && partnerUid && isSoloPlan) {
     const partnerSnap = await getDoc(doc(db, "users", partnerUid));
     const partnerData = partnerSnap.exists() ? partnerSnap.data() : {};
@@ -163,16 +163,11 @@ export const executePlayWithGuard = async ({
     return;
   }
 
-  // 🛡️ CASO 2: TEM PARCEIRO CONECTADO -> APERTO DE MÃO DE CASAL
+  // 🛡️ CASO 2: TEM PARCEIRO CONECTADO -> GERAR TRILHA E DISPARAR NOTIFICAÇÃO (ZERO FRICÇÃO)
   if (hasPartner && partnerUid) {
     try {
       const partnerSnap = await getDoc(doc(db, "users", partnerUid));
       const partnerData = partnerSnap.exists() ? partnerSnap.data() : {};
-
-      const partnerCompletedAnamnesis = Boolean(partnerData?.hasCompletedAnamnesis);
-      const partnerIsReady = Boolean(
-        partnerData?.isReadyToStart || partnerData?.hasPressedPlay || (partnerData?.currentPhase || 1) > 1
-      );
 
       const myDisplayName =
         userData?.billingFirstName ||
@@ -180,106 +175,41 @@ export const executePlayWithGuard = async ({
         t("user_default_name", userLang) ||
         "Seu Amor";
 
-      const pName =
-        partnerData?.billingFirstName ||
-        partnerData?.displayName ||
-        t("partner_default_name", userLang) ||
-        "Seu Amor";
+      // Gerar as trilhas do casal imediatamente
+      const myTrail = await generateTrailMatrix(userId, partnerUid, false, userLang);
+      const partnerTrail = await generateTrailMatrix(partnerUid, userId, false, userLang);
 
-      // A) Parceiro AINDA NÃO fez a Anamnese
-      if (!partnerCompletedAnamnesis) {
-        showCustomAlert(
-          t("waiting_partner_title", userLang) || "Aguardando o Amor ⏳",
-          t("waiting_partner_msg", userLang, { name: pName }) ||
-            `${pName} ainda precisa responder à Anamnese inicial para podermos calibrar a jornada do casal.`,
-          "hourglass-half",
-          "#EAB64A",
-          t("btn_understand", userLang) || "Entendi"
-        );
-        return;
-      }
-
-      // B) SE O PARCEIRO JÁ ESTÁ PRONTO -> SOU O SEGUNDO A DAR O PLAY! GERAR AMBAS AS TRILHAS!
-      if (partnerIsReady) {
-        const myTrail = await generateTrailMatrix(userId, partnerUid, false, userLang);
-        const partnerTrail = await generateTrailMatrix(partnerUid, userId, false, userLang);
-
-        // Atualiza a minha conta
-        await setDoc(
-          doc(db, "users", userId),
-          {
-            isReadyToStart: true,
-            hasPressedPlay: true,
-            anamnesisLocked: true,
-            myTrail: myTrail,
-            playPressedAt: new Date().toISOString(),
-          },
-          { merge: true }
-        );
-
-        // Atualiza a conta do parceiro para liberar a trilha dele
-        try {
-          await setDoc(
-            doc(db, "users", partnerUid),
-            {
-              isReadyToStart: true,
-              hasPressedPlay: true,
-              anamnesisLocked: true,
-              myTrail: partnerTrail,
-              playPressedAt: new Date().toISOString(),
-            },
-            { merge: true }
-          );
-        } catch (partnerErr) {
-          console.log("[usePlayGuard] Atualização da trilha do parceiro pendente via reconciliação.");
-        }
-
-        // 🔔 DISPARO DE NOTIFICAÇÃO PUSH E SININHO NO BANCO DO PARCEIRO (ERRO 4)
-        try {
-          await sendPlayTriggeredNotification(
-            partnerData?.pushToken || "",
-            partnerUid,
-            myDisplayName,
-            userLang
-          );
-        } catch (notifErr) {
-          console.warn("[usePlayGuard] Erro ao enviar notificação de Play:", notifErr);
-        }
-
-        await logAuditEvent(
-          userId,
-          "PLAY_PRESSED",
-          "Aperto de mão concluído: Trilha de casal gerada!",
-          userLang
-        );
-
-        showCustomAlert(
-          t("start_authorized_title", userLang) || "Jornada do Casal Iniciada! 🎉",
-          t("start_authorized_msg", userLang) ||
-            "O elo foi firmado com sucesso! A trilha de 90 dias do casal foi gerada e liberada para vocês.",
-          "flag-checkered",
-          "#67D4A8",
-          t("btn_understand", userLang) || "Entendi",
-          () => {
-            navigation.navigate("MainTabs", { screen: "Home" });
-          }
-        );
-        return;
-      }
-
-      // C) PARCEIRO AINDA NÃO DEU O PLAY -> GRAVA MINHA PRONTIDÃO E AVISA QUE ESTOU AGUARDANDO
+      // Atualiza o perfil do usuário atual
       await setDoc(
         doc(db, "users", userId),
         {
           isReadyToStart: true,
           hasPressedPlay: true,
           anamnesisLocked: true,
+          myTrail: myTrail,
           playPressedAt: new Date().toISOString(),
         },
         { merge: true }
       );
 
-      // 🔔 DISPARO DE NOTIFICAÇÃO DE ALERTA PARA O PARCEIRO DAR O PLAY (ERRO 4)
+      // Sincroniza e libera também a conta do parceiro
+      try {
+        await setDoc(
+          doc(db, "users", partnerUid),
+          {
+            isReadyToStart: true,
+            hasPressedPlay: true,
+            anamnesisLocked: true,
+            myTrail: partnerTrail,
+            playPressedAt: new Date().toISOString(),
+          },
+          { merge: true }
+        );
+      } catch (partnerErr) {
+        console.log("[usePlayGuard] Atualização da trilha do parceiro pendente via reconciliação.");
+      }
+
+      // 🔔 DISPARO DE NOTIFICAÇÃO PUSH E REGISTRO NO BANCO DO PARCEIRO
       try {
         await sendPlayTriggeredNotification(
           partnerData?.pushToken || "",
@@ -288,30 +218,20 @@ export const executePlayWithGuard = async ({
           userLang
         );
       } catch (notifErr) {
-        console.warn("[usePlayGuard] Erro ao enviar notificação de Play pendente:", notifErr);
+        console.warn("[usePlayGuard] Erro ao enviar notificação de Play:", notifErr);
       }
 
       await logAuditEvent(
         userId,
         "PLAY_PRESSED",
-        "Primeiro sinal verde do casal ativado",
+        "Jornada iniciada diretamente! Notificação enviada ao parceiro.",
         userLang
       );
 
-      showCustomAlert(
-        t("green_light_given_title", userLang) || "Sinal Verde Dado! ⏳",
-        t("green_light_given_msg", userLang, { name: pName }) ||
-          `Sua confirmação foi registrada. Aguardando ${pName} também dar o Play para gerar a trilha do casal.`,
-        "hourglass-half",
-        "#EAB64A",
-        t("btn_understand", userLang) || "Entendido",
-        () => {
-          navigation.navigate("MainTabs", { screen: "Home" });
-        }
-      );
+      navigation.navigate("MainTabs", { screen: "Home" });
       return;
     } catch (error) {
-      console.error("[usePlayGuard] Erro ao validar aperto de mão do casal:", error);
+      console.error("[usePlayGuard] Erro ao validar início do casal:", error);
     }
   }
 

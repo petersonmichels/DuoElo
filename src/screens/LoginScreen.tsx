@@ -100,7 +100,8 @@ export default function LoginScreen({ navigation }: any) {
   const btnIcon = isLogin ? "sign-in-alt" : "arrow-right";
   const btnTextColor = isLogin ? "#FFF" : "#202D3A";
 
-  useEffect(() => {
+  // 🛡️ ERRO 1: CONFIGURAÇÃO SEGURA DO GOOGLE SIGN-IN NO IOS NATIVO
+  const configureGoogleSignInSafe = () => {
     if (!isExpoGo && GoogleSignin) {
       try {
         const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
@@ -114,6 +115,10 @@ export default function LoginScreen({ navigation }: any) {
         console.log("Erro ao configurar GoogleSignin:", e);
       }
     }
+  };
+
+  useEffect(() => {
+    configureGoogleSignInSafe();
   }, []);
 
   useEffect(() => {
@@ -558,6 +563,7 @@ export default function LoginScreen({ navigation }: any) {
     }
   };
 
+  // 🟢 ERRO 1: GOOGLE SIGN-IN PROTEGIDO CONTRA CRASH NO IOS
   const handleGoogleSignIn = async () => {
     if (isExpoGo || !GoogleSignin) {
       showCustomAlert(
@@ -575,6 +581,8 @@ export default function LoginScreen({ navigation }: any) {
     setIsGoogleSigningIn(true);
 
     try {
+      configureGoogleSignInSafe();
+
       if (Platform.OS === "android") {
         await GoogleSignin.hasPlayServices({
           showPlayServicesUpdateDialog: true,

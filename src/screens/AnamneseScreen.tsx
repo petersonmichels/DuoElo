@@ -79,6 +79,7 @@ export default function AnamneseScreen({ navigation, route }: any) {
   const [isSkipping, setIsSkipping] = useState(false);
 
   const [isPremium, setIsPremium] = useState(false);
+  const [hasPartnerConnected, setHasPartnerConnected] = useState(false);
 
   const [userLang, setUserLang] = useState("pt-BR");
   const [loadingMsg, setLoadingMsg] = useState(
@@ -129,7 +130,7 @@ export default function AnamneseScreen({ navigation, route }: any) {
   const thermometerFill = useRef(new Animated.Value(0)).current;
   const loadingProgress = useRef(new Animated.Value(0)).current;
 
-  // 🎯 CARREGAMENTO DE PERGUNTAS COM TRAVA DE SEGURANÇA CONTRA OFFLINE
+  // CARREGAMENTO DE PERGUNTAS DO FIREBASE
   const loadQuestionsFromFirebase = async (langToFetch: string) => {
     setIsLoadingQuestions(true);
 
@@ -251,10 +252,14 @@ export default function AnamneseScreen({ navigation, route }: any) {
             setCurrentUserData(data);
 
             let hasActivePremium = Boolean(data.isPremium);
+            const partnerId = data.partnerId;
+            if (partnerId) {
+              setHasPartnerConnected(true);
+            }
 
-            if (!hasActivePremium && data.partnerId) {
+            if (!hasActivePremium && partnerId) {
               const partnerSnap = await getDoc(
-                doc(db, "users", data.partnerId)
+                doc(db, "users", partnerId)
               );
               if (partnerSnap.exists()) {
                 const partnerData = partnerSnap.data();
@@ -325,7 +330,6 @@ export default function AnamneseScreen({ navigation, route }: any) {
     setScreenState("questions");
   };
 
-  // 🛡️ NAVEGAÇÃO PROTEGIDA PÓS-DIAGNÓSTICO VIA PLAYGUARD CENTRALIZADO
   const handleProtectedNavigation = async () => {
     await executePlayWithGuard({
       userData: currentUserData,
@@ -335,7 +339,6 @@ export default function AnamneseScreen({ navigation, route }: any) {
     });
   };
 
-  // 🎯 PULAR ANAMNESE -> SALVA E VALIDA PARCEIRO DUO
   const handleSkipAnamnesis = () => {
     showCustomAlert(
       t("skip_anamnesis_title", userLang) || "Pular Anamnese",
@@ -521,7 +524,6 @@ export default function AnamneseScreen({ navigation, route }: any) {
     });
   };
 
-  // 🟢 CÁLCULO SEGURO SEM ERROS DE 'questionId of undefined'
   const startCalculation = (finalAnswers: SelectedAnswer[]) => {
     setScreenState("calculating");
     loadingProgress.setValue(0);
@@ -598,9 +600,16 @@ export default function AnamneseScreen({ navigation, route }: any) {
 
     setTimeout(() => {
       setScreenState("result");
-      if (audioService.getSfxEnabled()) {
-        audioService.play("success");
+
+      // 🔊 ERRO 7: TOCA O SOM DE FORMA SEGURA SEM CORTAR
+      try {
+        if (audioService.getSfxEnabled()) {
+          audioService.play("success");
+        }
+      } catch (e) {
+        console.log("Erro ao reproduzir som de resultado:", e);
       }
+
       animateThermometer(finalTempRaw);
     }, 4200);
   };
@@ -738,6 +747,14 @@ export default function AnamneseScreen({ navigation, route }: any) {
     await saveAssessmentToFirebase();
     setIsSaving(false);
     navigation.navigate("PaywallScreen");
+  };
+
+  const handleGoToMatch = async () => {
+    if (isSaving) return;
+    setIsSaving(true);
+    await saveAssessmentToFirebase();
+    setIsSaving(false);
+    navigation.navigate("MainTabs", { screen: "Match" });
   };
 
   const handleFinishFree = async () => {
@@ -1033,6 +1050,7 @@ export default function AnamneseScreen({ navigation, route }: any) {
     );
   };
 
+  // 🟢 ERRO 8: RENDERIZAÇÃO REFORMULADA DA TELA DE RESULTADO PÓS-ANAMNESE
   const renderResult = () => {
     let resultTitle = "";
     let resultDesc = "";
@@ -1112,13 +1130,11 @@ export default function AnamneseScreen({ navigation, route }: any) {
           </Text>
         </View>
 
-        {isPremium ? (
+        {/* 🎯 CENÁRIO A: USUÁRIO COM MATCH CONCLUÍDO E ASSINATURA ATIVA -> BOTAO PLAY DIRETO */}
+        {isPremium && (
           <View style={styles.impulseBuyBox}>
             <Text style={styles.impulseBuyPriceText}>
-              {t("access_unlocked_label", userLang) || "Acesso Premium Ativo"}{" "}
-              <Text style={[styles.priceHighlight, { color: "#67D4A8" }]}>
-                ✓
-              </Text>
+              {t("access_unlocked_label", userLang) || "Tudo pronto! Seu diagnóstico e seu Elo estão ativos."}
             </Text>
             <TouchableOpacity
               style={[styles.paywallBtn, { backgroundColor: "#67D4A8" }]}
@@ -1132,17 +1148,44 @@ export default function AnamneseScreen({ navigation, route }: any) {
                 <>
                   <FontAwesome5 name="play" size={18} color="#FFF" />
                   <Text style={styles.paywallBtnText}>
-                    {t("btn_start_journey_now", userLang) || "Iniciar Jornada Agora"}
+                    {t("btn_start_journey_now", userLang) || "DAR O PLAY NA JORNADA"}
                   </Text>
                 </>
               )}
             </TouchableOpacity>
           </View>
-        ) : (
+        )}
+
+        {/* 🎯 CENÁRIO B: USUÁRIO SEM ASSINATURA (SEJA COM OU SEM MATCH) */}
+        {!isPremium && (
           <View style={styles.impulseBuyBox}>
-            <Text style={styles.impulseBuyPriceText}>
-              {t("unlock_rescue_trail", userLang) || "Desbloqueie sua Jornada Completa"}
-            </Text>
+            {/* INFORMATIVO DE ALÍVIO SE O PARCEIRO JÁ ASSINOU */}
+            {!hasPartnerConnected && (
+              <View style={styles.partnerInfoNote}>
+                <FontAwesome5 name="info-circle" size={14} color="#202D3A" />
+                <Text style={styles.partnerInfoNoteText}>
+                  {t("partner_has_plan_note", userLang) ||
+                    "Seu amor já assinou o Plano Duo? Faça o Match para liberarem o acesso da dupla sem custo extra."}
+                </Text>
+              </View>
+            )}
+
+            {/* BOTÃO DE MATCH (SE AINDA NÃO TEM CONECTADO) */}
+            {!hasPartnerConnected && (
+              <TouchableOpacity
+                style={[styles.paywallBtn, { backgroundColor: "#67D4A8", marginBottom: 12 }]}
+                activeOpacity={0.9}
+                onPress={handleGoToMatch}
+                disabled={isSaving || isSkipping}
+              >
+                <FontAwesome5 name="user-friends" size={18} color="#FFF" />
+                <Text style={styles.paywallBtnText}>
+                  {t("btn_connect_partner_match", userLang) || "CONECTAR COM MEU AMOR (MATCH)"}
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {/* BOTÃO DE PAYWALL / PLANOS */}
             <TouchableOpacity
               style={[styles.paywallBtn, { backgroundColor: "#EAB64A" }]}
               activeOpacity={0.9}
@@ -1155,7 +1198,7 @@ export default function AnamneseScreen({ navigation, route }: any) {
                 <>
                   <FontAwesome5 name="shield-alt" size={18} color="#202D3A" />
                   <Text style={[styles.paywallBtnText, { color: "#202D3A" }]}>
-                    {t("btn_unlock_my_journey", userLang) || "Ver Planos do Elo"}
+                    {t("btn_unlock_my_journey", userLang) || "VER PLANOS DO ELO"}
                   </Text>
                 </>
               )}
@@ -1163,21 +1206,19 @@ export default function AnamneseScreen({ navigation, route }: any) {
           </View>
         )}
 
-        {!isPremium && (
-          <TouchableOpacity
-            onPress={handleSaveAndSkip}
-            style={styles.skipLink}
-            disabled={isSaving || isSkipping}
-          >
-            {isSkipping ? (
-              <ActivityIndicator size="small" color="#60646C" />
-            ) : (
-              <Text style={styles.skipLinkText}>
-                {t("btn_postpone_rescue", userLang) || "Continuar no Plano Gratuito"}
-              </Text>
-            )}
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity
+          onPress={handleSaveAndSkip}
+          style={styles.skipLink}
+          disabled={isSaving || isSkipping}
+        >
+          {isSkipping ? (
+            <ActivityIndicator size="small" color="#60646C" />
+          ) : (
+            <Text style={styles.skipLinkText}>
+              {t("btn_postpone_rescue", userLang) || "Ir para a página inicial"}
+            </Text>
+          )}
+        </TouchableOpacity>
       </View>
     );
   };
@@ -1222,7 +1263,7 @@ export default function AnamneseScreen({ navigation, route }: any) {
         </TouchableOpacity>
       </Modal>
 
-      {/* MODAL DE ALERTAS DA ANAMNESE PADRONIZADO */}
+      {/* MODAL DE ALERTAS */}
       <CustomAlertModal
         visible={customAlert.visible}
         title={customAlert.title}
@@ -1578,15 +1619,27 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   impulseBuyPriceText: {
-    fontSize: 16,
+    fontSize: 15,
     color: "#2C3E50",
-    marginBottom: 8,
+    marginBottom: 12,
     fontFamily: "Montserrat_700Bold",
+    textAlign: "center",
   },
-  priceHighlight: {
-    fontSize: 24,
-    fontFamily: "Montserrat_900Black",
+  partnerInfoNote: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#E8F4F1",
+    padding: 12,
+    borderRadius: 12,
+    gap: 8,
+    marginBottom: 16,
+  },
+  partnerInfoNoteText: {
+    flex: 1,
+    fontSize: 12,
     color: "#202D3A",
+    fontFamily: "Montserrat_500Medium",
+    lineHeight: 17,
   },
   paywallBtn: {
     flexDirection: "row",
@@ -1599,10 +1652,11 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   paywallBtnText: {
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: "Montserrat_900Black",
     textTransform: "uppercase",
     letterSpacing: 0.5,
+    color: "#FFF",
   },
   skipLink: { marginTop: 10, padding: 10 },
   skipLinkText: {

@@ -361,7 +361,7 @@ export default function HomeScreen({ navigation }: any) {
   const currentStep = nextAvailableStep;
   const isJourneyFinished = currentStep >= totalStepsInModule;
 
-  // 🔴 ERRO 9: TRATAMENTO DE DISMATCH / CONTA EXCLUÍDA PELO PARCEIRO
+  // 🛡️ TRATAMENTO DE DISMATCH / CONTA EXCLUÍDA PELO PARCEIRO (ERRO 5)
   useEffect(() => {
     if (userData?.matchStatus === "partner_disconnected_pending_choice" && currentUid) {
       showCustomAlert(
@@ -758,10 +758,35 @@ export default function HomeScreen({ navigation }: any) {
     t("partner_default_name", userLang) ||
     "Seu Amor";
 
+  // 🟢 ERRO 6: DISPARO DO PLAY RESTRITO À ANAMNESE E MATCH CONCLUÍDOS
   const handlePolitePlayTrigger = () => {
     triggerHaptic("medium");
 
     audioService.play("match");
+
+    if (!hasCompletedAnamnesis) {
+      showCustomAlert(
+        t("relationship_compass_title", userLang) || "Diagnóstico Pendente",
+        t("relationship_compass_msg", userLang) || "Responda à Anamnese antes de dar o Play na jornada.",
+        "heartbeat",
+        "#202D3A",
+        t("btn_answer_mapping", userLang) || "Responder Agora",
+        () => navigation.navigate("AnamneseScreen")
+      );
+      return;
+    }
+
+    if (!isMatchOrSoloDone) {
+      showCustomAlert(
+        t("match_required_title", userLang) || "Conexão Necessária",
+        t("match_required_msg", userLang) || "Conecte seu amor (Match) ou selecione o modo Solo para liberar o Play.",
+        "user-plus",
+        "#EAB64A",
+        t("btn_make_match_now", userLang) || "Fazer Match Agora",
+        () => navigation.navigate("Match")
+      );
+      return;
+    }
 
     if (!isPremium) {
       showCustomAlert(
@@ -773,47 +798,6 @@ export default function HomeScreen({ navigation }: any) {
         () => navigation.navigate("PaywallScreen"),
         t("btn_not_now", userLang) || "Agora Não",
         () => {}
-      );
-      return;
-    }
-
-    if (!hasCompletedAnamnesis) {
-      showCustomAlert(
-        t("relationship_compass_title", userLang) || "Bússola do Relacionamento",
-        t("relationship_compass_msg", userLang) || "Responda à Anamnese antes de dar o Play.",
-        "heartbeat",
-        "#202D3A",
-        t("btn_answer_mapping", userLang) || "Responder",
-        () => navigation.navigate("AnamneseScreen"),
-        t("btn_use_default_profile", userLang) || "Usar Padrão",
-        async () => {
-          if (!currentUid) return;
-
-          try {
-            setIsGeneratingJourney(true);
-
-            await setDoc(
-              doc(db, "users", currentUid),
-              { hasCompletedAnamnesis: true, profileType: "standard_default" },
-              { merge: true }
-            );
-
-            await executePlayWithGuard({
-              userData,
-              userLang,
-              navigation,
-              showCustomAlert,
-            });
-          } catch (error) {
-            setIsGeneratingJourney(false);
-            showCustomAlert(
-              t("connection_error_title", userLang) || "Erro de Conexão",
-              t("connection_error_msg", userLang) || "Não foi possível conectar ao servidor.",
-              "times-circle",
-              "#D96C6C"
-            );
-          }
-        }
       );
       return;
     }
@@ -999,6 +983,7 @@ export default function HomeScreen({ navigation }: any) {
     }
   };
 
+  // 🟢 ERRO 2: CONCLUSÃO DA MISSAO E INCREMENTO SINCRONIZADO DO DIA 1 -> DIA 2
   const handleCompleteMission = async (journalText: string = "") => {
     if (!currentUid || !activeMission) return;
 
@@ -1452,7 +1437,7 @@ export default function HomeScreen({ navigation }: any) {
 
           <View style={styles.trailConnector} />
 
-          {/* NÓ 3: DAR O PLAY */}
+          {/* NÓ 3: DAR O PLAY (DESABILITADO/RESTRITO ATÉ ANAMNESE E MATCH/SOLO) */}
           <View
             style={styles.specialNodeContainer}
             onLayout={(e) => {
@@ -1487,9 +1472,9 @@ export default function HomeScreen({ navigation }: any) {
                     iAmReady
                       ? { backgroundColor: "#EAB64A", borderColor: "#F9ECCC" }
                       : {
-                          backgroundColor: "#67D4A8",
-                          borderColor: "#E8F4F1",
-                          shadowColor: "#67D4A8",
+                          backgroundColor: (hasCompletedAnamnesis && isMatchOrSoloDone) ? "#67D4A8" : "#AFAFAF",
+                          borderColor: (hasCompletedAnamnesis && isMatchOrSoloDone) ? "#E8F4F1" : "#D1D9E0",
+                          shadowColor: (hasCompletedAnamnesis && isMatchOrSoloDone) ? "#67D4A8" : "#AFAFAF",
                         },
                   ]}
                   activeOpacity={0.8}
@@ -1942,7 +1927,6 @@ export default function HomeScreen({ navigation }: any) {
         )}
       </Modal>
 
-      {/* 🔒 FIX ERRO 3: ISOLAMENTO DO CALLBACK ONCANCEL */}
       <MasterPasswordModal
         visible={isMasterPasswordModalVisible}
         userLanguage={userLang}

@@ -187,7 +187,6 @@ export default function ProfileScreen({ navigation }: any) {
     }, [])
   );
 
-  // 🎯 RECONCILIAÇÃO COM O REVENUECAT SEM GERAR RENDER LOOP
   const syncSubscriptionWithRevenueCat = useCallback(async (currentFirestorePremium: boolean) => {
     const currentUid = auth.currentUser?.uid;
     if (!currentUid || Platform.OS === "web") return;
@@ -246,7 +245,6 @@ export default function ProfileScreen({ navigation }: any) {
 
           if (data.language) setUserLang(data.language);
 
-          // 🛡️ CÁLCULO ESTÁVEL DO PREMIUM (SOLO VS DUO - ERRO 2 & ERRO 10)
           const isDirectPremium = Boolean(data.isPremium);
           const isDuoPartnerPremium = Boolean(
             data.isPartnerPremium &&
@@ -534,6 +532,7 @@ export default function ProfileScreen({ navigation }: any) {
     );
   };
 
+  // 🟢 ERRO 5: DISPATCH DE DISMATCH SÍNCRONO NO BANCO DO PARCEIRO
   const handleDeleteAccount = () => {
     showCustomAlert(
       t("delete_account_title", userLang) || "Excluir Conta Permanentemente?",
@@ -569,6 +568,7 @@ export default function ProfileScreen({ navigation }: any) {
             );
           } catch (auditErr) {}
 
+          // 🛡️ DESVINCULA E NOTIFICA O PARCEIRO IMEDIATAMENTE
           if (userData?.partnerId) {
             try {
               const partnerSnap = await getDoc(doc(db, "users", userData.partnerId));
@@ -577,6 +577,7 @@ export default function ProfileScreen({ navigation }: any) {
               const partnerUpdates: any = {
                 partnerId: null,
                 hasPartner: false,
+                matchStatus: "partner_disconnected_pending_choice",
                 isSoloMode: false,
                 isReadyToStart: false,
                 hasPressedPlay: false,
@@ -753,8 +754,9 @@ export default function ProfileScreen({ navigation }: any) {
     }
   };
 
+  // 🟢 ERRO 3: E-MAIL DE SUPORTE ATUALIZADO PARA help@duoelo.lu
   const handleSupport = () => {
-    Linking.openURL("mailto:suporte@duoelo.lu?subject=Suporte%20DuoElo%20App");
+    Linking.openURL("mailto:help@duoelo.lu?subject=Suporte%20DuoElo%20App");
   };
 
   const handleOpenSettings = () => {
