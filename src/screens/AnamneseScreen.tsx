@@ -467,7 +467,7 @@ export default function AnamneseScreen({ navigation, route }: any) {
   };
 
   const handleAnswer = (option: AnamnesisOption) => {
-    if (isAnimating) return;
+    if (isAnimating || !questionsBank[currentIndex]) return;
 
     setIsAnimating(true);
 
@@ -521,6 +521,7 @@ export default function AnamneseScreen({ navigation, route }: any) {
     });
   };
 
+  // 🟢 CÁLCULO SEGURO SEM ERROS DE 'questionId of undefined'
   const startCalculation = (finalAnswers: SelectedAnswer[]) => {
     setScreenState("calculating");
     loadingProgress.setValue(0);
@@ -529,39 +530,43 @@ export default function AnamneseScreen({ navigation, route }: any) {
     let totalSumHealth = 0;
     let validAnswersCount = 0;
 
-    finalAnswers.forEach((ans) => {
-      const q = questionsBank.find((qb) => qb.id === ans.questionId);
-      if (!q) return;
+    if (Array.isArray(finalAnswers)) {
+      finalAnswers.forEach((ans) => {
+        if (!ans || !ans.questionId) return;
 
-      const pillar = ans.pillar || t("default_pillar_name", userLang) || "Sintonia Geral";
-      if (!pillarStats[pillar]) {
-        pillarStats[pillar] = { sumHealth: 0, count: 0 };
-      }
+        const q = questionsBank?.find((qb) => qb && qb.id === ans.questionId);
+        if (!q || !Array.isArray(q.options) || q.options.length === 0) return;
 
-      const scores = q.options.map((o) => Number(o.score) || 0);
-      const qMin = Math.min(...scores);
-      const qMax = Math.max(...scores);
+        const pillar = ans.pillar || t("default_pillar_name", userLang) || "Sintonia Geral";
+        if (!pillarStats[pillar]) {
+          pillarStats[pillar] = { sumHealth: 0, count: 0 };
+        }
 
-      const firstOptScore = Number(q.options[0]?.score) || 0;
-      const lastOptScore = Number(q.options[q.options.length - 1]?.score) || 0;
-      const isHighGood = firstOptScore > lastOptScore;
+        const scores = q.options.map((o) => Number(o?.score) || 0);
+        const qMin = Math.min(...scores);
+        const qMax = Math.max(...scores);
 
-      const range = qMax - qMin;
-      let ansHealth = 0;
+        const firstOptScore = Number(q.options[0]?.score) || 0;
+        const lastOptScore = Number(q.options[q.options.length - 1]?.score) || 0;
+        const isHighGood = firstOptScore > lastOptScore;
 
-      if (range > 0) {
-        const rawPercent = ((ans.score - qMin) / range) * 100;
-        ansHealth = isHighGood ? rawPercent : 100 - rawPercent;
-      } else {
-        ansHealth = 50;
-      }
+        const range = qMax - qMin;
+        let ansHealth = 0;
 
-      pillarStats[pillar].sumHealth += ansHealth;
-      pillarStats[pillar].count += 1;
+        if (range > 0) {
+          const rawPercent = ((Number(ans.score) - qMin) / range) * 100;
+          ansHealth = isHighGood ? rawPercent : 100 - rawPercent;
+        } else {
+          ansHealth = 50;
+        }
 
-      totalSumHealth += ansHealth;
-      validAnswersCount += 1;
-    });
+        pillarStats[pillar].sumHealth += ansHealth;
+        pillarStats[pillar].count += 1;
+
+        totalSumHealth += ansHealth;
+        validAnswersCount += 1;
+      });
+    }
 
     const finalTempRaw =
       validAnswersCount > 0
@@ -622,9 +627,10 @@ export default function AnamneseScreen({ navigation, route }: any) {
       const safeAnswers = selectedAnswers || [];
 
       safeAnswers.forEach((ans) => {
-        const q = questionsBank.find((qb) => qb.id === ans.questionId);
-        if (q && ans.tag && ans.tag !== "sintonia_geral") {
-          const scores = q.options.map((o) => Number(o.score) || 0);
+        if (!ans || !ans.questionId) return;
+        const q = questionsBank?.find((qb) => qb && qb.id === ans.questionId);
+        if (q && ans.tag && ans.tag !== "sintonia_geral" && Array.isArray(q.options)) {
+          const scores = q.options.map((o) => Number(o?.score) || 0);
           const qMin = Math.min(...scores);
           const qMax = Math.max(...scores);
           const firstOptScore = Number(q.options[0]?.score) || 0;
@@ -633,7 +639,7 @@ export default function AnamneseScreen({ navigation, route }: any) {
 
           const range = qMax - qMin;
           if (range > 0) {
-            const rawPercent = ((ans.score - qMin) / range) * 100;
+            const rawPercent = ((Number(ans.score) - qMin) / range) * 100;
             const health = isHighGood ? rawPercent : 100 - rawPercent;
             if (health <= 40) {
               diagnosticTags.push(ans.tag);

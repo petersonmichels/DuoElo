@@ -17,7 +17,7 @@ import {
   useFonts,
 } from "@expo-google-fonts/montserrat";
 
-import { AppSplashScreen } from "./src/components/AppSplashScreen";
+import AppSplashScreen from "./src/components/AppSplashScreen";
 import AppNavigator from "./src/navigation/AppNavigator";
 import { audioService } from "./src/services/AudioService";
 

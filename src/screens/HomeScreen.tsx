@@ -460,16 +460,15 @@ export default function HomeScreen({ navigation }: any) {
     return () => unsubscribeAuth();
   }, []);
 
-  // 🟢 BUSCA DO USUÁRIO NO FIRESTORE COM TIMEOUT DE SEGURANÇA QUE NUNCA DEIXA PRESO
+  // 🟢 BUSCA DO USUÁRIO NO FIRESTORE COM TIMEOUT DE SEGURANÇA QUE DESTRAVA A TELA
   useEffect(() => {
     let isMounted = true;
 
-    // Timer de segurança de 1.5s para forçar a liberação da Splash se o banco oscilar
     const forceUnlockTimer = setTimeout(() => {
       if (isMounted) {
         setLoading(false);
       }
-    }, 1500);
+    }, 1000);
 
     if (!currentUid) {
       setUserData(null);
@@ -1421,7 +1420,7 @@ export default function HomeScreen({ navigation }: any) {
                 if (isMatchOrSoloDone) {
                   showCustomAlert(
                     t("match_completed_title", userLang) || "Match Ativo",
-                    t("match_completed_msg", userLang) || "Sua conexão está estabelecida.",
+                    t("match_completed_msg", userLang) || "Sua conexão está established.",
                     "check-circle",
                     "#67D4A8",
                     t("btn_ok", userLang) || "OK",
@@ -1705,6 +1704,8 @@ export default function HomeScreen({ navigation }: any) {
                         ]}
                       >
                         <Pressable
+                          // 🔴 DESABILITADO SE O PLAY NÃO FOI DADO: Impede clique completamente
+                          disabled={!isTrailUnlocked}
                           onPress={() => {
                             if (isCompleted) {
                               handleOpenMission(index, false, false, true);
@@ -1793,6 +1794,7 @@ export default function HomeScreen({ navigation }: any) {
                             }}
                           >
                             <TouchableOpacity
+                              disabled={!isTrailUnlocked}
                               activeOpacity={0.8}
                               style={styles.goldBtnUnlocked}
                               onPress={(e) => {
@@ -1814,6 +1816,7 @@ export default function HomeScreen({ navigation }: any) {
                           </Animated.View>
                         ) : (
                           <TouchableOpacity
+                            disabled={!isTrailUnlocked}
                             activeOpacity={0.8}
                             style={styles.goldBtnLocked}
                             onPress={(e) => {
@@ -1861,6 +1864,7 @@ export default function HomeScreen({ navigation }: any) {
 
             <View style={[styles.endNodeContainer, { marginTop: 40 }]}>
               <TouchableOpacity
+                disabled={!isTrailUnlocked}
                 style={[
                   styles.endJourneyBtn,
                   isJourneyFinished && isTrailUnlocked
