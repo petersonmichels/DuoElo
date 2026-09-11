@@ -49,6 +49,12 @@ const { width } = Dimensions.get("window");
 const isExpoGo =
   Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
+/* ============================================================================
+ * 📌 [RELEASING FOR FINAL BUILD] - GOOGLE SIGN-IN IMPORTS NATIVOS
+ * Nota: Desativado temporariamente no Expo Go para testes OTA.
+ * Para reativar na Build Nativa Final da Apple/Android, descomente o bloco abaixo.
+ * ============================================================================
+ */
 let GoogleSignin: any = null;
 let statusCodes: any = {};
 if (!isExpoGo) {
@@ -57,7 +63,7 @@ if (!isExpoGo) {
     GoogleSignin = googleModule.GoogleSignin;
     statusCodes = googleModule.statusCodes || {};
   } catch (e) {
-    console.log("GoogleSignin indisponível neste ambiente.");
+    console.log("[GoogleSignin] Módulo nativo indisponível neste ambiente.");
   }
 }
 
@@ -100,7 +106,7 @@ export default function LoginScreen({ navigation }: any) {
   const btnIcon = isLogin ? "sign-in-alt" : "arrow-right";
   const btnTextColor = isLogin ? "#FFF" : "#202D3A";
 
-  // 🛡️ ERRO 1: CONFIGURAÇÃO SEGURA DO GOOGLE SIGN-IN NO IOS NATIVO
+  // 🛡️ CONFIGURAÇÃO SEGURA DO GOOGLE SIGN-IN NO IOS/ANDROID NATIVO
   const configureGoogleSignInSafe = () => {
     if (!isExpoGo && GoogleSignin) {
       try {
@@ -563,12 +569,18 @@ export default function LoginScreen({ navigation }: any) {
     }
   };
 
-  // 🟢 ERRO 1: GOOGLE SIGN-IN PROTEGIDO CONTRA CRASH NO IOS
+  /* ============================================================================
+   * 📌 [RELEASING FOR FINAL BUILD] - FLUXO COMPLETO DO GOOGLE SIGN-IN NATIVO
+   * Durante a execução no Expo Go, é exibida uma mensagem de orientação.
+   * Na Build Nativa Final (EAS Build), descomente o bloco nativo abaixo.
+   * ============================================================================
+   */
   const handleGoogleSignIn = async () => {
     if (isExpoGo || !GoogleSignin) {
       showCustomAlert(
-        t("dev_mode_title", userLang) || "Modo de Desenvolvimento",
-        t("dev_mode_msg", userLang) || "O Google Sign-In requer uma build nativa executada.",
+        t("dev_mode_title", userLang) || "Modo de Teste",
+        t("dev_mode_msg", userLang) ||
+          "O login nativo do Google requer uma Build Nativa enviada via EAS Build. Este teste será validado na submissão final da Apple Store.",
         "info-circle",
         "#EAB64A"
       );
@@ -656,7 +668,7 @@ export default function LoginScreen({ navigation }: any) {
           await setDoc(userRef, { language: userLang }, { merge: true });
         }
       } catch (firestoreError) {
-        console.warn("[Firestore Notice]: Conexão lentíssima ou offline. Seguiu com login local.", firestoreError);
+        console.warn("[Firestore Notice]: Conexão offline ou lenta. Seguiu localmente.", firestoreError);
       }
 
       await finalizeAuth(false);
