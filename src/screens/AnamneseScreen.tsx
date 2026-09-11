@@ -1173,7 +1173,9 @@ export default function AnamneseScreen({ navigation, route }: any) {
               >
                 <FontAwesome5 name="user-friends" size={18} color="#FFF" />
                 <Text style={styles.paywallBtnText}>
-                  {t("btn_connect_partner_match", userLang) || "CONECTAR COM MEU AMOR (MATCH)"}
+                  {t("btn_connect_partner_match", userLang) ||
+                    t("BTN_CONNECT_PARTNER_MATCH", userLang) ||
+                    "CONECTAR COM MEU AMOR (MATCH)"}
                 </Text>
               </TouchableOpacity>
             )}
@@ -1190,7 +1192,7 @@ export default function AnamneseScreen({ navigation, route }: any) {
                 <>
                   <FontAwesome5 name="shield-alt" size={18} color="#202D3A" />
                   <Text style={[styles.paywallBtnText, { color: "#202D3A" }]}>
-                    {t("btn_unlock_my_journey", userLang) || "VER PLANOS DO ELO"}
+                    {t("btn_unlock_my_journey", userLang) || "LIBERAR MINHA JORNADA"}
                   </Text>
                 </>
               )}

@@ -4894,6 +4894,7 @@ partner_has_plan_note: "Seu amor já assinou o Plano Duo? Faça o Match para lib
   },
 
   ja: {
+    
     partner_has_plan_note: "パートナーはすでにDuoプランに加入していますか？Matchを行うと、追加料金なしで二人でアクセスできます。",
     btn_connect_partner_match: "パートナーと接続する (MATCH)",
     BTN_CONNECT_PARTNER_MATCH: "パートナーと接続する (MATCH)",
