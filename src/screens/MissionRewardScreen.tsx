@@ -21,13 +21,11 @@ import { logAuditEvent } from "../services/auditService";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
-// 📳 Carregamento seguro do Haptics
 let Haptics: any = null;
 try {
   Haptics = require("expo-haptics");
 } catch (e) {}
 
-// 🎊 PARTÍCULAS DA EXPLOSÃO DE AMOR / ENERGIA (60 FPS NATIVO)
 const EXPLOSION_COLORS = ["#EAB64A", "#67D4A8", "#202D3A", "#D96C6C", "#FFF"];
 
 const LoveExplosionParticle = ({ index }: { index: number }) => {
@@ -100,16 +98,13 @@ const LoveExplosionParticle = ({ index }: { index: number }) => {
 };
 
 export default function MissionRewardScreen({ navigation, route }: any) {
-  // Tratamento seguro de parâmetros numéricos
   const earnedPE = Number(route?.params?.earnedPE) || 50;
   const currentDay90 = Number(route?.params?.currentDay90) || 1;
   const rawCupidProgress = Number(route?.params?.cupidProgress) || 1;
   
-  // 🎯 LIMITAÇÃO MÁXIMA DE 3 NO CUPIDO
   const cupidProgress = Math.min(3, Math.max(1, rawCupidProgress));
   const cupidTotal = 3;
 
-  // Idioma do usuário (padrão pt-BR)
   const [userLang, setUserLang] = useState("pt-BR");
   const [userData, setUserData] = useState<any>(null);
   const [partnerData, setPartnerData] = useState<any>(null);
@@ -118,7 +113,6 @@ export default function MissionRewardScreen({ navigation, route }: any) {
   const isCupidAwake = cupidProgress >= cupidTotal;
   const cupidPercentage = Math.min((cupidProgress / cupidTotal) * 100, 100);
 
-  // 🎬 ANIMAÇÕES ORIGINAIS DE BARRA DE PROGRESSO
   const bar1Anim = useRef(new Animated.Value(0)).current;
   const bar2Anim = useRef(new Animated.Value(0)).current;
   const bar3Anim = useRef(new Animated.Value(0)).current;
@@ -126,7 +120,6 @@ export default function MissionRewardScreen({ navigation, route }: any) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const popAnim = useRef(new Animated.Value(0)).current;
 
-  // 💥 ANIMAÇÃO DE TRAJETÓRIA DIRETA DOS LADOS OPOSTOS PARA O CENTRO
   const leftAvatarAnim = useRef(new Animated.Value(-SCREEN_WIDTH * 0.8)).current;
   const rightAvatarAnim = useRef(new Animated.Value(SCREEN_WIDTH * 0.8)).current;
   const centerScaleAnim = useRef(new Animated.Value(1)).current;
@@ -148,7 +141,6 @@ export default function MissionRewardScreen({ navigation, route }: any) {
   useEffect(() => {
     let isMounted = true;
 
-    // 🔊 DISPARO DO ÁUDIO DE CONQUISTA/RECOMPENSA DE MISSÃO
     audioService.play("success");
 
     const fetchUserData = async () => {
@@ -171,7 +163,6 @@ export default function MissionRewardScreen({ navigation, route }: any) {
             }
           }
 
-          // 📜 REGISTRO DE AUDITORIA DE RECOMPENSA RESGATADA
           await logAuditEvent(
             uid,
             "GIFT_REDEEMED",
@@ -186,7 +177,6 @@ export default function MissionRewardScreen({ navigation, route }: any) {
 
     fetchUserData();
 
-    // 🚀 CORRIDA DAS FOTOS DE MARGENS OPOSTAS EM DIREÇÃO AO CENTRO
     Animated.parallel([
       Animated.timing(leftAvatarAnim, {
         toValue: 0,
@@ -220,7 +210,6 @@ export default function MissionRewardScreen({ navigation, route }: any) {
       }
     });
 
-    // Entradas suaves de tela
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -235,7 +224,6 @@ export default function MissionRewardScreen({ navigation, route }: any) {
       }),
     ]).start();
 
-    // Animação escalonada das barras de progresso
     const timeout = setTimeout(() => {
       if (isMounted) {
         Animated.stagger(250, [
@@ -318,7 +306,6 @@ export default function MissionRewardScreen({ navigation, route }: any) {
         >
           <Text style={styles.heroTitle}>+{earnedPE} Bonds!</Text>
 
-          {/* 🏆 ENCONTRO DAS FOTOS CORRENDO DE LADOS OPOSTOS */}
           <View style={styles.avatarsCollisionWrapper}>
             {hasExploded && (
               <View style={styles.explosionCenterEmitter}>
@@ -328,7 +315,6 @@ export default function MissionRewardScreen({ navigation, route }: any) {
               </View>
             )}
 
-            {/* FOTO DO USUÁRIO (Vem da Esquerda) */}
             <Animated.View
               style={[
                 styles.avatarFrame,
@@ -342,7 +328,6 @@ export default function MissionRewardScreen({ navigation, route }: any) {
               )}
             </Animated.View>
 
-            {/* FOTO DO PARCEIRO OU LOGO DUOELO NO SOLO (Vem da Direita) */}
             <Animated.View
               style={[
                 styles.avatarFrame,
@@ -365,7 +350,6 @@ export default function MissionRewardScreen({ navigation, route }: any) {
           </View>
 
           <View style={styles.card}>
-            {/* MISSÃO DIÁRIA */}
             <View style={styles.missionItem}>
               <Text style={styles.missionLabel}>
                 {t("daily_mission_completed_label", userLang) || "Missão Diária Concluída"}
@@ -395,7 +379,6 @@ export default function MissionRewardScreen({ navigation, route }: any) {
 
             <View style={styles.divider} />
 
-            {/* OFENSIVA / STREAK */}
             <View style={styles.missionItem}>
               <Text style={styles.missionLabel}>
                 {t("streak_maintained_label", userLang) || "Ofensiva Mantida"}
@@ -425,7 +408,6 @@ export default function MissionRewardScreen({ navigation, route }: any) {
 
             <View style={styles.divider} />
 
-            {/* CUPIDO / DESAFIO SEMANAL */}
             <View style={styles.missionItem}>
               <Text style={styles.missionLabel}>
                 {isCupidAwake
@@ -470,7 +452,6 @@ export default function MissionRewardScreen({ navigation, route }: any) {
             </View>
           </View>
 
-          {/* CARD DE JORNADA */}
           <View style={[styles.card, styles.badgeCard]}>
             <View style={{ flex: 1 }}>
               <Text style={styles.badgeTitle}>
@@ -492,7 +473,6 @@ export default function MissionRewardScreen({ navigation, route }: any) {
         </Animated.View>
       </ScrollView>
 
-      {/* BOTÃO 3D FIXO DE CONTINUAR */}
       <View style={styles.footer}>
         <Button3D
           title={t("btn_continue_label", userLang) || "CONTINUAR"}

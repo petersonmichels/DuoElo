@@ -10,6 +10,7 @@ export type LanguageCode =
 // Unificação de todas as traduções
 export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
  "pt-BR": {
+    verifying_trail_status: "Sincronizando sua jornada...",
     dismatch_notice_title: "Conexão Desfeita 💔",
     dismatch_notice_msg: "Seu relacionamento foi desvinculado pelo seu parceiro(a). Como deseja prosseguir com a sua jornada?",
     btn_continue_solo: "Continuar Solo (90 dias)",
@@ -836,6 +837,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
   },
 
   "pt-PT": {
+    verifying_trail_status: "Sincronizando sua jornada...",
     dismatch_notice_title: "Ligação Desfeita 💔",
     dismatch_notice_msg: "A sua relação foi desligada pelo seu parceiro(a). Como deseja prosseguir com a sua jornada?",
     btn_continue_solo: "Continuar Solo (90 dias)",
@@ -1646,6 +1648,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
   },
 
   en: {
+    verifying_trail_status: "Synchronizing your journey...",
     dismatch_notice_title: "Bond Unlinked 💔",
     dismatch_notice_msg: "Your relationship was unlinked by your partner. How would you like to proceed with your journey?",
     btn_continue_solo: "Continue Solo (90 days)",
@@ -2456,6 +2459,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
   },
 
   es: {
+    verifying_trail_status: "Sincronizando tu jornada...",
     dismatch_notice_title: "Conexión Deshecha 💔",
     dismatch_notice_msg: "Tu pareja ha desvinculado la relación. ¿Cómo deseas continuar tu camino?",
     btn_continue_solo: "Continuar Solo (90 días)",
@@ -3272,6 +3276,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
   },
 
   fr: {
+    verifying_trail_status: "Synchronisation de votre parcours...",
     dismatch_notice_title: "Lien Défait 💔",
     dismatch_notice_msg: "Votre relation a été déconnectée par votre partenaire. Comment souhaitez-vous continuer ?",
     btn_continue_solo: "Continuer Solo (90 jours)",
@@ -4042,6 +4047,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
   },
 
   de: {
+    verifying_trail_status: "Synchronisiere deine Reise...",
     dismatch_notice_title: "Verbindung Getrennt 💔",
     dismatch_notice_msg: "Ihre Beziehung wurde von Ihrem Partner getrennt. Wie möchten Sie Ihre Reise fortsetzen?",
     btn_continue_solo: "Solo fortsetzen (90 Tage)",
@@ -4862,10 +4868,11 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
   },
 
   ja: {
+    verifying_trail_status: "旅を同期しています...",
     dismatch_notice_title: "絆が解除されました 💔",
     dismatch_notice_msg: "パートナーによって関係の接続が解除されました。旅をどのように進めますか？",
     btn_continue_solo: "ソロで継続（90日間）",
-     btn_reset_all: "最初からリセット",
+    btn_reset_all: "最初からリセット",
     disconnect_confirm_title: "絆を解除してゲームをリセットしますか？",
     disconnect_confirm_msg: "警告：絆を解除すると、両方のアカウントからすべての履歴、タスクの進捗、実績、および診断（問診）が永久に消去されます。続行しますか？",
     btn_yes_disconnect: "はい、消去して切断します",

@@ -2,6 +2,7 @@ import { FontAwesome5 } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import React, { useEffect } from "react";
 import {
+  DimensionValue,
   Image,
   Modal,
   ScrollView,
@@ -16,6 +17,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
+import { t } from "../i18n/translations";
 import { audioService } from "../services/AudioService";
 import { Button3D } from "./Effects3D";
 
@@ -24,8 +26,10 @@ interface MissionCelebrationProps {
   bondsEarned?: number;
   streakCount?: number;
   dayNumber?: number;
+  cupidProgress?: number;
   userPhoto?: string | null;
   partnerPhoto?: string | null;
+  userLanguage?: string;
   onContinue: () => void;
 }
 
@@ -34,8 +38,10 @@ export const MissionCelebrationModal = ({
   bondsEarned = 50,
   streakCount = 1,
   dayNumber = 1,
+  cupidProgress = 1,
   userPhoto,
   partnerPhoto,
+  userLanguage = "pt-BR",
   onContinue,
 }: MissionCelebrationProps) => {
   const titleScale = useSharedValue(0.3);
@@ -69,6 +75,9 @@ export const MissionCelebrationModal = ({
   }));
 
   if (!visible) return null;
+
+  // 🟢 Tipagem estrita com DimensionValue para evitar erro TS2769
+  const cupidBarWidth = `${Math.min(100, Math.max(33, (cupidProgress / 3) * 100))}%` as DimensionValue;
 
   return (
     <Modal visible={visible} transparent animationType="fade">
@@ -105,32 +114,40 @@ export const MissionCelebrationModal = ({
             <View style={styles.progressCard}>
               {/* Missão Diária */}
               <View style={styles.progressSection}>
-                <Text style={styles.progressTitle}>Missão Diária Concluída</Text>
+                <Text style={styles.progressTitle}>
+                  {t("daily_mission_completed", userLanguage) || "Missão Diária Concluída"}
+                </Text>
                 <View style={styles.barContainer}>
                   <View style={[styles.barFill, { width: "100%", backgroundColor: "#67D4A8" }]} />
-                  <Text style={styles.barText}>50 / 50</Text>
-                  <FontAwesome5 name="gift" size={16} color="#67D4A8" style={styles.barIcon} />
+                  <Text style={styles.barText}>{bondsEarned} / {bondsEarned}</Text>
+                  <FontAwesome5 name="gift" size={16} color="#FFF" style={styles.barIcon} />
                 </View>
               </View>
 
               {/* Ofensiva Mantida */}
               <View style={styles.progressSection}>
-                <Text style={styles.progressTitle}>Ofensiva Mantida</Text>
+                <Text style={styles.progressTitle}>
+                  {t("streak_maintained", userLanguage) || "Ofensiva Mantida"}
+                </Text>
                 <View style={styles.barContainer}>
                   <View style={[styles.barFill, { width: "100%", backgroundColor: "#EAB64A" }]} />
                   <Text style={styles.barText}>{streakCount} / {streakCount}</Text>
-                  <FontAwesome5 name="fire" solid size={16} color="#EAB64A" style={styles.barIcon} />
+                  <FontAwesome5 name="fire" solid size={16} color="#FFF" style={styles.barIcon} />
                 </View>
               </View>
 
               {/* Energia do Cupido */}
               <View style={styles.progressSection}>
-                <Text style={styles.progressTitle}>Energia do Cupido</Text>
-                <Text style={styles.progressSubtitle}>Realizem missões para acordar o Cupido</Text>
+                <Text style={styles.progressTitle}>
+                  {t("cupid_energy_title", userLanguage) || "Energia do Cupido"}
+                </Text>
+                <Text style={styles.progressSubtitle}>
+                  {t("cupid_energy_sub", userLanguage) || "Realizem missões para acordar o Cupido"}
+                </Text>
                 <View style={[styles.barContainer, { backgroundColor: "#F0F4F8" }]}>
-                  <View style={[styles.barFill, { width: "33%", backgroundColor: "#202D3A" }]} />
-                  <Text style={[styles.barText, { color: "#60646C" }]}>1 / 3</Text>
-                  <FontAwesome5 name="battery-quarter" size={16} color="#60646C" style={styles.barIcon} />
+                  <View style={[styles.barFill, { width: cupidBarWidth, backgroundColor: "#202D3A" }]} />
+                  <Text style={[styles.barText, { color: "#202D3A" }]}>{cupidProgress} / 3</Text>
+                  <FontAwesome5 name="battery-quarter" size={16} color="#202D3A" style={styles.barIcon} />
                 </View>
               </View>
             </View>
@@ -138,8 +155,12 @@ export const MissionCelebrationModal = ({
             {/* 🏆 CARD JORNADA DE 90 DIAS */}
             <View style={styles.journeyCard}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.journeyTitle}>Jornada de 90 Dias</Text>
-                <Text style={styles.journeySubtitle}>Dia {dayNumber} de 90 Concluído</Text>
+                <Text style={styles.journeyTitle}>
+                  {t("journey_90_days_title", userLanguage) || "Jornada de 90 Dias"}
+                </Text>
+                <Text style={styles.journeySubtitle}>
+                  {t("day_completed_status", userLanguage, { day: dayNumber }) || `Dia ${dayNumber} de 90 Concluído`}
+                </Text>
               </View>
               <View style={styles.trophyBadge}>
                 <FontAwesome5 name="trophy" size={24} color="#EAB64A" />
@@ -149,7 +170,10 @@ export const MissionCelebrationModal = ({
 
           {/* 🔘 BOTÃO 3D CONTINUAR */}
           <View style={styles.footer}>
-            <Button3D title="CONTINUAR" onPress={onContinue} />
+            <Button3D
+              title={t("btn_continue", userLanguage) || "CONTINUAR"}
+              onPress={onContinue}
+            />
           </View>
         </View>
       </View>
@@ -160,7 +184,7 @@ export const MissionCelebrationModal = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: "#F4F7FA",
+    backgroundColor: "#F0F4F8",
   },
   container: {
     flex: 1,
@@ -215,7 +239,7 @@ const styles = StyleSheet.create({
     padding: 20,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: "#E2E8F0",
+    borderColor: "#D1D9E0",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.05,
@@ -234,7 +258,7 @@ const styles = StyleSheet.create({
   progressSubtitle: {
     fontSize: 12,
     fontFamily: "Montserrat_400Regular",
-    color: "#64748B",
+    color: "#60646C",
     marginBottom: 8,
   },
   barContainer: {
@@ -272,7 +296,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#E2E8F0",
+    borderColor: "#D1D9E0",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.05,

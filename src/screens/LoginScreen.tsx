@@ -233,6 +233,7 @@ export default function LoginScreen({ navigation }: any) {
     }
   };
 
+  // 🎯 ROTEAMENTO DE ISCA DE VALOR: SEM ANAMNESE -> VAI DIRETO PARA ANAMNESESCREEN
   const routeUserAfterLogin = async (uid: string) => {
     try {
       const userSnap = await getDoc(doc(db, "users", uid));
@@ -277,7 +278,7 @@ export default function LoginScreen({ navigation }: any) {
     } catch (e) {
       navigation.reset({
         index: 0,
-        routes: [{ name: "MainTabs", params: { screen: "Home" } }],
+        routes: [{ name: "AnamneseScreen" }],
       });
     }
   };
@@ -363,7 +364,10 @@ export default function LoginScreen({ navigation }: any) {
       if (uid) {
         await triggerPinCheck(uid);
       } else if (navigation && navigation.navigate) {
-        navigation.navigate("MainTabs", { screen: "Home" });
+        navigation.reset({
+          index: 0,
+          routes: [{ name: "AnamneseScreen" }],
+        });
       }
     }
   };

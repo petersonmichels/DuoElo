@@ -6,19 +6,19 @@ module.exports = {
     version: "1.0.3",
     orientation: "portrait",
     icon: "./src/assets/icon.png",
-    userInterfaceStyle: "dark",
+    userInterfaceStyle: "light", // 🟢 Alterado de 'dark' para 'light'
     
     // 🎨 Ajustes de UI/Design para Android
     androidNavigationBar: {
-      barStyle: "light-content",
-      backgroundColor: "#0F0F12",
+      barStyle: "dark-content",
+      backgroundColor: "#F0F4F8", // 🟢 Cor do fundo limpo
     },
     
     ios: {
       supportsTablet: true,
       usesAppleSignIn: true,
       bundleIdentifier: "lu.barnx.duoelo",
-      buildNumber: "17",
+      buildNumber: "18",
       googleServicesFile:
         process.env.GOOGLE_SERVICES_INFO_PLIST || "./GoogleService-Info.plist",
       infoPlist: {
@@ -48,19 +48,19 @@ module.exports = {
       },
     },
     android: {
-      versionCode: 17,
+      versionCode: 18,
       package: "lu.barnx.duoelo",
       googleServicesFile:
         process.env.GOOGLE_SERVICES_JSON || "./google-services.json",
       allowBackup: false,
       statusBar: {
-        barStyle: "light-content",
-        backgroundColor: "#0F0F12",
+        barStyle: "dark-content", // 🟢 Ícones escuros na barra de status
+        backgroundColor: "#F0F4F8", // 🟢 Fundo limpo
         translucent: true,
       },
       adaptiveIcon: {
         foregroundImage: "./src/assets/icon.png",
-        backgroundColor: "#0F0F12",
+        backgroundColor: "#F0F4F8",
       },
       permissions: [
         "android.permission.USE_BIOMETRIC",
@@ -85,7 +85,7 @@ module.exports = {
         "expo-notifications",
         {
           icon: "./src/assets/icon.png",
-          color: "#0F0F12",
+          color: "#67D4A8",
           sounds: [],
         },
       ],
@@ -96,12 +96,13 @@ module.exports = {
             "O DuoElo utiliza o Face ID para desbloquear sua chave mestre e proteger seu Diário do Casal.",
         },
       ],
+      // 🟢 SPLASH SCREEN NATIVA ALINHADA AO DESIGN SYSTEM CLEAN (#F0F4F8)
       [
         "expo-splash-screen",
         {
           image: "./src/assets/icon.png",
           resizeMode: "contain",
-          backgroundColor: "#0F0F12",
+          backgroundColor: "#F0F4F8", // 👈 AGORA A SPLASH NATIVA É CLEAN E SEM BORDA
         },
       ],
       [

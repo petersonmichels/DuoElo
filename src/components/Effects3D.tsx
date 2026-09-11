@@ -21,15 +21,19 @@ function animatePressOut(translateY: SharedValue<number>) {
   translateY.value = withSpring(0, { damping: 15 });
 }
 
-// 1. Botão 3D Tátil
+// 1. Botão 3D Tátil Padronizado
 export const Button3D = ({
   title,
   onPress,
   style,
+  color = '#202D3A',
+  shadowColor = '#141F28',
 }: {
   title: string;
   onPress: () => void;
   style?: ViewStyle;
+  color?: string;
+  shadowColor?: string;
 }) => {
   const translateY = useSharedValue<number>(0);
 
@@ -39,7 +43,9 @@ export const Button3D = ({
 
   const handlePressIn = () => {
     animatePressIn(translateY);
-    audioService.play('click');
+    try {
+      audioService.play('click');
+    } catch (e) {}
   };
 
   const handlePressOut = () => {
@@ -51,9 +57,9 @@ export const Button3D = ({
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       onPress={onPress}
-      style={[styles.btnContainer, style]}
+      style={[styles.btnContainer, { backgroundColor: shadowColor }, style]}
     >
-      <Animated.View style={[styles.btnBody, animatedStyle]}>
+      <Animated.View style={[styles.btnBody, { backgroundColor: color }, animatedStyle]}>
         <Text style={styles.btnText}>{title}</Text>
       </Animated.View>
     </Pressable>
@@ -77,7 +83,9 @@ export const AnimatedHeroHeader = ({
       withSpring(1.1, { damping: 10 }),
       withSpring(1.0, { damping: 12 })
     );
-    audioService.play('click');
+    try {
+      audioService.play('click');
+    } catch (e) {}
   }, [opacity, scale]);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -98,12 +106,12 @@ export const AnimatedHeroHeader = ({
 
 const styles = StyleSheet.create({
   btnContainer: {
-    backgroundColor: '#15803d',
+    backgroundColor: '#141F28',
     borderRadius: 16,
     paddingBottom: 4,
   },
   btnBody: {
-    backgroundColor: '#22c55e',
+    backgroundColor: '#202D3A',
     paddingVertical: 16,
     paddingHorizontal: 24,
     borderRadius: 16,
@@ -111,7 +119,7 @@ const styles = StyleSheet.create({
   },
   btnText: {
     color: '#FFFFFF',
-    fontWeight: '900',
+    fontFamily: 'Montserrat_900Black',
     fontSize: 16,
   },
   heroContainer: {
@@ -121,14 +129,14 @@ const styles = StyleSheet.create({
   badge3D: {
     width: 72,
     height: 72,
-    backgroundColor: '#22c55e',
+    backgroundColor: '#67D4A8',
     borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
     borderBottomWidth: 5,
-    borderBottomColor: '#15803d',
+    borderBottomColor: '#4BB890',
     marginBottom: 12,
-    shadowColor: '#22c55e',
+    shadowColor: '#67D4A8',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -139,12 +147,13 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     fontSize: 26,
-    fontWeight: '900',
-    color: '#0F172A',
+    fontFamily: 'Montserrat_900Black',
+    color: '#202D3A',
   },
   heroSubtitle: {
     fontSize: 14,
-    color: '#64748B',
+    fontFamily: 'Montserrat_600SemiBold',
+    color: '#60646C',
     marginTop: 4,
   },
 });

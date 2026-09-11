@@ -1,6 +1,6 @@
 import { FontAwesome5 } from "@expo/vector-icons";
 import React from "react";
-import { Modal, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { ALERT_THEME } from "../constants/alertTheme";
 
 interface CustomAlertModalProps {
@@ -28,10 +28,20 @@ export const CustomAlertModal: React.FC<CustomAlertModalProps> = ({
   onSecondary,
   onClose,
 }) => {
+  // 🟢 GARANTE UM RÓTULO VÁLIDO PARA O BOTÃO PRINCIPAL
+  const buttonLabel =
+    confirmText && confirmText.trim() !== "" ? confirmText : "Entendido";
+
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={styles.cardContainer}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      {/* 🟢 PRESSABLE NO OVERLAY: PERMITE FECHAR AO CLICAR EM QUALQUER LUGAR DO FUNDO */}
+      <Pressable style={styles.overlay} onPress={onClose}>
+        <Pressable style={styles.cardContainer} onPress={(e) => e.stopPropagation()}>
           <View style={styles.handle} />
 
           <View style={[styles.iconContainer, { backgroundColor: `${color}1A` }]}>
@@ -42,18 +52,16 @@ export const CustomAlertModal: React.FC<CustomAlertModalProps> = ({
           <Text style={styles.message}>{message}</Text>
 
           <View style={styles.buttonGroup}>
-            {Boolean(confirmText) && (
-              <TouchableOpacity
-                style={[styles.primaryButton, { backgroundColor: color }]}
-                activeOpacity={0.8}
-                onPress={() => {
-                  if (onClose) onClose();
-                  if (onConfirm) onConfirm();
-                }}
-              >
-                <Text style={styles.primaryButtonText}>{confirmText}</Text>
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity
+              style={[styles.primaryButton, { backgroundColor: color }]}
+              activeOpacity={0.8}
+              onPress={() => {
+                if (onClose) onClose();
+                if (onConfirm) onConfirm();
+              }}
+            >
+              <Text style={styles.primaryButtonText}>{buttonLabel}</Text>
+            </TouchableOpacity>
 
             {Boolean(secondaryText) && (
               <TouchableOpacity
@@ -68,8 +76,8 @@ export const CustomAlertModal: React.FC<CustomAlertModalProps> = ({
               </TouchableOpacity>
             )}
           </View>
-        </View>
-      </View>
+        </Pressable>
+      </Pressable>
     </Modal>
   );
 };

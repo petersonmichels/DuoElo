@@ -5,7 +5,6 @@ import { onAuthStateChanged, User } from "firebase/auth";
 import { doc, onSnapshot } from "firebase/firestore";
 import React, { useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Animated,
   Platform,
   StyleSheet,
@@ -16,6 +15,7 @@ import {
 import { auth, authControls, db } from "../config/firebase";
 import { t } from "../i18n/translations";
 
+import AppSplashScreen from "../components/AppSplashScreen";
 import AnamneseScreen from "../screens/AnamneseScreen";
 import HabitsConfigScreen from "../screens/HabitsConfigScreen";
 import HomeScreen from "../screens/HomeScreen";
@@ -420,12 +420,9 @@ export default function AppNavigator() {
     };
   }, []);
 
+  // 🟢 UTILIZA A SPLASH SCREEN OFICIAL DO DESIGN SYSTEM
   if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#EAB64A" />
-      </View>
-    );
+    return <AppSplashScreen />;
   }
 
   return (
@@ -451,12 +448,6 @@ export default function AppNavigator() {
 }
 
 const styles = StyleSheet.create({
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#0F0F12",
-  },
   floatingButton: {
     top: -20,
     width: 66,

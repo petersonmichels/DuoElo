@@ -187,6 +187,36 @@ export default function ProfileScreen({ navigation }: any) {
     }, [])
   );
 
+  // 🎯 RECONCILIAÇÃO REAL COM O REVENUECAT
+  const syncSubscriptionWithRevenueCat = useCallback(async (currentFirestorePremium: boolean) => {
+    const currentUid = auth.currentUser?.uid;
+    if (!currentUid || Platform.OS === "web") return;
+
+    try {
+      const customerInfo = await Purchases.getCustomerInfo();
+      const hasActiveEntitlement = Object.keys(customerInfo.entitlements.active).length > 0;
+
+      if (currentFirestorePremium && !hasActiveEntitlement) {
+        await setDoc(
+          doc(db, "users", currentUid),
+          {
+            isPremium: false,
+            planType: "free",
+            activeProductId: null,
+          },
+          { merge: true }
+        );
+        setIsPremiumActive(false);
+      } else if (hasActiveEntitlement) {
+        setIsPremiumActive(true);
+      } else {
+        setIsPremiumActive(false);
+      }
+    } catch (e) {
+      console.log("[PROFILE] Erro ao validar assinatura no RevenueCat:", e);
+    }
+  }, []);
+
   useEffect(() => {
     const currentUid = auth.currentUser?.uid;
     if (!currentUid) return;
@@ -197,7 +227,7 @@ export default function ProfileScreen({ navigation }: any) {
 
     const customerInfoListener = (info: CustomerInfo) => {
       const activeInStore = Object.keys(info.entitlements.active).length > 0;
-      setIsPremiumActive((prev) => activeInStore || prev);
+      setIsPremiumActive(activeInStore);
     };
 
     try {
@@ -211,6 +241,7 @@ export default function ProfileScreen({ navigation }: any) {
           try {
             await auth.currentUser.reload();
             setIsEmailVerified(auth.currentUser.emailVerified || false);
+            syncSubscriptionWithRevenueCat(Boolean(userData?.isPremium));
           } catch (e) {}
         }
       }
@@ -231,6 +262,9 @@ export default function ProfileScreen({ navigation }: any) {
 
           const hasHeritedDuo = Boolean(data.isPremium || data.isPartnerPremium);
           setIsPremiumActive(hasHeritedDuo);
+
+          // Dispara validação da loja para expirar caso o sandbox tenha vencido
+          syncSubscriptionWithRevenueCat(Boolean(data.isPremium));
 
           if (isFirstLoad.current) {
             setFirstName(data.billingFirstName || data.firstName || "");
@@ -272,7 +306,7 @@ export default function ProfileScreen({ navigation }: any) {
       }
       appStateSubscription.remove();
     };
-  }, [parseInitialPhone]);
+  }, [parseInitialPhone, syncSubscriptionWithRevenueCat]);
 
   const triggerSaveAnimation = (toValue: number, callback?: () => void) => {
     Animated.timing(saveAnim.current, {
@@ -705,6 +739,13 @@ export default function ProfileScreen({ navigation }: any) {
           "#67D4A8"
         );
       } else {
+        if (currentUid) {
+          await setDoc(
+            doc(db, "users", currentUid),
+            { isPremium: false, planType: "free", activeProductId: null },
+            { merge: true }
+          );
+        }
         setIsPremiumActive(false);
         showCustomAlert(
           t("no_active_sub_title", userLang) || "Nenhuma Assinatura Ativa",

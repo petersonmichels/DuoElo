@@ -1,6 +1,7 @@
 import { FontAwesome5 } from "@expo/vector-icons";
+import * as SecureStore from "expo-secure-store";
 import { signOut } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, setDoc } from "firebase/firestore";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -21,7 +22,6 @@ import { logAuditEvent } from "../services/auditService";
 import {
   authenticateWithBiometrics,
   clearSecurityPin,
-  hasSecurityPin,
   setSecurityPin,
   setSessionUnlocked,
   verifySecurityPin,
@@ -130,37 +130,24 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
     let isMounted = true;
 
     if (visible) {
-      setTimeout(() => {
-        if (isMounted) {
-          setPinInput("");
-          setConfirmPinInput("");
-          setErrorMessage("");
-        }
-      }, 0);
+      setPinInput("");
+      setConfirmPinInput("");
+      setErrorMessage("");
 
       const initModal = async () => {
         if (isMounted) setIsCheckingPinStatus(true);
         try {
-          const hasLocalPin = await hasSecurityPin();
-
-          let hasFirestorePin = false;
-          const uid = auth.currentUser?.uid;
-          if (uid) {
-            try {
-              const userSnap = await getDoc(doc(db, "users", uid));
-              if (userSnap.exists()) {
-                const data = userSnap.data();
-                const pinVal = data?.masterPasswordHash || data?.securityPin;
-                if (typeof pinVal === "string" && pinVal.trim().length >= 4) {
-                  hasFirestorePin = true;
-                }
-              }
-            } catch {
-              // Ignora erro de busca silenciosamente
+          // 🟢 BUSCA DIRETA EM TEMPO REAL NO SECURESTORE E VALIDADA PELO SERVIÇO
+          let localPin: string | null = null;
+          if (Platform.OS !== "web") {
+            localPin = await SecureStore.getItemAsync("user_security_pin");
+            if (!localPin) {
+              localPin = await SecureStore.getItemAsync("security_pin");
             }
           }
 
-          const pinExists = Boolean(hasLocalPin || hasFirestorePin);
+          // Checagem rigorosa para evitar reset acidental
+          const pinExists = Boolean(localPin && localPin.trim().length >= 4);
 
           if (isMounted) {
             setIsPinCreated(pinExists);
@@ -176,7 +163,8 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
           }
         } catch {
           if (isMounted) {
-            setIsPinCreated(false);
+            // Caso ocorra erro de leitura no SecureStore, mantém o PIN como existente por segurança
+            setIsPinCreated(true);
             setIsCheckingPinStatus(false);
           }
         }
@@ -248,6 +236,9 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
         }
 
         await setSecurityPin(pinInput);
+        if (Platform.OS !== "web") {
+          await SecureStore.setItemAsync("user_security_pin", pinInput);
+        }
         setSessionUnlocked(true);
 
         if (uid) {
@@ -276,7 +267,7 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
     }
   };
 
-  // 🔴 SUBSTITUIÇÃO DO ALERT.ALERT NATIVO PELO CUSTOM ALERT MODAL
+  // 🔴 REDEFINIÇÃO COM EXPURGO COMPLETO (LOCAL E FIRESTORE)
   const handleForgotPin = () => {
     showCustomAlert(
       t("reset_pin_title", userLanguage) || "Redefinir PIN de Segurança",
@@ -295,11 +286,36 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
               "Redefinição de PIN solicitada com deslogamento",
               userLanguage
             );
-          } catch {
-            // Log de auditoria concluído
+
+            // 🟢 1. LIMPA O HASH DO PIN NO FIRESTORE
+            await setDoc(
+              doc(db, "users", uid),
+              {
+                masterPasswordHash: null,
+                securityPin: null,
+              },
+              { merge: true }
+            );
+          } catch (err) {
+            console.log("[SECURITY] Erro ao limpar PIN no Firestore:", err);
           }
         }
-        await clearSecurityPin();
+
+        // 🟢 2. LIMPA O SECURESTORE LOCAL
+        try {
+          await clearSecurityPin();
+          if (Platform.OS !== "web") {
+            await SecureStore.deleteItemAsync("user_security_pin");
+            await SecureStore.deleteItemAsync("master_password");
+            await SecureStore.deleteItemAsync("security_pin");
+          }
+        } catch (e) {
+          console.log("[SECURITY] Erro ao limpar chaves do SecureStore:", e);
+        }
+
+        setIsPinCreated(false);
+        setPinInput("");
+        setConfirmPinInput("");
         await signOut(auth);
         onCancel();
       },
@@ -351,7 +367,7 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
                 <Text style={styles.title}>
                   {title ||
                     (isPinCreated
-                      ? t("pin_modal_title_unlock", userLanguage) || "🔒 PIN ou Rosto"
+                      ? t("pin_modal_title_unlock", userLanguage) || "🔒 PIN de Segurança"
                       : t("pin_modal_title_create", userLanguage) ||
                         "🔑 Criar PIN de Segurança")}
                 </Text>
@@ -360,7 +376,7 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
                   {subtitle ||
                     (isPinCreated
                       ? t("pin_modal_sub_unlock", userLanguage) ||
-                        "Use o Reconhecimento Facial ou informe seu PIN."
+                        "Digite seu PIN para acessar as informações protegidas."
                       : t("pin_modal_sub_create", userLanguage) ||
                         "Crie um PIN de Segurança de 4 dígitos para proteger suas informações.")}
                 </Text>

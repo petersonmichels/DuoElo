@@ -62,8 +62,9 @@ export default function MissionExecutionScreen({
   const slideAnim = useRef(new Animated.Value(0)).current;
   const ringPulseAnim = useRef(new Animated.Value(1)).current;
 
+  // 🟢 PRIORIZA O DISPLAYPHASE PASSADO PELA HOMESCREEN PARA DUALIDADE DO CASAL
   const currentDayOrPhase = Number(
-    mission?.displayPhase || mission?.day || mission?.phase || 1
+    mission?.displayPhase ?? mission?.phase ?? mission?.day ?? 1
   );
   const isGold = Boolean(mission?.isGoldChallenge);
 
@@ -406,10 +407,11 @@ export default function MissionExecutionScreen({
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[styles.missionMainTitle, isGold && { color: "#202D3A" }]}>
-                {mission.title ||
-                  (isGold
-                    ? t("gold_challenge_title_default", userLanguage) || "Desafio de Ouro"
-                    : t("mission_day_title_default", userLanguage, { day: currentDayOrPhase }) || "Missão")}
+                {isGold
+                  ? (mission.title || t("gold_challenge_title_default", userLanguage) || "Desafio de Ouro")
+                  : (mission.title && !mission.title.startsWith("Missão Dia")
+                      ? mission.title
+                      : `Missão Dia ${currentDayOrPhase}`)}
               </Text>
               <Text style={{ fontSize: 13, color: isGold ? "#EAB64A" : "#67D4A8", fontFamily: "Montserrat_700Bold" }}>
                 {isGold

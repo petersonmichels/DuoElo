@@ -1,14 +1,14 @@
-import "react-native-gesture-handler"; // 👈 OBRIGATÓRIO: Deve ser estritamente a primeira linha!
+import "react-native-gesture-handler"; // 👈 OBRIGATÓRIO: Primeira linha
 import "react-native-get-random-values";
 
 import { NavigationContainer } from "@react-navigation/native";
 import * as SplashScreen from "expo-splash-screen";
 import { useCallback, useEffect, useState } from "react";
-import { LogBox, Platform, TouchableOpacity, View } from "react-native";
+import { LogBox, Platform, StatusBar, TouchableOpacity, View } from "react-native";
 import Purchases from "react-native-purchases";
 import { enableScreens } from "react-native-screens";
 
-// 🔥 IMPORTAÇÃO DA TIPOGRAFIA OFICIAL DUOELO
+// 🔥 TIPOGRAFIA OFICIAL DUOELO
 import {
   Montserrat_400Regular,
   Montserrat_600SemiBold,
@@ -17,17 +17,17 @@ import {
   useFonts,
 } from "@expo-google-fonts/montserrat";
 
-import { SplashLogo3D } from "./src/components/SplashLogo3D";
+import { AppSplashScreen } from "./src/components/AppSplashScreen";
 import AppNavigator from "./src/navigation/AppNavigator";
 import { audioService } from "./src/services/AudioService";
 
-// 🚀 ATIVA O SUPORTE A TELAS NATIVAS DE ALTA PERFORMANCE
+// 🚀 DESEMPENHO DE TELAS NATIVAS
 enableScreens(true);
 
-// 🛡️ MANTÉM A SPLASH SCREEN VISÍVEL ATÉ A INICIALIZACAO COMPLETA
+// 🛡️ TRAVA A SPLASH NATIVA ATÉ O CARREGAMENTO COMPLETO
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
-// 🙈 FILTRAGEM ESTRITA DE WARNINGS DE TERCEIROS CONHECIDOS
+// 🙈 FILTRAGEM DE WARNINGS CONHECIDOS
 LogBox.ignoreLogs([
   "You are initializing Firebase Auth for React Native without providing AsyncStorage",
   "@firebase/auth",
@@ -44,12 +44,11 @@ export default function App() {
     Montserrat_900Black,
   });
 
-  // 🔊 INICIALIZAÇÃO DO SERVIÇO DE ÁUDIO E DESATIVAÇÃO DO SOM NATIVO DO ANDROID
+  // 🔊 INICIALIZAÇÃO DE ÁUDIO E DESATIVAÇÃO DO SOM NATIVO DO ANDROID
   useEffect(() => {
     const initAudio = async () => {
       const isSfxActive = await audioService.init();
 
-      // 🛡️ BLOQUEIA O BIPE NATIVO DO ANDROID NOS BOTÕES SE O SFX ESTIVER DESLIGADO
       if (Platform.OS === "android") {
         (TouchableOpacity as any).defaultProps = {
           ...(TouchableOpacity as any).defaultProps,
@@ -63,7 +62,7 @@ export default function App() {
     });
   }, []);
 
-  // 🛡️ TIMEOUT OBRIGATÓRIO PARA FECHAR A SPLASH SCREEN NATIVA (Evita tela travada)
+  // 🛡️ TIMEOUT DE SEGURANÇA PARA A SPLASH SCREEN NATIVA
   useEffect(() => {
     const forceHideSplashTimer = setTimeout(() => {
       SplashScreen.hideAsync().catch(() => {});
@@ -110,7 +109,7 @@ export default function App() {
     };
   }, []);
 
-  // 🎨 LIBERA A SPLASH SCREEN NATIVA E EXIBE A ABERTURA ANIMADA
+  // 🎨 ESCONDE A SPLASH NATIVA ASSIM QUE AS FONTES CARREGAM
   const onLayoutRootView = useCallback(async () => {
     if (fontsLoaded || fontError) {
       try {
@@ -119,7 +118,7 @@ export default function App() {
     }
   }, [fontsLoaded, fontError]);
 
-  // Exibe o Logo Pulsante 3D durante o carregamento
+  // 🟢 EXIBE O NOVO COMPONENTE DE SPLASH COM A COR OFICIAL CLEAN (#F0F4F8)
   if ((!fontsLoaded && !fontError) || !isSplashAnimationDone) {
     return (
       <View
@@ -127,12 +126,13 @@ export default function App() {
           flex: 1,
           justifyContent: "center",
           alignItems: "center",
-          backgroundColor: "#0F0F12",
+          backgroundColor: "#F0F4F8", // 👈 CORRIGIDO PARA O DESIGN SYSTEM CLEAN
         }}
         onLayout={onLayoutRootView}
       >
-        <SplashLogo3D
-          onAnimationComplete={() => setIsSplashAnimationDone(true)}
+        <StatusBar barStyle="dark-content" backgroundColor="#F0F4F8" />
+        <AppSplashScreen
+          onAnimationFinish={() => setIsSplashAnimationDone(true)}
         />
       </View>
     );
@@ -140,9 +140,10 @@ export default function App() {
 
   return (
     <View
-      style={{ flex: 1, backgroundColor: "#0F0F12" }}
+      style={{ flex: 1, backgroundColor: "#F0F4F8" }}
       onLayout={onLayoutRootView}
     >
+      <StatusBar barStyle="dark-content" backgroundColor="#F0F4F8" />
       <NavigationContainer>
         <AppNavigator />
       </NavigationContainer>

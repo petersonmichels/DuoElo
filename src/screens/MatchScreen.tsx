@@ -61,6 +61,9 @@ export default function MatchScreen({ navigation }: any) {
   const [isMatchConfirmationVisible, setIsMatchConfirmationVisible] = useState(false);
   const [showMatchCelebration, setShowMatchCelebration] = useState(false);
 
+  // 🟢 DADOS REAIS DO REMETENTE BUSCADOS EM TEMPO REAL
+  const [senderRealData, setSenderRealData] = useState<any>(null);
+
   // 💚 ANIMAÇÕES DOS AVATARES E CORAÇÃO PULSANTE
   const leftAvatarAnim = useRef(new Animated.Value(-SCREEN_WIDTH * 0.5)).current;
   const rightAvatarAnim = useRef(new Animated.Value(SCREEN_WIDTH * 0.5)).current;
@@ -72,7 +75,7 @@ export default function MatchScreen({ navigation }: any) {
     message: "",
     icon: "info-circle",
     color: "#202D3A",
-    confirmText: "",
+    confirmText: t("btn_understand", userLang) || "Entendido",
     onConfirm: null as (() => void) | null,
     secondaryText: "",
     onSecondary: null as (() => void) | null,
@@ -83,7 +86,7 @@ export default function MatchScreen({ navigation }: any) {
     message: string,
     icon = "info-circle",
     color = "#202D3A",
-    confirmText = "",
+    confirmText?: string,
     onConfirm: (() => void) | null = null,
     secondaryText = "",
     onSecondary: (() => void) | null = null,
@@ -94,7 +97,10 @@ export default function MatchScreen({ navigation }: any) {
       message,
       icon,
       color,
-      confirmText,
+      confirmText:
+        confirmText && confirmText.trim() !== ""
+          ? confirmText
+          : t("btn_understand", userLang) || "Entendido",
       onConfirm,
       secondaryText,
       onSecondary,
@@ -157,6 +163,29 @@ export default function MatchScreen({ navigation }: any) {
 
     return () => unsubscribe();
   }, [currentUid]);
+
+  // 🟢 ESCUTA EM TEMPO REAL OS DADOS DO REMETENTE DO CONVITE
+  useEffect(() => {
+    const senderUid = userData?.pendingMatchRequest?.fromUid;
+    if (senderUid) {
+      const unsubscribeSender = onSnapshot(
+        doc(db, "users", senderUid),
+        (snap) => {
+          if (snap.exists()) {
+            setSenderRealData(snap.data());
+          }
+        },
+        (error) => {
+          if (error.code === "permission-denied") {
+            console.log("[MatchScreen] Listener do remetente encerrado.");
+          }
+        }
+      );
+      return () => unsubscribeSender();
+    } else {
+      setSenderRealData(null);
+    }
+  }, [userData?.pendingMatchRequest?.fromUid]);
 
   // 🎯 RECONCILIAÇÃO DO PLANO DUO
   useEffect(() => {
@@ -258,6 +287,7 @@ export default function MatchScreen({ navigation }: any) {
         t("code_copied_msg", userLang) || "Seu código de convite foi copiado.",
         "copy",
         "#67D4A8",
+        t("btn_understand", userLang) || "Entendido"
       );
     }
   };
@@ -288,12 +318,12 @@ export default function MatchScreen({ navigation }: any) {
           t("whatsapp_error_msg", userLang) || "Não foi possível abrir o WhatsApp.",
           "exclamation-triangle",
           "#EAB64A",
+          t("btn_understand", userLang) || "Entendido"
         );
       }
     }
   };
 
-  // 🛡️ DESVINCULAÇÃO COMPLETA: RESET TOTAL DAS FLAGS DE PLAY E REINÍCIO COMPLETO DO JOGO
   const handleDisconnectPartner = () => {
     Alert.alert(
       t("disconnect_confirm_title", userLang) || "Desfazer Elo e Reiniciar?",
@@ -409,7 +439,8 @@ export default function MatchScreen({ navigation }: any) {
                 t("error_title", userLang) || "Erro",
                 t("disconnect_error_msg", userLang) || "Não foi possível desvincular no momento.",
                 "times-circle",
-                "#D96C6C"
+                "#D96C6C",
+                t("btn_understand", userLang) || "Entendido"
               );
             } finally {
               setIsDisconnecting(false);
@@ -437,21 +468,22 @@ export default function MatchScreen({ navigation }: any) {
         t("invite_canceled_title", userLang) || "Convite Cancelado",
         t("invite_canceled_msg", userLang) || "O convite de conexão enviado foi cancelado.",
         "info-circle",
-        "#EAB64A"
+        "#EAB64A",
+        t("btn_understand", userLang) || "Entendido"
       );
     } catch (e) {
       showCustomAlert(
         t("error_title", userLang) || "Erro",
         t("cancel_invite_error_msg", userLang) || "Não foi possível cancelar o convite.",
         "times-circle",
-        "#D96C6C"
+        "#D96C6C",
+        t("btn_understand", userLang) || "Entendido"
       );
     } finally {
       setIsMatching(false);
     }
   };
 
-  // 🎯 ACEITE DE CONVITE RECALIBRADO PARA PRESERVAR ASSINATURAS E RESETAR O PLAY
   const handleAcceptReceivedInvite = async () => {
     if (!currentUid || !userData?.pendingMatchRequest?.fromUid) return;
     const senderUid = userData.pendingMatchRequest.fromUid;
@@ -530,7 +562,8 @@ export default function MatchScreen({ navigation }: any) {
         t("error_accept_title", userLang) || "Erro ao Aceitar",
         t("error_accept_msg", userLang) || "Falha ao confirmar o vínculo.",
         "times-circle",
-        "#D96C6C"
+        "#D96C6C",
+        t("btn_understand", userLang) || "Entendido"
       );
     } finally {
       setIsMatching(false);
@@ -554,14 +587,16 @@ export default function MatchScreen({ navigation }: any) {
         t("invite_rejected_title", userLang) || "Convite Recusado",
         t("invite_rejected_msg", userLang) || "O convite de conexão foi recusado.",
         "info-circle",
-        "#202D3A"
+        "#202D3A",
+        t("btn_understand", userLang) || "Entendido"
       );
     } catch (e) {
       showCustomAlert(
         t("error_title", userLang) || "Erro",
         t("reject_invite_error_msg", userLang) || "Não foi possível recusar o convite.",
         "times-circle",
-        "#D96C6C"
+        "#D96C6C",
+        t("btn_understand", userLang) || "Entendido"
       );
     } finally {
       setIsMatching(false);
@@ -577,6 +612,7 @@ export default function MatchScreen({ navigation }: any) {
         t("invalid_code_or_username_msg", userLang) || "Digite um código ou nome de usuário válido.",
         "exclamation-triangle",
         "#EAB64A",
+        t("btn_understand", userLang) || "Entendido"
       );
       return;
     }
@@ -607,6 +643,7 @@ export default function MatchScreen({ navigation }: any) {
           t("match_not_found_msg", userLang) || "Nenhum usuário localizado com esses dados.",
           "search-minus",
           "#EAB64A",
+          t("btn_understand", userLang) || "Entendido"
         );
         setIsMatching(false);
         return;
@@ -622,6 +659,7 @@ export default function MatchScreen({ navigation }: any) {
           t("own_code_error_msg", userLang) || "Você não pode conectar com seu próprio código.",
           "ban",
           "#D96C6C",
+          t("btn_understand", userLang) || "Entendido"
         );
         setIsMatching(false);
         return;
@@ -633,6 +671,7 @@ export default function MatchScreen({ navigation }: any) {
           t("user_busy_msg", userLang) || "Esta pessoa já possui um parceiro conectado.",
           "user-lock",
           "#EAB64A",
+          t("btn_understand", userLang) || "Entendido"
         );
         setIsMatching(false);
         return;
@@ -647,6 +686,7 @@ export default function MatchScreen({ navigation }: any) {
         t("search_account_error_msg", userLang) || "Erro ao buscar conta.",
         "times-circle",
         "#D96C6C",
+        t("btn_understand", userLang) || "Entendido"
       );
     } finally {
       setIsMatching(false);
@@ -662,15 +702,30 @@ export default function MatchScreen({ navigation }: any) {
     setIsMatching(true);
 
     try {
-      const myName = userData?.billingFirstName || userData?.displayName || "Seu Amor";
-      const myPhoto = userData?.photoURL || userData?.photoUrl || null;
+      const myName =
+        userData?.billingFirstName && userData?.billingLastName
+          ? `${userData.billingFirstName} ${userData.billingLastName}`
+          : userData?.billingFirstName ||
+            userData?.displayName ||
+            userData?.username ||
+            currentUser.displayName ||
+            "Seu Amor";
+
+      const myPhoto =
+        userData?.photoURL ||
+        userData?.photoUrl ||
+        currentUser.photoURL ||
+        null;
 
       await setDoc(
         doc(db, "users", currentUser.uid),
         {
           sentMatchRequestTo: {
             toUid: pendingMatchPartner.id,
-            toName: pendingMatchPartner.data?.billingFirstName || pendingMatchPartner.data?.displayName || "Seu Amor",
+            toName:
+              pendingMatchPartner.data?.billingFirstName ||
+              pendingMatchPartner.data?.displayName ||
+              "Seu Amor",
             requestedAt: new Date().toISOString(),
           },
         },
@@ -723,7 +778,9 @@ export default function MatchScreen({ navigation }: any) {
         t("invite_sent_title", userLang) || "Convite Enviado! 💌",
         t("invite_sent_msg", userLang) || "Sua solicitação de conexão foi enviada. O vínculo será ativado assim que ela(e) aceitar!",
         "heart",
-        "#67D4A8"
+        "#67D4A8",
+        t("btn_understand", userLang) || "Entendido",
+        () => {}
       );
     } catch (error: any) {
       console.error("[MatchScreen] Erro no Convite:", error);
@@ -731,7 +788,8 @@ export default function MatchScreen({ navigation }: any) {
         t("match_error_title", userLang) || "Erro no Convite",
         t("match_error_msg", userLang) || "Falha ao enviar o convite de conexão.",
         "times-circle",
-        "#D96C6C"
+        "#D96C6C",
+        t("btn_understand", userLang) || "Entendido"
       );
     } finally {
       setIsMatching(false);
@@ -789,12 +847,22 @@ export default function MatchScreen({ navigation }: any) {
           ? `@${pendingMatchPartner.data.username}`
           : t("mysterious_user", userLang));
 
-  const receivedSenderPhoto = isValidPhoto(userData?.pendingMatchRequest?.fromPhoto)
-    ? userData.pendingMatchRequest.fromPhoto
-    : null;
+  // 🟢 NOME E FOTO DO REMETENTE RESOLVIDOS DINAMICAMENTE
+  const receivedSenderPhoto = isValidPhoto(senderRealData?.photoURL)
+    ? senderRealData.photoURL
+    : isValidPhoto(senderRealData?.photoUrl)
+      ? senderRealData.photoUrl
+      : isValidPhoto(userData?.pendingMatchRequest?.fromPhoto)
+        ? userData.pendingMatchRequest.fromPhoto
+        : null;
 
   const receivedSenderName =
-    userData?.pendingMatchRequest?.fromName || "Seu Amor";
+    senderRealData?.billingFirstName && senderRealData?.billingLastName
+      ? `${senderRealData.billingFirstName} ${senderRealData.billingLastName}`
+      : senderRealData?.billingFirstName ||
+        senderRealData?.displayName ||
+        userData?.pendingMatchRequest?.fromName ||
+        "Seu Amor";
 
   const hasPartner = !!userData?.partnerId;
   const hasSentInvite = !!userData?.sentMatchRequestTo;

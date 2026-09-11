@@ -17,7 +17,6 @@ import {
   Animated,
   AppState,
   Dimensions,
-  Image,
   Modal,
   Platform,
   Pressable,
@@ -30,6 +29,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Circle } from "react-native-svg";
 
+import { AppSplashScreen } from "../components/AppSplashScreen";
 import { CustomAlertModal } from "../components/CustomAlertModal";
 import { MasterPasswordModal } from "../components/MasterPasswordModal";
 import { NotificationsModal } from "../components/NotificationsModal";
@@ -237,7 +237,7 @@ export default function HomeScreen({ navigation }: any) {
   const [currentUid, setCurrentUid] = useState<string | null>(null);
   const [userData, setUserData] = useState<any>(null);
   const [partnerData, setPartnerData] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const [weekThemes, setWeekThemes] = useState<any>({});
   const [visibleWeek, setVisibleWeek] = useState(1);
@@ -361,7 +361,6 @@ export default function HomeScreen({ navigation }: any) {
   const currentStep = nextAvailableStep;
   const isJourneyFinished = currentStep >= totalStepsInModule;
 
-  // 🎯 DETECTA SE O PARCEIRO SOFREU DISMATCH E PRECISA DECIDIR (SEGUIR SOLO OU REINICIAR)
   useEffect(() => {
     if (userData?.matchStatus === "partner_disconnected_pending_choice" && currentUid) {
       showCustomAlert(
@@ -403,20 +402,6 @@ export default function HomeScreen({ navigation }: any) {
       );
     }
   }, [userData?.matchStatus, currentUid]);
-
-  useEffect(() => {
-    let isMounted = true;
-    const timer = setTimeout(() => {
-      if (isMounted && loading) {
-        setLoading(false);
-      }
-    }, 1500);
-
-    return () => {
-      isMounted = false;
-      clearTimeout(timer);
-    };
-  }, [loading]);
 
   useEffect(() => {
     if (!currentUid) return;
@@ -475,17 +460,27 @@ export default function HomeScreen({ navigation }: any) {
     return () => unsubscribeAuth();
   }, []);
 
+  // 🟢 BUSCA DO USUÁRIO NO FIRESTORE COM TIMEOUT DE SEGURANÇA QUE NUNCA DEIXA PRESO
   useEffect(() => {
+    let isMounted = true;
+
+    // Timer de segurança de 1.5s para forçar a liberação da Splash se o banco oscilar
+    const forceUnlockTimer = setTimeout(() => {
+      if (isMounted) {
+        setLoading(false);
+      }
+    }, 1500);
+
     if (!currentUid) {
       setUserData(null);
       setPartnerData(null);
       setLoading(false);
-      return;
+      return () => clearTimeout(forceUnlockTimer);
     }
 
     let unsubscribeUser: () => void;
 
-    const timer = setTimeout(() => {
+    try {
       registerForPushNotificationsAsync().then(async (token: string | null) => {
         if (token && auth.currentUser) {
           try {
@@ -501,24 +496,30 @@ export default function HomeScreen({ navigation }: any) {
       unsubscribeUser = onSnapshot(
         doc(db, "users", currentUid),
         (docSnap) => {
-          if (docSnap.exists()) {
-            const data = docSnap.data();
-            setUserData(data);
-            if (data.language) {
-              setUserLang(data.language);
-              scheduleDailyReminder(data.language, 20, 0);
+          if (isMounted) {
+            if (docSnap.exists()) {
+              const data = docSnap.data();
+              setUserData(data);
+              if (data.language) {
+                setUserLang(data.language);
+                scheduleDailyReminder(data.language, 20, 0);
+              }
             }
+            setLoading(false);
           }
-          setLoading(false);
         },
         (error) => {
-          setLoading(false);
+          console.log("[HOME_FIRESTORE_NOTICE]:", error);
+          if (isMounted) setLoading(false);
         }
       );
-    }, 50);
+    } catch (e) {
+      if (isMounted) setLoading(false);
+    }
 
     return () => {
-      clearTimeout(timer);
+      isMounted = false;
+      clearTimeout(forceUnlockTimer);
       if (unsubscribeUser) unsubscribeUser();
     };
   }, [currentUid]);
@@ -648,7 +649,6 @@ export default function HomeScreen({ navigation }: any) {
   const hasPartner = Boolean(userData?.partnerId);
   const isSoloMode = Boolean(userData?.isSoloMode);
 
-  // 🎯 LÓGICA DE PRONTIDÃO RECALIBRADA PARA DISMATCH E MODO SOLO
   const iAmReady = Boolean(
     (hasPartner || isSoloMode) &&
     (userData?.isReadyToStart || userData?.hasPressedPlay)
@@ -664,7 +664,7 @@ export default function HomeScreen({ navigation }: any) {
   const isCoupleReady = hasPartner && partnerCompletedAnamnesis && iAmReady && partnerIsReady;
   const isSoloReady = !hasPartner && isSoloMode && iAmReady;
 
-  const isTrailUnlocked = hasCompletedAnamnesis && isPremium && (isCoupleReady || isSoloReady);
+  const isTrailUnlocked = hasCompletedAnamnesis && (isCoupleReady || isSoloReady);
 
   const getTargetStepIndex = () => {
     return nextAvailableStep;
@@ -704,9 +704,9 @@ export default function HomeScreen({ navigation }: any) {
           setShowFab(false);
           fabVisibleRef.current = false;
         });
-      } else if (attempts < 25) {
+      } else if (attempts < 30) {
         attempts++;
-        setTimeout(performScroll, 80);
+        setTimeout(performScroll, 60);
       }
     };
     performScroll();
@@ -714,8 +714,8 @@ export default function HomeScreen({ navigation }: any) {
 
   useEffect(() => {
     const unsubscribe = navigation.addListener("focus", () => {
-      setTimeout(() => scrollToActiveNode(true), 200);
-      setTimeout(() => scrollToActiveNode(true), 500);
+      setTimeout(() => scrollToActiveNode(true), 150);
+      setTimeout(() => scrollToActiveNode(true), 400);
     });
     return unsubscribe;
   }, [navigation, isTrailUnlocked, nextAvailableStep, userData?.currentPhase]);
@@ -737,7 +737,7 @@ export default function HomeScreen({ navigation }: any) {
     const targetScrollY = getActiveNodeScrollY();
     if (targetScrollY !== null) {
       const distance = Math.abs(offsetY - targetScrollY);
-      const shouldShow = distance > 300;
+      const shouldShow = distance > 250;
 
       if (shouldShow !== fabVisibleRef.current) {
         fabVisibleRef.current = shouldShow;
@@ -835,6 +835,17 @@ export default function HomeScreen({ navigation }: any) {
   ) => {
     triggerHaptic("light");
 
+    if (isCompleted) {
+      if (!isSessionUnlocked()) {
+        setIsReviewMode(true);
+        setPendingMissionStepIndex(stepIndex);
+        setIsMasterPasswordModalVisible(true);
+        return;
+      }
+      await executeMissionFetch(stepIndex, true);
+      return;
+    }
+
     if (!hasCompletedAnamnesis) {
       showCustomAlert(
         t("assessment_pending_title", userLang) || "Diagnóstico Pendente",
@@ -859,9 +870,9 @@ export default function HomeScreen({ navigation }: any) {
     if (!isPremium) {
       showCustomAlert(
         t("sub_required_title", userLang) || "Assinatura Necessária",
-        t("sub_required_msg", userLang) || "Assine para acessar as tarefas da jornada.",
+        t("sub_required_msg", userLang) || "Assine para continuar sua jornada no DuoElo.",
         "lock",
-        "#EAB64A",
+        "#D96C6C",
         t("btn_see_plans", userLang) || "Ver Planos",
         () => navigation.navigate("PaywallScreen"),
         t("btn_not_now", userLang) || "Agora Não",
@@ -872,7 +883,7 @@ export default function HomeScreen({ navigation }: any) {
 
     if (isActuallyLocked) return;
 
-    if (isWaiting && !isCompleted) {
+    if (isWaiting) {
       showCustomAlert(
         t("all_in_good_time_title", userLang) || "Tudo a Seu Tempo",
         t("all_in_good_time_msg", userLang) || "A próxima missão estará disponível amanhã!",
@@ -883,13 +894,13 @@ export default function HomeScreen({ navigation }: any) {
     }
 
     if (!isSessionUnlocked()) {
-      setIsReviewMode(Boolean(isCompleted));
+      setIsReviewMode(false);
       setPendingMissionStepIndex(stepIndex);
       setIsMasterPasswordModalVisible(true);
       return; 
     }
 
-    await executeMissionFetch(stepIndex, isCompleted);
+    await executeMissionFetch(stepIndex, false);
   };
 
   const executeMissionFetch = async (stepIndex: number, isCompleted: boolean) => {
@@ -938,13 +949,24 @@ export default function HomeScreen({ navigation }: any) {
         }
 
         let rawMission: any = pool[selectedIndex] || pool[0];
+        const actualDayNumber = stepIndex + 1;
 
-        let matchedMission = { ...rawMission, displayPhase: stepIndex + 1 };
+        let matchedMission = {
+          ...rawMission,
+          displayPhase: actualDayNumber,
+          phase: actualDayNumber,
+          day: actualDayNumber,
+          title: isSecondary && rawMission.partnerTitle
+            ? rawMission.partnerTitle
+            : rawMission.title || `Missão Dia ${actualDayNumber}`
+        };
 
         if (isSecondary && pool.length === 1 && hasPartner) {
           matchedMission = {
             ...rawMission,
-            displayPhase: stepIndex + 1,
+            displayPhase: actualDayNumber,
+            phase: actualDayNumber,
+            day: actualDayNumber,
             title:
               rawMission.partnerTitle ||
               rawMission.title ||
@@ -981,6 +1003,8 @@ export default function HomeScreen({ navigation }: any) {
   const handleCompleteMission = async (journalText: string = "") => {
     if (!currentUid || !activeMission) return;
 
+    setIsGeneratingJourney(true);
+
     try {
       const targetPhase =
         activeMission.displayPhase ||
@@ -1010,6 +1034,7 @@ export default function HomeScreen({ navigation }: any) {
 
         setIsModalVisible(false);
         setActiveMission(null);
+        setIsGeneratingJourney(false);
 
         triggerHaptic("success");
         showCustomAlert(
@@ -1077,11 +1102,6 @@ export default function HomeScreen({ navigation }: any) {
       }
 
       const earnedPE = activeMission.pointsPE || 50;
-      setIsModalVisible(false);
-      setActiveMission(null);
-
-      const completedDay = nextAvailableStep + 1;
-      const weekCycleProgress = ((completedDay - 1) % 7) + 1;
 
       if (userData?.partnerId) {
         await sendLessonCompletedNotification(
@@ -1092,6 +1112,13 @@ export default function HomeScreen({ navigation }: any) {
         );
       }
 
+      const completedDay = nextAvailableStep + 1;
+      const weekCycleProgress = ((completedDay - 1) % 7) + 1;
+
+      setIsModalVisible(false);
+      setActiveMission(null);
+      setIsGeneratingJourney(false);
+
       triggerHaptic("success");
       navigation.navigate("MissionReward", {
         earnedPE: earnedPE,
@@ -1101,6 +1128,7 @@ export default function HomeScreen({ navigation }: any) {
       });
     } catch (error) {
       console.error("Erro ao salvar conclusão na Home:", error);
+      setIsGeneratingJourney(false);
     }
   };
 
@@ -1204,21 +1232,19 @@ export default function HomeScreen({ navigation }: any) {
   const bannerWeekTheme = getDisplayThemeForWeek(visibleWeek);
   const currentFlag = getLanguageFlag(userLang);
 
-  if (loading) {
+  const isDataChecking = loading || !userData;
+
+  // 🟢 RETORNA A SPLASH SCREEN LIMPA SE O BANCO ESTIVER EM LEITURA
+  if (isDataChecking) {
     return (
-      <SafeAreaView style={[styles.container, styles.loadingSplashContainer]}>
-        <Animated.View style={{ transform: [{ scale: logoPulseAnim }], alignItems: "center" }}>
-          <Image
-            source={require("../../assets/duoelo_brand_logo.png")}
-            style={{ width: 110, height: 110, borderRadius: 25, marginBottom: 20 }}
-            resizeMode="contain"
-          />
-        </Animated.View>
-        <ActivityIndicator size="large" color="#67D4A8" style={{ marginBottom: 12 }} />
-        <Text style={{ fontFamily: "Montserrat_700Bold", color: "#202D3A", fontSize: 16 }}>
-          {t("welcome_loading_msg", userLang) || "Bem-vindo ao DuoElo! Carregando sua jornada..."}
-        </Text>
-      </SafeAreaView>
+      <AppSplashScreen
+        userLanguage={userLang}
+        message={
+          t("verifying_trail_status", userLang) === "verifying_trail_status"
+            ? "Sincronizando sua jornada..."
+            : t("verifying_trail_status", userLang)
+        }
+      />
     );
   }
 
@@ -1501,9 +1527,11 @@ export default function HomeScreen({ navigation }: any) {
             }}
           >
             {Array.from({ length: totalStepsInModule }).map((_, index) => {
-              const isCompleted = isTrailUnlocked ? index < nextAvailableStep : false;
-              const isNextUp = isTrailUnlocked ? index === nextAvailableStep : false;
-              const isLocked = !isTrailUnlocked ? true : index > nextAvailableStep;
+              const isCompleted = index < nextAvailableStep;
+              const isNextUp = index === nextAvailableStep;
+              const isLocked = index > nextAvailableStep;
+
+              const isSubscriptionLocked = isNextUp && !isPremium;
 
               const isWaitingForTomorrow =
                 isNextUp && hasCompletedTaskToday && !bypassDailyLock;
@@ -1542,6 +1570,11 @@ export default function HomeScreen({ navigation }: any) {
                   baseColor = "#4BB890";
                   iconName = "check";
                   iconColor = "#FFF";
+                } else if (isSubscriptionLocked) {
+                  faceColor = "#D96C6C";
+                  baseColor = "#B85454";
+                  iconName = "lock";
+                  iconColor = "#FFF";
                 } else if (isActive) {
                   faceColor = "#EAB64A";
                   baseColor = "#C99632";
@@ -1562,6 +1595,11 @@ export default function HomeScreen({ navigation }: any) {
                   faceColor = "#67D4A8";
                   baseColor = "#4BB890";
                   iconName = "check";
+                  iconColor = "#FFF";
+                } else if (isSubscriptionLocked) {
+                  faceColor = "#D96C6C";
+                  baseColor = "#B85454";
+                  iconName = "play";
                   iconColor = "#FFF";
                 } else if (isActive) {
                   faceColor = "#EAB64A";
@@ -1632,7 +1670,7 @@ export default function HomeScreen({ navigation }: any) {
                         }
                       }}
                     >
-                      {isNextUp && (
+                      {isNextUp && !isSubscriptionLocked && (
                         <Animated.View
                           style={{
                             position: "absolute",
@@ -1667,14 +1705,33 @@ export default function HomeScreen({ navigation }: any) {
                         ]}
                       >
                         <Pressable
-                          onPress={() =>
+                          onPress={() => {
+                            if (isCompleted) {
+                              handleOpenMission(index, false, false, true);
+                              return;
+                            }
+
+                            if (isSubscriptionLocked) {
+                              showCustomAlert(
+                                t("sub_required_title", userLang) || "Assinatura Necessária",
+                                t("sub_required_msg", userLang) || "Assine para continuar sua jornada no DuoElo.",
+                                "lock",
+                                "#D96C6C",
+                                t("btn_see_plans", userLang) || "Ver Planos",
+                                () => navigation.navigate("PaywallScreen"),
+                                t("btn_not_now", userLang) || "Agora Não",
+                                () => {}
+                              );
+                              return;
+                            }
+
                             handleOpenMission(
                               index,
                               isLocked,
                               isWaitingForTomorrow,
-                              isCompleted
-                            )
-                          }
+                              false
+                            );
+                          }}
                           style={({ pressed }: { pressed: boolean }) => [
                             styles.nodeFace,
                             {
@@ -1693,12 +1750,13 @@ export default function HomeScreen({ navigation }: any) {
                               name={iconName}
                               size={iconSize}
                               color={iconColor}
+                              style={iconName === "play" ? { marginLeft: 3 } : {}}
                             />
                           )}
                         </Pressable>
                       </View>
 
-                      {isActive && (
+                      {isActive && !isSubscriptionLocked && (
                         <View
                           style={[
                             styles.floatingHeartsContainer,
@@ -1858,7 +1916,7 @@ export default function HomeScreen({ navigation }: any) {
           style={styles.floatingTargetBtn}
           onPress={() => {
             triggerHaptic("light");
-            scrollToActiveNode(true);
+            executeScrollToTarget(true);
           }}
           activeOpacity={0.8}
         >
@@ -1976,7 +2034,7 @@ const styles = StyleSheet.create({
   loadingSplashContainer: {
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#F0F4F8",
+    backgroundColor: "#202D3A",
   },
   topBar: {
     flexDirection: "row",
