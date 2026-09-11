@@ -25,8 +25,7 @@ interface PlayGuardParams {
 // 🎯 GERAR A MATRIZ DA TRILHA DE 90 DIAS DUAL
 const generateTrailMatrix = async (
   uid: string,
-  partnerId: string | null,
-  isSolo: boolean,
+  partnerId: string,
   userLang: string
 ) => {
   try {
@@ -38,18 +37,16 @@ const generateTrailMatrix = async (
       snap = await getDocs(q);
     }
 
-    let allTasks = snap.docs
+    const allTasks = snap.docs
       .map((d) => d.data())
       .sort((a: any, b: any) => a.day - b.day);
-    let myPersonalTrail: number[] = [];
+    const myPersonalTrail: number[] = [];
 
-    let isSecondaryPartner = false;
-    if (!isSolo && partnerId) {
-      isSecondaryPartner = uid > partnerId;
-    }
+    // O parceiro com UID alfabeticamente maior recebe a ordem alternada
+    const isSecondaryPartner = uid > partnerId;
 
     for (let i = 0; i < allTasks.length; i += 5) {
-      let chunk = allTasks.slice(i, i + 5).map((t) => t.day);
+      const chunk = allTasks.slice(i, i + 5).map((t) => t.day);
 
       if (isSecondaryPartner && chunk.length > 1) {
         const firstTask = chunk.shift();
@@ -81,32 +78,41 @@ export const executePlayWithGuard = async ({
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
   } catch (e) {
-    // Falha silenciosa para garantir navegabilidade
+    // Falha silenciosa para não travar a navegação
   }
 
   const userId = auth.currentUser?.uid;
   if (!userId) return;
 
-  const isDuoPlan =
-    userData?.planType === "duo" ||
-    userData?.subscriptionCategory === "duo" ||
-    userData?.activeProductId?.includes("_duo_");
-    
-  const isSoloPlan =
-    userData?.planType === "solo" ||
-    userData?.activeProductId?.includes("_solo_");
-
   const hasPartner = Boolean(userData?.partnerId || userData?.hasPartner);
   const partnerUid = userData?.partnerId;
-  const isSoloMode = Boolean(userData?.isSoloMode);
 
-  // 🛡️ TRAVA DE PLANO SOLO PARA O PARCEIRO CONVIDADO
-  if (hasPartner && partnerUid && isSoloPlan) {
+  // 🛡️ 2. TRAVA RÍGIDA: SEM PARCEIRO/MATCH NÃO HÁ PLAY
+  if (!hasPartner || !partnerUid) {
+    showCustomAlert(
+      t("match_required_title", userLang) || "Conexão Necessária",
+      t("match_required_msg", userLang) ||
+        "Você precisa conectar seu amor (Match) para ativar o Play e iniciar a jornada.",
+      "user-plus",
+      "#EAB64A",
+      t("btn_make_match_now", userLang) || "Ir para Área de Match",
+      () => navigation.navigate("MainTabs", { screen: "Match" })
+    );
+    return;
+  }
+
+  try {
+    // 🔍 Busca única dos dados do parceiro no Firestore
     const partnerSnap = await getDoc(doc(db, "users", partnerUid));
     const partnerData = partnerSnap.exists() ? partnerSnap.data() : {};
+
+    // 🛡️ 3. TRAVA DE PLANO SOLO PARA PARCEIRO SEM ASSINATURA ATIVA
+    const isSoloPlan =
+      userData?.planType === "solo" ||
+      userData?.activeProductId?.includes("_solo_");
     const partnerHasActivePremium = Boolean(partnerData?.isPremium);
 
-    if (!partnerHasActivePremium) {
+    if (isSoloPlan && !partnerHasActivePremium) {
       showCustomAlert(
         t("sub_required_title", userLang) || "Assinatura Necessária",
         t("partner_solo_plan_restriction_msg", userLang) ||
@@ -120,138 +126,71 @@ export const executePlayWithGuard = async ({
       );
       return;
     }
-  }
 
-  // 🛡️ CASO 1: PLANO DUO SEM PARCEIRO E SEM MODO SOLO
-  if (isDuoPlan && !hasPartner && !isSoloMode) {
-    showCustomAlert(
-      t("play_mode_title", userLang) || "Conectar ou Jogar Solo?",
-      t("partner_required_msg", userLang) ||
-        "O DuoElo foi feito para ser transformador em casal. Convide seu parceiro agora para sincronizarem as missões, ou continue no modo Solo.",
-      "user-friends",
-      "#EAB64A",
-      t("btn_connect_partner", userLang) || "Conectar Parceiro",
-      () => {
-        navigation.navigate("MainTabs", { screen: "Match" });
+    // 🛡️ 4. INICIALIZAÇÃO DA JORNADA EM DUPLA
+    const myDisplayName =
+      userData?.billingFirstName ||
+      userData?.displayName ||
+      t("user_default_name", userLang) ||
+      "Seu Amor";
+
+    // Gerar as trilhas do casal
+    const myTrail = await generateTrailMatrix(userId, partnerUid, userLang);
+    const partnerTrail = await generateTrailMatrix(partnerUid, userId, userLang);
+
+    // Atualiza o perfil do usuário atual
+    await setDoc(
+      doc(db, "users", userId),
+      {
+        isReadyToStart: true,
+        hasPressedPlay: true,
+        anamnesisLocked: true,
+        myTrail: myTrail,
+        playPressedAt: new Date().toISOString(),
       },
-      t("btn_play_solo", userLang) || "Jogar Solo",
-      async () => {
-        try {
-          const soloTrail = await generateTrailMatrix(userId, null, true, userLang);
-          await setDoc(
-            doc(db, "users", userId),
-            {
-              isSoloMode: true,
-              isReadyToStart: true,
-              hasPressedPlay: true,
-              anamnesisLocked: true,
-              myTrail: soloTrail,
-              playPressedAt: new Date().toISOString(),
-            },
-            { merge: true }
-          );
-          await logAuditEvent(
-            userId,
-            "PLAY_PRESSED",
-            "Modo solo ativado via PlayGuard",
-            userLang
-          );
-        } catch (e) {}
-        navigation.navigate("MainTabs", { screen: "Home" });
-      }
+      { merge: true }
     );
-    return;
-  }
 
-  // 🛡️ CASO 2: TEM PARCEIRO CONECTADO -> GERAR TRILHA E DISPARAR NOTIFICAÇÃO (ZERO FRICÇÃO)
-  if (hasPartner && partnerUid) {
+    // Sincroniza e libera a conta do parceiro
     try {
-      const partnerSnap = await getDoc(doc(db, "users", partnerUid));
-      const partnerData = partnerSnap.exists() ? partnerSnap.data() : {};
-
-      const myDisplayName =
-        userData?.billingFirstName ||
-        userData?.displayName ||
-        t("user_default_name", userLang) ||
-        "Seu Amor";
-
-      // Gerar as trilhas do casal imediatamente
-      const myTrail = await generateTrailMatrix(userId, partnerUid, false, userLang);
-      const partnerTrail = await generateTrailMatrix(partnerUid, userId, false, userLang);
-
-      // Atualiza o perfil do usuário atual
       await setDoc(
-        doc(db, "users", userId),
+        doc(db, "users", partnerUid),
         {
           isReadyToStart: true,
           hasPressedPlay: true,
           anamnesisLocked: true,
-          myTrail: myTrail,
+          myTrail: partnerTrail,
           playPressedAt: new Date().toISOString(),
         },
         { merge: true }
       );
+    } catch (partnerErr) {
+      console.log("[usePlayGuard] Sincronização do parceiro pendente via reconciliação.");
+    }
 
-      // Sincroniza e libera também a conta do parceiro
-      try {
-        await setDoc(
-          doc(db, "users", partnerUid),
-          {
-            isReadyToStart: true,
-            hasPressedPlay: true,
-            anamnesisLocked: true,
-            myTrail: partnerTrail,
-            playPressedAt: new Date().toISOString(),
-          },
-          { merge: true }
-        );
-      } catch (partnerErr) {
-        console.log("[usePlayGuard] Atualização da trilha do parceiro pendente via reconciliação.");
-      }
-
-      // 🔔 DISPARO DE NOTIFICAÇÃO PUSH E REGISTRO NO BANCO DO PARCEIRO
-      try {
+    // 🔔 DISPARO DE NOTIFICAÇÃO PUSH
+    try {
+      if (partnerData?.pushToken) {
         await sendPlayTriggeredNotification(
-          partnerData?.pushToken || "",
+          partnerData.pushToken,
           partnerUid,
           myDisplayName,
           userLang
         );
-      } catch (notifErr) {
-        console.warn("[usePlayGuard] Erro ao enviar notificação de Play:", notifErr);
       }
-
-      await logAuditEvent(
-        userId,
-        "PLAY_PRESSED",
-        "Jornada iniciada diretamente! Notificação enviada ao parceiro.",
-        userLang
-      );
-
-      navigation.navigate("MainTabs", { screen: "Home" });
-      return;
-    } catch (error) {
-      console.error("[usePlayGuard] Erro ao validar início do casal:", error);
+    } catch (notifErr) {
+      console.warn("[usePlayGuard] Erro ao enviar notificação de Play:", notifErr);
     }
-  }
 
-  // 🛡️ CASO 3: MODO SOLO INDIVIDUAL
-  if (isSoloMode) {
-    try {
-      const soloTrail = await generateTrailMatrix(userId, null, true, userLang);
-      await setDoc(
-        doc(db, "users", userId),
-        {
-          isReadyToStart: true,
-          hasPressedPlay: true,
-          anamnesisLocked: true,
-          myTrail: soloTrail,
-          playPressedAt: new Date().toISOString(),
-        },
-        { merge: true }
-      );
-    } catch (e) {}
-  }
+    await logAuditEvent(
+      userId,
+      "PLAY_PRESSED",
+      "Jornada iniciada diretamente em dupla.",
+      userLang
+    );
 
-  navigation.navigate("MainTabs", { screen: "Home" });
+    navigation.navigate("MainTabs", { screen: "Home" });
+  } catch (error) {
+    console.error("[usePlayGuard] Erro ao processar o Play:", error);
+  }
 };

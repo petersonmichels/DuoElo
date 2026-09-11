@@ -239,7 +239,6 @@ export default function VidaScreen({ navigation }: any) {
   const isSoloMode = !!userData?.isSoloMode;
   const pendingMatchRequest = userData?.pendingMatchRequest;
 
-  // 🎯 VERIFICAÇÃO ROBUSTA DE DADOS PESSOAIS COMPLETOS
   const hasName = Boolean(
     (userData?.billingFirstName && userData.billingFirstName.trim().length > 0) ||
     (userData?.firstName && userData.firstName.trim().length > 0) ||
@@ -253,7 +252,6 @@ export default function VidaScreen({ navigation }: any) {
 
   const hasCompleteProfileData = hasName && hasPhone;
 
-  // 🎯 VERIFICA SE A BÚSSOLA/ANAMNESE FOI CONCLUÍDA OU BLOQUEADA
   const isAnamnesisCompleted = Boolean(
     userData?.hasCompletedAnamnesis || userData?.anamneseCompleted || userData?.anamnesisLocked
   );
@@ -282,7 +280,6 @@ export default function VidaScreen({ navigation }: any) {
   const userBonds = userData?.totalPE || userData?.pointsPE || 0;
   const partnerName = partnerData?.displayName || partnerData?.billingFirstName || t("partner_default_name", userLang) || "Seu Amor";
 
-  // 1. Mostrar o Card para Eu entregar um Presente
   const hasGiftToDeliver = Object.entries(myPurchases || {}).some(
     ([_, purchase]: [string, any]) => {
       const isBought = purchase?.status === "bought";
@@ -290,7 +287,6 @@ export default function VidaScreen({ navigation }: any) {
     }
   );
 
-  // 2. Mostrar o Card para Eu Confirmar que Recebi
   const hasGiftToConfirm = Object.entries(partnerPurchases || {}).some(
     ([weekNum, purchase]: [string, any]) => {
       const isDelivered = purchase?.status === "delivered";

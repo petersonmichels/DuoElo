@@ -57,76 +57,80 @@ const PulsingVidaIcon = ({ color, uid }: { color: string; uid: string | undefine
         if (!auth.currentUser) return;
         if (snap.exists()) {
           const data = snap.data();
-          const partnerUid = data.partnerId;
+          const partnerUid = data?.partnerId;
 
-          const noPhoto = !data.photoURL && !data.photoUrl;
-          const noPartner = !partnerUid && !data.isSoloMode;
+          const noPhoto = !data?.photoURL && !data?.photoUrl;
+          const noPartner = !partnerUid && !data?.isSoloMode;
 
-          const hasName = !!(data.billingFirstName || data.firstName || data.displayName);
-          const hasPhone = !!(data.billingPhone || data.phone || data.phoneNumber);
+          const hasName = !!(data?.billingFirstName || data?.firstName || data?.displayName);
+          const hasPhone = !!(data?.billingPhone || data?.phone || data?.phoneNumber);
           const hasCompleteProfileData = hasName && hasPhone;
 
           const isJourneyStarted =
-            !!data.isSoloMode ||
-            !!data.isJourneyStarted ||
-            !!data.anamneseCompleted ||
-            !!data.anamneseSkipped ||
-            !!data.lastTaskDate ||
-            (data.currentPhase && data.currentPhase > 0);
+            !!data?.isSoloMode ||
+            !!data?.isJourneyStarted ||
+            !!data?.anamneseCompleted ||
+            !!data?.anamneseSkipped ||
+            !!data?.lastTaskDate ||
+            (data?.currentPhase && data.currentPhase > 0);
 
           const isMissionDoneToday =
-            data.lastTaskDate === todayStr ||
-            data.isDailyTaskCompleted === true ||
-            data.dailyTaskDone === true ||
-            data.isTaskPending === false;
+            data?.lastTaskDate === todayStr ||
+            data?.isDailyTaskCompleted === true ||
+            data?.dailyTaskDone === true ||
+            data?.isTaskPending === false;
 
           const habitsNotDone =
-            data.habitsCompletedDate !== todayStr ||
-            (data.completedHabitsToday || []).length === 0;
+            data?.habitsCompletedDate !== todayStr ||
+            (data?.completedHabitsToday || []).length === 0;
 
           if (unSubRedemptions) unSubRedemptions();
           if (unSubDesires) unSubDesires();
 
-          unSubRedemptions = onSnapshot(
-            doc(db, "users", uid, "shop", "redemptions"),
-            (redemptionSnap) => {
-              if (!auth.currentUser) return;
-              const myPurchases = redemptionSnap.exists() ? redemptionSnap.data() : {};
-              const hasGiftToDeliver = Object.entries(myPurchases).some(
-                ([_, value]: [string, any]) => value?.status === "bought"
-              );
+          try {
+            unSubRedemptions = onSnapshot(
+              doc(db, "users", uid, "shop", "redemptions"),
+              (redemptionSnap) => {
+                if (!auth.currentUser) return;
+                const myPurchases = redemptionSnap.exists() ? redemptionSnap.data() : {};
+                const hasGiftToDeliver = Object.entries(myPurchases).some(
+                  ([_, value]: [string, any]) => value?.status === "bought"
+                );
 
-              unSubDesires = onSnapshot(
-                doc(db, "users", uid, "shop", "desires"),
-                (desiresSnap) => {
-                  if (!auth.currentUser) return;
-                  const currentPhase = data.currentPhase || 1;
-                  const currentWeek = Math.min(13, Math.floor((currentPhase - 1) / 7) + 1);
-                  const myDesires = desiresSnap.exists() ? desiresSnap.data().list || {} : {};
-                  const hasSelectedMyCurrentWeekGift = !!myDesires[currentWeek];
+                try {
+                  unSubDesires = onSnapshot(
+                    doc(db, "users", uid, "shop", "desires"),
+                    (desiresSnap) => {
+                      if (!auth.currentUser) return;
+                      const currentPhase = data?.currentPhase || 1;
+                      const currentWeek = Math.min(13, Math.floor((currentPhase - 1) / 7) + 1);
+                      const myDesires = desiresSnap.exists() ? desiresSnap.data().list || {} : {};
+                      const hasSelectedMyCurrentWeekGift = !!myDesires[currentWeek];
 
-                  setHasPending(
-                    noPhoto ||
-                    !hasCompleteProfileData ||
-                    noPartner ||
-                    !isJourneyStarted ||
-                    !isMissionDoneToday ||
-                    !hasSelectedMyCurrentWeekGift ||
-                    hasGiftToDeliver ||
-                    habitsNotDone
+                      setHasPending(
+                        noPhoto ||
+                        !hasCompleteProfileData ||
+                        noPartner ||
+                        !isJourneyStarted ||
+                        !isMissionDoneToday ||
+                        !hasSelectedMyCurrentWeekGift ||
+                        hasGiftToDeliver ||
+                        habitsNotDone
+                      );
+                    },
+                    (err) => {
+                      if (err.code === "permission-denied")
+                        console.log("[AppNavigator] Listener de desejos encerrado.");
+                    }
                   );
-                },
-                (err) => {
-                  if (err.code === "permission-denied")
-                    console.log("[AppNavigator] Listener de desejos encerrado.");
-                }
-              );
-            },
-            (err) => {
-              if (err.code === "permission-denied")
-                console.log("[AppNavigator] Listener de compras encerrado.");
-            }
-          );
+                } catch (e) {}
+              },
+              (err) => {
+                if (err.code === "permission-denied")
+                  console.log("[AppNavigator] Listener de compras encerrado.");
+              }
+            );
+          } catch (e) {}
         }
       },
       (err) => {
@@ -184,20 +188,22 @@ function ShopScreenWrapper(props: any) {
     let unsubscribeUser: () => void;
 
     const timer = setTimeout(() => {
-      unsubscribeUser = onSnapshot(
-        doc(db, "users", currentUid),
-        (docSnap) => {
-          if (!auth.currentUser) return;
-          if (docSnap.exists()) {
-            setUserData(docSnap.data());
+      try {
+        unsubscribeUser = onSnapshot(
+          doc(db, "users", currentUid),
+          (docSnap) => {
+            if (!auth.currentUser) return;
+            if (docSnap.exists()) {
+              setUserData(docSnap.data());
+            }
+          },
+          (err) => {
+            if (err.code === "permission-denied")
+              console.log("[AppNavigator] Listener Wrapper encerrado.");
           }
-        },
-        (err) => {
-          if (err.code === "permission-denied")
-            console.log("[AppNavigator] Listener Wrapper encerrado.");
-        }
-      );
-    }, 50);
+        );
+      } catch (e) {}
+    }, 100);
 
     return () => {
       clearTimeout(timer);
@@ -213,20 +219,22 @@ function ShopScreenWrapper(props: any) {
     let unsubscribePartner: () => void;
 
     const timer = setTimeout(() => {
-      unsubscribePartner = onSnapshot(
-        doc(db, "users", userData.partnerId),
-        (docSnap) => {
-          if (!auth.currentUser) return;
-          if (docSnap.exists()) {
-            setPartnerData(docSnap.data());
+      try {
+        unsubscribePartner = onSnapshot(
+          doc(db, "users", userData.partnerId),
+          (docSnap) => {
+            if (!auth.currentUser) return;
+            if (docSnap.exists()) {
+              setPartnerData(docSnap.data());
+            }
+          },
+          (err) => {
+            if (err.code === "permission-denied")
+              console.log("[AppNavigator] Listener Parceiro Wrapper encerrado.");
           }
-        },
-        (err) => {
-          if (err.code === "permission-denied")
-            console.log("[AppNavigator] Listener Parceiro Wrapper encerrado.");
-        }
-      );
-    }, 50);
+        );
+      } catch (e) {}
+    }, 100);
 
     return () => {
       clearTimeout(timer);
@@ -249,24 +257,26 @@ function MainTabs() {
     let unsubscribe: () => void;
 
     const timer = setTimeout(() => {
-      unsubscribe = onSnapshot(
-        doc(db, "users", currentUid),
-        (docSnap) => {
-          if (!auth.currentUser) return;
-          if (docSnap.exists()) {
-            const data = docSnap.data();
-            setUserData(data);
-            if (data?.language) {
-              setUserLang(data.language);
+      try {
+        unsubscribe = onSnapshot(
+          doc(db, "users", currentUid),
+          (docSnap) => {
+            if (!auth.currentUser) return;
+            if (docSnap.exists()) {
+              const data = docSnap.data();
+              setUserData(data);
+              if (data?.language) {
+                setUserLang(data.language);
+              }
             }
+          },
+          (err) => {
+            if (err.code === "permission-denied")
+              console.log("[AppNavigator] Listener Idioma encerrado.");
           }
-        },
-        (err) => {
-          if (err.code === "permission-denied")
-            console.log("[AppNavigator] Listener Idioma encerrado.");
-        }
-      );
-    }, 50);
+        );
+      } catch (e) {}
+    }, 100);
 
     return () => {
       clearTimeout(timer);
@@ -420,7 +430,6 @@ export default function AppNavigator() {
     };
   }, []);
 
-  // 🟢 UTILIZA A SPLASH SCREEN OFICIAL DO DESIGN SYSTEM
   if (loading) {
     return <AppSplashScreen />;
   }

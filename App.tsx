@@ -1,10 +1,11 @@
 import "react-native-gesture-handler"; // 👈 OBRIGATÓRIO: Primeira linha
 import "react-native-get-random-values";
 
+import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import { NavigationContainer } from "@react-navigation/native";
 import * as SplashScreen from "expo-splash-screen";
 import { useCallback, useEffect, useState } from "react";
-import { LogBox, Platform, StatusBar, TouchableOpacity, View } from "react-native";
+import { LogBox, Platform, StatusBar, View } from "react-native";
 import Purchases from "react-native-purchases";
 import { enableScreens } from "react-native-screens";
 
@@ -44,17 +45,25 @@ export default function App() {
     Montserrat_900Black,
   });
 
-  // 🔊 INICIALIZAÇÃO DE ÁUDIO E DESATIVAÇÃO DO SOM NATIVO DO ANDROID
+  // 🌐 INICIALIZAÇÃO SEGURA DO GOOGLE SIGN-IN PARA EVITAR CRASH AO CLICAR NO BOTÃO
+  useEffect(() => {
+    try {
+      GoogleSignin.configure({
+        webClientId:
+          process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ||
+          "504286284116-akoj0ufb3q6rrfb2b3gpskbjaatgeqle.apps.googleusercontent.apps.googleusercontent.com",
+        offlineAccess: true,
+        forceCodeForRefreshToken: true,
+      });
+    } catch (googleErr) {
+      console.warn("[GOOGLE_SIGNIN_INIT_WARN] Falha ao configurar Google Sign-In:", googleErr);
+    }
+  }, []);
+
+  // 🔊 INICIALIZAÇÃO DE ÁUDIO
   useEffect(() => {
     const initAudio = async () => {
-      const isSfxActive = await audioService.init();
-
-      if (Platform.OS === "android") {
-        (TouchableOpacity as any).defaultProps = {
-          ...(TouchableOpacity as any).defaultProps,
-          soundEnabled: isSfxActive,
-        };
-      }
+      await audioService.init();
     };
 
     initAudio().catch((err) => {
@@ -118,7 +127,7 @@ export default function App() {
     }
   }, [fontsLoaded, fontError]);
 
-  // 🟢 EXIBE O NOVO COMPONENTE DE SPLASH COM A COR OFICIAL CLEAN (#F0F4F8)
+  // 🟢 EXIBE O COMPONENTE DE SPLASH CLEAN (#F0F4F8)
   if ((!fontsLoaded && !fontError) || !isSplashAnimationDone) {
     return (
       <View
@@ -126,7 +135,7 @@ export default function App() {
           flex: 1,
           justifyContent: "center",
           alignItems: "center",
-          backgroundColor: "#F0F4F8", // 👈 CORRIGIDO PARA O DESIGN SYSTEM CLEAN
+          backgroundColor: "#F0F4F8",
         }}
         onLayout={onLayoutRootView}
       >

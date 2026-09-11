@@ -361,7 +361,7 @@ export default function HomeScreen({ navigation }: any) {
   const currentStep = nextAvailableStep;
   const isJourneyFinished = currentStep >= totalStepsInModule;
 
-  // 🛡️ TRATAMENTO DE DISMATCH / CONTA EXCLUÍDA PELO PARCEIRO (ERRO 5)
+  // 🛡️ TRATAMENTO DE DISMATCH / CONTA EXCLUÍDA PELO PARCEIRO
   useEffect(() => {
     if (userData?.matchStatus === "partner_disconnected_pending_choice" && currentUid) {
       showCustomAlert(
@@ -758,10 +758,9 @@ export default function HomeScreen({ navigation }: any) {
     t("partner_default_name", userLang) ||
     "Seu Amor";
 
-  // 🟢 ERRO 6: DISPARO DO PLAY RESTRITO À ANAMNESE E MATCH CONCLUÍDOS
+  // 🟢 DISPARO DO PLAY RESTRITO À ANAMNESE E MATCH/SOLO CONCLUÍDOS
   const handlePolitePlayTrigger = () => {
     triggerHaptic("medium");
-
     audioService.play("match");
 
     if (!hasCompletedAnamnesis) {
@@ -779,10 +778,10 @@ export default function HomeScreen({ navigation }: any) {
     if (!isMatchOrSoloDone) {
       showCustomAlert(
         t("match_required_title", userLang) || "Conexão Necessária",
-        t("match_required_msg", userLang) || "Conecte seu amor (Match) ou selecione o modo Solo para liberar o Play.",
+        t("match_required_msg", userLang) || "Conecte seu amor (Match) ou selecione o modo Solo na Área do Match para liberar o Play.",
         "user-plus",
         "#EAB64A",
-        t("btn_make_match_now", userLang) || "Fazer Match Agora",
+        t("btn_make_match_now", userLang) || "Ir para Área de Match",
         () => navigation.navigate("Match")
       );
       return;
@@ -983,7 +982,6 @@ export default function HomeScreen({ navigation }: any) {
     }
   };
 
-  // 🟢 ERRO 2: CONCLUSÃO DA MISSAO E INCREMENTO SINCRONIZADO DO DIA 1 -> DIA 2
   const handleCompleteMission = async (journalText: string = "") => {
     if (!currentUid || !activeMission) return;
 
@@ -1437,7 +1435,7 @@ export default function HomeScreen({ navigation }: any) {
 
           <View style={styles.trailConnector} />
 
-          {/* NÓ 3: DAR O PLAY (DESABILITADO/RESTRITO ATÉ ANAMNESE E MATCH/SOLO) */}
+          {/* NÓ 3: DAR O PLAY (RESTRITO ATÉ ANAMNESE E MATCH/SOLO CONCLUÍDOS) */}
           <View
             style={styles.specialNodeContainer}
             onLayout={(e) => {

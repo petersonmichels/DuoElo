@@ -126,7 +126,6 @@ export default function ShopScreen({ userData, partnerData, navigation, route }:
   const hasSentInvite = !!userData?.sentMatchRequestTo;
   const hasReceivedInvite = !!userData?.pendingMatchRequest;
 
-  // 🎯 REDIRECIONAMENTO DE ABA VIA NAVEGAÇÃO (route.params)
   useEffect(() => {
     const initialTab = route?.params?.initialTab;
     if (initialTab === "my" || initialTab === "partner") {

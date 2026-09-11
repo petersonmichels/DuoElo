@@ -7,18 +7,26 @@ module.exports = {
     orientation: "portrait",
     icon: "./src/assets/icon.png",
     userInterfaceStyle: "light",
-    
+
+    // 🟢 HABILITADO PARA EAS UPDATE (OTA)
+    updates: {
+      url: "https://u.expo.dev/b6c6d761-02e8-4028-a22d-4bbc774023d6",
+    },
+    runtimeVersion: {
+      policy: "appVersion",
+    },
+
     // 🎨 Ajustes de UI/Design para Android
     androidNavigationBar: {
       barStyle: "dark-content",
       backgroundColor: "#F0F4F8",
     },
-    
+
     ios: {
       supportsTablet: true,
       usesAppleSignIn: true,
       bundleIdentifier: "lu.barnx.duoelo",
-      buildNumber: "18",
+      buildNumber: "19", // 👈 Atualizado para sincronizar com a Build 19
       googleServicesFile:
         process.env.GOOGLE_SERVICES_INFO_PLIST || "./GoogleService-Info.plist",
       infoPlist: {
@@ -41,14 +49,14 @@ module.exports = {
           {
             CFBundleURLSchemes: [
               "com.googleusercontent.apps.504286284116-akoj0ufb3q6rrfb2b3gpskbjaatgeqle",
-              "duoelo"
+              "duoelo",
             ],
           },
         ],
       },
     },
     android: {
-      versionCode: 18,
+      versionCode: 19, // 👈 Atualizado para 19
       package: "lu.barnx.duoelo",
       googleServicesFile:
         process.env.GOOGLE_SERVICES_JSON || "./google-services.json",
@@ -78,8 +86,9 @@ module.exports = {
       [
         "@react-native-google-signin/google-signin",
         {
-          iosUrlScheme: "com.googleusercontent.apps.504286284116-akoj0ufb3q6rrfb2b3gpskbjaatgeqle"
-        }
+          iosUrlScheme:
+            "com.googleusercontent.apps.504286284116-akoj0ufb3q6rrfb2b3gpskbjaatgeqle",
+        },
       ],
       [
         "expo-notifications",

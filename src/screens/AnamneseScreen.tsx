@@ -357,7 +357,6 @@ export default function AnamneseScreen({ navigation, route }: any) {
               doc(db, "users", userId),
               {
                 hasCompletedAnamnesis: true,
-                isSoloMode: false,
                 profileType: "standard_default",
                 anamnesisSkippedAt: new Date().toISOString(),
               },
@@ -601,7 +600,6 @@ export default function AnamneseScreen({ navigation, route }: any) {
     setTimeout(() => {
       setScreenState("result");
 
-      // 🔊 ERRO 7: TOCA O SOM DE FORMA SEGURA SEM CORTAR
       try {
         if (audioService.getSfxEnabled()) {
           audioService.play("success");
@@ -1050,7 +1048,6 @@ export default function AnamneseScreen({ navigation, route }: any) {
     );
   };
 
-  // 🟢 ERRO 8: RENDERIZAÇÃO REFORMULADA DA TELA DE RESULTADO PÓS-ANAMNESE
   const renderResult = () => {
     let resultTitle = "";
     let resultDesc = "";
@@ -1130,7 +1127,6 @@ export default function AnamneseScreen({ navigation, route }: any) {
           </Text>
         </View>
 
-        {/* 🎯 CENÁRIO A: USUÁRIO COM MATCH CONCLUÍDO E ASSINATURA ATIVA -> BOTAO PLAY DIRETO */}
         {isPremium && (
           <View style={styles.impulseBuyBox}>
             <Text style={styles.impulseBuyPriceText}>
@@ -1156,10 +1152,8 @@ export default function AnamneseScreen({ navigation, route }: any) {
           </View>
         )}
 
-        {/* 🎯 CENÁRIO B: USUÁRIO SEM ASSINATURA (SEJA COM OU SEM MATCH) */}
         {!isPremium && (
           <View style={styles.impulseBuyBox}>
-            {/* INFORMATIVO DE ALÍVIO SE O PARCEIRO JÁ ASSINOU */}
             {!hasPartnerConnected && (
               <View style={styles.partnerInfoNote}>
                 <FontAwesome5 name="info-circle" size={14} color="#202D3A" />
@@ -1170,7 +1164,6 @@ export default function AnamneseScreen({ navigation, route }: any) {
               </View>
             )}
 
-            {/* BOTÃO DE MATCH (SE AINDA NÃO TEM CONECTADO) */}
             {!hasPartnerConnected && (
               <TouchableOpacity
                 style={[styles.paywallBtn, { backgroundColor: "#67D4A8", marginBottom: 12 }]}
@@ -1185,7 +1178,6 @@ export default function AnamneseScreen({ navigation, route }: any) {
               </TouchableOpacity>
             )}
 
-            {/* BOTÃO DE PAYWALL / PLANOS */}
             <TouchableOpacity
               style={[styles.paywallBtn, { backgroundColor: "#EAB64A" }]}
               activeOpacity={0.9}
@@ -1239,7 +1231,6 @@ export default function AnamneseScreen({ navigation, route }: any) {
         </ScrollView>
       )}
 
-      {/* MODAL IDIOMAS */}
       <Modal visible={isLangModalVisible} transparent animationType="fade">
         <TouchableOpacity
           style={styles.modalOverlay}
@@ -1263,7 +1254,6 @@ export default function AnamneseScreen({ navigation, route }: any) {
         </TouchableOpacity>
       </Modal>
 
-      {/* MODAL DE ALERTAS */}
       <CustomAlertModal
         visible={customAlert.visible}
         title={customAlert.title}
