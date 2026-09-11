@@ -26,9 +26,11 @@ module.exports = {
       supportsTablet: true,
       usesAppleSignIn: true,
       bundleIdentifier: "lu.barnx.duoelo",
-      buildNumber: "19", // 👈 Atualizado para sincronizar com a Build 19
+      buildNumber: "19",
+      /* 📌 [RELEASING FOR FINAL BUILD] - Descomentar ao gerar build nativa
       googleServicesFile:
         process.env.GOOGLE_SERVICES_INFO_PLIST || "./GoogleService-Info.plist",
+      */
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
         NSFaceIDUsageDescription:
@@ -48,7 +50,9 @@ module.exports = {
         CFBundleURLTypes: [
           {
             CFBundleURLSchemes: [
+              /* 📌 [RELEASING FOR FINAL BUILD] - Descomentar ao gerar build nativa
               "com.googleusercontent.apps.504286284116-akoj0ufb3q6rrfb2b3gpskbjaatgeqle",
+              */
               "duoelo",
             ],
           },
@@ -56,10 +60,12 @@ module.exports = {
       },
     },
     android: {
-      versionCode: 19, // 👈 Atualizado para 19
+      versionCode: 19,
       package: "lu.barnx.duoelo",
+      /* 📌 [RELEASING FOR FINAL BUILD] - Descomentar ao gerar build nativa
       googleServicesFile:
         process.env.GOOGLE_SERVICES_JSON || "./google-services.json",
+      */
       allowBackup: false,
       statusBar: {
         barStyle: "dark-content",
@@ -83,6 +89,7 @@ module.exports = {
       "expo-asset",
       "expo-image",
       "expo-apple-authentication",
+      /* 📌 [RELEASING FOR FINAL BUILD] - Descomentar para compilar o módulo nativo
       [
         "@react-native-google-signin/google-signin",
         {
@@ -90,6 +97,7 @@ module.exports = {
             "com.googleusercontent.apps.504286284116-akoj0ufb3q6rrfb2b3gpskbjaatgeqle",
         },
       ],
+      */
       [
         "expo-notifications",
         {
