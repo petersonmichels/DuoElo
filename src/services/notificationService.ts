@@ -16,7 +16,6 @@ import { t } from "../i18n/translations";
 const isExpoGo =
   Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
-// Configuração global em primeiro plano
 if (!isExpoGo) {
   try {
     Notifications.setNotificationHandler({
@@ -192,9 +191,9 @@ export async function sendMatchAcceptNotification(
 }
 
 /**
- * ▶️ Notificação quando o parceiro clica em PLAY / Dá o sinal verde
+ * ▶️ Notificação quando o parceiro clica em PLAY / Dá o sinal verde (FIX ERRO 4)
  */
-export async function sendPlayNotificationToPartner(
+export async function sendPlayTriggeredNotification(
   partnerPushToken: string,
   partnerUid: string,
   senderName: string,
@@ -237,8 +236,17 @@ export async function sendPlayNotificationToPartner(
   }
 }
 
+export async function sendPlayNotificationToPartner(
+  partnerPushToken: string,
+  partnerUid: string,
+  senderName: string,
+  userLang: string = "pt-BR"
+): Promise<void> {
+  return sendPlayTriggeredNotification(partnerPushToken, partnerUid, senderName, userLang);
+}
+
 /**
- * ✨ Notificação quando o parceiro CONCLUI a lição do dia
+ * ✨ Notificação quando o parceiro CONCLUI a lição do dia (FIX ERRO 6)
  */
 export async function sendLessonCompletedNotification(
   partnerPushToken: string,
@@ -256,7 +264,7 @@ export async function sendLessonCompletedNotification(
   const pushMessage =
     rawBody && !rawBody.includes("lesson_completed_push_body")
       ? rawBody
-      : `${senderName} acabou de responder a lição do dia. Acesse para ver a resposta!`;
+      : `${senderName} acabou de concluir a lição do dia! Continue sua jornada.`;
 
   await saveNotificationToFirestore(pushTitle, pushMessage, "LESSON_COMPLETED", partnerUid);
 

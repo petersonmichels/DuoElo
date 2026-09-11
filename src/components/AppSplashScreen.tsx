@@ -151,7 +151,8 @@ export default AppSplashScreen;
 
 const styles = StyleSheet.create({
   container: {
-      ...StyleSheet.absoluteFill,    backgroundColor: "#F0F4F8",
+    ...StyleSheet.absoluteFill,    
+    backgroundColor: "#F0F4F8",
     justifyContent: "center",
     alignItems: "center",
     zIndex: 999999,
@@ -215,7 +216,11 @@ const styles = StyleSheet.create({
   loaderFooter: {
     position: "absolute",
     bottom: 60,
+    width: "90%",
+    alignSelf: "center",
     alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 10,
   },
   loadingMessage: {
     fontFamily: "Montserrat_700Bold",
@@ -223,6 +228,9 @@ const styles = StyleSheet.create({
     color: "#202D3A",
     letterSpacing: 0.3,
     marginBottom: 12,
+    textAlign: "center",
+    flexWrap: "wrap",
+    flexShrink: 0,
   },
   trackBar: {
     width: 140,

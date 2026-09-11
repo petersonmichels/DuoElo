@@ -6,12 +6,12 @@ module.exports = {
     version: "1.0.3",
     orientation: "portrait",
     icon: "./src/assets/icon.png",
-    userInterfaceStyle: "light", // 🟢 Alterado de 'dark' para 'light'
+    userInterfaceStyle: "light",
     
     // 🎨 Ajustes de UI/Design para Android
     androidNavigationBar: {
       barStyle: "dark-content",
-      backgroundColor: "#F0F4F8", // 🟢 Cor do fundo limpo
+      backgroundColor: "#F0F4F8",
     },
     
     ios: {
@@ -54,8 +54,8 @@ module.exports = {
         process.env.GOOGLE_SERVICES_JSON || "./google-services.json",
       allowBackup: false,
       statusBar: {
-        barStyle: "dark-content", // 🟢 Ícones escuros na barra de status
-        backgroundColor: "#F0F4F8", // 🟢 Fundo limpo
+        barStyle: "dark-content",
+        backgroundColor: "#F0F4F8",
         translucent: true,
       },
       adaptiveIcon: {
@@ -96,13 +96,12 @@ module.exports = {
             "O DuoElo utiliza o Face ID para desbloquear sua chave mestre e proteger seu Diário do Casal.",
         },
       ],
-      // 🟢 SPLASH SCREEN NATIVA ALINHADA AO DESIGN SYSTEM CLEAN (#F0F4F8)
       [
         "expo-splash-screen",
         {
           image: "./src/assets/icon.png",
           resizeMode: "contain",
-          backgroundColor: "#F0F4F8", // 👈 AGORA A SPLASH NATIVA É CLEAN E SEM BORDA
+          backgroundColor: "#F0F4F8",
         },
       ],
       [

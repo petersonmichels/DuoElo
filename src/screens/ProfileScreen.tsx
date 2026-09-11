@@ -31,7 +31,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import Purchases, { CustomerInfo } from "react-native-purchases";
+import Purchases from "react-native-purchases";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { CustomAlertModal } from "../components/CustomAlertModal";
 import { auth, db } from "../config/firebase";
@@ -187,7 +187,7 @@ export default function ProfileScreen({ navigation }: any) {
     }, [])
   );
 
-  // 🎯 RECONCILIAÇÃO REAL COM O REVENUECAT
+  // 🎯 RECONCILIAÇÃO COM O REVENUECAT SEM GERAR RENDER LOOP
   const syncSubscriptionWithRevenueCat = useCallback(async (currentFirestorePremium: boolean) => {
     const currentUid = auth.currentUser?.uid;
     if (!currentUid || Platform.OS === "web") return;
@@ -206,11 +206,6 @@ export default function ProfileScreen({ navigation }: any) {
           },
           { merge: true }
         );
-        setIsPremiumActive(false);
-      } else if (hasActiveEntitlement) {
-        setIsPremiumActive(true);
-      } else {
-        setIsPremiumActive(false);
       }
     } catch (e) {
       console.log("[PROFILE] Erro ao validar assinatura no RevenueCat:", e);
@@ -224,15 +219,6 @@ export default function ProfileScreen({ navigation }: any) {
     audioService.init().then((sfxState) => {
       setEnableSfx(sfxState);
     });
-
-    const customerInfoListener = (info: CustomerInfo) => {
-      const activeInStore = Object.keys(info.entitlements.active).length > 0;
-      setIsPremiumActive(activeInStore);
-    };
-
-    try {
-      Purchases.addCustomerInfoUpdateListener(customerInfoListener);
-    } catch (e) {}
 
     const appStateSubscription = AppState.addEventListener(
       "change",
@@ -260,11 +246,15 @@ export default function ProfileScreen({ navigation }: any) {
 
           if (data.language) setUserLang(data.language);
 
-          const hasHeritedDuo = Boolean(data.isPremium || data.isPartnerPremium);
-          setIsPremiumActive(hasHeritedDuo);
+          // 🛡️ CÁLCULO ESTÁVEL DO PREMIUM (SOLO VS DUO - ERRO 2 & ERRO 10)
+          const isDirectPremium = Boolean(data.isPremium);
+          const isDuoPartnerPremium = Boolean(
+            data.isPartnerPremium &&
+            (data.partnerPlanType === "duo" || data.partnerPlanType === "duo_annual" || data.partnerPlanType === "duo_monthly")
+          );
 
-          // Dispara validação da loja para expirar caso o sandbox tenha vencido
-          syncSubscriptionWithRevenueCat(Boolean(data.isPremium));
+          const hasActivePremiumAccess = isDirectPremium || isDuoPartnerPremium;
+          setIsPremiumActive(hasActivePremiumAccess);
 
           if (isFirstLoad.current) {
             setFirstName(data.billingFirstName || data.firstName || "");
@@ -298,9 +288,6 @@ export default function ProfileScreen({ navigation }: any) {
     userListenerUnsubscribe.current = unsubscribeUser;
 
     return () => {
-      try {
-        Purchases.removeCustomerInfoUpdateListener(customerInfoListener);
-      } catch (e) {}
       if (userListenerUnsubscribe.current) {
         userListenerUnsubscribe.current();
       }
@@ -882,7 +869,6 @@ export default function ProfileScreen({ navigation }: any) {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* 📸 CABEÇALHO DO PERFIL */}
           <View style={styles.avatarSection}>
             <TouchableOpacity
               style={styles.avatarContainer}
@@ -992,7 +978,6 @@ export default function ProfileScreen({ navigation }: any) {
             </View>
           </View>
 
-          {/* 📝 FORMULÁRIO DE DADOS PESSOAIS */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>{t("personal_data_autosave_title", userLang)}</Text>
             <View style={styles.formCard}>
@@ -1121,7 +1106,6 @@ export default function ProfileScreen({ navigation }: any) {
             </TouchableOpacity>
           </View>
 
-          {/* ⚙️ CONFIGURAÇÕES DA CONTA */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>{t("account_settings_title", userLang)}</Text>
 
@@ -1253,7 +1237,6 @@ export default function ProfileScreen({ navigation }: any) {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* 🌐 MODAL DE SELEÇÃO DE PAÍS COM BUSCA INTEGRADA */}
       <Modal visible={isCountryModalVisible} transparent animationType="slide">
         <TouchableOpacity
           style={styles.bottomSheetOverlay}
@@ -1309,7 +1292,6 @@ export default function ProfileScreen({ navigation }: any) {
         </TouchableOpacity>
       </Modal>
 
-      {/* 🌐 MODAL DE SELEÇÃO DE IDIOMA */}
       <Modal visible={isLangModalVisible} transparent animationType="slide">
         <TouchableOpacity
           style={styles.bottomSheetOverlay}

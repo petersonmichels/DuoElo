@@ -106,6 +106,7 @@ export default function LoginScreen({ navigation }: any) {
         const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
         GoogleSignin.configure({
           webClientId: webClientId || undefined,
+          iosClientId: "504286284116-akoj0ufb3q6rrfb2b3gpskbjaatgeqle.apps.googleusercontent.com",
           offlineAccess: true,
           scopes: ["profile", "email"],
         });
@@ -233,7 +234,6 @@ export default function LoginScreen({ navigation }: any) {
     }
   };
 
-  // 🎯 ROTEAMENTO DE ISCA DE VALOR: SEM ANAMNESE -> VAI DIRETO PARA ANAMNESESCREEN
   const routeUserAfterLogin = async (uid: string) => {
     try {
       const userSnap = await getDoc(doc(db, "users", uid));
@@ -575,9 +575,11 @@ export default function LoginScreen({ navigation }: any) {
     setIsGoogleSigningIn(true);
 
     try {
-      await GoogleSignin.hasPlayServices({
-        showPlayServicesUpdateDialog: true,
-      });
+      if (Platform.OS === "android") {
+        await GoogleSignin.hasPlayServices({
+          showPlayServicesUpdateDialog: true,
+        });
+      }
 
       try {
         await GoogleSignin.signOut();
@@ -657,7 +659,8 @@ export default function LoginScreen({ navigation }: any) {
         error?.code === statusCodes?.SIGN_IN_CANCELLED ||
         error?.code === "12501" ||
         error?.code === "ERR_REQUEST_CANCELED" ||
-        error?.message?.toLowerCase().includes("cancel");
+        error?.message?.toLowerCase().includes("cancel") ||
+        error?.message?.toLowerCase().includes("user canceled");
 
       const isInProgress =
         error?.code === statusCodes?.IN_PROGRESS ||
@@ -1070,7 +1073,6 @@ export default function LoginScreen({ navigation }: any) {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* 🔒 MODAL DE PIN DE SEGURANÇA */}
       <Modal visible={isPinModalVisible} transparent animationType="fade">
         <View style={styles.bottomSheetOverlay}>
           <View style={styles.bottomSheetContainer}>
@@ -1150,7 +1152,6 @@ export default function LoginScreen({ navigation }: any) {
         </View>
       </Modal>
 
-      {/* MODAL DE IDIOMAS */}
       <Modal visible={isLangModalVisible} transparent animationType="fade">
         <TouchableOpacity
           style={styles.modalOverlay}

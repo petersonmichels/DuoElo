@@ -4,6 +4,7 @@ import { auth, db } from "../config/firebase";
 import { t } from "../i18n/translations";
 import { audioService } from "../services/AudioService";
 import { logAuditEvent } from "../services/auditService";
+import { sendPlayTriggeredNotification } from "../services/notificationService";
 
 interface PlayGuardParams {
   userData: any;
@@ -88,10 +89,38 @@ export const executePlayWithGuard = async ({
 
   const isDuoPlan =
     userData?.planType === "duo" ||
-    userData?.subscriptionCategory === "duo";
+    userData?.subscriptionCategory === "duo" ||
+    userData?.activeProductId?.includes("_duo_");
+    
+  const isSoloPlan =
+    userData?.planType === "solo" ||
+    userData?.activeProductId?.includes("_solo_");
+
   const hasPartner = Boolean(userData?.partnerId || userData?.hasPartner);
   const partnerUid = userData?.partnerId;
   const isSoloMode = Boolean(userData?.isSoloMode);
+
+  // 🛡️ ERRO 10: TRAVA DE PLANO SOLO PARA O PARCEIRO CONVIDADO
+  if (hasPartner && partnerUid && isSoloPlan) {
+    const partnerSnap = await getDoc(doc(db, "users", partnerUid));
+    const partnerData = partnerSnap.exists() ? partnerSnap.data() : {};
+    const partnerHasActivePremium = Boolean(partnerData?.isPremium);
+
+    if (!partnerHasActivePremium) {
+      showCustomAlert(
+        t("sub_required_title", userLang) || "Assinatura Necessária",
+        t("partner_solo_plan_restriction_msg", userLang) ||
+          "Seu plano atual é Solo. Para jogar em dupla, seu parceiro(a) também precisa ter um plano ativo ou você pode migrar para o Plano Duo.",
+        "lock",
+        "#D96C6C",
+        t("btn_see_plans", userLang) || "Ver Planos",
+        () => navigation.navigate("PaywallScreen"),
+        t("btn_not_now", userLang) || "Agora Não",
+        () => {}
+      );
+      return;
+    }
+  }
 
   // 🛡️ CASO 1: PLANO DUO SEM PARCEIRO E SEM MODO SOLO
   if (isDuoPlan && !hasPartner && !isSoloMode) {
@@ -137,7 +166,6 @@ export const executePlayWithGuard = async ({
   // 🛡️ CASO 2: TEM PARCEIRO CONECTADO -> APERTO DE MÃO DE CASAL
   if (hasPartner && partnerUid) {
     try {
-      // Checa os dados do parceiro no Firestore
       const partnerSnap = await getDoc(doc(db, "users", partnerUid));
       const partnerData = partnerSnap.exists() ? partnerSnap.data() : {};
 
@@ -145,6 +173,12 @@ export const executePlayWithGuard = async ({
       const partnerIsReady = Boolean(
         partnerData?.isReadyToStart || partnerData?.hasPressedPlay || (partnerData?.currentPhase || 1) > 1
       );
+
+      const myDisplayName =
+        userData?.billingFirstName ||
+        userData?.displayName ||
+        t("user_default_name", userLang) ||
+        "Seu Amor";
 
       const pName =
         partnerData?.billingFirstName ||
@@ -183,7 +217,7 @@ export const executePlayWithGuard = async ({
           { merge: true }
         );
 
-        // Atualiza a conta do parceiro para liberar a trilha dele também
+        // Atualiza a conta do parceiro para liberar a trilha dele
         try {
           await setDoc(
             doc(db, "users", partnerUid),
@@ -198,6 +232,18 @@ export const executePlayWithGuard = async ({
           );
         } catch (partnerErr) {
           console.log("[usePlayGuard] Atualização da trilha do parceiro pendente via reconciliação.");
+        }
+
+        // 🔔 DISPARO DE NOTIFICAÇÃO PUSH E SININHO NO BANCO DO PARCEIRO (ERRO 4)
+        try {
+          await sendPlayTriggeredNotification(
+            partnerData?.pushToken || "",
+            partnerUid,
+            myDisplayName,
+            userLang
+          );
+        } catch (notifErr) {
+          console.warn("[usePlayGuard] Erro ao enviar notificação de Play:", notifErr);
         }
 
         await logAuditEvent(
@@ -221,7 +267,7 @@ export const executePlayWithGuard = async ({
         return;
       }
 
-      // C) PARCEIRO AINDA NÃO DEU O PLAY -> GRAVA MINHA PRONTIDÃO E AVISAR QUE ESTOU AGUARDANDO
+      // C) PARCEIRO AINDA NÃO DEU O PLAY -> GRAVA MINHA PRONTIDÃO E AVISA QUE ESTOU AGUARDANDO
       await setDoc(
         doc(db, "users", userId),
         {
@@ -232,6 +278,18 @@ export const executePlayWithGuard = async ({
         },
         { merge: true }
       );
+
+      // 🔔 DISPARO DE NOTIFICAÇÃO DE ALERTA PARA O PARCEIRO DAR O PLAY (ERRO 4)
+      try {
+        await sendPlayTriggeredNotification(
+          partnerData?.pushToken || "",
+          partnerUid,
+          myDisplayName,
+          userLang
+        );
+      } catch (notifErr) {
+        console.warn("[usePlayGuard] Erro ao enviar notificação de Play pendente:", notifErr);
+      }
 
       await logAuditEvent(
         userId,

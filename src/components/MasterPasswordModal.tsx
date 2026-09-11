@@ -2,7 +2,7 @@ import { FontAwesome5 } from "@expo/vector-icons";
 import * as SecureStore from "expo-secure-store";
 import { signOut } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -50,8 +50,8 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
   const [confirmPinInput, setConfirmPinInput] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const isBiometricRunning = useRef<boolean>(false);
 
-  // 🔔 ESTADO DO ALERT CUSTOMIZADO (Design System DuoElo)
   const [customAlert, setCustomAlert] = useState({
     visible: false,
     title: "",
@@ -87,11 +87,12 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
     });
   };
 
-  // 🎯 DECLARAÇÃO DA BIOMETRIA
   const triggerBiometrics = useCallback(async () => {
+    if (isBiometricRunning.current) return;
+    isBiometricRunning.current = true;
+
     try {
       const res: any = await authenticateWithBiometrics();
-
       const isSuccess = typeof res === "boolean" ? res : Boolean(res?.success);
 
       if (isSuccess) {
@@ -105,9 +106,7 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
               "Acesso ao cofre liberado via Biometria/Rosto",
               userLanguage
             );
-          } catch {
-            // Log de auditoria concluído
-          }
+          } catch {}
         }
         onSuccess("BIOMETRIC_UNLOCKED");
       } else {
@@ -123,6 +122,8 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
         t("biometric_error_msg", userLanguage) ||
           "Não foi possível autenticar com o Rosto/Biometria."
       );
+    } finally {
+      isBiometricRunning.current = false;
     }
   }, [onSuccess, userLanguage]);
 
@@ -137,7 +138,6 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
       const initModal = async () => {
         if (isMounted) setIsCheckingPinStatus(true);
         try {
-          // 🟢 BUSCA DIRETA EM TEMPO REAL NO SECURESTORE E VALIDADA PELO SERVIÇO
           let localPin: string | null = null;
           if (Platform.OS !== "web") {
             localPin = await SecureStore.getItemAsync("user_security_pin");
@@ -146,7 +146,6 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
             }
           }
 
-          // Checagem rigorosa para evitar reset acidental
           const pinExists = Boolean(localPin && localPin.trim().length >= 4);
 
           if (isMounted) {
@@ -158,12 +157,11 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
                 if (isMounted) {
                   triggerBiometrics();
                 }
-              }, 300);
+              }, 350);
             }
           }
         } catch {
           if (isMounted) {
-            // Caso ocorra erro de leitura no SecureStore, mantém o PIN como existente por segurança
             setIsPinCreated(true);
             setIsCheckingPinStatus(false);
           }
@@ -171,6 +169,8 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
       };
 
       initModal();
+    } else {
+      isBiometricRunning.current = false;
     }
 
     return () => {
@@ -212,9 +212,7 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
                 "Acesso ao cofre liberado via PIN de Segurança",
                 userLanguage
               );
-            } catch {
-              // Log de auditoria concluído
-            }
+            } catch {}
           }
           setIsLoading(false);
           onSuccess(pinInput);
@@ -249,9 +247,7 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
               "Senha Mestra / PIN de Segurança cadastrado com sucesso",
               userLanguage
             );
-          } catch {
-            // Log de auditoria concluído
-          }
+          } catch {}
         }
 
         setIsPinCreated(true);
@@ -267,7 +263,6 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
     }
   };
 
-  // 🔴 REDEFINIÇÃO COM EXPURGO COMPLETO (LOCAL E FIRESTORE)
   const handleForgotPin = () => {
     showCustomAlert(
       t("reset_pin_title", userLanguage) || "Redefinir PIN de Segurança",
@@ -287,7 +282,6 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
               userLanguage
             );
 
-            // 🟢 1. LIMPA O HASH DO PIN NO FIRESTORE
             await setDoc(
               doc(db, "users", uid),
               {
@@ -301,7 +295,6 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
           }
         }
 
-        // 🟢 2. LIMPA O SECURESTORE LOCAL
         try {
           await clearSecurityPin();
           if (Platform.OS !== "web") {
@@ -482,7 +475,6 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* 🔔 MODAL DE ALERTA PADRONIZADO DA APLICAÇÃO */}
       <CustomAlertModal
         visible={customAlert.visible}
         title={customAlert.title}

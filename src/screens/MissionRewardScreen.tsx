@@ -141,7 +141,12 @@ export default function MissionRewardScreen({ navigation, route }: any) {
   useEffect(() => {
     let isMounted = true;
 
-    audioService.play("success");
+    // 🟢 ÁUDIO FESTIVO DISPARADO EXCLUSIVAMENTE NA MONTAGEM DA TELA DE CONQUISTA (ERRO 8)
+    setTimeout(() => {
+      if (isMounted) {
+        audioService.play("success");
+      }
+    }, 150);
 
     const fetchUserData = async () => {
       const uid = auth.currentUser?.uid;

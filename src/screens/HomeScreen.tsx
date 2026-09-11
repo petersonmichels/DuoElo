@@ -361,12 +361,13 @@ export default function HomeScreen({ navigation }: any) {
   const currentStep = nextAvailableStep;
   const isJourneyFinished = currentStep >= totalStepsInModule;
 
+  // 🔴 ERRO 9: TRATAMENTO DE DISMATCH / CONTA EXCLUÍDA PELO PARCEIRO
   useEffect(() => {
     if (userData?.matchStatus === "partner_disconnected_pending_choice" && currentUid) {
       showCustomAlert(
         t("dismatch_notice_title", userLang) || "Conexão Desfeita 💔",
         t("dismatch_notice_msg", userLang) ||
-          "Seu relacionamento foi desvinculado pelo seu parceiro(a). Como deseja prosseguir com a sua jornada?",
+          "Seu parceiro(a) desvinculou ou encerrou a conta. Como deseja prosseguir com a sua jornada?",
         "user-shield",
         "#EAB64A",
         t("btn_continue_solo", userLang) || "Continuar Solo (90 dias)",
@@ -460,7 +461,6 @@ export default function HomeScreen({ navigation }: any) {
     return () => unsubscribeAuth();
   }, []);
 
-  // 🟢 BUSCA DO USUÁRIO NO FIRESTORE COM TIMEOUT DE SEGURANÇA QUE DESTRAVA A TELA
   useEffect(() => {
     let isMounted = true;
 
@@ -1233,7 +1233,6 @@ export default function HomeScreen({ navigation }: any) {
 
   const isDataChecking = loading || !userData;
 
-  // 🟢 RETORNA A SPLASH SCREEN LIMPA SE O BANCO ESTIVER EM LEITURA
   if (isDataChecking) {
     return (
       <AppSplashScreen
@@ -1420,7 +1419,7 @@ export default function HomeScreen({ navigation }: any) {
                 if (isMatchOrSoloDone) {
                   showCustomAlert(
                     t("match_completed_title", userLang) || "Match Ativo",
-                    t("match_completed_msg", userLang) || "Sua conexão está established.",
+                    t("match_completed_msg", userLang) || "Sua conexão está estabelecida.",
                     "check-circle",
                     "#67D4A8",
                     t("btn_ok", userLang) || "OK",
@@ -1704,7 +1703,6 @@ export default function HomeScreen({ navigation }: any) {
                         ]}
                       >
                         <Pressable
-                          // 🔴 DESABILITADO SE O PLAY NÃO FOI DADO: Impede clique completamente
                           disabled={!isTrailUnlocked}
                           onPress={() => {
                             if (isCompleted) {
@@ -1944,6 +1942,7 @@ export default function HomeScreen({ navigation }: any) {
         )}
       </Modal>
 
+      {/* 🔒 FIX ERRO 3: ISOLAMENTO DO CALLBACK ONCANCEL */}
       <MasterPasswordModal
         visible={isMasterPasswordModalVisible}
         userLanguage={userLang}

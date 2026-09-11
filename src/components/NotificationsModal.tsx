@@ -8,7 +8,7 @@ import {
   query,
   writeBatch,
 } from "firebase/firestore";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   FlatList,
   Modal,
@@ -34,12 +34,15 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
   userLanguage = "pt-BR",
 }) => {
   const [notifications, setNotifications] = useState<any[]>([]);
+  const hasMarkedReadRef = useRef(false);
 
   useEffect(() => {
     let unsubscribe: (() => void) | null = null;
     const uid = auth.currentUser?.uid;
 
     if (visible && uid) {
+      hasMarkedReadRef.current = false;
+
       const q = query(
         collection(db, "users", uid, "notifications"),
         orderBy("createdAt", "desc"),
@@ -50,16 +53,19 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
         const docs = snapshotDocs.map((d) => ({ id: d.id, ...d.data() }));
         setNotifications(docs);
 
-        // 🎯 Marca as notificações não lidas como lidas de forma assíncrona
-        const unreadDocs = snapshotDocs.filter((d) => !d.data().read);
-        if (unreadDocs.length > 0) {
-          const batch = writeBatch(db);
-          unreadDocs.forEach((d) => {
-            batch.update(doc(db, "users", uid, "notifications", d.id), {
-              read: true,
+        // 🛡️ Executa a gravação de lido apenas UMA vez para evitar re-render em loop
+        if (!hasMarkedReadRef.current) {
+          const unreadDocs = snapshotDocs.filter((d) => !d.data().read);
+          if (unreadDocs.length > 0) {
+            hasMarkedReadRef.current = true;
+            const batch = writeBatch(db);
+            unreadDocs.forEach((d) => {
+              batch.update(doc(db, "users", uid, "notifications", d.id), {
+                read: true,
+              });
             });
-          });
-          batch.commit().catch(() => {});
+            batch.commit().catch(() => {});
+          }
         }
       };
 
@@ -69,7 +75,6 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
           processDocs(snapshot.docs);
         },
         (error: unknown) => {
-          // Fallback seguro caso o índice de ordenação do Firestore não esteja pronto
           const fallbackQuery = query(
             collection(db, "users", uid, "notifications"),
             limit(20)
@@ -91,7 +96,6 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
     onClose();
   };
 
-  // 🎨 MAPEAMENTO COMPLETO DE ÍCONES E CORES POR TIPO DE NOTIFICAÇÃO
   const getNotificationIcon = (type?: string) => {
     switch (type) {
       case "MATCH_INVITE":
@@ -113,7 +117,6 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
     }
   };
 
-  // 📅 FORMATAÇÃO DE DATA E HORA
   const formatDate = (rawDate: any) => {
     if (!rawDate) return "";
     let dateObj: Date;
@@ -217,7 +220,6 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
             />
           )}
 
-          {/* 🔘 BOTÃO 3D GAMIFICADO */}
           <View style={styles.footer}>
             <Button3D
               title={t("modal_close", userLanguage) || "Fechar"}
