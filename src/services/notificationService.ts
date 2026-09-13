@@ -43,9 +43,6 @@ export interface AppNotification {
   senderUid?: string | null;
 }
 
-/**
- * 🟢 Grava a notificação diretamente no Firestore do parceiro de destino.
- */
 export async function saveNotificationToFirestore(
   title: string,
   message: string,
@@ -59,7 +56,6 @@ export async function saveNotificationToFirestore(
     const nowISO = new Date().toISOString();
     const notifRef = collection(db, "users", recipientUid, "notifications");
 
-    // 🟢 Trava de Segurança inteligente: impede envios DUPLICADOS idênticos em menos de 10 segundos
     const dupQuery = query(
       notifRef,
       where("type", "==", type),
@@ -73,7 +69,6 @@ export async function saveNotificationToFirestore(
       if (lastNotif.createdAt && lastNotif.message === message) {
         const diff = new Date(nowISO).getTime() - new Date(lastNotif.createdAt).getTime();
         if (diff < 10000) {
-          // Bloqueia apenas rajadas de cliques idênticos em menos de 10s
           return;
         }
       }
@@ -105,7 +100,6 @@ function isValidExpoPushToken(token?: string): boolean {
   );
 }
 
-// 💌 Convite do Match
 export async function sendMatchNotificationToPartner(
   partnerPushToken: string,
   partnerUid: string,
@@ -135,7 +129,6 @@ export async function sendMatchNotificationToPartner(
   }
 }
 
-// ❤️ Aceite do Match
 export async function sendMatchAcceptNotification(
   partnerPushToken: string,
   partnerUid: string,
@@ -165,7 +158,6 @@ export async function sendMatchAcceptNotification(
   }
 }
 
-// ▶️ Play Acionado
 export async function sendPlayTriggeredNotification(
   partnerPushToken: string,
   partnerUid: string,
@@ -204,7 +196,6 @@ export async function sendPlayNotificationToPartner(
   return sendPlayTriggeredNotification(partnerPushToken, partnerUid, senderName, userLang);
 }
 
-// 🟡 Lição Iniciada / Adiada
 export async function sendLessonStartedNotification(
   partnerPushToken: string,
   partnerUid: string,
@@ -216,8 +207,8 @@ export async function sendLessonStartedNotification(
 
   const rawBody = t("lesson_started_push_body", userLang, { name: senderName });
   const pushMessage = rawBody === "lesson_started_push_body"
-    ? `${senderName} já deu o PLAY e está à sua espera!`
-    : (rawBody || `${senderName} iniciou a lição do dia!`);
+    ? `${senderName} iniciou a tarefa do dia!`
+    : (rawBody || `${senderName} iniciou a tarefa do dia!`);
 
   await saveNotificationToFirestore(pushTitle, pushMessage, "LESSON_STARTED", partnerUid);
 
@@ -239,15 +230,14 @@ export async function sendLessonStartedNotification(
   }
 }
 
-// ✨ Lição Concluída
 export async function sendLessonCompletedNotification(
   partnerPushToken: string,
   partnerUid: string,
   senderName: string,
   userLang: string = "pt-BR"
 ): Promise<void> {
-  const pushTitle = t("lesson_completed_push_title", userLang) || t("lesson_completed_title", userLang);
-  const pushMessage = t("lesson_completed_push_body", userLang, { name: senderName }) || t("lesson_completed_body", userLang, { name: senderName });
+  const pushTitle = t("lesson_completed_push_title", userLang) || t("lesson_completed_title", userLang) || "Tarefa Concluída! 🎉";
+  const pushMessage = t("lesson_completed_push_body", userLang, { name: senderName }) || `${senderName} concluiu a tarefa do dia!`;
 
   await saveNotificationToFirestore(pushTitle, pushMessage, "LESSON_COMPLETED", partnerUid);
 
@@ -269,7 +259,6 @@ export async function sendLessonCompletedNotification(
   }
 }
 
-// 1. 🎁 ETAPA 1: Presente Escolhido
 export async function sendGiftChosenNotification(
   partnerPushToken: string,
   partnerUid: string,
@@ -305,7 +294,6 @@ export async function sendGiftChosenNotification(
   }
 }
 
-// 2. 🛍️ ETAPA 2: Presente Comprado com Bonds
 export async function sendGiftBoughtNotification(
   partnerPushToken: string,
   partnerUid: string,
@@ -341,7 +329,6 @@ export async function sendGiftBoughtNotification(
   }
 }
 
-// 3. 📦 ETAPA 3: Presente Entregue na Vida Real
 export async function sendGiftDeliveredNotification(
   partnerPushToken: string,
   partnerUid: string,
@@ -377,7 +364,6 @@ export async function sendGiftDeliveredNotification(
   }
 }
 
-// 4. ❤️ ETAPA 4: Recebimento Confirmado
 export async function sendGiftConfirmedNotification(
   partnerPushToken: string,
   partnerUid: string,

@@ -1,6 +1,6 @@
 import { FontAwesome5 } from "@expo/vector-icons";
 import { doc, onSnapshot, setDoc } from "firebase/firestore";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
@@ -233,7 +233,7 @@ export default function ShopScreen({ userData, partnerData, navigation, route }:
     };
   }, [partnerUid]);
 
-  // 1. 🎁 ESCOLHER PRESENTE
+  // 1. 🎁 ETAPA 1: ESCOLHER PRESENTE
   const handleSelectGift = async (giftId: string) => {
     if (!currentUid || activeWeekSlot === null) return;
 
@@ -267,7 +267,6 @@ export default function ShopScreen({ userData, partnerData, navigation, route }:
       setActiveWeekSlot(null);
       triggerHaptic("success");
 
-      // 🟢 ETAPA 1: Notifica o parceiro sobre o NOVO DESEJO ESCOLHIDO
       if (partnerUid) {
         try {
           const giftTitle = getGiftTitle(giftId, userLang);
@@ -293,7 +292,7 @@ export default function ShopScreen({ userData, partnerData, navigation, route }:
     }
   };
 
-  // 2. 🛍️ COMPRAR PRESENTE
+  // 2. 🛍️ ETAPA 2: COMPRAR PRESENTE
   const handleBuyGift = async (weekNum: number, giftId: string) => {
     const cost = 150;
 
@@ -350,7 +349,6 @@ export default function ShopScreen({ userData, partnerData, navigation, route }:
 
       const translatedTitle = getGiftTitle(giftId, userLang);
 
-      // 🟢 ETAPA 2: Notifica o parceiro sobre o PRESENTE COMPRADO
       try {
         await sendGiftBoughtNotification(
           partnerData?.pushToken || "",
@@ -381,7 +379,7 @@ export default function ShopScreen({ userData, partnerData, navigation, route }:
     }
   };
 
-  // 3. 📦 MARCAR COMO ENTREGUE
+  // 3. 📦 ETAPA 3: MARCAR COMO ENTREGUE
   const handleMarkDelivered = async (weekNum: number) => {
     if (!currentUid) return;
     try {
@@ -398,7 +396,6 @@ export default function ShopScreen({ userData, partnerData, navigation, route }:
         { merge: true }
       );
 
-      // 🟢 ETAPA 3: Notifica o parceiro de que o presente foi ENTREGUE NA VIDA REAL
       if (partnerUid) {
         try {
           const giftId = existing.giftId || partnerDesires[weekNum] || "";
@@ -431,7 +428,7 @@ export default function ShopScreen({ userData, partnerData, navigation, route }:
     }
   };
 
-  // 4. ❤️ CONFIRMAR RECEBIMENTO
+  // 4. ❤️ ETAPA 4: CONFIRMAR RECEBIMENTO
   const handleConfirmReceived = async (weekNum: number) => {
     if (!currentUid) return;
     try {
@@ -443,7 +440,6 @@ export default function ShopScreen({ userData, partnerData, navigation, route }:
         { merge: true }
       );
 
-      // 🟢 ETAPA 4: Notifica o parceiro de que o RECEBIMENTO FOI CONFIRMADO
       if (partnerUid) {
         try {
           const giftId = partnerPurchases[weekNum]?.giftId || myDesires[weekNum] || "";

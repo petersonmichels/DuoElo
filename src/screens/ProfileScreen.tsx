@@ -12,7 +12,7 @@ import {
   onSnapshot,
   setDoc,
 } from "firebase/firestore";
-import { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -58,20 +58,15 @@ const LANGUAGE_TO_COUNTRY_CODE: Record<string, string> = {
   ja: "JP",
 };
 
-// 🟢 ITEM #08: URLs Oficiais em Português e Inglês
-const TERMS_URL_PT = "https://duoelo.lu/termos";
-const TERMS_URL_EN = "https://duoelo.lu/terms";
-
-const PRIVACY_URL_PT = "https://duoelo.lu/privacidade";
-const PRIVACY_URL_EN = "https://duoelo.lu/privacy";
-
-// Helper dinâmico para selecionar a URL com base no idioma
-const getLocalizedUrl = (urlPt: string, urlEn: string, lang: string) => {
-  const normalizedLang = lang?.toLowerCase() || "pt-br";
-  if (normalizedLang.startsWith("pt")) {
-    return urlPt;
-  }
-  return urlEn;
+// 🟢 Helper dinâmico para selecionar os parâmetros da URL de compliance por idioma
+const getLegalUrlWithLang = (baseUrl: string, userLang: string): string => {
+  const supported = ["pt-BR", "pt-PT", "en", "es", "fr", "de", "ja"];
+  const finalLang = supported.includes(userLang)
+    ? userLang
+    : userLang.startsWith("pt")
+    ? "pt-BR"
+    : "en";
+  return `${baseUrl}?lang=${finalLang}`;
 };
 
 export default function ProfileScreen({ navigation }: any) {
@@ -181,9 +176,7 @@ export default function ProfileScreen({ navigation }: any) {
           try {
             await auth.currentUser.reload();
             setIsEmailVerified(auth.currentUser.emailVerified || false);
-          } catch (e) {
-            console.log("Erro ao recarregar status do usuário", e);
-          }
+          } catch (e) {}
         }
       };
       checkEmailVerification();
@@ -209,9 +202,7 @@ export default function ProfileScreen({ navigation }: any) {
           { merge: true }
         );
       }
-    } catch (e) {
-      console.log("[PROFILE] Erro ao validar assinatura no RevenueCat:", e);
-    }
+    } catch (e) {}
   }, []);
 
   useEffect(() => {
@@ -500,16 +491,14 @@ export default function ProfileScreen({ navigation }: any) {
           { enableSfx: value },
           { merge: true }
         );
-      } catch (e) {
-        console.warn("[ProfileScreen] Erro ao salvar estado de SFX no Firestore:", e);
-      }
+      } catch (e) {}
     }
   };
 
   const handleLogout = () => {
     showCustomAlert(
       t("logout_title", userLang) || "Sair da Conta",
-      t("logout_msg", userLang) || "Deseja encerar sua sessão atual no aplicativo?",
+      t("logout_msg", userLang) || "Deseja encerrar sua sessão atual no aplicativo?",
       "sign-out-alt",
       "#EAB64A",
       t("btn_logout", userLang) || "Sim, Sair",
@@ -526,9 +515,7 @@ export default function ProfileScreen({ navigation }: any) {
           }
           await clearSecurityPin();
           await signOut(auth);
-        } catch (error) {
-          console.error("Erro ao deslogar:", error);
-        }
+        } catch (error) {}
       },
       t("modal_cancel", userLang) || "Cancelar",
       () => {}
@@ -1075,11 +1062,11 @@ export default function ProfileScreen({ navigation }: any) {
               <FontAwesome5 name="chevron-right" size={14} color="#D1D9E0" />
             </TouchableOpacity>
 
-            {/* 🟢 ITEM #08: Link dos Termos de Uso dinâmico por idioma */}
+            {/* 🟢 ITEM #08: Link de Termos ajustado com parâmetro dinâmico ?lang= */}
             <TouchableOpacity
               style={styles.menuOption}
               onPress={() => {
-                const targetUrl = getLocalizedUrl(TERMS_URL_PT, TERMS_URL_EN, userLang);
+                const targetUrl = getLegalUrlWithLang("https://duoelo.lu/termos", userLang);
                 openUrl(targetUrl);
               }}
             >
@@ -1092,11 +1079,11 @@ export default function ProfileScreen({ navigation }: any) {
               <FontAwesome5 name="external-link-alt" size={12} color="#D1D9E0" />
             </TouchableOpacity>
 
-            {/* 🟢 ITEM #08: Link da Política de Privacidade dinâmico por idioma */}
+            {/* 🟢 ITEM #08: Link de Privacidade ajustado com parâmetro dinâmico ?lang= */}
             <TouchableOpacity
               style={styles.menuOption}
               onPress={() => {
-                const targetUrl = getLocalizedUrl(PRIVACY_URL_PT, PRIVACY_URL_EN, userLang);
+                const targetUrl = getLegalUrlWithLang("https://duoelo.lu/privacidade", userLang);
                 openUrl(targetUrl);
               }}
             >

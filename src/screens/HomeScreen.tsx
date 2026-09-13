@@ -42,8 +42,9 @@ import { audioService } from "../services/AudioService";
 import {
   markNotificationAsRead,
   scheduleDailyReminder,
-  sendLessonCompletedNotification,
+  sendPlayTriggeredNotification
 } from "../services/notificationService";
+import { clearUserProgressAndShop } from "../services/resetService";
 import {
   isSessionUnlocked,
   lockSession,
@@ -372,8 +373,9 @@ export default function HomeScreen({ navigation }: any) {
           "Seu parceiro(a) desvinculou ou encerrou a conta. Como deseja prosseguir com a sua jornada?",
         "user-shield",
         "#EAB64A",
-        t("btn_continue_solo", userLang) || "Continuar Solo (90 dias)",
+        t("btn_continue_solo", userLang) || "Continuar Solo (Resetar Trilha)",
         async () => {
+          await clearUserProgressAndShop(currentUid);
           await setDoc(
             doc(db, "users", currentUid),
             {
@@ -385,6 +387,7 @@ export default function HomeScreen({ navigation }: any) {
         },
         t("btn_reset_all", userLang) || "Reiniciar do Zero",
         async () => {
+          await clearUserProgressAndShop(currentUid);
           await setDoc(
             doc(db, "users", currentUid),
             {
@@ -393,16 +396,6 @@ export default function HomeScreen({ navigation }: any) {
               hasCompletedAnamnesis: false,
               anamnesisScore: null,
               priorityModules: [],
-              myTrail: [],
-              currentPhase: 1,
-              currentTaskStep: 0,
-              completedTaskIds: [],
-              lastTaskId: null,
-              lastTaskDate: null,
-              streak: 0,
-              totalPE: 0,
-              isReadyToStart: false,
-              hasPressedPlay: false,
             },
             { merge: true }
           );
@@ -772,7 +765,7 @@ export default function HomeScreen({ navigation }: any) {
     t("partner_default_name", userLang) ||
     "Seu Amor";
 
-  const handlePolitePlayTrigger = () => {
+  const handlePolitePlayTrigger = async () => {
     triggerHaptic("medium");
     audioService.play("match");
 
@@ -812,6 +805,17 @@ export default function HomeScreen({ navigation }: any) {
         () => {}
       );
       return;
+    }
+
+    if (userData?.partnerId) {
+      try {
+        await sendPlayTriggeredNotification(
+          partnerData?.pushToken || "",
+          userData.partnerId,
+          userData?.displayName || "Seu Amor",
+          userLang
+        );
+      } catch (err) {}
     }
 
     executePlayWithGuard({
@@ -1104,15 +1108,6 @@ export default function HomeScreen({ navigation }: any) {
 
       const earnedPE = activeMission.pointsPE || 50;
 
-      if (userData?.partnerId) {
-        await sendLessonCompletedNotification(
-          partnerData?.pushToken || "",
-          userData.partnerId,
-          userData?.displayName || "Seu Amor",
-          userLang
-        );
-      }
-
       const completedDay = nextAvailableStep + 1;
       const weekCycleProgress = ((completedDay - 1) % 7) + 1;
 
@@ -1235,7 +1230,6 @@ export default function HomeScreen({ navigation }: any) {
 
   const isDataChecking = loading || !userData;
 
-  // 🟢 Manipulador acionado ao clicar no ícone do sino
   const handleOpenNotificationsModal = async () => {
     triggerHaptic("light");
     setIsNotificationsVisible(true);
@@ -1297,7 +1291,6 @@ export default function HomeScreen({ navigation }: any) {
           </Text>
         </View>
 
-        {/* 🟢 ITEM #05: Clique do Sino com Limpeza do Badge no Estado e no Firestore */}
         <TouchableOpacity
           style={styles.topBarItem}
           onPress={handleOpenNotificationsModal}
@@ -1348,7 +1341,6 @@ export default function HomeScreen({ navigation }: any) {
         scrollEventThrottle={16}
       >
         <View style={styles.trailContainer}>
-          {/* NÓ 1: AVALIAÇÃO */}
           <View
             style={styles.anamnesisNodeContainer}
             onLayout={(e) => {
@@ -1413,7 +1405,6 @@ export default function HomeScreen({ navigation }: any) {
 
           <View style={styles.trailConnector} />
 
-          {/* NÓ 2: CADEIA DE MATCH */}
           <View
             style={styles.specialNodeContainer}
             onLayout={(e) => {
@@ -1474,7 +1465,6 @@ export default function HomeScreen({ navigation }: any) {
 
           <View style={styles.trailConnector} />
 
-          {/* NÓ 3: DAR O PLAY */}
           <View
             style={styles.specialNodeContainer}
             onLayout={(e) => {
@@ -1537,7 +1527,6 @@ export default function HomeScreen({ navigation }: any) {
             )}
           </View>
 
-          {/* TRILHA DE 90 DIAS */}
           <View
             style={[
               styles.nodesWrapper,

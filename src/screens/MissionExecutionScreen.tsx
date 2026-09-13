@@ -29,10 +29,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { auth, db } from "../config/firebase";
 import { t } from "../i18n/translations";
 import { logAuditEvent } from "../services/auditService";
-import {
-  sendLessonCompletedNotification,
-  sendLessonStartedNotification,
-} from "../services/notificationService";
+import { sendLessonStartedNotification } from "../services/notificationService";
 import { decryptText, encryptText } from "../services/securityService";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -311,7 +308,6 @@ export default function MissionExecutionScreen({
     });
   };
 
-  // 🟢ITEM #04: Disparo de Notificação ao Adiar/Pausar
   const handlePause = async () => {
     triggerHaptic("light");
 
@@ -363,32 +359,8 @@ export default function MissionExecutionScreen({
           );
         } catch (auditErr) {}
       }
-
-      if (uid) {
-        try {
-          const userSnap = await getDoc(doc(db, "users", uid));
-          if (userSnap.exists()) {
-            const uData = userSnap.data();
-            if (uData?.partnerId) {
-              const partnerSnap = await getDoc(doc(db, "users", uData.partnerId));
-              const partnerPushToken = partnerSnap.exists()
-                ? partnerSnap.data()?.pushToken || ""
-                : "";
-
-              await sendLessonCompletedNotification(
-                partnerPushToken,
-                uData.partnerId,
-                uData.displayName || "Seu Amor",
-                userLanguage
-              );
-            }
-          }
-        } catch (notifErr) {
-          console.warn("[MISSION_EXECUTION] Aviso ao enviar notificação de lição:", notifErr);
-        }
-      }
     } catch (e) {
-      console.warn("[MISSION_EXECUTION] Erro durante pós-processamento da lição:", e);
+      console.warn("[MISSION_EXECUTION] Erro durante processamento do diário:", e);
     } finally {
       await onComplete(finalJournalToSave);
       setIsFinishing(false);

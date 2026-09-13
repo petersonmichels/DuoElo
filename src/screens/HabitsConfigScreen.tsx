@@ -1,6 +1,6 @@
 import { FontAwesome5 } from "@expo/vector-icons";
 import { doc, onSnapshot, setDoc } from "firebase/firestore";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -30,16 +30,16 @@ export interface CustomHabit {
 }
 
 const ATOMIC_HABITS_CATALOG = [
-  { id: "water_morning", icon: "tint", titleKey: "habit_water_morning_title", subKey: "habit_water_morning_sub", defaultTitle: "Água ao Acordar", defaultSub: "Beba 1 copo d'água ao levantar", points: 5 },
-  { id: "water_lunch", icon: "tint", titleKey: "habit_water_lunch_title", subKey: "habit_water_lunch_sub", defaultTitle: "Hidratação da Tarde", defaultSub: "Beba água após o almoço", points: 5 },
-  { id: "water_night", icon: "tint", titleKey: "habit_water_night_title", subKey: "habit_water_night_sub", defaultTitle: "Hidratação da Noite", defaultSub: "1 copo d'água antes de dormir", points: 5 },
-  { id: "no_screens", icon: "mobile-alt", titleKey: "habit_no_screens_title", subKey: "habit_no_screens_sub", defaultTitle: "Desconexão Noturna", defaultSub: "Sem telas 30 min antes de dormir", points: 10 },
-  { id: "deep_breath", icon: "wind", titleKey: "habit_deep_breath_title", subKey: "habit_deep_breath_sub", defaultTitle: "Pausa Respiratória", defaultSub: "3 respirações profundas consciente", points: 5 },
-  { id: "walk_express", icon: "walking", titleKey: "habit_walk_express_title", subKey: "habit_walk_express_sub", defaultTitle: "Caminhada Leve", defaultSub: "15 minutos de caminhada ativa", points: 10 },
-  { id: "fruit_daily", icon: "apple-alt", titleKey: "habit_fruit_daily_title", subKey: "habit_fruit_daily_sub", defaultTitle: "Fruta do Dia", defaultSub: "Consuma ao menos 1 porção de fruta", points: 5 },
-  { id: "compliment_partner", icon: "heart", titleKey: "habit_compliment_title", subKey: "habit_compliment_sub", defaultTitle: "Elogio Sincero", defaultSub: "Faça um elogio ao seu amor hoje", points: 10 },
-  { id: "atomic_reading", icon: "book-open", titleKey: "habit_reading_title", subKey: "habit_reading_sub", defaultTitle: "Leitura Focada", defaultSub: "Leia 5 páginas de um bom livro", points: 5 },
-  { id: "gratitude_moment", icon: "sun", titleKey: "habit_gratitude_title", subKey: "habit_gratitude_sub", defaultTitle: "Momento Gratidão", defaultSub: "Agradeça por algo positivo do dia", points: 5 },
+  { id: "water_morning", icon: "tint", titleKey: "habit_water_morning_title", subKey: "habit_water_morning_sub", points: 5 },
+  { id: "water_lunch", icon: "tint", titleKey: "habit_water_lunch_title", subKey: "habit_water_lunch_sub", points: 5 },
+  { id: "water_night", icon: "tint", titleKey: "habit_water_night_title", subKey: "habit_water_night_sub", points: 5 },
+  { id: "no_screens", icon: "mobile-alt", titleKey: "habit_no_screens_title", subKey: "habit_no_screens_sub", points: 10 },
+  { id: "deep_breath", icon: "wind", titleKey: "habit_deep_breath_title", subKey: "habit_deep_breath_sub", points: 5 },
+  { id: "walk_express", icon: "walking", titleKey: "habit_walk_express_title", subKey: "habit_walk_express_sub", points: 10 },
+  { id: "fruit_daily", icon: "apple-alt", titleKey: "habit_fruit_daily_title", subKey: "habit_fruit_daily_sub", points: 5 },
+  { id: "compliment_partner", icon: "heart", titleKey: "habit_compliment_title", subKey: "habit_compliment_sub", points: 10 },
+  { id: "atomic_reading", icon: "book-open", titleKey: "habit_reading_title", subKey: "habit_reading_sub", points: 5 },
+  { id: "gratitude_moment", icon: "sun", titleKey: "habit_gratitude_title", subKey: "habit_gratitude_sub", points: 5 },
 ];
 
 export default function HabitsConfigScreen({ navigation }: any) {
@@ -59,7 +59,6 @@ export default function HabitsConfigScreen({ navigation }: any) {
 
   const userLang = userData?.language || "pt-BR";
 
-  // 🔔 ESTADO DO ALERT CUSTOMIZADO (Design System DuoElo)
   const [customAlert, setCustomAlert] = useState({
     visible: false,
     title: "",
@@ -238,25 +237,25 @@ export default function HabitsConfigScreen({ navigation }: any) {
           <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
             <FontAwesome5 name="chevron-left" size={20} color="#202D3A" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>{t("habits_config_header_title", userLang) || "Gerenciar Hábitos"}</Text>
+          <Text style={styles.headerTitle}>{t("habits_config_header_title", userLang)}</Text>
           <View style={{ width: 40 }} />
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <Text style={styles.sectionDesc}>
-            {t("habits_config_desc", userLang) || "Ative os hábitos que farão parte do seu feed VIDA e pontuarão no Elo."}
+            {t("habits_config_desc", userLang)}
           </Text>
 
-          {/* CONTAINER DE CRIAÇÃO DO HÁBITO + SELETOR DE FREQUÊNCIA */}
+          {/* CONTAINER DE CRIAÇÃO DO HÁBITO */}
           <View style={styles.createBox}>
             <Text style={styles.subGroupTitle}>
-              {t("create_custom_habit_label", userLang) || "Criar Hábito Personalizado"}
+              {t("create_custom_habit_label", userLang)}
             </Text>
 
             <View style={styles.createHabitRow}>
               <TextInput
                 style={styles.createHabitInput}
-                placeholder={t("placeholder_custom_habit", userLang) || "Ex: Ler 5 páginas..."}
+                placeholder={t("placeholder_custom_habit", userLang)}
                 placeholderTextColor="#AFAFAF"
                 value={newHabitTitle}
                 onChangeText={setNewHabitTitle}
@@ -277,7 +276,7 @@ export default function HabitsConfigScreen({ navigation }: any) {
             </View>
 
             <Text style={styles.frequencySectionTitle}>
-              {t("select_frequency_label", userLang) || "SELECIONE A FREQUÊNCIA:"}
+              {t("select_frequency_label", userLang)}
             </Text>
 
             <View style={styles.frequencyRow}>
@@ -335,10 +334,14 @@ export default function HabitsConfigScreen({ navigation }: any) {
           {customHabits.length > 0 && (
             <View style={styles.section}>
               <Text style={styles.subGroupTitle}>
-                {t("your_custom_habits_label", userLang) || "Seus Hábitos Personalizados"}
+                {t("your_custom_habits_label", userLang)}
               </Text>
               {customHabits.map((c) => {
                 const isSelected = activeHabits.includes(c.id);
+                const freqLabel = c.frequency === "weekly" 
+                  ? (t("frequency_weekly", userLang) || "Semanal") 
+                  : (t("frequency_daily", userLang) || "Diário");
+
                 return (
                   <TouchableOpacity
                     key={c.id}
@@ -353,7 +356,7 @@ export default function HabitsConfigScreen({ navigation }: any) {
                     <View style={{ flex: 1 }}>
                       <Text style={styles.customHabitTitle}>{c.title}</Text>
                       <Text style={styles.customHabitSub}>
-                        5 BONDS • {c.frequency === "weekly" ? (t("frequency_weekly", userLang) || "Semanal") : (t("frequency_daily", userLang) || "Diário")}
+                        {t("habit_bonds_freq_sub", userLang, { points: c.points || 5, frequency: freqLabel })}
                       </Text>
                     </View>
 
@@ -379,7 +382,7 @@ export default function HabitsConfigScreen({ navigation }: any) {
           {/* CATÁLOGO SUGERIDO (HÁBITOS ATÔMICOS) */}
           <View style={styles.section}>
             <Text style={styles.subGroupTitle}>
-              {t("atomic_catalog_label", userLang) || "Catálogo Sugerido"}
+              {t("atomic_catalog_label", userLang)}
             </Text>
             {ATOMIC_HABITS_CATALOG.map((habit) => {
               const isSelected = activeHabits.includes(habit.id);
@@ -396,8 +399,8 @@ export default function HabitsConfigScreen({ navigation }: any) {
                     style={{ marginRight: 15 }}
                   />
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.habitSelectTitle}>{t(habit.titleKey, userLang) || habit.defaultTitle}</Text>
-                    <Text style={styles.habitSelectSub}>{t(habit.subKey, userLang) || habit.defaultSub}</Text>
+                    <Text style={styles.habitSelectTitle}>{t(habit.titleKey, userLang)}</Text>
+                    <Text style={styles.habitSelectSub}>{t(habit.subKey, userLang)}</Text>
                   </View>
                   <View style={[styles.checkboxCircle, isSelected && styles.checkboxCircleActive]}>
                     {isSelected && <FontAwesome5 name="check" size={10} color="#FFF" />}
@@ -409,7 +412,6 @@ export default function HabitsConfigScreen({ navigation }: any) {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* 🔔 MODAL DE ALERTA PADRONIZADO DA APLICAÇÃO */}
       <CustomAlertModal
         visible={customAlert.visible}
         title={customAlert.title}

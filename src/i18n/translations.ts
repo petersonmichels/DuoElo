@@ -9,6 +9,7 @@ export type LanguageCode =
 
 export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
  "pt-BR": {
+    habit_bonds_freq_sub: "{points} BONDS • {frequency}",
   // 🎁 Presentes - Workflow 4 Etapas
     gift_chosen_push_title: "Novo Presente Escolhido! 🎁",
     gift_chosen_push_body: "{name} escolheu o presente \"{gift}\" na lista de desejos!",
@@ -167,7 +168,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
   habit_water_lunch_sub: "1 copo de água 30 min antes de comer",
   habit_water_night_title: "Água antes de Dormir",
   habit_water_night_sub: "1 copo de água ao preparar a cama",
-  habit_no_screens_title: "Quarto sem Ecrãs",
+  habit_no_screens_title: "Quarto sem telas",
   habit_no_screens_sub: "Telemóvel fora da mesa de cabeceira à noite",
   habit_deep_breath_title: "Pausa Consciente",
   habit_deep_breath_sub: "2 minutos de respiração profunda",
@@ -824,6 +825,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
   audit_gift_redeemed: "Presente resgatado na Semana {{week}}",  },
 
   "pt-PT": {
+    habit_bonds_freq_sub: "{points} BONDS • {frequency}",
     gift_chosen_push_title: "Novo Presente Escolhido! 🎁",
     gift_chosen_push_body: "{name} escolheu o presente \"{gift}\" na lista de desejos!",
     gift_bought_push_title: "Presente Comprado! 🛍️",
@@ -1646,6 +1648,7 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
   audit_gift_redeemed: "Presente resgatado na Semana {{week}}",  },
 
   en: {
+    habit_bonds_freq_sub: "{points} BONDS • {frequency}",
     gift_chosen_push_title: "New Gift Chosen! 🎁",
     gift_chosen_push_body: "{name} picked the gift \"{gift}\" on their wishlist!",
     gift_bought_push_title: "Gift Purchased! 🛍️",
@@ -2455,9 +2458,9 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
   audit_gift_redeemed: "Gift redeemed in Week {{week}}",  },
 
   es: {
-
+  habit_bonds_freq_sub: "{points} BONDS • {frequency}",
   solo_mode_title: "Mode Solo Actif",
-solo_mode_desc: "Votre parcours individuel de 90 jours est actif. Vous pourrez connecter votre partenaire à tout moment.",
+  olo_mode_desc: "Votre parcours individuel de 90 jours est actif. Vous pourrez connecter votre partenaire à tout moment.",
   partner_has_plan_note:
     "¿Tu pareja ya se suscribió al Plan Duo? Haz el Match para desbloquear el acceso de ambos sin costo extra.",
   btn_connect_partner_match: "Conectar con mi pareja",
@@ -3279,6 +3282,7 @@ solo_mode_desc: "Votre parcours individuel de 90 jours est actif. Vous pourrez c
   audit_gift_redeemed: "Regalo canjeado en la Semana {{week}}",  },
 
   fr: {
+    habit_bonds_freq_sub: "{points} BONDS • {frequency}",
     gift_chosen_push_title: "¡Nuevo Regalo Elegido! 🎁",
     gift_chosen_push_body: "¡{name} eligió el regalo \"{gift}\" en su lista de deseos!",
     gift_bought_push_title: "¡Regalo Comprado! 🛍️",
@@ -3962,7 +3966,8 @@ solo_mode_desc: "Votre parcours individuel de 90 jours est actif. Vous pourrez c
   audit_gift_redeemed: "Cadeau récupéré à la Semaine {{week}}",  },
 
   de: {
-gift_chosen_push_title: "Nouveau Cadeau Choisi ! 🎁",
+    habit_bonds_freq_sub: "{points} BONDS • {frequency}",
+    gift_chosen_push_title: "Nouveau Cadeau Choisi ! 🎁",
     gift_chosen_push_body: "{name} a choisi le cadeau \"{gift}\" sur sa liste d'envies !",
     gift_bought_push_title: "Cadeau Acheté ! 🛍️",
     gift_bought_push_body: "{name} a acheté le cadeau \"{gift}\" pour vous avec des Bonds !",
@@ -4819,6 +4824,7 @@ gift_chosen_push_title: "Nouveau Cadeau Choisi ! 🎁",
   audit_gift_redeemed: "Geschenk eingelöst in Woche {{week}}",  },
 
   ja: {
+    habit_bonds_freq_sub: "{points} BONDS • {frequency}",
     gift_chosen_push_title: "新しいギフトが選ばれました！ 🎁",
     gift_chosen_push_body: "{name}さんがウィッシュリストでギフト「{gift}」を選びました！",
     gift_bought_push_title: "ギフト購入完了！ 🛍️",
