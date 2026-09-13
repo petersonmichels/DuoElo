@@ -57,9 +57,18 @@ const LANGUAGE_TO_COUNTRY_CODE: Record<string, string> = {
   ja: "JP",
 };
 
-// 🟢 Rotas únicas do servidor web que leem o parâmetro ?lang=
+// 🟢 Rotas oficiais do seu servidor web
 const TERMS_BASE_URL = "https://duoelo.lu/termos";
 const PRIVACY_BASE_URL = "https://duoelo.lu/privacidade";
+
+// 🟢 Mapeia os idiomas do app para as chaves suportadas no seu HTML ('pt-BR' ou 'en')
+const getWebLangKey = (appLang: string): string => {
+  const normalized = (appLang || "").toLowerCase();
+  if (normalized.startsWith("pt")) {
+    return "pt-BR";
+  }
+  return "en";
+};
 
 export default function ProfileScreen({ navigation }: any) {
   const [userData, setUserData] = useState<any>(null);
@@ -514,7 +523,6 @@ export default function ProfileScreen({ navigation }: any) {
     );
   };
 
-  // 🟢 EXCLUSÃO COMPLETA DE CONTA COM LIMPEZA EM CASCATA DA BASE
   const handleDeleteAccount = () => {
     showCustomAlert(
       t("delete_account_title", userLang) || "Excluir Conta Permanentemente?",
@@ -550,14 +558,12 @@ export default function ProfileScreen({ navigation }: any) {
             );
           } catch (auditErr) {}
 
-          // 1. Atualização, limpeza de confirmações e desvinculação do parceiro no Firestore
           if (userData?.partnerId) {
             try {
               const partnerUid = userData.partnerId;
               const partnerSnap = await getDoc(doc(db, "users", partnerUid));
               const partnerData = partnerSnap.exists() ? partnerSnap.data() : null;
 
-              // Apaga solicitações/confirmações pendentes da loja do parceiro
               try {
                 await deleteDoc(doc(db, "users", partnerUid, "shop", "confirmations"));
               } catch (e) {}
@@ -586,7 +592,6 @@ export default function ProfileScreen({ navigation }: any) {
             } catch (e) {}
           }
 
-          // 2. Limpeza de convites pendentes enviados
           if (userData?.sentMatchRequestTo?.toUid) {
             try {
               await setDoc(
@@ -597,15 +602,12 @@ export default function ProfileScreen({ navigation }: any) {
             } catch (e) {}
           }
 
-          // 3. 🟢 LIMPEZA EM CASCATA DAS SUBCOLEÇÕES (/journals, /shop, /notifications)
           await clearUserProgressAndShop(uidString);
 
-          // 4. Deleção do documento principal de usuário
           try {
             await deleteDoc(doc(db, "users", uidString));
           } catch (e) {}
 
-          // 5. Limpeza de dados de segurança locais
           await clearSecurityPin();
 
           if (GoogleSignin && typeof GoogleSignin.signOut === "function") {
@@ -614,7 +616,6 @@ export default function ProfileScreen({ navigation }: any) {
             } catch (e) {}
           }
 
-          // 6. Deleção do perfil de autenticação Firebase
           await deleteUser(user);
         } catch (error: any) {
           if (
@@ -1051,11 +1052,11 @@ export default function ProfileScreen({ navigation }: any) {
               <FontAwesome5 name="chevron-right" size={14} color="#D1D9E0" />
             </TouchableOpacity>
 
-            {/* 🟢 Termos de Uso: Parâmetro dinâmico ?lang= */}
+            {/* 🟢 Termos de Uso: Envia o parâmetro ?lang= compatível com o script do seu HTML */}
             <TouchableOpacity
               style={styles.menuOption}
               onPress={() => {
-                const targetUrl = `${TERMS_BASE_URL}?lang=${userLang}`;
+                const targetUrl = `${TERMS_BASE_URL}?lang=${getWebLangKey(userLang)}`;
                 openUrl(targetUrl);
               }}
             >
@@ -1068,11 +1069,11 @@ export default function ProfileScreen({ navigation }: any) {
               <FontAwesome5 name="external-link-alt" size={12} color="#D1D9E0" />
             </TouchableOpacity>
 
-            {/* 🟢 Política de Privacidade: Parâmetro dinâmico ?lang= */}
+            {/* 🟢 Política de Privacidade: Envia o parâmetro ?lang= compatível com o script do seu HTML */}
             <TouchableOpacity
               style={styles.menuOption}
               onPress={() => {
-                const targetUrl = `${PRIVACY_BASE_URL}?lang=${userLang}`;
+                const targetUrl = `${PRIVACY_BASE_URL}?lang=${getWebLangKey(userLang)}`;
                 openUrl(targetUrl);
               }}
             >

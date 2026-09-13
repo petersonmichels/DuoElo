@@ -364,26 +364,26 @@ export default function HomeScreen({ navigation }: any) {
   const currentStep = nextAvailableStep;
   const isJourneyFinished = currentStep >= totalStepsInModule;
 
+  // 🟢 REAÇÃO EM TEMPO REAL AO DISMATCH DO PARCEIRO
   useEffect(() => {
     if (userData?.matchStatus === "partner_disconnected_pending_choice" && currentUid) {
       showCustomAlert(
         t("dismatch_notice_title", userLang) || "Conexão Desfeita 💔",
         t("dismatch_notice_msg", userLang) ||
-          "Seu parceiro(a) desvinculou ou encerrou a conta. Como deseja prosseguir com a sua jornada?",
+          "Seu parceiro(a) desvinculou a conta. Como deseja prosseguir com a sua jornada?",
         "user-shield",
         "#EAB64A",
-        t("btn_continue_solo", userLang) || "Continuar Solo (Resetar Trilha)",
+        t("btn_continue_solo", userLang) || "Continuar Solo (Manter Minha Trilha)",
         async () => {
-          await clearUserProgressAndShop(currentUid);
           await setDoc(
             doc(db, "users", currentUid),
             {
               matchStatus: "disconnected",
               isSoloMode: true,
-              currentPhase: 1,
-              currentTaskStep: 0,
-              completedTaskIds: [],
-              myTrail: [],
+              partnerId: null,
+              hasPartner: false,
+              isReadyToStart: true,
+              hasPressedPlay: true,
             },
             { merge: true }
           );
@@ -396,6 +396,8 @@ export default function HomeScreen({ navigation }: any) {
             {
               matchStatus: "disconnected",
               isSoloMode: false,
+              partnerId: null,
+              hasPartner: false,
               hasCompletedAnamnesis: false,
               anamnesisScore: null,
               priorityModules: [],

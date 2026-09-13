@@ -274,7 +274,6 @@ export default function MatchScreen({ navigation }: any) {
     }
   }, [isMatchConfirmationVisible]);
 
-  // ATIVAÇÃO DO MODO SOLO
   const handleEnableSoloMode = async () => {
     if (!currentUid) return;
 
@@ -377,7 +376,7 @@ export default function MatchScreen({ navigation }: any) {
     }
   };
 
-  // 🟢 FUNÇÃO CORRIGIDA: Executa o reset completo e apaga as subcoleções de AMBOS os parceiros ao desconectar
+  // 🟢 DESCONEXÃO ATÔMICA E TOTAL DE PARCEIROS
   const handleDisconnectPartner = () => {
     Alert.alert(
       t("disconnect_confirm_title", userLang) || "Desfazer Elo e Reiniciar?",
@@ -394,7 +393,7 @@ export default function MatchScreen({ navigation }: any) {
 
             setIsDisconnecting(true);
             try {
-              // 1. Limpa diários, loja, notificações e reseta progresso de QUEM EXECUTOU a desconexão
+              // 1. Limpa dados de quem executou a desconexão
               await clearUserProgressAndShop(currentUid);
 
               const mySnap = await getDoc(doc(db, "users", currentUid));
@@ -405,38 +404,35 @@ export default function MatchScreen({ navigation }: any) {
                 !myData.activeProductId.includes("inherited")
               );
 
-              const myPayload: any = {
-                partnerId: null,
-                hasPartner: false,
-                matchStatus: "disconnected",
-                isSoloMode: false,
-                isReadyToStart: false,
-                hasPressedPlay: false,
-                hasCompletedAnamnesis: false,
-                anamnesisScore: null,
-                priorityModules: [],
-                currentPhase: 1,
-                currentTaskStep: 0,
-                completedTaskIds: [],
-                myTrail: [],
-                sentMatchRequestTo: null,
-                pendingMatchRequest: null,
-              };
+              await setDoc(
+                doc(db, "users", currentUid),
+                {
+                  partnerId: null,
+                  hasPartner: false,
+                  matchStatus: "disconnected",
+                  isSoloMode: false,
+                  isReadyToStart: false,
+                  hasPressedPlay: false,
+                  hasCompletedAnamnesis: false,
+                  anamnesisScore: null,
+                  priorityModules: [],
+                  currentPhase: 1,
+                  currentTaskStep: 0,
+                  completedTaskIds: [],
+                  myTrail: [],
+                  sentMatchRequestTo: null,
+                  pendingMatchRequest: null,
+                  isPremium: iAmRealBuyer ? myData.isPremium : false,
+                  isPartnerPremium: false,
+                  planType: iAmRealBuyer ? myData.planType : "free",
+                  activeProductId: iAmRealBuyer ? myData.activeProductId : null,
+                },
+                { merge: true }
+              );
 
-              if (!iAmRealBuyer) {
-                myPayload.isPremium = false;
-                myPayload.isPartnerPremium = false;
-                myPayload.planType = "free";
-                myPayload.activeProductId = null;
-              }
-
-              await setDoc(doc(db, "users", currentUid), myPayload, { merge: true });
-
-              // 2. Limpa diários, loja, notificações e reseta progresso do PARCEIRO
+              // 2. Limpa e notifica o parceiro para exibição imediata do modal de escolha
               if (partnerUid) {
                 try {
-                  await clearUserProgressAndShop(partnerUid);
-
                   const partnerSnap = await getDoc(doc(db, "users", partnerUid));
                   const pData = partnerSnap.exists() ? partnerSnap.data() : {};
                   const partnerIsRealBuyer = Boolean(
@@ -445,28 +441,23 @@ export default function MatchScreen({ navigation }: any) {
                     !pData.activeProductId.includes("inherited")
                   );
 
-                  const partnerPayload: any = {
-                    partnerId: null,
-                    hasPartner: false,
-                    matchStatus: "partner_disconnected_pending_choice",
-                    isReadyToStart: false,
-                    hasPressedPlay: false,
-                    currentPhase: 1,
-                    currentTaskStep: 0,
-                    completedTaskIds: [],
-                    myTrail: [],
-                    sentMatchRequestTo: null,
-                    pendingMatchRequest: null,
-                  };
-
-                  if (!partnerIsRealBuyer) {
-                    partnerPayload.isPremium = false;
-                    partnerPayload.isPartnerPremium = false;
-                    partnerPayload.planType = "free";
-                    partnerPayload.activeProductId = null;
-                  }
-
-                  await setDoc(doc(db, "users", partnerUid), partnerPayload, { merge: true });
+                  await setDoc(
+                    doc(db, "users", partnerUid),
+                    {
+                      partnerId: null,
+                      hasPartner: false,
+                      matchStatus: "partner_disconnected_pending_choice",
+                      isReadyToStart: false,
+                      hasPressedPlay: false,
+                      sentMatchRequestTo: null,
+                      pendingMatchRequest: null,
+                      isPremium: partnerIsRealBuyer ? pData.isPremium : false,
+                      isPartnerPremium: false,
+                      planType: partnerIsRealBuyer ? pData.planType : "free",
+                      activeProductId: partnerIsRealBuyer ? pData.activeProductId : null,
+                    },
+                    { merge: true }
+                  );
                 } catch (partnerErr) {}
               }
 
@@ -474,7 +465,7 @@ export default function MatchScreen({ navigation }: any) {
                 await logAuditEvent(
                   currentUid,
                   "PARTNER_UNLINKED",
-                  `Dismatch concluído com sucesso. Progresso e subcoleções zerados para ambas as partes.`,
+                  `Dismatch concluído com sucesso. Vínculos rompidos para ambos os usuários.`,
                   userLang
                 );
               } catch (auditErr) {}
@@ -562,6 +553,7 @@ export default function MatchScreen({ navigation }: any) {
       const myPayload: any = {
         partnerId: senderUid,
         hasPartner: true,
+        matchStatus: "matched",
         isSoloMode: false,
         isReadyToStart: false,
         hasPressedPlay: false,
@@ -582,6 +574,7 @@ export default function MatchScreen({ navigation }: any) {
         const senderPayload: any = {
           partnerId: currentUid,
           hasPartner: true,
+          matchStatus: "matched",
           isSoloMode: false,
           isReadyToStart: false,
           hasPressedPlay: false,
