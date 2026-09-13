@@ -1237,7 +1237,6 @@ export default function HomeScreen({ navigation }: any) {
 
   const isDataChecking = loading || !userData;
 
-  // 🟢 Abertura simplificada para exibir a modal (a marcação de lido em batch roda direto no NotificationsModal)
   const handleOpenNotificationsModal = () => {
     triggerHaptic("light");
     setIsNotificationsVisible(true);

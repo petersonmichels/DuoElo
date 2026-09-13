@@ -4,13 +4,11 @@ import Constants, { ExecutionEnvironment } from "expo-constants";
 import * as ImagePicker from "expo-image-picker";
 import { deleteUser, sendEmailVerification, signOut } from "firebase/auth";
 import {
-  collection,
   deleteDoc,
   doc,
   getDoc,
-  getDocs,
   onSnapshot,
-  setDoc,
+  setDoc
 } from "firebase/firestore";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -41,6 +39,7 @@ import { SUPPORTED_LANGUAGES } from "../constants/languages";
 import { t } from "../i18n/translations";
 import { audioService } from "../services/AudioService";
 import { logAuditEvent } from "../services/auditService";
+import { clearUserProgressAndShop } from "../services/resetService";
 import { clearSecurityPin } from "../services/securityService";
 
 const isExpoGo =
@@ -58,21 +57,9 @@ const LANGUAGE_TO_COUNTRY_CODE: Record<string, string> = {
   ja: "JP",
 };
 
-// 🟢 URLs oficiais estáticas dos documentos
-const TERMS_URL_PT = "https://duoelo.lu/termos";
-const TERMS_URL_EN = "https://duoelo.lu/terms";
-
-const PRIVACY_URL_PT = "https://duoelo.lu/privacidade";
-const PRIVACY_URL_EN = "https://duoelo.lu/privacy";
-
-// 🟢 REGRA ESTREITA: Se for Português (BR ou PT), abre PT. Caso contrário, SEMPRE abre o link do Inglês limpo.
-const getLegalUrlWithLang = (urlPt: string, urlEn: string, userLang: string): string => {
-  const normalized = (userLang || "").toLowerCase();
-  if (normalized === "pt-br" || normalized === "pt-pt" || normalized.startsWith("pt")) {
-    return urlPt;
-  }
-  return urlEn;
-};
+// 🟢 Rotas únicas do servidor web que leem o parâmetro ?lang=
+const TERMS_BASE_URL = "https://duoelo.lu/termos";
+const PRIVACY_BASE_URL = "https://duoelo.lu/privacidade";
 
 export default function ProfileScreen({ navigation }: any) {
   const [userData, setUserData] = useState<any>(null);
@@ -527,6 +514,7 @@ export default function ProfileScreen({ navigation }: any) {
     );
   };
 
+  // 🟢 EXCLUSÃO COMPLETA DE CONTA COM LIMPEZA EM CASCATA DA BASE
   const handleDeleteAccount = () => {
     showCustomAlert(
       t("delete_account_title", userLang) || "Excluir Conta Permanentemente?",
@@ -562,10 +550,17 @@ export default function ProfileScreen({ navigation }: any) {
             );
           } catch (auditErr) {}
 
+          // 1. Atualização, limpeza de confirmações e desvinculação do parceiro no Firestore
           if (userData?.partnerId) {
             try {
-              const partnerSnap = await getDoc(doc(db, "users", userData.partnerId));
+              const partnerUid = userData.partnerId;
+              const partnerSnap = await getDoc(doc(db, "users", partnerUid));
               const partnerData = partnerSnap.exists() ? partnerSnap.data() : null;
+
+              // Apaga solicitações/confirmações pendentes da loja do parceiro
+              try {
+                await deleteDoc(doc(db, "users", partnerUid, "shop", "confirmations"));
+              } catch (e) {}
 
               const partnerUpdates: any = {
                 partnerId: null,
@@ -584,13 +579,14 @@ export default function ProfileScreen({ navigation }: any) {
               }
 
               await setDoc(
-                doc(db, "users", userData.partnerId),
+                doc(db, "users", partnerUid),
                 partnerUpdates,
                 { merge: true }
               );
             } catch (e) {}
           }
 
+          // 2. Limpeza de convites pendentes enviados
           if (userData?.sentMatchRequestTo?.toUid) {
             try {
               await setDoc(
@@ -601,28 +597,15 @@ export default function ProfileScreen({ navigation }: any) {
             } catch (e) {}
           }
 
-          try {
-            const journalsSnap = await getDocs(
-              collection(db, "users", uidString, "journals")
-            );
-            const deleteJournalsPromises = journalsSnap.docs.map((d) =>
-              deleteDoc(d.ref)
-            );
-            await Promise.all(deleteJournalsPromises);
-          } catch (e) {}
+          // 3. 🟢 LIMPEZA EM CASCATA DAS SUBCOLEÇÕES (/journals, /shop, /notifications)
+          await clearUserProgressAndShop(uidString);
 
-          try {
-            const shopDocs = ["desires", "redemptions", "confirmations"];
-            const shopPromises = shopDocs.map((docName) =>
-              deleteDoc(doc(db, "users", uidString, "shop", docName))
-            );
-            await Promise.all(shopPromises);
-          } catch (e) {}
-
+          // 4. Deleção do documento principal de usuário
           try {
             await deleteDoc(doc(db, "users", uidString));
           } catch (e) {}
 
+          // 5. Limpeza de dados de segurança locais
           await clearSecurityPin();
 
           if (GoogleSignin && typeof GoogleSignin.signOut === "function") {
@@ -631,6 +614,7 @@ export default function ProfileScreen({ navigation }: any) {
             } catch (e) {}
           }
 
+          // 6. Deleção do perfil de autenticação Firebase
           await deleteUser(user);
         } catch (error: any) {
           if (
@@ -1067,11 +1051,11 @@ export default function ProfileScreen({ navigation }: any) {
               <FontAwesome5 name="chevron-right" size={14} color="#D1D9E0" />
             </TouchableOpacity>
 
-            {/* 🟢 Link de Termos de Uso (PT para pt-BR/pt-PT, EN estático e limpo para todos os demais) */}
+            {/* 🟢 Termos de Uso: Parâmetro dinâmico ?lang= */}
             <TouchableOpacity
               style={styles.menuOption}
               onPress={() => {
-                const targetUrl = getLegalUrlWithLang(TERMS_URL_PT, TERMS_URL_EN, userLang);
+                const targetUrl = `${TERMS_BASE_URL}?lang=${userLang}`;
                 openUrl(targetUrl);
               }}
             >
@@ -1084,11 +1068,11 @@ export default function ProfileScreen({ navigation }: any) {
               <FontAwesome5 name="external-link-alt" size={12} color="#D1D9E0" />
             </TouchableOpacity>
 
-            {/* 🟢 Link de Política de Privacidade (PT para pt-BR/pt-PT, EN estático e limpo para todos os demais) */}
+            {/* 🟢 Política de Privacidade: Parâmetro dinâmico ?lang= */}
             <TouchableOpacity
               style={styles.menuOption}
               onPress={() => {
-                const targetUrl = getLegalUrlWithLang(PRIVACY_URL_PT, PRIVACY_URL_EN, userLang);
+                const targetUrl = `${PRIVACY_BASE_URL}?lang=${userLang}`;
                 openUrl(targetUrl);
               }}
             >

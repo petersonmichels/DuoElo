@@ -37,6 +37,7 @@ import { auth, db } from "../config/firebase";
 import { t } from "../i18n/translations";
 import { logAuditEvent } from "../services/auditService";
 import { sendMatchNotificationToPartner } from "../services/notificationService";
+import { clearUserProgressAndShop } from "../services/resetService";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -376,6 +377,7 @@ export default function MatchScreen({ navigation }: any) {
     }
   };
 
+  // 🟢 FUNÇÃO CORRIGIDA: Executa o reset completo e apaga as subcoleções de AMBOS os parceiros ao desconectar
   const handleDisconnectPartner = () => {
     Alert.alert(
       t("disconnect_confirm_title", userLang) || "Desfazer Elo e Reiniciar?",
@@ -392,6 +394,9 @@ export default function MatchScreen({ navigation }: any) {
 
             setIsDisconnecting(true);
             try {
+              // 1. Limpa diários, loja, notificações e reseta progresso de QUEM EXECUTOU a desconexão
+              await clearUserProgressAndShop(currentUid);
+
               const mySnap = await getDoc(doc(db, "users", currentUid));
               const myData = mySnap.exists() ? mySnap.data() : {};
               const iAmRealBuyer = Boolean(
@@ -410,6 +415,9 @@ export default function MatchScreen({ navigation }: any) {
                 hasCompletedAnamnesis: false,
                 anamnesisScore: null,
                 priorityModules: [],
+                currentPhase: 1,
+                currentTaskStep: 0,
+                completedTaskIds: [],
                 myTrail: [],
                 sentMatchRequestTo: null,
                 pendingMatchRequest: null,
@@ -424,8 +432,11 @@ export default function MatchScreen({ navigation }: any) {
 
               await setDoc(doc(db, "users", currentUid), myPayload, { merge: true });
 
+              // 2. Limpa diários, loja, notificações e reseta progresso do PARCEIRO
               if (partnerUid) {
                 try {
+                  await clearUserProgressAndShop(partnerUid);
+
                   const partnerSnap = await getDoc(doc(db, "users", partnerUid));
                   const pData = partnerSnap.exists() ? partnerSnap.data() : {};
                   const partnerIsRealBuyer = Boolean(
@@ -440,6 +451,10 @@ export default function MatchScreen({ navigation }: any) {
                     matchStatus: "partner_disconnected_pending_choice",
                     isReadyToStart: false,
                     hasPressedPlay: false,
+                    currentPhase: 1,
+                    currentTaskStep: 0,
+                    completedTaskIds: [],
+                    myTrail: [],
                     sentMatchRequestTo: null,
                     pendingMatchRequest: null,
                   };
@@ -459,14 +474,14 @@ export default function MatchScreen({ navigation }: any) {
                 await logAuditEvent(
                   currentUid,
                   "PARTNER_UNLINKED",
-                  `Dismatch concluído com sucesso.`,
+                  `Dismatch concluído com sucesso. Progresso e subcoleções zerados para ambas as partes.`,
                   userLang
                 );
               } catch (auditErr) {}
 
               showCustomAlert(
                 t("disconnected_title", userLang) || "Conexão Desfeita",
-                t("disconnected_msg", userLang) || "Seu vínculo foi encerrado.",
+                t("disconnected_msg", userLang) || "Seu vínculo foi encerrado e seu progresso foi reiniciado.",
                 "unlink",
                 "#EAB64A",
                 t("btn_understand", userLang) || "Entendido",
@@ -960,7 +975,6 @@ export default function MatchScreen({ navigation }: any) {
                 </TouchableOpacity>
               </View>
             ) : isSoloMode ? (
-              /* 🟢 EXIBE O CARD DO MODO SOLO ATIVO NO TOPO */
               <View style={[styles.partnerCard, { borderColor: "#67D4A8", backgroundColor: "#FFF" }]}>
                 <View style={[styles.partnerAvatarContainer, { backgroundColor: "#E8F4F1" }]}>
                   <FontAwesome5 name="user-shield" size={22} color="#67D4A8" />
@@ -1068,7 +1082,7 @@ export default function MatchScreen({ navigation }: any) {
             )}
           </View>
 
-          {/* 1. CONECTAR VIA CÓDIGO DO AMOR (TOPO DA ÁREA DE AÇÃO) */}
+          {/* 1. CONECTAR VIA CÓDIGO DO AMOR */}
           {!hasPartner && !hasSentInvite && !hasReceivedInvite && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>
@@ -1110,7 +1124,7 @@ export default function MatchScreen({ navigation }: any) {
             </View>
           )}
 
-          {/* 2. SEU CÓDIGO DE CONVITE (MEIO) */}
+          {/* 2. SEU CÓDIGO DE CONVITE */}
           {!hasPartner && !hasSentInvite && !hasReceivedInvite && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>
@@ -1139,7 +1153,7 @@ export default function MatchScreen({ navigation }: any) {
             </View>
           )}
 
-          {/* 3. MODO SOLO (RODAPÉ SECUNDÁRIO) */}
+          {/* 3. MODO SOLO */}
           {!hasPartner && (
             <View style={styles.section}>
               <View style={[styles.card, { backgroundColor: "#202D3A", borderColor: "#202D3A" }]}>

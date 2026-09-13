@@ -9,8 +9,8 @@ import {
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  FlatList,
   Modal,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -45,15 +45,15 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
       setLoading(true);
       hasMarkedReadRef.current = false;
 
-      // 🟢 Busca sem orderBy para evitar bloqueios de índice e falhas no Firestore
-      const q = query(collection(db, "users", uid, "notifications"));
+      const notifRef = collection(db, "users", uid, "notifications");
+      const q = query(notifRef);
 
       unsubscribe = onSnapshot(
         q,
         async (snapshot) => {
           const docs = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
 
-          // 🟢 Ordenação estritamente feita na memória do dispositivo (mais recentes primeiro)
+          // 🟢 Ordenação cronológica estrita na memória (mais recentes primeiro)
           docs.sort((a: any, b: any) => {
             const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
             const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
@@ -63,9 +63,9 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
           setNotifications(docs);
           setLoading(false);
 
-          // 🟢 Limpa a bolinha vermelha marcando todas como lidas em lote (batch) no Firestore
+          // 🟢 MARCAÇÃO EM LOTE (BATCH): Atualiza todas com read: true no Firestore para sumir a bolinha vermelha
           if (!hasMarkedReadRef.current) {
-            const unreadDocs = snapshot.docs.filter((d) => !d.data().read);
+            const unreadDocs = snapshot.docs.filter((d) => !d.data()?.read);
             if (unreadDocs.length > 0) {
               hasMarkedReadRef.current = true;
               try {
@@ -83,7 +83,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
           }
         },
         (error) => {
-          console.warn("[NOTIFICATIONS_MODAL] Erro de busca:", error);
+          console.warn("[NOTIFICATIONS_MODAL] Erro:", error);
           setLoading(false);
         }
       );
@@ -107,6 +107,8 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
         return { name: "heart", color: "#67D4A8" };
       case "PLAY_STARTED":
         return { name: "play-circle", color: "#202D3A" };
+      case "LESSON_STARTED":
+        return { name: "flag", color: "#EAB64A" };
       case "LESSON_COMPLETED":
         return { name: "check-circle", color: "#67D4A8" };
       case "GIFT_RECEIVED":
@@ -149,14 +151,14 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
       <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={handleClose}>
         <View style={styles.container} onStartShouldSetResponder={() => true}>
-          <SafeAreaView edges={["bottom"]} style={{ width: "100%", maxHeight: "100%" }}>
+          <SafeAreaView edges={["bottom"]} style={{ width: "100%", height: "100%" }}>
             <View style={styles.handle} />
 
             <View style={styles.header}>
               <Text style={styles.title}>
                 {t("notifications_title", userLanguage) || "Notificações"}
               </Text>
-              <TouchableOpacity onPress={handleClose}>
+              <TouchableOpacity onPress={handleClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                 <FontAwesome5 name="times" size={18} color="#60646C" />
               </TouchableOpacity>
             </View>
@@ -174,20 +176,19 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
                 </Text>
               </View>
             ) : (
-              /* 🟢 ScrollView isolado para garanta que a rolagem funcione no iOS/Android sem ser travada pelo Modal */
-              <ScrollView
-                style={styles.scrollList}
-                contentContainerStyle={{ paddingBottom: 20 }}
+              /* 🟢 FlatList com flex: 1 explícito para rolagem perfeita no iOS e Android */
+              <FlatList
+                data={notifications}
+                keyExtractor={(item) => item.id}
                 showsVerticalScrollIndicator={true}
-                bounces={true}
-              >
-                {notifications.map((item) => {
+                style={styles.flatListStyle}
+                contentContainerStyle={{ paddingBottom: 20 }}
+                renderItem={({ item }) => {
                   const iconInfo = getNotificationIcon(item.type);
                   const isUnread = !item.read;
 
                   return (
                     <View
-                      key={item.id}
                       style={[
                         styles.card,
                         isUnread ? styles.cardUnread : styles.cardRead,
@@ -224,8 +225,8 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
                       </Text>
                     </View>
                   );
-                })}
-              </ScrollView>
+                }}
+              />
             )}
 
             <View style={styles.footer}>
@@ -251,11 +252,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF",
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
-    padding: 24,
+    paddingHorizontal: 24,
+    paddingTop: 16,
     paddingBottom: 20,
     alignItems: "center",
     width: "100%",
-    maxHeight: "85%",
+    height: "75%",
   },
   handle: {
     width: 50,
@@ -263,7 +265,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#D1D9E0",
     borderRadius: 3,
     alignSelf: "center",
-    marginBottom: 20,
+    marginBottom: 16,
   },
   header: {
     flexDirection: "row",
@@ -279,7 +281,8 @@ const styles = StyleSheet.create({
   },
   emptyContainer: {
     alignItems: "center",
-    marginVertical: 15,
+    justifyContent: "center",
+    flex: 1,
   },
   bellIconBg: {
     width: 60,
@@ -297,9 +300,9 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 20,
   },
-  scrollList: {
+  flatListStyle: {
     width: "100%",
-    maxHeight: 380,
+    flex: 1,
   },
   card: {
     borderRadius: 14,
@@ -359,6 +362,6 @@ const styles = StyleSheet.create({
   },
   footer: {
     width: "100%",
-    marginTop: 15,
+    paddingTop: 10,
   },
 });
