@@ -2,21 +2,21 @@ import { FontAwesome5 } from "@expo/vector-icons";
 import {
   collection,
   doc,
-  limit,
   onSnapshot,
-  orderBy,
   query,
   writeBatch,
 } from "firebase/firestore";
 import React, { useEffect, useRef, useState } from "react";
 import {
-  FlatList,
+  ActivityIndicator,
   Modal,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { auth, db } from "../config/firebase";
 import { t } from "../i18n/translations";
 import { audioService } from "../services/AudioService";
@@ -34,6 +34,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
   userLanguage = "pt-BR",
 }) => {
   const [notifications, setNotifications] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const hasMarkedReadRef = useRef(false);
 
   useEffect(() => {
@@ -41,47 +42,49 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
     const uid = auth.currentUser?.uid;
 
     if (visible && uid) {
+      setLoading(true);
       hasMarkedReadRef.current = false;
 
-      const q = query(
-        collection(db, "users", uid, "notifications"),
-        orderBy("createdAt", "desc"),
-        limit(20)
-      );
-
-      const processDocs = (snapshotDocs: any[]) => {
-        const docs = snapshotDocs.map((d) => ({ id: d.id, ...d.data() }));
-        setNotifications(docs);
-
-        // 🛡️ Executa a gravação de lido apenas UMA vez para evitar re-render em loop
-        if (!hasMarkedReadRef.current) {
-          const unreadDocs = snapshotDocs.filter((d) => !d.data().read);
-          if (unreadDocs.length > 0) {
-            hasMarkedReadRef.current = true;
-            const batch = writeBatch(db);
-            unreadDocs.forEach((d) => {
-              batch.update(doc(db, "users", uid, "notifications", d.id), {
-                read: true,
-              });
-            });
-            batch.commit().catch(() => {});
-          }
-        }
-      };
+      // 🟢 Busca sem orderBy para evitar bloqueios de índice e falhas no Firestore
+      const q = query(collection(db, "users", uid, "notifications"));
 
       unsubscribe = onSnapshot(
         q,
-        (snapshot) => {
-          processDocs(snapshot.docs);
-        },
-        (error: unknown) => {
-          const fallbackQuery = query(
-            collection(db, "users", uid, "notifications"),
-            limit(20)
-          );
-          onSnapshot(fallbackQuery, (fbSnapshot) => {
-            processDocs(fbSnapshot.docs);
+        async (snapshot) => {
+          const docs = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+          // 🟢 Ordenação estritamente feita na memória do dispositivo (mais recentes primeiro)
+          docs.sort((a: any, b: any) => {
+            const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+            const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+            return timeB - timeA;
           });
+
+          setNotifications(docs);
+          setLoading(false);
+
+          // 🟢 Limpa a bolinha vermelha marcando todas como lidas em lote (batch) no Firestore
+          if (!hasMarkedReadRef.current) {
+            const unreadDocs = snapshot.docs.filter((d) => !d.data().read);
+            if (unreadDocs.length > 0) {
+              hasMarkedReadRef.current = true;
+              try {
+                const batch = writeBatch(db);
+                unreadDocs.forEach((d) => {
+                  batch.update(doc(db, "users", uid, "notifications", d.id), {
+                    read: true,
+                  });
+                });
+                await batch.commit();
+              } catch (e) {
+                console.warn("[NOTIF_MODAL] Erro ao marcar como lidas:", e);
+              }
+            }
+          }
+        },
+        (error) => {
+          console.warn("[NOTIFICATIONS_MODAL] Erro de busca:", error);
+          setLoading(false);
         }
       );
     }
@@ -107,6 +110,9 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
       case "LESSON_COMPLETED":
         return { name: "check-circle", color: "#67D4A8" };
       case "GIFT_RECEIVED":
+      case "GIFT_CHOSEN":
+      case "GIFT_BOUGHT":
+      case "GIFT_DELIVERED":
         return { name: "gift", color: "#EAB64A" };
       case "GIFT_CONFIRMED":
         return { name: "gift", color: "#67D4A8" };
@@ -140,93 +146,96 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide">
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
       <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={handleClose}>
-        <TouchableOpacity
-          activeOpacity={1}
-          style={styles.container}
-          onPress={(e) => e.stopPropagation()}
-        >
-          <View style={styles.handle} />
+        <View style={styles.container} onStartShouldSetResponder={() => true}>
+          <SafeAreaView edges={["bottom"]} style={{ width: "100%", maxHeight: "100%" }}>
+            <View style={styles.handle} />
 
-          <View style={styles.header}>
-            <Text style={styles.title}>
-              {t("notifications_title", userLanguage) || "Notificações"}
-            </Text>
-            <TouchableOpacity onPress={handleClose}>
-              <FontAwesome5 name="times" size={18} color="#60646C" />
-            </TouchableOpacity>
-          </View>
-
-          {notifications.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <View style={styles.bellIconBg}>
-                <FontAwesome5 name="bell" solid size={26} color="#202D3A" />
-              </View>
-              <Text style={styles.emptyText}>
-                {t("no_notifications_msg", userLanguage) ||
-                  "Nenhuma notificação nova no momento. Está tudo tranquilo por aqui!"}
+            <View style={styles.header}>
+              <Text style={styles.title}>
+                {t("notifications_title", userLanguage) || "Notificações"}
               </Text>
+              <TouchableOpacity onPress={handleClose}>
+                <FontAwesome5 name="times" size={18} color="#60646C" />
+              </TouchableOpacity>
             </View>
-          ) : (
-            <FlatList
-              data={notifications}
-              keyExtractor={(item) => item.id}
-              showsVerticalScrollIndicator={false}
-              style={{ width: "100%", maxHeight: 360 }}
-              renderItem={({ item }) => {
-                const iconInfo = getNotificationIcon(item.type);
-                const isUnread = !item.read;
 
-                return (
-                  <View
-                    style={[
-                      styles.card,
-                      isUnread ? styles.cardUnread : styles.cardRead,
-                    ]}
-                  >
-                    <View style={styles.cardHeader}>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1 }}>
-                        <FontAwesome5
-                          name={iconInfo.name}
-                          solid
-                          size={14}
-                          color={iconInfo.color}
-                        />
-                        <Text
-                          style={[
-                            styles.cardTitle,
-                            isUnread ? styles.textBoldTitle : styles.textNormalTitle,
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {item.title || t("notification_default_title", userLanguage) || "Notificação"}
-                        </Text>
-                      </View>
-                      <Text style={styles.dateText}>{formatDate(item.createdAt)}</Text>
-                    </View>
+            {loading ? (
+              <ActivityIndicator size="large" color="#202D3A" style={{ marginVertical: 40 }} />
+            ) : notifications.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <View style={styles.bellIconBg}>
+                  <FontAwesome5 name="bell" solid size={26} color="#202D3A" />
+                </View>
+                <Text style={styles.emptyText}>
+                  {t("no_notifications_msg", userLanguage) ||
+                    "Nenhuma notificação nova no momento. Está tudo tranquilo por aqui!"}
+                </Text>
+              </View>
+            ) : (
+              /* 🟢 ScrollView isolado para garanta que a rolagem funcione no iOS/Android sem ser travada pelo Modal */
+              <ScrollView
+                style={styles.scrollList}
+                contentContainerStyle={{ paddingBottom: 20 }}
+                showsVerticalScrollIndicator={true}
+                bounces={true}
+              >
+                {notifications.map((item) => {
+                  const iconInfo = getNotificationIcon(item.type);
+                  const isUnread = !item.read;
 
-                    <Text
+                  return (
+                    <View
+                      key={item.id}
                       style={[
-                        styles.cardBody,
-                        isUnread ? styles.textBoldBody : styles.textNormalBody,
+                        styles.card,
+                        isUnread ? styles.cardUnread : styles.cardRead,
                       ]}
                     >
-                      {item.body || item.message || ""}
-                    </Text>
-                  </View>
-                );
-              }}
-            />
-          )}
+                      <View style={styles.cardHeader}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1 }}>
+                          <FontAwesome5
+                            name={iconInfo.name}
+                            solid
+                            size={14}
+                            color={iconInfo.color}
+                          />
+                          <Text
+                            style={[
+                              styles.cardTitle,
+                              isUnread ? styles.textBoldTitle : styles.textNormalTitle,
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {item.title || t("notification_default_title", userLanguage) || "Notificação"}
+                          </Text>
+                        </View>
+                        <Text style={styles.dateText}>{formatDate(item.createdAt)}</Text>
+                      </View>
 
-          <View style={styles.footer}>
-            <Button3D
-              title={t("modal_close", userLanguage) || "Fechar"}
-              onPress={handleClose}
-            />
-          </View>
-        </TouchableOpacity>
+                      <Text
+                        style={[
+                          styles.cardBody,
+                          isUnread ? styles.textBoldBody : styles.textNormalBody,
+                        ]}
+                      >
+                        {item.body || item.message || ""}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </ScrollView>
+            )}
+
+            <View style={styles.footer}>
+              <Button3D
+                title={t("modal_close", userLanguage) || "Fechar"}
+                onPress={handleClose}
+              />
+            </View>
+          </SafeAreaView>
+        </View>
       </TouchableOpacity>
     </Modal>
   );
@@ -243,15 +252,17 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
     padding: 24,
-    paddingBottom: 40,
+    paddingBottom: 20,
     alignItems: "center",
     width: "100%",
+    maxHeight: "85%",
   },
   handle: {
     width: 50,
     height: 5,
     backgroundColor: "#D1D9E0",
     borderRadius: 3,
+    alignSelf: "center",
     marginBottom: 20,
   },
   header: {
@@ -285,6 +296,10 @@ const styles = StyleSheet.create({
     color: "#60646C",
     textAlign: "center",
     lineHeight: 20,
+  },
+  scrollList: {
+    width: "100%",
+    maxHeight: 380,
   },
   card: {
     borderRadius: 14,

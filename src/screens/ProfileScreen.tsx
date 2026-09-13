@@ -58,14 +58,14 @@ const LANGUAGE_TO_COUNTRY_CODE: Record<string, string> = {
   ja: "JP",
 };
 
-// 🟢 URLs oficiais dos documentos
+// 🟢 URLs oficiais estáticas dos documentos
 const TERMS_URL_PT = "https://duoelo.lu/termos";
 const TERMS_URL_EN = "https://duoelo.lu/terms";
 
 const PRIVACY_URL_PT = "https://duoelo.lu/privacidade";
 const PRIVACY_URL_EN = "https://duoelo.lu/privacy";
 
-// 🟢 REGRA ESTREITA: Se o idioma for Português (BR ou PT), abre PT. Caso contrário, SEMPRE abre EN.
+// 🟢 REGRA ESTREITA: Se for Português (BR ou PT), abre PT. Caso contrário, SEMPRE abre o link do Inglês limpo.
 const getLegalUrlWithLang = (urlPt: string, urlEn: string, userLang: string): string => {
   const normalized = (userLang || "").toLowerCase();
   if (normalized === "pt-br" || normalized === "pt-pt" || normalized.startsWith("pt")) {
@@ -1067,7 +1067,7 @@ export default function ProfileScreen({ navigation }: any) {
               <FontAwesome5 name="chevron-right" size={14} color="#D1D9E0" />
             </TouchableOpacity>
 
-            {/* 🟢 Link de Termos de Uso (PT para pt-BR/pt-PT, EN para todos os demais) */}
+            {/* 🟢 Link de Termos de Uso (PT para pt-BR/pt-PT, EN estático e limpo para todos os demais) */}
             <TouchableOpacity
               style={styles.menuOption}
               onPress={() => {
@@ -1084,7 +1084,7 @@ export default function ProfileScreen({ navigation }: any) {
               <FontAwesome5 name="external-link-alt" size={12} color="#D1D9E0" />
             </TouchableOpacity>
 
-            {/* 🟢 Link de Política de Privacidade (PT para pt-BR/pt-PT, EN para todos os demais) */}
+            {/* 🟢 Link de Política de Privacidade (PT para pt-BR/pt-PT, EN estático e limpo para todos os demais) */}
             <TouchableOpacity
               style={styles.menuOption}
               onPress={() => {

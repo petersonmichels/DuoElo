@@ -308,7 +308,6 @@ export default function MissionExecutionScreen({
     });
   };
 
-  // 🟢 MANIPULADOR DO BOTÃO LARANJA (RELÓGIO / TAREFA NA VIDA REAL)
   const handlePause = async () => {
     triggerHaptic("light");
 
@@ -324,7 +323,6 @@ export default function MissionExecutionScreen({
               ? partnerSnap.data()?.pushToken || ""
               : "";
 
-            // Dispara a notificação exclusiva de Missão em Andamento
             await sendLessonStartedNotification(
               partnerPushToken,
               uData.partnerId,
@@ -652,7 +650,6 @@ export default function MissionExecutionScreen({
                     <FontAwesome5 name="check" size={28} color="#FFF" />
                   </TouchableOpacity>
 
-                  {/* 🟢 BOTÃO LARANJA DO RELÓGIO (AÇÃO NA VIDA REAL) */}
                   <TouchableOpacity
                     style={[styles.circleBtn, styles.circleBtnClock]}
                     activeOpacity={0.8}

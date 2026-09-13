@@ -4,7 +4,7 @@ import {
   addDoc,
   collection,
   doc,
-  updateDoc
+  updateDoc,
 } from "firebase/firestore";
 import { Platform } from "react-native";
 import { auth, db } from "../config/firebase";
@@ -168,7 +168,6 @@ export async function sendPlayNotificationToPartner(
   return sendPlayTriggeredNotification(partnerPushToken, partnerUid, senderName, userLang);
 }
 
-// 🟡 NOTIFICAÇÃO DO BOTÃO LARANJA (RELÓGIO / TAREFA NA VIDA REAL)
 export async function sendLessonStartedNotification(
   partnerPushToken: string,
   partnerUid: string,

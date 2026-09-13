@@ -40,9 +40,8 @@ import { executePlayWithGuard } from "../hooks/usePlayGuard";
 import { t } from "../i18n/translations";
 import { audioService } from "../services/AudioService";
 import {
-  markNotificationAsRead,
   scheduleDailyReminder,
-  sendPlayTriggeredNotification
+  sendPlayTriggeredNotification,
 } from "../services/notificationService";
 import { clearUserProgressAndShop } from "../services/resetService";
 import {
@@ -381,6 +380,10 @@ export default function HomeScreen({ navigation }: any) {
             {
               matchStatus: "disconnected",
               isSoloMode: true,
+              currentPhase: 1,
+              currentTaskStep: 0,
+              completedTaskIds: [],
+              myTrail: [],
             },
             { merge: true }
           );
@@ -396,6 +399,10 @@ export default function HomeScreen({ navigation }: any) {
               hasCompletedAnamnesis: false,
               anamnesisScore: null,
               priorityModules: [],
+              currentPhase: 1,
+              currentTaskStep: 0,
+              completedTaskIds: [],
+              myTrail: [],
             },
             { merge: true }
           );
@@ -1230,25 +1237,11 @@ export default function HomeScreen({ navigation }: any) {
 
   const isDataChecking = loading || !userData;
 
-  const handleOpenNotificationsModal = async () => {
+  // 🟢 Abertura simplificada para exibir a modal (a marcação de lido em batch roda direto no NotificationsModal)
+  const handleOpenNotificationsModal = () => {
     triggerHaptic("light");
     setIsNotificationsVisible(true);
     setHasUnreadNotifications(false);
-
-    if (currentUid && notificationsList.some((n) => !n.read)) {
-      try {
-        const unreadDocs = notificationsList.filter((n) => !n.read);
-        const markPromises = unreadDocs.map((notif) => {
-          if (notif.id) {
-            return markNotificationAsRead(currentUid, notif.id);
-          }
-          return Promise.resolve();
-        });
-        await Promise.all(markPromises);
-      } catch (error) {
-        console.warn("[HOME] Erro ao marcar notificações como lidas:", error);
-      }
-    }
   };
 
   if (isDataChecking) {
