@@ -58,15 +58,20 @@ const LANGUAGE_TO_COUNTRY_CODE: Record<string, string> = {
   ja: "JP",
 };
 
-// 🟢 Helper dinâmico para selecionar os parâmetros da URL de compliance por idioma
-const getLegalUrlWithLang = (baseUrl: string, userLang: string): string => {
-  const supported = ["pt-BR", "pt-PT", "en", "es", "fr", "de", "ja"];
-  const finalLang = supported.includes(userLang)
-    ? userLang
-    : userLang.startsWith("pt")
-    ? "pt-BR"
-    : "en";
-  return `${baseUrl}?lang=${finalLang}`;
+// 🟢 URLs oficiais dos documentos
+const TERMS_URL_PT = "https://duoelo.lu/termos";
+const TERMS_URL_EN = "https://duoelo.lu/terms";
+
+const PRIVACY_URL_PT = "https://duoelo.lu/privacidade";
+const PRIVACY_URL_EN = "https://duoelo.lu/privacy";
+
+// 🟢 REGRA ESTREITA: Se o idioma for Português (BR ou PT), abre PT. Caso contrário, SEMPRE abre EN.
+const getLegalUrlWithLang = (urlPt: string, urlEn: string, userLang: string): string => {
+  const normalized = (userLang || "").toLowerCase();
+  if (normalized === "pt-br" || normalized === "pt-pt" || normalized.startsWith("pt")) {
+    return urlPt;
+  }
+  return urlEn;
 };
 
 export default function ProfileScreen({ navigation }: any) {
@@ -1062,11 +1067,11 @@ export default function ProfileScreen({ navigation }: any) {
               <FontAwesome5 name="chevron-right" size={14} color="#D1D9E0" />
             </TouchableOpacity>
 
-            {/* 🟢 ITEM #08: Link de Termos ajustado com parâmetro dinâmico ?lang= */}
+            {/* 🟢 Link de Termos de Uso (PT para pt-BR/pt-PT, EN para todos os demais) */}
             <TouchableOpacity
               style={styles.menuOption}
               onPress={() => {
-                const targetUrl = getLegalUrlWithLang("https://duoelo.lu/termos", userLang);
+                const targetUrl = getLegalUrlWithLang(TERMS_URL_PT, TERMS_URL_EN, userLang);
                 openUrl(targetUrl);
               }}
             >
@@ -1079,11 +1084,11 @@ export default function ProfileScreen({ navigation }: any) {
               <FontAwesome5 name="external-link-alt" size={12} color="#D1D9E0" />
             </TouchableOpacity>
 
-            {/* 🟢 ITEM #08: Link de Privacidade ajustado com parâmetro dinâmico ?lang= */}
+            {/* 🟢 Link de Política de Privacidade (PT para pt-BR/pt-PT, EN para todos os demais) */}
             <TouchableOpacity
               style={styles.menuOption}
               onPress={() => {
-                const targetUrl = getLegalUrlWithLang("https://duoelo.lu/privacidade", userLang);
+                const targetUrl = getLegalUrlWithLang(PRIVACY_URL_PT, PRIVACY_URL_EN, userLang);
                 openUrl(targetUrl);
               }}
             >

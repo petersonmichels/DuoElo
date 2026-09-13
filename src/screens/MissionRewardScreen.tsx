@@ -18,6 +18,7 @@ import { Button3D } from "../components/Effects3D";
 import { t } from "../i18n/translations";
 import { audioService } from "../services/AudioService";
 import { logAuditEvent } from "../services/auditService";
+import { sendLessonCompletedNotification } from "../services/notificationService";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -141,14 +142,13 @@ export default function MissionRewardScreen({ navigation, route }: any) {
   useEffect(() => {
     let isMounted = true;
 
-    // 🟢 ÁUDIO FESTIVO DISPARADO EXCLUSIVAMENTE NA MONTAGEM DA TELA DE CONQUISTA (ERRO 8)
     setTimeout(() => {
       if (isMounted) {
         audioService.play("success");
       }
     }, 150);
 
-    const fetchUserData = async () => {
+    const fetchUserDataAndNotify = async () => {
       const uid = auth.currentUser?.uid;
       if (uid) {
         try {
@@ -156,14 +156,22 @@ export default function MissionRewardScreen({ navigation, route }: any) {
           if (isMounted && userSnap.exists()) {
             const data = userSnap.data();
             setUserData(data);
-            if (data.language) {
-              setUserLang(data.language);
-            }
+            const currentLanguage = data.language || "pt-BR";
+            setUserLang(currentLanguage);
 
             if (data.partnerId) {
               const pSnap = await getDoc(doc(db, "users", data.partnerId));
               if (isMounted && pSnap.exists()) {
-                setPartnerData(pSnap.data());
+                const partnerInfo = pSnap.data();
+                setPartnerData(partnerInfo);
+
+                // 🟢 DISPARO ÚNICO DA NOTIFICAÇÃO DE CONCLUSÃO DA LIÇÃO
+                await sendLessonCompletedNotification(
+                  partnerInfo?.pushToken || "",
+                  data.partnerId,
+                  data?.displayName || "Seu Amor",
+                  currentLanguage
+                );
               }
             }
           }
@@ -180,7 +188,7 @@ export default function MissionRewardScreen({ navigation, route }: any) {
       }
     };
 
-    fetchUserData();
+    fetchUserDataAndNotify();
 
     Animated.parallel([
       Animated.timing(leftAvatarAnim, {

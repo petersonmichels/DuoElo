@@ -9,6 +9,8 @@ export type LanguageCode =
 
 export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
  "pt-BR": {
+  mission_in_progress_push_title: "Missão em Andamento! 🎯",
+mission_in_progress_push_body: "{name} iniciou a missão do dia na vida real!",
     habit_bonds_freq_sub: "{points} BONDS • {frequency}",
   // 🎁 Presentes - Workflow 4 Etapas
     gift_chosen_push_title: "Novo Presente Escolhido! 🎁",
@@ -825,6 +827,8 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
   audit_gift_redeemed: "Presente resgatado na Semana {{week}}",  },
 
   "pt-PT": {
+    mission_in_progress_push_title: "Missão em Andamento! 🎯",
+mission_in_progress_push_body: "{name} iniciou a missão do dia na vida real!",
     habit_bonds_freq_sub: "{points} BONDS • {frequency}",
     gift_chosen_push_title: "Novo Presente Escolhido! 🎁",
     gift_chosen_push_body: "{name} escolheu o presente \"{gift}\" na lista de desejos!",
@@ -1648,6 +1652,8 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
   audit_gift_redeemed: "Presente resgatado na Semana {{week}}",  },
 
   en: {
+    mission_in_progress_push_title: "Mission in Progress! 🎯",
+mission_in_progress_push_body: "{name} started today's real-life mission!",
     habit_bonds_freq_sub: "{points} BONDS • {frequency}",
     gift_chosen_push_title: "New Gift Chosen! 🎁",
     gift_chosen_push_body: "{name} picked the gift \"{gift}\" on their wishlist!",
@@ -2458,6 +2464,8 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
   audit_gift_redeemed: "Gift redeemed in Week {{week}}",  },
 
   es: {
+    mission_in_progress_push_title: "¡Misión en Curso! 🎯",
+mission_in_progress_push_body: "¡{name} ha iniciado la misión del día en la vida real!",
   habit_bonds_freq_sub: "{points} BONDS • {frequency}",
   solo_mode_title: "Mode Solo Actif",
   olo_mode_desc: "Votre parcours individuel de 90 jours est actif. Vous pourrez connecter votre partenaire à tout moment.",
@@ -3282,6 +3290,8 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
   audit_gift_redeemed: "Regalo canjeado en la Semana {{week}}",  },
 
   fr: {
+    mission_in_progress_push_title: "Mission en Cours ! 🎯",
+mission_in_progress_push_body: "{name} a commencé la mission du jour dans la vraie vie !",
     habit_bonds_freq_sub: "{points} BONDS • {frequency}",
     gift_chosen_push_title: "¡Nuevo Regalo Elegido! 🎁",
     gift_chosen_push_body: "¡{name} eligió el regalo \"{gift}\" en su lista de deseos!",
@@ -3966,6 +3976,8 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
   audit_gift_redeemed: "Cadeau récupéré à la Semaine {{week}}",  },
 
   de: {
+    mission_in_progress_push_title: "Mission Läuft! 🎯",
+mission_in_progress_push_body: "{name} hat die heutige Mission im echten Leben gestartet!",
     habit_bonds_freq_sub: "{points} BONDS • {frequency}",
     gift_chosen_push_title: "Nouveau Cadeau Choisi ! 🎁",
     gift_chosen_push_body: "{name} a choisi le cadeau \"{gift}\" sur sa liste d'envies !",
@@ -4824,6 +4836,8 @@ export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
   audit_gift_redeemed: "Geschenk eingelöst in Woche {{week}}",  },
 
   ja: {
+    mission_in_progress_push_title: "ミッション進行中！ 🎯",
+mission_in_progress_push_body: "{name}が今日のリアルミッションを開始しました！",
     habit_bonds_freq_sub: "{points} BONDS • {frequency}",
     gift_chosen_push_title: "新しいギフトが選ばれました！ 🎁",
     gift_chosen_push_body: "{name}さんがウィッシュリストでギフト「{gift}」を選びました！",

@@ -4,12 +4,7 @@ import {
   addDoc,
   collection,
   doc,
-  getDocs,
-  limit,
-  orderBy,
-  query,
-  updateDoc,
-  where,
+  updateDoc
 } from "firebase/firestore";
 import { Platform } from "react-native";
 import { auth, db } from "../config/firebase";
@@ -56,24 +51,6 @@ export async function saveNotificationToFirestore(
     const nowISO = new Date().toISOString();
     const notifRef = collection(db, "users", recipientUid, "notifications");
 
-    const dupQuery = query(
-      notifRef,
-      where("type", "==", type),
-      orderBy("createdAt", "desc"),
-      limit(1)
-    );
-    const dupSnap = await getDocs(dupQuery);
-
-    if (!dupSnap.empty) {
-      const lastNotif = dupSnap.docs[0].data();
-      if (lastNotif.createdAt && lastNotif.message === message) {
-        const diff = new Date(nowISO).getTime() - new Date(lastNotif.createdAt).getTime();
-        if (diff < 10000) {
-          return;
-        }
-      }
-    }
-
     await addDoc(notifRef, {
       title,
       message,
@@ -84,12 +61,7 @@ export async function saveNotificationToFirestore(
       senderUid: auth.currentUser?.uid || null,
     });
   } catch (error: unknown) {
-    const err = error as { code?: string };
-    if (err?.code === "permission-denied") {
-      console.log("[NOTIF_SERVICE] Sessão encerrada ou permissão negada.");
-    } else {
-      console.warn("[NOTIF_SERVICE] Aviso ao salvar notificação localmente:", error);
-    }
+    console.warn("[NOTIF_SERVICE] Aviso ao salvar notificação localmente:", error);
   }
 }
 
@@ -196,19 +168,18 @@ export async function sendPlayNotificationToPartner(
   return sendPlayTriggeredNotification(partnerPushToken, partnerUid, senderName, userLang);
 }
 
+// 🟡 NOTIFICAÇÃO DO BOTÃO LARANJA (RELÓGIO / TAREFA NA VIDA REAL)
 export async function sendLessonStartedNotification(
   partnerPushToken: string,
   partnerUid: string,
   senderName: string,
   userLang: string = "pt-BR"
 ): Promise<void> {
-  const rawTitle = t("lesson_started_push_title", userLang);
-  const pushTitle = rawTitle === "lesson_started_push_title" ? "Hora de Começar!" : (rawTitle || "Hora de Começar!");
-
-  const rawBody = t("lesson_started_push_body", userLang, { name: senderName });
-  const pushMessage = rawBody === "lesson_started_push_body"
-    ? `${senderName} iniciou a tarefa do dia!`
-    : (rawBody || `${senderName} iniciou a tarefa do dia!`);
+  const pushTitle =
+    t("mission_in_progress_push_title", userLang) || "Missão em Andamento! 🎯";
+  const pushMessage =
+    t("mission_in_progress_push_body", userLang, { name: senderName }) ||
+    `${senderName} iniciou a missão do dia na vida real!`;
 
   await saveNotificationToFirestore(pushTitle, pushMessage, "LESSON_STARTED", partnerUid);
 
