@@ -5,6 +5,8 @@ import {
   collection,
   doc,
   getDocs,
+  limit,
+  orderBy,
   query,
   updateDoc,
   where,
@@ -16,7 +18,7 @@ import { t } from "../i18n/translations";
 const isExpoGo =
   Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
-if (!isExpoGo) {
+if (!isExpoGo && Platform.OS !== "web") {
   try {
     Notifications.setNotificationHandler({
       handleNotification: async () => ({
@@ -42,7 +44,7 @@ export interface AppNotification {
 }
 
 /**
- * Grava a notificação no Firestore sem duplicatas recentes.
+ * 🟢 Grava a notificação diretamente no Firestore do parceiro de destino.
  */
 export async function saveNotificationToFirestore(
   title: string,
@@ -57,15 +59,23 @@ export async function saveNotificationToFirestore(
     const nowISO = new Date().toISOString();
     const notifRef = collection(db, "users", recipientUid, "notifications");
 
-    if (type === "DAILY_REMINDER") {
-      const dupQuery = query(
-        notifRef,
-        where("type", "==", "DAILY_REMINDER"),
-        where("read", "==", false)
-      );
-      const dupSnap = await getDocs(dupQuery);
-      if (!dupSnap.empty) {
-        return;
+    // 🟢 Trava de Segurança inteligente: impede envios DUPLICADOS idênticos em menos de 10 segundos
+    const dupQuery = query(
+      notifRef,
+      where("type", "==", type),
+      orderBy("createdAt", "desc"),
+      limit(1)
+    );
+    const dupSnap = await getDocs(dupQuery);
+
+    if (!dupSnap.empty) {
+      const lastNotif = dupSnap.docs[0].data();
+      if (lastNotif.createdAt && lastNotif.message === message) {
+        const diff = new Date(nowISO).getTime() - new Date(lastNotif.createdAt).getTime();
+        if (diff < 10000) {
+          // Bloqueia apenas rajadas de cliques idênticos em menos de 10s
+          return;
+        }
       }
     }
 
@@ -81,16 +91,13 @@ export async function saveNotificationToFirestore(
   } catch (error: unknown) {
     const err = error as { code?: string };
     if (err?.code === "permission-denied") {
-      console.log("[NOTIF_SERVICE] Sessão em encerramento ou permissão negada.");
+      console.log("[NOTIF_SERVICE] Sessão encerrada ou permissão negada.");
     } else {
       console.warn("[NOTIF_SERVICE] Aviso ao salvar notificação localmente:", error);
     }
   }
 }
 
-/**
- * Helper interno para validar tokens de Push da Expo
- */
 function isValidExpoPushToken(token?: string): boolean {
   if (!token || typeof token !== "string") return false;
   return (
@@ -98,37 +105,23 @@ function isValidExpoPushToken(token?: string): boolean {
   );
 }
 
-/**
- * 💌 Notificação ao ENVIAR um convite de Match
- */
+// 💌 Convite do Match
 export async function sendMatchNotificationToPartner(
   partnerPushToken: string,
   partnerUid: string,
   senderName: string,
   userLang: string = "pt-BR"
 ): Promise<void> {
-  const rawTitle = t("match_invite_push_title", userLang);
-  const pushTitle =
-    rawTitle && !rawTitle.includes("match_invite_push_title")
-      ? rawTitle
-      : "Novo Convite de Elo! ❤️";
-
-  const rawBody = t("match_invite_push_body", userLang, { name: senderName });
-  const pushMessage =
-    rawBody && !rawBody.includes("match_invite_push_body")
-      ? rawBody
-      : `${senderName} enviou um convite para iniciarem o elo juntos!`;
+  const pushTitle = t("match_invite_push_title", userLang) || t("new_invite_title", userLang);
+  const pushMessage = t("match_invite_push_body", userLang, { name: senderName }) || t("new_invite_body", userLang, { name: senderName });
 
   await saveNotificationToFirestore(pushTitle, pushMessage, "MATCH_INVITE", partnerUid);
 
-  if (isValidExpoPushToken(partnerPushToken) && !isExpoGo) {
+  if (isValidExpoPushToken(partnerPushToken) && !isExpoGo && Platform.OS !== "web") {
     try {
       await fetch("https://exp.host/--/api/v2/push/send", {
         method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-        },
+        headers: { Accept: "application/json", "Content-Type": "application/json" },
         body: JSON.stringify({
           to: partnerPushToken,
           sound: "default",
@@ -138,43 +131,27 @@ export async function sendMatchNotificationToPartner(
           data: { type: "MATCH_INVITE" },
         }),
       });
-    } catch (error) {
-      console.error("[NOTIF_SERVICE] Erro ao enviar Push de Convite:", error);
-    }
+    } catch (error) {}
   }
 }
 
-/**
- * ❤️ Notificação ao ACEITAR um convite de Match
- */
+// ❤️ Aceite do Match
 export async function sendMatchAcceptNotification(
   partnerPushToken: string,
   partnerUid: string,
   senderName: string,
   userLang: string = "pt-BR"
 ): Promise<void> {
-  const rawTitle = t("match_accept_push_title", userLang);
-  const pushTitle =
-    rawTitle && !rawTitle.includes("match_accept_push_title")
-      ? rawTitle
-      : "Elo Conectado! ❤️";
-
-  const rawBody = t("match_accept_push_body", userLang, { name: senderName });
-  const pushMessage =
-    rawBody && !rawBody.includes("match_accept_push_body")
-      ? rawBody
-      : `${senderName} aceitou seu convite! Vocês já estão vinculados.`;
+  const pushTitle = t("match_accept_push_title", userLang) || t("elo_connected_title", userLang);
+  const pushMessage = t("match_accept_push_body", userLang, { name: senderName });
 
   await saveNotificationToFirestore(pushTitle, pushMessage, "MATCH_ACCEPT", partnerUid);
 
-  if (isValidExpoPushToken(partnerPushToken) && !isExpoGo) {
+  if (isValidExpoPushToken(partnerPushToken) && !isExpoGo && Platform.OS !== "web") {
     try {
       await fetch("https://exp.host/--/api/v2/push/send", {
         method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-        },
+        headers: { Accept: "application/json", "Content-Type": "application/json" },
         body: JSON.stringify({
           to: partnerPushToken,
           sound: "default",
@@ -184,43 +161,27 @@ export async function sendMatchAcceptNotification(
           data: { type: "MATCH_ACCEPT" },
         }),
       });
-    } catch (error) {
-      console.error("[NOTIF_SERVICE] Erro ao enviar Push de Aceite:", error);
-    }
+    } catch (error) {}
   }
 }
 
-/**
- * ▶️ Notificação quando o parceiro clica em PLAY / Dá o sinal verde (FIX ERRO 4)
- */
+// ▶️ Play Acionado
 export async function sendPlayTriggeredNotification(
   partnerPushToken: string,
   partnerUid: string,
   senderName: string,
   userLang: string = "pt-BR"
 ): Promise<void> {
-  const rawTitle = t("play_push_title", userLang);
-  const pushTitle =
-    rawTitle && !rawTitle.includes("play_push_title")
-      ? rawTitle
-      : "▶️ Hora de Começar!";
-
-  const rawBody = t("play_push_body", userLang, { name: senderName });
-  const pushMessage =
-    rawBody && !rawBody.includes("play_push_body")
-      ? rawBody
-      : `${senderName} já deu o PLAY e está te aguardando para a jornada de hoje!`;
+  const pushTitle = t("play_push_title", userLang);
+  const pushMessage = t("play_push_body", userLang, { name: senderName });
 
   await saveNotificationToFirestore(pushTitle, pushMessage, "PLAY_STARTED", partnerUid);
 
-  if (isValidExpoPushToken(partnerPushToken) && !isExpoGo) {
+  if (isValidExpoPushToken(partnerPushToken) && !isExpoGo && Platform.OS !== "web") {
     try {
       await fetch("https://exp.host/--/api/v2/push/send", {
         method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-        },
+        headers: { Accept: "application/json", "Content-Type": "application/json" },
         body: JSON.stringify({
           to: partnerPushToken,
           sound: "default",
@@ -230,9 +191,7 @@ export async function sendPlayTriggeredNotification(
           data: { type: "PLAY_STARTED" },
         }),
       });
-    } catch (error) {
-      console.error("[NOTIF_SERVICE] Erro ao enviar Push de Play:", error);
-    }
+    } catch (error) {}
   }
 }
 
@@ -245,37 +204,58 @@ export async function sendPlayNotificationToPartner(
   return sendPlayTriggeredNotification(partnerPushToken, partnerUid, senderName, userLang);
 }
 
-/**
- * ✨ Notificação quando o parceiro CONCLUI a lição do dia (FIX ERRO 6)
- */
+// 🟡 Lição Iniciada / Adiada
+export async function sendLessonStartedNotification(
+  partnerPushToken: string,
+  partnerUid: string,
+  senderName: string,
+  userLang: string = "pt-BR"
+): Promise<void> {
+  const rawTitle = t("lesson_started_push_title", userLang);
+  const pushTitle = rawTitle === "lesson_started_push_title" ? "Hora de Começar!" : (rawTitle || "Hora de Começar!");
+
+  const rawBody = t("lesson_started_push_body", userLang, { name: senderName });
+  const pushMessage = rawBody === "lesson_started_push_body"
+    ? `${senderName} já deu o PLAY e está à sua espera!`
+    : (rawBody || `${senderName} iniciou a lição do dia!`);
+
+  await saveNotificationToFirestore(pushTitle, pushMessage, "LESSON_STARTED", partnerUid);
+
+  if (isValidExpoPushToken(partnerPushToken) && !isExpoGo && Platform.OS !== "web") {
+    try {
+      await fetch("https://exp.host/--/api/v2/push/send", {
+        method: "POST",
+        headers: { Accept: "application/json", "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: partnerPushToken,
+          sound: "default",
+          title: pushTitle,
+          body: pushMessage,
+          badge: 1,
+          data: { type: "LESSON_STARTED" },
+        }),
+      });
+    } catch (error) {}
+  }
+}
+
+// ✨ Lição Concluída
 export async function sendLessonCompletedNotification(
   partnerPushToken: string,
   partnerUid: string,
   senderName: string,
   userLang: string = "pt-BR"
 ): Promise<void> {
-  const rawTitle = t("lesson_completed_push_title", userLang);
-  const pushTitle =
-    rawTitle && !rawTitle.includes("lesson_completed_push_title")
-      ? rawTitle
-      : "✨ Lição Concluída!";
-
-  const rawBody = t("lesson_completed_push_body", userLang, { name: senderName });
-  const pushMessage =
-    rawBody && !rawBody.includes("lesson_completed_push_body")
-      ? rawBody
-      : `${senderName} acabou de concluir a lição do dia! Continue sua jornada.`;
+  const pushTitle = t("lesson_completed_push_title", userLang) || t("lesson_completed_title", userLang);
+  const pushMessage = t("lesson_completed_push_body", userLang, { name: senderName }) || t("lesson_completed_body", userLang, { name: senderName });
 
   await saveNotificationToFirestore(pushTitle, pushMessage, "LESSON_COMPLETED", partnerUid);
 
-  if (isValidExpoPushToken(partnerPushToken) && !isExpoGo) {
+  if (isValidExpoPushToken(partnerPushToken) && !isExpoGo && Platform.OS !== "web") {
     try {
       await fetch("https://exp.host/--/api/v2/push/send", {
         method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-        },
+        headers: { Accept: "application/json", "Content-Type": "application/json" },
         body: JSON.stringify({
           to: partnerPushToken,
           sound: "default",
@@ -285,62 +265,119 @@ export async function sendLessonCompletedNotification(
           data: { type: "LESSON_COMPLETED" },
         }),
       });
-    } catch (error) {
-      console.error("[NOTIF_SERVICE] Erro ao enviar Push de Lição:", error);
-    }
+    } catch (error) {}
   }
 }
 
-/**
- * 🎁 Notificação quando o parceiro ESCOLHE / COMPRA um presente na loja
- */
-export async function sendGiftNotification(
+// 1. 🎁 ETAPA 1: Presente Escolhido
+export async function sendGiftChosenNotification(
   partnerPushToken: string,
   partnerUid: string,
   senderName: string,
   giftTitle: string,
   userLang: string = "pt-BR"
 ): Promise<void> {
-  const rawTitle = t("gift_push_title", userLang);
-  const pushTitle =
-    rawTitle && !rawTitle.includes("gift_push_title")
-      ? rawTitle
-      : "Novo Presente Escolhido! 🎁";
+  const rawTitle = t("gift_chosen_push_title", userLang);
+  const pushTitle = rawTitle === "gift_chosen_push_title" ? "Novo Presente Escolhido! 🎁" : (rawTitle || "Novo Presente Escolhido! 🎁");
 
-  const rawBody = t("gift_push_body", userLang, { name: senderName, gift: giftTitle });
-  const pushMessage =
-    rawBody && !rawBody.includes("gift_push_body")
-      ? rawBody
-      : `${senderName} escolheu o presente "${giftTitle}" para você!`;
+  const rawBody = t("gift_chosen_push_body", userLang, { name: senderName, gift: giftTitle });
+  const pushMessage = rawBody === "gift_chosen_push_body"
+    ? `${senderName} escolheu o presente "${giftTitle}" na lista!`
+    : (rawBody || `${senderName} escolheu o presente "${giftTitle}" na lista!`);
 
-  await saveNotificationToFirestore(pushTitle, pushMessage, "GIFT_RECEIVED", partnerUid);
+  await saveNotificationToFirestore(pushTitle, pushMessage, "GIFT_CHOSEN", partnerUid);
 
-  if (isValidExpoPushToken(partnerPushToken) && !isExpoGo) {
+  if (isValidExpoPushToken(partnerPushToken) && !isExpoGo && Platform.OS !== "web") {
     try {
       await fetch("https://exp.host/--/api/v2/push/send", {
         method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-        },
+        headers: { Accept: "application/json", "Content-Type": "application/json" },
         body: JSON.stringify({
           to: partnerPushToken,
           sound: "default",
           title: pushTitle,
           body: pushMessage,
           badge: 1,
-          data: { type: "GIFT_RECEIVED" },
+          data: { type: "GIFT_CHOSEN" },
         }),
       });
-    } catch (error) {
-      console.error("[NOTIF_SERVICE] Erro ao enviar Push de Presente:", error);
-    }
+    } catch (error) {}
   }
 }
 
-/**
- * ❤️ Notificação quando o parceiro CONFIRMA o recebimento do presente na vida real
- */
+// 2. 🛍️ ETAPA 2: Presente Comprado com Bonds
+export async function sendGiftBoughtNotification(
+  partnerPushToken: string,
+  partnerUid: string,
+  senderName: string,
+  giftTitle: string,
+  userLang: string = "pt-BR"
+): Promise<void> {
+  const rawTitle = t("gift_bought_push_title", userLang);
+  const pushTitle = rawTitle === "gift_bought_push_title" ? "Presente Comprado! 🛍️" : (rawTitle || "Presente Comprado! 🛍️");
+
+  const rawBody = t("gift_bought_push_body", userLang, { name: senderName, gift: giftTitle });
+  const pushMessage = rawBody === "gift_bought_push_body"
+    ? `${senderName} resgatou o presente "${giftTitle}" para você com Bonds!`
+    : (rawBody || `${senderName} resgatou o presente "${giftTitle}" para você com Bonds!`);
+
+  await saveNotificationToFirestore(pushTitle, pushMessage, "GIFT_BOUGHT", partnerUid);
+
+  if (isValidExpoPushToken(partnerPushToken) && !isExpoGo && Platform.OS !== "web") {
+    try {
+      await fetch("https://exp.host/--/api/v2/push/send", {
+        method: "POST",
+        headers: { Accept: "application/json", "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: partnerPushToken,
+          sound: "default",
+          title: pushTitle,
+          body: pushMessage,
+          badge: 1,
+          data: { type: "GIFT_BOUGHT" },
+        }),
+      });
+    } catch (error) {}
+  }
+}
+
+// 3. 📦 ETAPA 3: Presente Entregue na Vida Real
+export async function sendGiftDeliveredNotification(
+  partnerPushToken: string,
+  partnerUid: string,
+  senderName: string,
+  giftTitle: string,
+  userLang: string = "pt-BR"
+): Promise<void> {
+  const rawTitle = t("gift_delivered_push_title", userLang);
+  const pushTitle = rawTitle === "gift_delivered_push_title" ? "Presente Entregue! 📦" : (rawTitle || "Presente Entregue! 📦");
+
+  const rawBody = t("gift_delivered_push_body", userLang, { name: senderName, gift: giftTitle });
+  const pushMessage = rawBody === "gift_delivered_push_body"
+    ? `${senderName} marcou "${giftTitle}" como entregue na vida real! Toque para confirmar.`
+    : (rawBody || `${senderName} marcou "${giftTitle}" como entregue na vida real! Toque para confirmar.`);
+
+  await saveNotificationToFirestore(pushTitle, pushMessage, "GIFT_DELIVERED", partnerUid);
+
+  if (isValidExpoPushToken(partnerPushToken) && !isExpoGo && Platform.OS !== "web") {
+    try {
+      await fetch("https://exp.host/--/api/v2/push/send", {
+        method: "POST",
+        headers: { Accept: "application/json", "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: partnerPushToken,
+          sound: "default",
+          title: pushTitle,
+          body: pushMessage,
+          badge: 1,
+          data: { type: "GIFT_DELIVERED" },
+        }),
+      });
+    } catch (error) {}
+  }
+}
+
+// 4. ❤️ ETAPA 4: Recebimento Confirmado
 export async function sendGiftConfirmedNotification(
   partnerPushToken: string,
   partnerUid: string,
@@ -349,27 +386,20 @@ export async function sendGiftConfirmedNotification(
   userLang: string = "pt-BR"
 ): Promise<void> {
   const rawTitle = t("gift_confirmed_push_title", userLang);
-  const pushTitle =
-    rawTitle && !rawTitle.includes("gift_confirmed_push_title")
-      ? rawTitle
-      : "Presente Confirmado! ❤️";
+  const pushTitle = rawTitle === "gift_confirmed_push_title" ? "Recebimento Confirmado! ❤️" : (rawTitle || "Recebimento Confirmado! ❤️");
 
   const rawBody = t("gift_confirmed_push_body", userLang, { name: senderName, gift: giftTitle });
-  const pushMessage =
-    rawBody && !rawBody.includes("gift_confirmed_push_body")
-      ? rawBody
-      : `${senderName} confirmou o recebimento do presente "${giftTitle}"!`;
+  const pushMessage = rawBody === "gift_confirmed_push_body"
+    ? `${senderName} confirmou o recebimento do presente "${giftTitle}"!`
+    : (rawBody || `${senderName} confirmou o recebimento do presente "${giftTitle}"!`);
 
   await saveNotificationToFirestore(pushTitle, pushMessage, "GIFT_CONFIRMED", partnerUid);
 
-  if (isValidExpoPushToken(partnerPushToken) && !isExpoGo) {
+  if (isValidExpoPushToken(partnerPushToken) && !isExpoGo && Platform.OS !== "web") {
     try {
       await fetch("https://exp.host/--/api/v2/push/send", {
         method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-        },
+        headers: { Accept: "application/json", "Content-Type": "application/json" },
         body: JSON.stringify({
           to: partnerPushToken,
           sound: "default",
@@ -379,15 +409,20 @@ export async function sendGiftConfirmedNotification(
           data: { type: "GIFT_CONFIRMED" },
         }),
       });
-    } catch (error) {
-      console.error("[NOTIF_SERVICE] Erro ao enviar Push de Confirmação de Presente:", error);
-    }
+    } catch (error) {}
   }
 }
 
-/**
- * 👁️ Marcar Notificação como Lida
- */
+export async function sendGiftNotification(
+  partnerPushToken: string,
+  partnerUid: string,
+  senderName: string,
+  giftTitle: string,
+  userLang: string = "pt-BR"
+): Promise<void> {
+  return sendGiftChosenNotification(partnerPushToken, partnerUid, senderName, giftTitle, userLang);
+}
+
 export async function markNotificationAsRead(
   userId: string,
   notificationId: string
@@ -395,20 +430,15 @@ export async function markNotificationAsRead(
   try {
     const notifRef = doc(db, "users", userId, "notifications", notificationId);
     await updateDoc(notifRef, { read: true });
-  } catch (error) {
-    console.error("[NOTIF_SERVICE] Erro ao marcar como lida:", error);
-  }
+  } catch (error) {}
 }
 
-/**
- * Agenda o lembrete diário local.
- */
 export async function scheduleDailyReminder(
   userLang: string = "pt-BR",
   hour: number = 20,
   minute: number = 0
 ): Promise<boolean> {
-  if (isExpoGo) return false;
+  if (isExpoGo || Platform.OS === "web") return false;
 
   try {
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
@@ -421,9 +451,11 @@ export async function scheduleDailyReminder(
 
     if (finalStatus !== "granted") return false;
 
+    const channelName = t("daily_reminder_channel_name", userLang) || "Lembretes Diários";
+
     if (Platform.OS === "android") {
       await Notifications.setNotificationChannelAsync("daily-reminders", {
-        name: t("daily_reminder_channel_name", userLang) || "Lembretes Diários",
+        name: channelName,
         importance: Notifications.AndroidImportance.HIGH,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: "#EAB64A",
@@ -432,17 +464,8 @@ export async function scheduleDailyReminder(
 
     await Notifications.cancelAllScheduledNotificationsAsync();
 
-    const rawTitle = t("daily_reminder_push_title", userLang);
-    const pushTitle =
-      rawTitle && !rawTitle.includes("daily_reminder_push_title")
-        ? rawTitle
-        : "✨ DuoElo - Hora do Casal!";
-
-    const rawBody = t("daily_reminder_push_body", userLang);
-    const pushBody =
-      rawBody && !rawBody.includes("daily_reminder_push_body")
-        ? rawBody
-        : "Sua missão diária e reflexão do casal já estão disponíveis.";
+    const pushTitle = t("daily_reminder_push_title", userLang);
+    const pushBody = t("daily_reminder_push_body", userLang);
 
     const triggerInput: Notifications.DailyTriggerInput = {
       type: Notifications.SchedulableTriggerInputTypes.DAILY,
@@ -455,18 +478,12 @@ export async function scheduleDailyReminder(
     }
 
     await Notifications.scheduleNotificationAsync({
-      content: {
-        title: pushTitle,
-        body: pushBody,
-        sound: true,
-        badge: 1,
-      },
+      content: { title: pushTitle, body: pushBody, sound: true, badge: 1 },
       trigger: triggerInput,
     });
 
     return true;
   } catch (error) {
-    console.error("[NOTIF_SERVICE] Erro ao agendar lembrete:", error);
     return false;
   }
 }

@@ -273,7 +273,7 @@ export default function MatchScreen({ navigation }: any) {
     }
   }, [isMatchConfirmationVisible]);
 
-  // 🟢 ATIVAÇÃO DO MODO SOLO DIRETO NA ÁREA DE MATCH (COM CHAVE DE AUDITORIA CORRIGIDA)
+  // ATIVAÇÃO DO MODO SOLO
   const handleEnableSoloMode = async () => {
     if (!currentUid) return;
 
@@ -297,15 +297,16 @@ export default function MatchScreen({ navigation }: any) {
       try {
         await logAuditEvent(
           currentUid,
-          "SOLO_MODE_ENABLED" as any,          "Usuário optou por jogar no Modo Solo diretamente na Área do Match",
+          "SOLO_MODE_ENABLED" as any,
+          "Usuário optou por jogar no Modo Solo diretamente na Área do Match",
           userLang
         );
       } catch (e) {}
 
       showCustomAlert(
-        t("solo_mode_title", userLang) || "Modo Solo",
+        t("solo_mode_title", userLang) || "Modo Solo Ativo",
         t("solo_mode_desc", userLang) ||
-          "Sua jornada individual de 90 dias está ativa. Você poderá conectar seu amor a qualquer momento no futuro.",
+          "A sua jornada individual de 90 dias está ativa. Você poderá conectar o seu amor a qualquer momento no futuro.",
         "user-check",
         "#67D4A8",
         t("btn_understand", userLang) || "Entendido",
@@ -375,7 +376,6 @@ export default function MatchScreen({ navigation }: any) {
     }
   };
 
-  // 🟢 DISMATCH SIMPLIFICADO E SEGURO (COM AÇÃO DE AUDITORIA VALIDADOS)
   const handleDisconnectPartner = () => {
     Alert.alert(
       t("disconnect_confirm_title", userLang) || "Desfazer Elo e Reiniciar?",
@@ -400,7 +400,6 @@ export default function MatchScreen({ navigation }: any) {
                 !myData.activeProductId.includes("inherited")
               );
 
-              // 🛡️ SOLICITANTE: ZERA HISTÓRICO E REINICIA
               const myPayload: any = {
                 partnerId: null,
                 hasPartner: false,
@@ -425,7 +424,6 @@ export default function MatchScreen({ navigation }: any) {
 
               await setDoc(doc(db, "users", currentUid), myPayload, { merge: true });
 
-              // 🛡️ PARCEIRO REMANESCENTE: RECEBE NOTIFICAÇÃO E CONTINUA SUAVEMENTE
               if (partnerUid) {
                 try {
                   const partnerSnap = await getDoc(doc(db, "users", partnerUid));
@@ -556,7 +554,7 @@ export default function MatchScreen({ navigation }: any) {
         sentMatchRequestTo: null,
       };
 
-      if (!iAmRealBuyer && senderData.planType === "duo") {
+      if (!iAmRealBuyer && (senderData.planType === "duo" || senderData.subscriptionCategory === "duo")) {
         myPayload.isPremium = true;
         myPayload.isPartnerPremium = true;
         myPayload.planType = "duo";
@@ -576,7 +574,7 @@ export default function MatchScreen({ navigation }: any) {
           sentMatchRequestTo: null,
         };
 
-        if (!senderIsRealBuyer && userData.planType === "duo") {
+        if (!senderIsRealBuyer && (userData.planType === "duo" || userData.subscriptionCategory === "duo")) {
           senderPayload.isPremium = true;
           senderPayload.isPartnerPremium = true;
           senderPayload.planType = "duo";
@@ -912,7 +910,7 @@ export default function MatchScreen({ navigation }: any) {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* 🟢 CARD PRINCIPAL DE STATUS */}
+          {/* CARD PRINCIPAL DE STATUS DA CONEXÃO */}
           <View style={styles.section}>
             {hasPartner ? (
               <View style={styles.connectedCardContainer}>
@@ -962,19 +960,20 @@ export default function MatchScreen({ navigation }: any) {
                 </TouchableOpacity>
               </View>
             ) : isSoloMode ? (
-              <View style={[styles.partnerCard, { borderColor: "#EAB64A", backgroundColor: "#FFF9E6" }]}>
-                <View style={[styles.partnerAvatarContainer, { backgroundColor: "#EAB64A20" }]}>
-                  <FontAwesome5 name="user" size={22} color="#EAB64A" />
+              /* 🟢 EXIBE O CARD DO MODO SOLO ATIVO NO TOPO */
+              <View style={[styles.partnerCard, { borderColor: "#67D4A8", backgroundColor: "#FFF" }]}>
+                <View style={[styles.partnerAvatarContainer, { backgroundColor: "#E8F4F1" }]}>
+                  <FontAwesome5 name="user-shield" size={22} color="#67D4A8" />
                 </View>
                 <View style={styles.partnerInfo}>
                   <Text style={styles.partnerLabel}>
-                    {t("status_label", userLang) || "Modo Atual"}
+                    {t("solo_mode_title", userLang) || "Modo Solo Ativo"}
                   </Text>
-                  <Text style={[styles.partnerName, { color: "#202D3A" }]}>
-                    {t("solo_mode_active_label", userLang) || "Modo Solo Ativo"}
+                  <Text style={[styles.partnerName, { color: "#67D4A8", fontSize: 16 }]}>
+                    {t("active_trail_label", userLang) || "Jornada Individual 90 Dias"}
                   </Text>
                 </View>
-                <FontAwesome5 name="check-circle" solid size={22} color="#EAB64A" />
+                <FontAwesome5 name="check-circle" solid size={24} color="#67D4A8" />
               </View>
             ) : hasReceivedInvite ? (
               <View style={[styles.card, { borderColor: "#EAB64A", backgroundColor: "#FFF9E6", alignItems: "center" }]}>
@@ -1069,71 +1068,7 @@ export default function MatchScreen({ navigation }: any) {
             )}
           </View>
 
-          {/* 🟢 CARD OPÇÃO MODO SOLO (REAPROVEITANDO CHAVES HOMOLOGADAS DO TRANSLATIONS) */}
-          {!hasPartner && (
-            <View style={styles.section}>
-              <View style={[styles.card, { backgroundColor: "#202D3A", borderColor: "#202D3A" }]}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 8 }}>
-                  <FontAwesome5 name="user-shield" size={20} color="#EAB64A" />
-                  <Text style={[styles.sectionTitle, { color: "#FFF", marginBottom: 0 }]}>
-                    {t("solo_mode_title", userLang) || "MODO SOLO"}
-                  </Text>
-                </View>
-                <Text style={[styles.cardDesc, { color: "#D1D9E0", marginBottom: 15 }]}>
-                  {t("solo_mode_desc", userLang) ||
-                    "Prefere iniciar sua jornada de 90 dias individualmente? Você pode fazer o Match a qualquer momento no futuro."}
-                </Text>
-
-                <TouchableOpacity
-                  style={[styles.soloBtn, isSoloMode && { backgroundColor: "#67D4A8" }]}
-                  onPress={handleEnableSoloMode}
-                  disabled={isSettingSolo}
-                  activeOpacity={0.8}
-                >
-                  {isSettingSolo ? (
-                    <ActivityIndicator size="small" color="#202D3A" />
-                  ) : (
-                    <Text style={styles.soloBtnText}>
-                      {isSoloMode
-                        ? t("solo_mode_active_label", userLang) || "✓ MODO SOLO ATIVO"
-                        : t("btn_continue_solo", userLang) || "ATIVAR MODO SOLO"}
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
-
-          {/* SEU CÓDIGO DE CONVITE */}
-          {!hasPartner && !hasSentInvite && !hasReceivedInvite && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>
-                {t("invite_section_1_title", userLang) || "Seu Código de Convite"}
-              </Text>
-              <View style={styles.card}>
-                <Text style={styles.cardDesc}>
-                  {t("invite_section_1_desc", userLang) ||
-                    "Compartilhe este código com seu amor para que ela(e) solicite a conexão."}
-                </Text>
-
-                <TouchableOpacity style={styles.codeContainer} onPress={handleCopyCode}>
-                  <Text style={styles.codeValue}>
-                    {userData?.myInviteCode || "DUE-XXX"}
-                  </Text>
-                  <FontAwesome5 name="copy" size={20} color="#AFAFAF" />
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.whatsappButton} onPress={handleSendInvite}>
-                  <FontAwesome5 name="whatsapp" size={20} color="#FFF" />
-                  <Text style={styles.whatsappButtonText}>
-                    {t("btn_invite_whatsapp", userLang) || "Enviar pelo WhatsApp"}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
-
-          {/* CONECTAR VIA CÓDIGO */}
+          {/* 1. CONECTAR VIA CÓDIGO DO AMOR (TOPO DA ÁREA DE AÇÃO) */}
           {!hasPartner && !hasSentInvite && !hasReceivedInvite && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>
@@ -1171,6 +1106,70 @@ export default function MatchScreen({ navigation }: any) {
                     )}
                   </TouchableOpacity>
                 </View>
+              </View>
+            </View>
+          )}
+
+          {/* 2. SEU CÓDIGO DE CONVITE (MEIO) */}
+          {!hasPartner && !hasSentInvite && !hasReceivedInvite && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>
+                {t("invite_section_1_title", userLang) || "Seu Código de Convite"}
+              </Text>
+              <View style={styles.card}>
+                <Text style={styles.cardDesc}>
+                  {t("invite_section_1_desc", userLang) ||
+                    "Compartilhe este código com seu amor para que ela(e) solicite a conexão."}
+                </Text>
+
+                <TouchableOpacity style={styles.codeContainer} onPress={handleCopyCode}>
+                  <Text style={styles.codeValue}>
+                    {userData?.myInviteCode || "DUE-XXX"}
+                  </Text>
+                  <FontAwesome5 name="copy" size={20} color="#AFAFAF" />
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.whatsappButton} onPress={handleSendInvite}>
+                  <FontAwesome5 name="whatsapp" size={20} color="#FFF" />
+                  <Text style={styles.whatsappButtonText}>
+                    {t("btn_invite_whatsapp", userLang) || "Enviar pelo WhatsApp"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
+          {/* 3. MODO SOLO (RODAPÉ SECUNDÁRIO) */}
+          {!hasPartner && (
+            <View style={styles.section}>
+              <View style={[styles.card, { backgroundColor: "#202D3A", borderColor: "#202D3A" }]}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 8 }}>
+                  <FontAwesome5 name="user-shield" size={20} color="#EAB64A" />
+                  <Text style={[styles.sectionTitle, { color: "#FFF", marginBottom: 0 }]}>
+                    {t("play_mode_title", userLang) || "Modo Solo"}
+                  </Text>
+                </View>
+                <Text style={[styles.cardDesc, { color: "#D1D9E0", marginBottom: 15 }]}>
+                  {t("solo_mode_desc", userLang) ||
+                    "Prefere iniciar sua jornada de 90 dias individualmente? Você poderá conectar o seu amor a qualquer momento no futuro."}
+                </Text>
+
+                <TouchableOpacity
+                  style={[styles.soloBtn, isSoloMode && { backgroundColor: "#67D4A8" }]}
+                  onPress={handleEnableSoloMode}
+                  disabled={isSettingSolo}
+                  activeOpacity={0.8}
+                >
+                  {isSettingSolo ? (
+                    <ActivityIndicator size="small" color="#202D3A" />
+                  ) : (
+                    <Text style={[styles.soloBtnText, isSoloMode && { color: "#0F172A" }]}>
+                      {isSoloMode
+                        ? `✓ ${t("solo_mode_title", userLang) || "Modo Solo Ativo"}`
+                        : t("btn_play_solo", userLang) || "Ativar Modo Solo"}
+                    </Text>
+                  )}
+                </TouchableOpacity>
               </View>
             </View>
           )}
@@ -1344,7 +1343,6 @@ const styles = StyleSheet.create({
     color: "#202D3A",
     fontFamily: "Montserrat_900Black",
     fontSize: 14,
-    textTransform: "uppercase",
   },
 
   receivedSenderContainer: {
@@ -1551,7 +1549,7 @@ const styles = StyleSheet.create({
   pulsingHeartCenter: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: 38,
     backgroundColor: "#E8F4F1",
     justifyContent: "center",
     alignItems: "center",

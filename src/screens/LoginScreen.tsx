@@ -1,6 +1,6 @@
 import { FontAwesome5 } from "@expo/vector-icons";
+import { GoogleSignin, statusCodes } from "@react-native-google-signin/google-signin";
 import * as AppleAuthentication from "expo-apple-authentication";
-import Constants, { ExecutionEnvironment } from "expo-constants";
 import * as Crypto from "expo-crypto";
 import {
   createUserWithEmailAndPassword,
@@ -46,27 +46,6 @@ import {
 
 const { width } = Dimensions.get("window");
 
-const isExpoGo =
-  Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
-
-/* ============================================================================
- * 📌 [RELEASING FOR FINAL BUILD] - GOOGLE SIGN-IN IMPORTS NATIVOS
- * Nota: Desativado temporariamente no Expo Go para testes OTA.
- * Para reativar na Build Nativa Final da Apple/Android, descomente o bloco abaixo.
- * ============================================================================
- */
-let GoogleSignin: any = null;
-let statusCodes: any = {};
-if (!isExpoGo) {
-  try {
-    const googleModule = require("@react-native-google-signin/google-signin");
-    GoogleSignin = googleModule.GoogleSignin;
-    statusCodes = googleModule.statusCodes || {};
-  } catch (e) {
-    console.log("[GoogleSignin] Módulo nativo indisponível neste ambiente.");
-  }
-}
-
 export default function LoginScreen({ navigation }: any) {
   const [isLogin, setIsLogin] = useState(true);
   const [username, setUsername] = useState("");
@@ -106,20 +85,17 @@ export default function LoginScreen({ navigation }: any) {
   const btnIcon = isLogin ? "sign-in-alt" : "arrow-right";
   const btnTextColor = isLogin ? "#FFF" : "#202D3A";
 
-  // 🛡️ CONFIGURAÇÃO SEGURA DO GOOGLE SIGN-IN NO IOS/ANDROID NATIVO
   const configureGoogleSignInSafe = () => {
-    if (!isExpoGo && GoogleSignin) {
-      try {
-        const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
-        GoogleSignin.configure({
-          webClientId: webClientId || undefined,
-          iosClientId: "504286284116-akoj0ufb3q6rrfb2b3gpskbjaatgeqle.apps.googleusercontent.com",
-          offlineAccess: true,
-          scopes: ["profile", "email"],
-        });
-      } catch (e) {
-        console.log("Erro ao configurar GoogleSignin:", e);
-      }
+    try {
+      const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+      GoogleSignin.configure({
+        webClientId: webClientId || undefined,
+        iosClientId: "504286284116-akoj0ufb3q6rrfb2b3gpskbjaatgeqle.apps.googleusercontent.com",
+        offlineAccess: true,
+        scopes: ["profile", "email"],
+      });
+    } catch (e) {
+      console.log("Erro ao configurar GoogleSignin:", e);
     }
   };
 
@@ -569,24 +545,7 @@ export default function LoginScreen({ navigation }: any) {
     }
   };
 
-  /* ============================================================================
-   * 📌 [RELEASING FOR FINAL BUILD] - FLUXO COMPLETO DO GOOGLE SIGN-IN NATIVO
-   * Durante a execução no Expo Go, é exibida uma mensagem de orientação.
-   * Na Build Nativa Final (EAS Build), descomente o bloco nativo abaixo.
-   * ============================================================================
-   */
   const handleGoogleSignIn = async () => {
-    if (isExpoGo || !GoogleSignin) {
-      showCustomAlert(
-        t("dev_mode_title", userLang) || "Modo de Teste",
-        t("dev_mode_msg", userLang) ||
-          "O login nativo do Google requer uma Build Nativa enviada via EAS Build. Este teste será validado na submissão final da Apple Store.",
-        "info-circle",
-        "#EAB64A"
-      );
-      return;
-    }
-
     if (isLoading || isGoogleSigningIn) return;
 
     setIsLoading(true);
@@ -607,8 +566,8 @@ export default function LoginScreen({ navigation }: any) {
 
       const signInResult = await GoogleSignin.signIn();
       const idToken =
-        signInResult?.data?.idToken ||
-        signInResult?.idToken;
+        (signInResult as any)?.data?.idToken ||
+        (signInResult as any)?.idToken;
 
       if (!idToken) {
         setIsLoading(false);
@@ -676,15 +635,15 @@ export default function LoginScreen({ navigation }: any) {
       console.log("[Google Sign-In Error Code]:", error?.code, error?.message);
 
       const isCancelled =
-        error?.code === statusCodes?.SIGN_IN_CANCELLED ||
+        error?.code === statusCodes.SIGN_IN_CANCELLED ||
         error?.code === "12501" ||
         error?.code === "ERR_REQUEST_CANCELED" ||
         error?.message?.toLowerCase().includes("cancel") ||
         error?.message?.toLowerCase().includes("user canceled");
 
       const isInProgress =
-        error?.code === statusCodes?.IN_PROGRESS ||
-        error?.code === statusCodes?.SIGN_IN_IN_PROGRESS;
+        error?.code === statusCodes.IN_PROGRESS ||
+        error?.code === "ASYNC_OP_IN_PROGRESS";
 
       if (isCancelled || isInProgress) {
         setIsLoading(false);

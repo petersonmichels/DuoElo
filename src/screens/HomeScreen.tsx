@@ -2,6 +2,7 @@ import { FontAwesome5 } from "@expo/vector-icons";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import * as Device from "expo-device";
 import {
+  arrayUnion,
   collection,
   doc,
   getDocs,
@@ -39,6 +40,7 @@ import { executePlayWithGuard } from "../hooks/usePlayGuard";
 import { t } from "../i18n/translations";
 import { audioService } from "../services/AudioService";
 import {
+  markNotificationAsRead,
   scheduleDailyReminder,
   sendLessonCompletedNotification,
 } from "../services/notificationService";
@@ -262,6 +264,7 @@ export default function HomeScreen({ navigation }: any) {
   const [isLangModalVisible, setIsLangModalVisible] = useState(false);
 
   const [isNotificationsVisible, setIsNotificationsVisible] = useState(false);
+  const [notificationsList, setNotificationsList] = useState<any[]>([]);
   const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
 
   const [isMasterPasswordModalVisible, setIsMasterPasswordModalVisible] = useState(false);
@@ -361,7 +364,6 @@ export default function HomeScreen({ navigation }: any) {
   const currentStep = nextAvailableStep;
   const isJourneyFinished = currentStep >= totalStepsInModule;
 
-  // 🛡️ TRATAMENTO DE DISMATCH / CONTA EXCLUÍDA PELO PARCEIRO
   useEffect(() => {
     if (userData?.matchStatus === "partner_disconnected_pending_choice" && currentUid) {
       showCustomAlert(
@@ -392,6 +394,15 @@ export default function HomeScreen({ navigation }: any) {
               anamnesisScore: null,
               priorityModules: [],
               myTrail: [],
+              currentPhase: 1,
+              currentTaskStep: 0,
+              completedTaskIds: [],
+              lastTaskId: null,
+              lastTaskDate: null,
+              streak: 0,
+              totalPE: 0,
+              isReadyToStart: false,
+              hasPressedPlay: false,
             },
             { merge: true }
           );
@@ -407,15 +418,18 @@ export default function HomeScreen({ navigation }: any) {
   useEffect(() => {
     if (!currentUid) return;
 
-    const notifQuery = query(
-      collection(db, "users", currentUid, "notifications"),
-      where("read", "==", false)
-    );
+    const notifQuery = collection(db, "users", currentUid, "notifications");
 
     const unsubscribeNotifs = onSnapshot(
       notifQuery,
       (snapshot) => {
-        setHasUnreadNotifications(!snapshot.empty);
+        const notifDocs = snapshot.docs.map((d) => ({
+          id: d.id,
+          ...d.data(),
+        }));
+        setNotificationsList(notifDocs);
+        const unread = notifDocs.some((n: any) => !n.read);
+        setHasUnreadNotifications(unread);
       },
       (err) => {}
     );
@@ -758,7 +772,6 @@ export default function HomeScreen({ navigation }: any) {
     t("partner_default_name", userLang) ||
     "Seu Amor";
 
-  // 🟢 DISPARO DO PLAY RESTRITO À ANAMNESE E MATCH/SOLO CONCLUÍDOS
   const handlePolitePlayTrigger = () => {
     triggerHaptic("medium");
     audioService.play("match");
@@ -778,7 +791,7 @@ export default function HomeScreen({ navigation }: any) {
     if (!isMatchOrSoloDone) {
       showCustomAlert(
         t("match_required_title", userLang) || "Conexão Necessária",
-        t("match_required_msg", userLang) || "Conecte seu amor (Match) ou selecione o modo Solo na Área do Match para liberar o Play.",
+        t("match_required_msg", userLang) || "Conecte seu amor (Match) ou selecione o modo Solo para liberar o Play.",
         "user-plus",
         "#EAB64A",
         t("btn_make_match_now", userLang) || "Ir para Área de Match",
@@ -787,7 +800,7 @@ export default function HomeScreen({ navigation }: any) {
       return;
     }
 
-    if (!isPremium) {
+    if (!isPremium && !isSoloMode) {
       showCustomAlert(
         t("plan_required_title", userLang) || "Plano Necessário",
         t("plan_required_msg", userLang) || "Assine para desbloquear sua jornada completa.",
@@ -849,7 +862,7 @@ export default function HomeScreen({ navigation }: any) {
       return;
     }
 
-    if (!isPremium) {
+    if (!isPremium && !isSoloMode) {
       showCustomAlert(
         t("sub_required_title", userLang) || "Assinatura Necessária",
         t("sub_required_msg", userLang) || "Assine para continuar sua jornada no DuoElo.",
@@ -994,10 +1007,15 @@ export default function HomeScreen({ navigation }: any) {
         activeMission.day ||
         nextAvailableStep + 1;
 
+      const taskIdToStore = activeMission.id || `day_${targetPhase}`;
+
       if (activeMission.isGoldChallenge) {
         await setDoc(
           doc(db, "users", currentUid),
-          { totalPE: increment(activeMission.pointsPE || 150) },
+          { 
+            totalPE: increment(activeMission.pointsPE || 150),
+            completedTaskIds: arrayUnion(taskIdToStore)
+          },
           { merge: true }
         );
 
@@ -1063,7 +1081,8 @@ export default function HomeScreen({ navigation }: any) {
         currentPhase: increment(1),
         totalPE: increment(activeMission.pointsPE || 50),
         lastTaskDate: new Date().toISOString(),
-        lastTaskId: activeMission.id || null,
+        lastTaskId: taskIdToStore,
+        completedTaskIds: arrayUnion(taskIdToStore),
         currentTaskStep: 0,
         streak: newStreak,
       };
@@ -1216,6 +1235,28 @@ export default function HomeScreen({ navigation }: any) {
 
   const isDataChecking = loading || !userData;
 
+  // 🟢 Manipulador acionado ao clicar no ícone do sino
+  const handleOpenNotificationsModal = async () => {
+    triggerHaptic("light");
+    setIsNotificationsVisible(true);
+    setHasUnreadNotifications(false);
+
+    if (currentUid && notificationsList.some((n) => !n.read)) {
+      try {
+        const unreadDocs = notificationsList.filter((n) => !n.read);
+        const markPromises = unreadDocs.map((notif) => {
+          if (notif.id) {
+            return markNotificationAsRead(currentUid, notif.id);
+          }
+          return Promise.resolve();
+        });
+        await Promise.all(markPromises);
+      } catch (error) {
+        console.warn("[HOME] Erro ao marcar notificações como lidas:", error);
+      }
+    }
+  };
+
   if (isDataChecking) {
     return (
       <AppSplashScreen
@@ -1256,12 +1297,10 @@ export default function HomeScreen({ navigation }: any) {
           </Text>
         </View>
 
+        {/* 🟢 ITEM #05: Clique do Sino com Limpeza do Badge no Estado e no Firestore */}
         <TouchableOpacity
           style={styles.topBarItem}
-          onPress={() => {
-            triggerHaptic("light");
-            setIsNotificationsVisible(true);
-          }}
+          onPress={handleOpenNotificationsModal}
         >
           <View style={{ position: "relative" }}>
             <FontAwesome5 name="bell" solid size={22} color="#202D3A" />
@@ -1435,7 +1474,7 @@ export default function HomeScreen({ navigation }: any) {
 
           <View style={styles.trailConnector} />
 
-          {/* NÓ 3: DAR O PLAY (RESTRITO ATÉ ANAMNESE E MATCH/SOLO CONCLUÍDOS) */}
+          {/* NÓ 3: DAR O PLAY */}
           <View
             style={styles.specialNodeContainer}
             onLayout={(e) => {
@@ -1467,12 +1506,16 @@ export default function HomeScreen({ navigation }: any) {
                 <TouchableOpacity
                   style={[
                     styles.startJourneyBtn,
-                    iAmReady
-                      ? { backgroundColor: "#EAB64A", borderColor: "#F9ECCC" }
+                    (hasCompletedAnamnesis && isMatchOrSoloDone)
+                      ? {
+                          backgroundColor: "#67D4A8",
+                          borderColor: "#E8F4F1",
+                          shadowColor: "#67D4A8",
+                        }
                       : {
-                          backgroundColor: (hasCompletedAnamnesis && isMatchOrSoloDone) ? "#67D4A8" : "#AFAFAF",
-                          borderColor: (hasCompletedAnamnesis && isMatchOrSoloDone) ? "#E8F4F1" : "#D1D9E0",
-                          shadowColor: (hasCompletedAnamnesis && isMatchOrSoloDone) ? "#67D4A8" : "#AFAFAF",
+                          backgroundColor: "#AFAFAF",
+                          borderColor: "#D1D9E0",
+                          shadowColor: "#AFAFAF",
                         },
                   ]}
                   activeOpacity={0.8}
@@ -1512,7 +1555,7 @@ export default function HomeScreen({ navigation }: any) {
               const isNextUp = index === nextAvailableStep;
               const isLocked = index > nextAvailableStep;
 
-              const isSubscriptionLocked = isNextUp && !isPremium;
+              const isSubscriptionLocked = isNextUp && !isPremium && !isSoloMode;
 
               const isWaitingForTomorrow =
                 isNextUp && hasCompletedTaskToday && !bypassDailyLock;
@@ -1862,7 +1905,7 @@ export default function HomeScreen({ navigation }: any) {
                       "trophy",
                       "#EAB64A"
                     );
-                  } else if (hasCompletedAnamnesis && !isPremium) {
+                  } else if (hasCompletedAnamnesis && !isPremium && !isSoloMode) {
                     showCustomAlert(
                       t("sub_required_title", userLang) || "Assinatura Necessária",
                       t("sub_required_completion_msg", userLang) || "Assine para desbloquear todo o percurso até o Dia 90.",

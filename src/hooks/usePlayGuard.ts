@@ -22,10 +22,10 @@ interface PlayGuardParams {
   ) => void;
 }
 
-// 🎯 GERAR A MATRIZ DA TRILHA DE 90 DIAS DUAL
+// 🎯 GERAR A MATRIZ DA TRILHA DE 90 DIAS
 const generateTrailMatrix = async (
   uid: string,
-  partnerId: string,
+  partnerId: string | null,
   userLang: string
 ) => {
   try {
@@ -42,8 +42,8 @@ const generateTrailMatrix = async (
       .sort((a: any, b: any) => a.day - b.day);
     const myPersonalTrail: number[] = [];
 
-    // O parceiro com UID alfabeticamente maior recebe a ordem alternada
-    const isSecondaryPartner = uid > partnerId;
+    // Se houver parceiro, o parceiro com UID alfabeticamente maior altera a ordem
+    const isSecondaryPartner = partnerId ? uid > partnerId : false;
 
     for (let i = 0; i < allTasks.length; i += 5) {
       const chunk = allTasks.slice(i, i + 5).map((t) => t.day);
@@ -85,14 +85,16 @@ export const executePlayWithGuard = async ({
   if (!userId) return;
 
   const hasPartner = Boolean(userData?.partnerId || userData?.hasPartner);
+  const isSoloMode = Boolean(userData?.isSoloMode);
   const partnerUid = userData?.partnerId;
+  const isPremium = Boolean(userData?.isPremium);
 
-  // 🛡️ 2. TRAVA RÍGIDA: SEM PARCEIRO/MATCH NÃO HÁ PLAY
-  if (!hasPartner || !partnerUid) {
+  // 🛡️ 2. VALIDAÇÃO DE CONEXÃO OU MODO SOLO
+  if (!hasPartner && !isSoloMode) {
     showCustomAlert(
       t("match_required_title", userLang) || "Conexão Necessária",
       t("match_required_msg", userLang) ||
-        "Você precisa conectar seu amor (Match) para ativar o Play e iniciar a jornada.",
+        "Conecte seu amor (Match) ou selecione o modo Solo na Área do Match para liberar a jornada.",
       "user-plus",
       "#EAB64A",
       t("btn_make_match_now", userLang) || "Ir para Área de Match",
@@ -101,95 +103,114 @@ export const executePlayWithGuard = async ({
     return;
   }
 
-  try {
-    // 🔍 Busca única dos dados do parceiro no Firestore
-    const partnerSnap = await getDoc(doc(db, "users", partnerUid));
-    const partnerData = partnerSnap.exists() ? partnerSnap.data() : {};
-
-    // 🛡️ 3. TRAVA DE PLANO SOLO PARA PARCEIRO SEM ASSINATURA ATIVA
-    const isSoloPlan =
-      userData?.planType === "solo" ||
-      userData?.activeProductId?.includes("_solo_");
-    const partnerHasActivePremium = Boolean(partnerData?.isPremium);
-
-    if (isSoloPlan && !partnerHasActivePremium) {
-      showCustomAlert(
-        t("sub_required_title", userLang) || "Assinatura Necessária",
-        t("partner_solo_plan_restriction_msg", userLang) ||
-          "Seu plano atual é Solo. Para jogar em dupla, seu parceiro(a) também precisa ter um plano ativo ou você pode migrar para o Plano Duo.",
-        "lock",
-        "#D96C6C",
-        t("btn_see_plans", userLang) || "Ver Planos",
-        () => navigation.navigate("PaywallScreen"),
-        t("btn_not_now", userLang) || "Agora Não",
-        () => {}
-      );
-      return;
-    }
-
-    // 🛡️ 4. INICIALIZAÇÃO DA JORNADA EM DUPLA
-    const myDisplayName =
-      userData?.billingFirstName ||
-      userData?.displayName ||
-      t("user_default_name", userLang) ||
-      "Seu Amor";
-
-    // Gerar as trilhas do casal
-    const myTrail = await generateTrailMatrix(userId, partnerUid, userLang);
-    const partnerTrail = await generateTrailMatrix(partnerUid, userId, userLang);
-
-    // Atualiza o perfil do usuário atual
-    await setDoc(
-      doc(db, "users", userId),
-      {
-        isReadyToStart: true,
-        hasPressedPlay: true,
-        anamnesisLocked: true,
-        myTrail: myTrail,
-        playPressedAt: new Date().toISOString(),
-      },
-      { merge: true }
+  // 🛡️ 3. RESPEITAR ASSINATURAS (VERIFICAÇÃO DE PLANO/PAYWALL)
+  if (!isPremium) {
+    showCustomAlert(
+      t("plan_required_title", userLang) || "Plano Necessário",
+      t("plan_required_msg", userLang) ||
+        "Assine para desbloquear sua jornada completa de 90 dias.",
+      "lock",
+      "#EAB64A",
+      t("btn_see_plans", userLang) || "Ver Planos",
+      () => navigation.navigate("PaywallScreen"),
+      t("btn_not_now", userLang) || "Agora Não",
+      () => {}
     );
+    return;
+  }
 
-    // Sincroniza e libera a conta do parceiro
-    try {
+  try {
+    // 🟢 MODO SOLO: LIBERA A TRILHA INDIVIDUAL
+    if (isSoloMode && !hasPartner) {
+      const myTrail = await generateTrailMatrix(userId, null, userLang);
+
       await setDoc(
-        doc(db, "users", partnerUid),
+        doc(db, "users", userId),
         {
           isReadyToStart: true,
           hasPressedPlay: true,
           anamnesisLocked: true,
-          myTrail: partnerTrail,
+          myTrail: myTrail,
           playPressedAt: new Date().toISOString(),
         },
         { merge: true }
       );
-    } catch (partnerErr) {
-      console.log("[usePlayGuard] Sincronização do parceiro pendente via reconciliação.");
+
+      await logAuditEvent(
+        userId,
+        "PLAY_PRESSED",
+        "Jornada iniciada no Modo Solo.",
+        userLang
+      );
+
+      navigation.navigate("MainTabs", { screen: "Home" });
+      return;
     }
 
-    // 🔔 DISPARO DE NOTIFICAÇÃO PUSH
-    try {
-      if (partnerData?.pushToken) {
-        await sendPlayTriggeredNotification(
-          partnerData.pushToken,
-          partnerUid,
-          myDisplayName,
-          userLang
+    // 💑 MODO CASAL / MATCH: INICIALIZAÇÃO DA JORNADA EM DUPLA
+    if (partnerUid) {
+      const partnerSnap = await getDoc(doc(db, "users", partnerUid));
+      const partnerData = partnerSnap.exists() ? partnerSnap.data() : {};
+
+      const myDisplayName =
+        userData?.billingFirstName ||
+        userData?.displayName ||
+        t("user_default_name", userLang) ||
+        "Seu Amor";
+
+      const myTrail = await generateTrailMatrix(userId, partnerUid, userLang);
+      const partnerTrail = await generateTrailMatrix(partnerUid, userId, userLang);
+
+      await setDoc(
+        doc(db, "users", userId),
+        {
+          isReadyToStart: true,
+          hasPressedPlay: true,
+          anamnesisLocked: true,
+          myTrail: myTrail,
+          playPressedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+
+      try {
+        await setDoc(
+          doc(db, "users", partnerUid),
+          {
+            isReadyToStart: true,
+            hasPressedPlay: true,
+            anamnesisLocked: true,
+            myTrail: partnerTrail,
+            playPressedAt: new Date().toISOString(),
+          },
+          { merge: true }
         );
+      } catch (partnerErr) {
+        console.log("[usePlayGuard] Sincronização do parceiro pendente via reconciliação.");
       }
-    } catch (notifErr) {
-      console.warn("[usePlayGuard] Erro ao enviar notificação de Play:", notifErr);
+
+      try {
+        if (partnerData?.pushToken) {
+          await sendPlayTriggeredNotification(
+            partnerData.pushToken,
+            partnerUid,
+            myDisplayName,
+            userLang
+          );
+        }
+      } catch (notifErr) {
+        console.warn("[usePlayGuard] Erro ao enviar notificação de Play:", notifErr);
+      }
+
+      await logAuditEvent(
+        userId,
+        "PLAY_PRESSED",
+        "Jornada iniciada em dupla.",
+        userLang
+      );
+
+      navigation.navigate("MainTabs", { screen: "Home" });
     }
-
-    await logAuditEvent(
-      userId,
-      "PLAY_PRESSED",
-      "Jornada iniciada diretamente em dupla.",
-      userLang
-    );
-
-    navigation.navigate("MainTabs", { screen: "Home" });
   } catch (error) {
     console.error("[usePlayGuard] Erro ao processar o Play:", error);
   }

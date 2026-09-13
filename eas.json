@@ -9,11 +9,13 @@
       "distribution": "internal",
       "node": "22.13.0",
       "ios": {
-        "simulator": true
+        "simulator": false
       },
       "env": {
         "EXPO_PUBLIC_APP_ENV": "development",
-        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true",
+        "EXPO_PUBLIC_REVENUECAT_IOS_KEY": "appl_xZNigunYBjnJfNUXAOfFqIyXbgY",
+        "EXPO_PUBLIC_REVENUECAT_ANDROID_KEY": "goog_bYcEfvvHdSDOOPlWDlhsnYxJJov"
       }
     },
     "preview": {

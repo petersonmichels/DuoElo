@@ -29,7 +29,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { auth, db } from "../config/firebase";
 import { t } from "../i18n/translations";
 import { logAuditEvent } from "../services/auditService";
-import { sendLessonCompletedNotification } from "../services/notificationService";
+import {
+  sendLessonCompletedNotification,
+  sendLessonStartedNotification,
+} from "../services/notificationService";
 import { decryptText, encryptText } from "../services/securityService";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -62,7 +65,6 @@ export default function MissionExecutionScreen({
   const slideAnim = useRef(new Animated.Value(0)).current;
   const ringPulseAnim = useRef(new Animated.Value(1)).current;
 
-  // 🟢 PRIORIZA O DISPLAYPHASE PASSADO PELA HOMESCREEN PARA DUALIDADE DO CASAL
   const currentDayOrPhase = Number(
     mission?.displayPhase ?? mission?.phase ?? mission?.day ?? 1
   );
@@ -309,8 +311,33 @@ export default function MissionExecutionScreen({
     });
   };
 
-  const handlePause = () => {
+  // 🟢ITEM #04: Disparo de Notificação ao Adiar/Pausar
+  const handlePause = async () => {
     triggerHaptic("light");
+
+    try {
+      const uid = auth.currentUser?.uid;
+      if (uid) {
+        const userSnap = await getDoc(doc(db, "users", uid));
+        if (userSnap.exists()) {
+          const uData = userSnap.data();
+          if (uData?.partnerId) {
+            const partnerSnap = await getDoc(doc(db, "users", uData.partnerId));
+            const partnerPushToken = partnerSnap.exists()
+              ? partnerSnap.data()?.pushToken || ""
+              : "";
+
+            await sendLessonStartedNotification(
+              partnerPushToken,
+              uData.partnerId,
+              uData.displayName || "Seu Amor",
+              userLanguage
+            );
+          }
+        }
+      }
+    } catch (e) {}
+
     onClose();
   };
 
@@ -319,9 +346,10 @@ export default function MissionExecutionScreen({
     triggerHaptic("heavy");
     setIsFinishing(true);
 
+    let finalJournalToSave: string = journalEntry;
+
     try {
       const uid = auth.currentUser?.uid;
-      let finalJournalToSave: string = journalEntry;
 
       if (uid && journalEntry.trim().length > 0) {
         finalJournalToSave = await encryptText(journalEntry, uid);
@@ -355,13 +383,14 @@ export default function MissionExecutionScreen({
               );
             }
           }
-        } catch (notifErr) {}
+        } catch (notifErr) {
+          console.warn("[MISSION_EXECUTION] Aviso ao enviar notificação de lição:", notifErr);
+        }
       }
-
-      await onComplete(finalJournalToSave);
     } catch (e) {
-      await onComplete(journalEntry);
+      console.warn("[MISSION_EXECUTION] Erro durante pós-processamento da lição:", e);
     } finally {
+      await onComplete(finalJournalToSave);
       setIsFinishing(false);
     }
   };

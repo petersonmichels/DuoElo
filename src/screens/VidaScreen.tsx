@@ -1,6 +1,6 @@
 import { FontAwesome5 } from "@expo/vector-icons";
 import { doc, onSnapshot, setDoc } from "firebase/firestore";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   ScrollView,
@@ -46,7 +46,6 @@ export default function VidaScreen({ navigation }: any) {
 
   // Confirmações para controle de Cards
   const [myConfirmations, setMyConfirmations] = useState<{ [week: number]: boolean }>({});
-  const [partnerConfirmations, setPartnerConfirmations] = useState<{ [week: number]: boolean }>({});
 
   const userLang = userData?.language || "pt-BR";
   const todayStr = new Date().toISOString().split("T")[0];
@@ -166,18 +165,9 @@ export default function VidaScreen({ navigation }: any) {
       }
     );
 
-    const unSubPartnerConfirmations = onSnapshot(
-      doc(db, "users", partnerUid, "shop", "confirmations"),
-      (snap) => {
-        if (!auth.currentUser) return;
-        if (snap.exists()) setPartnerConfirmations(snap.data() || {});
-      }
-    );
-
     return () => {
       unSubPartnerDesires();
       unSubPartnerRedemptions();
-      unSubPartnerConfirmations();
     };
   }, [partnerUid]);
 
@@ -335,6 +325,9 @@ export default function VidaScreen({ navigation }: any) {
     }));
 
   const allActiveHabits = [...nativeHabits, ...userCustomActive];
+
+  // 🟢 ITEM #07: Filtra para exibir apenas os hábitos pendentes
+  const pendingHabits = allActiveHabits.filter((h) => !completedToday.includes(h.id));
 
   return (
     <SafeAreaView style={styles.container}>
@@ -617,8 +610,19 @@ export default function VidaScreen({ navigation }: any) {
                 {t("empty_active_habits_msg", userLang) || "Nenhum hábito ativo. Clique na engrenagem para ativar hábitos!"}
               </Text>
             </View>
+          ) : pendingHabits.length === 0 ? (
+            /* 🟢 ITEM #07: Estado de Vitória/Parabéns quando todos os hábitos forem concluídos */
+            <View style={styles.allCompletedCard}>
+              <FontAwesome5 name="check-circle" size={38} color="#67D4A8" solid />
+              <Text style={styles.allCompletedTitle}>
+                {t("all_habits_completed_title", userLang) || "Ações do Dia Concluídas! 🎉"}
+              </Text>
+              <Text style={styles.allCompletedSub}>
+                {t("all_habits_completed_sub", userLang) || "Você realizou todas as suas ações do mundo real de hoje. Volte amanhã para acumular mais Bonds!"}
+              </Text>
+            </View>
           ) : (
-            allActiveHabits.map((habit) => {
+            pendingHabits.map((habit) => {
               const isChecked = completedToday.includes(habit.id);
               return (
                 <TouchableOpacity
@@ -774,5 +778,28 @@ const styles = StyleSheet.create({
     fontFamily: "Montserrat_400Regular",
     color: "#60646C",
     textAlign: "center",
+  },
+  allCompletedCard: {
+    backgroundColor: "#E8F4F1",
+    borderRadius: 18,
+    padding: 20,
+    alignItems: "center",
+    borderWidth: 1.5,
+    borderColor: "#67D4A8",
+  },
+  allCompletedTitle: {
+    fontFamily: "Montserrat_900Black",
+    fontSize: 16,
+    color: "#202D3A",
+    marginTop: 10,
+    marginBottom: 4,
+    textAlign: "center",
+  },
+  allCompletedSub: {
+    fontFamily: "Montserrat_400Regular",
+    fontSize: 13,
+    color: "#60646C",
+    textAlign: "center",
+    lineHeight: 18,
   },
 });

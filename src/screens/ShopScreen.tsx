@@ -23,8 +23,10 @@ import {
 import { t } from "../i18n/translations";
 import { logAuditEvent } from "../services/auditService";
 import {
+  sendGiftBoughtNotification,
+  sendGiftChosenNotification,
   sendGiftConfirmedNotification,
-  sendGiftNotification,
+  sendGiftDeliveredNotification,
 } from "../services/notificationService";
 
 let Haptics: any = null;
@@ -231,6 +233,7 @@ export default function ShopScreen({ userData, partnerData, navigation, route }:
     };
   }, [partnerUid]);
 
+  // 1. 🎁 ESCOLHER PRESENTE
   const handleSelectGift = async (giftId: string) => {
     if (!currentUid || activeWeekSlot === null) return;
 
@@ -263,6 +266,20 @@ export default function ShopScreen({ userData, partnerData, navigation, route }:
       setMyDesires(updated);
       setActiveWeekSlot(null);
       triggerHaptic("success");
+
+      // 🟢 ETAPA 1: Notifica o parceiro sobre o NOVO DESEJO ESCOLHIDO
+      if (partnerUid) {
+        try {
+          const giftTitle = getGiftTitle(giftId, userLang);
+          await sendGiftChosenNotification(
+            partnerData?.pushToken || "",
+            partnerUid,
+            userData?.displayName || "Seu Amor",
+            giftTitle,
+            userLang
+          );
+        } catch (notifErr) {}
+      }
     } catch (e: any) {
       showAlert(
         t("error_title", userLang) || "Erro",
@@ -276,6 +293,7 @@ export default function ShopScreen({ userData, partnerData, navigation, route }:
     }
   };
 
+  // 2. 🛍️ COMPRAR PRESENTE
   const handleBuyGift = async (weekNum: number, giftId: string) => {
     const cost = 150;
 
@@ -332,8 +350,9 @@ export default function ShopScreen({ userData, partnerData, navigation, route }:
 
       const translatedTitle = getGiftTitle(giftId, userLang);
 
+      // 🟢 ETAPA 2: Notifica o parceiro sobre o PRESENTE COMPRADO
       try {
-        await sendGiftNotification(
+        await sendGiftBoughtNotification(
           partnerData?.pushToken || "",
           partnerUid,
           userData?.displayName || "Seu Amor",
@@ -362,6 +381,7 @@ export default function ShopScreen({ userData, partnerData, navigation, route }:
     }
   };
 
+  // 3. 📦 MARCAR COMO ENTREGUE
   const handleMarkDelivered = async (weekNum: number) => {
     if (!currentUid) return;
     try {
@@ -377,6 +397,21 @@ export default function ShopScreen({ userData, partnerData, navigation, route }:
         },
         { merge: true }
       );
+
+      // 🟢 ETAPA 3: Notifica o parceiro de que o presente foi ENTREGUE NA VIDA REAL
+      if (partnerUid) {
+        try {
+          const giftId = existing.giftId || partnerDesires[weekNum] || "";
+          const giftTitle = giftId ? getGiftTitle(giftId, userLang) : "Presente";
+          await sendGiftDeliveredNotification(
+            partnerData?.pushToken || "",
+            partnerUid,
+            userData?.displayName || "Seu Amor",
+            giftTitle,
+            userLang
+          );
+        } catch (notifErr) {}
+      }
 
       showAlert(
         t("delivered_success_title", userLang) || "Marcado como Entregue!",
@@ -396,6 +431,7 @@ export default function ShopScreen({ userData, partnerData, navigation, route }:
     }
   };
 
+  // 4. ❤️ CONFIRMAR RECEBIMENTO
   const handleConfirmReceived = async (weekNum: number) => {
     if (!currentUid) return;
     try {
@@ -407,9 +443,10 @@ export default function ShopScreen({ userData, partnerData, navigation, route }:
         { merge: true }
       );
 
+      // 🟢 ETAPA 4: Notifica o parceiro de que o RECEBIMENTO FOI CONFIRMADO
       if (partnerUid) {
         try {
-          const giftId = partnerPurchases[weekNum]?.giftId || "";
+          const giftId = partnerPurchases[weekNum]?.giftId || myDesires[weekNum] || "";
           const giftTitle = giftId ? getGiftTitle(giftId, userLang) : "Presente";
 
           await sendGiftConfirmedNotification(

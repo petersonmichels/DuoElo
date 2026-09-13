@@ -58,7 +58,7 @@ export interface SelectedAnswer {
   label: string;
 }
 
-export default function AnamneseScreen({ navigation, route }: any) {
+export default function QuizResultScreen({ navigation, route }: any) {
   const [screenState, setScreenState] = useState<
     "intro" | "questions" | "calculating" | "result" | "locked"
   >("intro");
@@ -109,7 +109,7 @@ export default function AnamneseScreen({ navigation, route }: any) {
     confirmText = "",
     onConfirm: (() => void) | null = null,
     secondaryText = "",
-    onSecondary: (() => void) | null = null,
+    onSecondary: (() => void) | null = null
   ) => {
     setCustomAlert({
       visible: true,
@@ -585,7 +585,7 @@ export default function AnamneseScreen({ navigation, route }: any) {
     calculatedPillars.sort((a, b) => a.health - b.health);
     setPriorityPillars(calculatedPillars);
 
-    setLoadingMsg(t("loading_step_1", userLang) || "Avaliando dinâmica da relação...");
+    setLoadingMsg(t("loading_step_1", userLang) || "Aavaliando dinâmica da relação...");
     Animated.timing(loadingProgress, {
       toValue: 100,
       duration: 4000,
@@ -1133,17 +1133,17 @@ export default function AnamneseScreen({ navigation, route }: any) {
               {t("access_unlocked_label", userLang) || "Tudo pronto! Seu diagnóstico e seu Elo estão ativos."}
             </Text>
             <TouchableOpacity
-              style={[styles.paywallBtn, { backgroundColor: "#67D4A8" }]}
+              style={[styles.paywallBtn, { backgroundColor: "#EAB64A" }]}
               activeOpacity={0.9}
               onPress={handleFinishFree}
               disabled={isSaving || isSkipping}
             >
               {isSaving ? (
-                <ActivityIndicator size="small" color="#FFF" />
+                <ActivityIndicator size="small" color="#202D3A" />
               ) : (
                 <>
-                  <FontAwesome5 name="play" size={18} color="#FFF" />
-                  <Text style={styles.paywallBtnText}>
+                  <FontAwesome5 name="play" size={16} color="#202D3A" />
+                  <Text style={[styles.paywallBtnText, { color: "#202D3A" }]} numberOfLines={1} adjustsFontSizeToFit>
                     {t("btn_start_journey_now", userLang) || "DAR O PLAY NA JORNADA"}
                   </Text>
                 </>
@@ -1154,32 +1154,7 @@ export default function AnamneseScreen({ navigation, route }: any) {
 
         {!isPremium && (
           <View style={styles.impulseBuyBox}>
-            {!hasPartnerConnected && (
-              <View style={styles.partnerInfoNote}>
-                <FontAwesome5 name="info-circle" size={14} color="#202D3A" />
-                <Text style={styles.partnerInfoNoteText}>
-                  {t("partner_has_plan_note", userLang) ||
-                    "Seu amor já assinou o Plano Duo? Faça o Match para liberarem o acesso da dupla sem custo extra."}
-                </Text>
-              </View>
-            )}
-
-            {!hasPartnerConnected && (
-              <TouchableOpacity
-                style={[styles.paywallBtn, { backgroundColor: "#67D4A8", marginBottom: 12 }]}
-                activeOpacity={0.9}
-                onPress={handleGoToMatch}
-                disabled={isSaving || isSkipping}
-              >
-                <FontAwesome5 name="user-friends" size={18} color="#FFF" />
-                <Text style={styles.paywallBtnText}>
-                  {t("btn_connect_partner_match", userLang) ||
-                    t("BTN_CONNECT_PARTNER_MATCH", userLang) ||
-                    "CONECTAR COM MEU AMOR (MATCH)"}
-                </Text>
-              </TouchableOpacity>
-            )}
-
+            {/* 1. BOTÃO PRINCIPAL DE CONVERSÃO (Destaque Dourado - Protegido contra estourar) */}
             <TouchableOpacity
               style={[styles.paywallBtn, { backgroundColor: "#EAB64A" }]}
               activeOpacity={0.9}
@@ -1190,13 +1165,38 @@ export default function AnamneseScreen({ navigation, route }: any) {
                 <ActivityIndicator size="small" color="#202D3A" />
               ) : (
                 <>
-                  <FontAwesome5 name="shield-alt" size={18} color="#202D3A" />
-                  <Text style={[styles.paywallBtnText, { color: "#202D3A" }]}>
+                  <FontAwesome5 name="shield-alt" size={16} color="#202D3A" />
+                  <Text style={[styles.paywallBtnText, { color: "#202D3A" }]} numberOfLines={1} adjustsFontSizeToFit>
                     {t("btn_unlock_my_journey", userLang) || "LIBERAR MINHA JORNADA"}
                   </Text>
                 </>
               )}
             </TouchableOpacity>
+
+            {/* 2. MENSAGEM E AÇÃO SECUNDÁRIA DO MATCH */}
+            {!hasPartnerConnected && (
+              <View style={styles.matchSecondarySection}>
+                <View style={styles.partnerInfoNote}>
+                  <FontAwesome5 name="info-circle" size={14} color="#60646C" style={{ marginTop: 2 }} />
+                  <Text style={styles.partnerInfoNoteText}>
+                    {t("partner_has_plan_note", userLang) ||
+                      "Seu amor já assinou o Plano Duo? Faça o Match para liberarem o acesso da dupla sem custo extra."}
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.matchOutlineBtn}
+                  activeOpacity={0.8}
+                  onPress={handleGoToMatch}
+                  disabled={isSaving || isSkipping}
+                >
+                  <FontAwesome5 name="link" size={14} color="#334155" style={{ marginRight: 6 }} />
+                  <Text style={styles.matchOutlineBtnText} numberOfLines={1} adjustsFontSizeToFit>
+                    {t("btn_connect_partner_match", userLang) || "Conectar com meu amor"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         )}
 
@@ -1495,22 +1495,22 @@ const styles = StyleSheet.create({
   },
   resultContainer: {
     alignItems: "center",
-    padding: 30,
-    paddingTop: 40,
+    padding: 24,
+    paddingTop: 30,
     paddingBottom: 50,
   },
   resultHeader: {
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: "Montserrat_900Black",
     color: "#60646C",
     textTransform: "uppercase",
     letterSpacing: 2,
-    marginBottom: 20,
+    marginBottom: 16,
   },
-  thermometerWrapper: { alignItems: "center", marginBottom: 20 },
+  thermometerWrapper: { alignItems: "center", marginBottom: 16 },
   thermometerGlass: {
     width: 30,
-    height: 180,
+    height: 160,
     backgroundColor: "#FFF",
     borderRadius: 15,
     justifyContent: "flex-end",
@@ -1533,35 +1533,35 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.5)",
   },
   thermometerBulb: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    marginTop: -15,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    marginTop: -14,
     zIndex: 1,
     borderWidth: 4,
     borderColor: "#FFF",
     elevation: 5,
   },
   resultTitle: {
-    fontSize: 26,
+    fontSize: 24,
     fontFamily: "Montserrat_900Black",
-    marginBottom: 10,
+    marginBottom: 8,
     textAlign: "center",
   },
   resultText: {
-    fontSize: 15,
+    fontSize: 14,
     color: "#2C3E50",
     fontFamily: "Montserrat_400Regular",
     textAlign: "center",
-    lineHeight: 22,
-    marginBottom: 20,
+    lineHeight: 20,
+    marginBottom: 16,
   },
   riskBox: {
     backgroundColor: "#FFF",
     borderLeftWidth: 5,
     padding: 16,
-    borderRadius: 12,
-    marginBottom: 20,
+    borderRadius: 14,
+    marginBottom: 16,
     width: "100%",
     elevation: 2,
   },
@@ -1569,17 +1569,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   riskTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: "Montserrat_900Black",
     textTransform: "uppercase",
   },
   riskText: {
     fontSize: 13,
     color: "#60646C",
-    lineHeight: 20,
+    lineHeight: 19,
     fontFamily: "Montserrat_400Regular",
   },
   hopeBox: {
@@ -1588,30 +1588,30 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 16,
     alignItems: "center",
-    gap: 15,
-    marginBottom: 30,
+    gap: 12,
+    marginBottom: 20,
     width: "100%",
   },
   hopeText: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 13,
     color: "#202D3A",
-    lineHeight: 20,
+    lineHeight: 19,
     fontFamily: "Montserrat_400Regular",
   },
   impulseBuyBox: {
     width: "100%",
     backgroundColor: "#FFF",
-    padding: 20,
-    borderRadius: 24,
+    padding: 18,
+    borderRadius: 20,
     alignItems: "center",
     borderWidth: 1,
     borderColor: "#D1D9E0",
     elevation: 4,
-    marginBottom: 20,
+    marginBottom: 16,
   },
   impulseBuyPriceText: {
-    fontSize: 15,
+    fontSize: 14,
     color: "#2C3E50",
     marginBottom: 12,
     fontFamily: "Montserrat_700Bold",
@@ -1619,38 +1619,65 @@ const styles = StyleSheet.create({
   },
   partnerInfoNote: {
     flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#E8F4F1",
+    alignItems: "flex-start",
+    backgroundColor: "#F8FAFC",
     padding: 12,
     borderRadius: 12,
     gap: 8,
-    marginBottom: 16,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
   },
   partnerInfoNoteText: {
     flex: 1,
     fontSize: 12,
-    color: "#202D3A",
+    color: "#475569",
     fontFamily: "Montserrat_500Medium",
-    lineHeight: 17,
+    lineHeight: 16,
+  },
+  matchSecondarySection: {
+    width: "100%",
+    marginTop: 10,
+  },
+  matchOutlineBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F1F5F9",
+    borderWidth: 1.5,
+    borderColor: "#CBD5E1",
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    width: "100%",
+  },
+  matchOutlineBtnText: {
+    fontSize: 13,
+    fontFamily: "Montserrat_700Bold",
+    color: "#334155",
+    flexShrink: 1,
   },
   paywallBtn: {
     flexDirection: "row",
     width: "100%",
-    paddingVertical: 18,
+    paddingVertical: 16,
+    paddingHorizontal: 12,
     borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
-    gap: 12,
+    gap: 10,
     elevation: 5,
   },
   paywallBtnText: {
-    fontSize: 15,
+    fontSize: 14,
     fontFamily: "Montserrat_900Black",
     textTransform: "uppercase",
     letterSpacing: 0.5,
     color: "#FFF",
+    flexShrink: 1,
+    textAlign: "center",
   },
-  skipLink: { marginTop: 10, padding: 10 },
+  skipLink: { marginTop: 6, padding: 8 },
   skipLinkText: {
     color: "#60646C",
     fontSize: 13,

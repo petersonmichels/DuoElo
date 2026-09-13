@@ -51,7 +51,7 @@ export default function App() {
       GoogleSignin.configure({
         webClientId:
           process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ||
-          "504286284116-akoj0ufb3q6rrfb2b3gpskbjaatgeqle.apps.googleusercontent.apps.googleusercontent.com",
+          "504286284116-akoj0ufb3q6rrfb2b3gpskbjaatgeqle.apps.googleusercontent.com",
         offlineAccess: true,
         forceCodeForRefreshToken: true,
       });

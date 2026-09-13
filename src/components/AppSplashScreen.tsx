@@ -79,7 +79,7 @@ export const AppSplashScreen: React.FC<AppSplashScreenProps> = ({
     // 🟢 Animação fluida da Barra de Progresso
     const shimmerLoop = Animated.loop(
       Animated.timing(shimmerAnim, {
-        toValue: 140,
+        toValue: 160,
         duration: 1400,
         easing: Easing.inOut(Easing.quad),
         useNativeDriver: true,
@@ -92,7 +92,7 @@ export const AppSplashScreen: React.FC<AppSplashScreenProps> = ({
       pulseLoop.stop();
       shimmerLoop.stop();
     };
-  }, [onAnimationFinish]);
+  }, [onAnimationFinish, opacityAnim, pulseAnim, scaleAnim, shimmerAnim]);
 
   return (
     <Animated.View style={[styles.container, { opacity: opacityAnim }]}>
@@ -114,11 +114,12 @@ export const AppSplashScreen: React.FC<AppSplashScreenProps> = ({
           />
         </View>
 
-        {/* Nome do Produto Protegido contra Corte */}
-        <Text style={styles.brandTitle} numberOfLines={1}>
+        {/* 🟢 Título "DuoElo" 100% visível e sem cortes */}
+        <Text style={styles.brandTitle} adjustsFontSizeToFit numberOfLines={1}>
           DuoElo
         </Text>
 
+        {/* 🟢 Pill do Badge sem reticências */}
         <View style={styles.badgeRow}>
           <FontAwesome5 name="heartbeat" size={12} color="#67D4A8" />
           <Text style={styles.badgeText}>
@@ -131,7 +132,7 @@ export const AppSplashScreen: React.FC<AppSplashScreenProps> = ({
 
       <View style={styles.loaderFooter}>
         <Text style={styles.loadingMessage}>{displayMessage}</Text>
-        
+
         <View style={styles.trackBar}>
           <Animated.View
             style={[
@@ -151,7 +152,7 @@ export default AppSplashScreen;
 
 const styles = StyleSheet.create({
   container: {
-    ...StyleSheet.absoluteFill,    
+    ...StyleSheet.absoluteFill,
     backgroundColor: "#F0F4F8",
     justifyContent: "center",
     alignItems: "center",
@@ -162,7 +163,7 @@ const styles = StyleSheet.create({
     width: "100%",
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
   },
   logoFrame: {
     width: 110,
@@ -183,22 +184,23 @@ const styles = StyleSheet.create({
   },
   brandTitle: {
     fontFamily: "Montserrat_900Black",
-    fontSize: 32,
+    fontSize: 34,
     color: "#202D3A",
     textAlign: "center",
-    flexShrink: 0,
-    paddingHorizontal: 16,
+    minWidth: 160,
+    paddingHorizontal: 12,
     paddingVertical: 4,
-    marginBottom: 8,
+    marginBottom: 10,
   },
   badgeRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    justifyContent: "center",
+    gap: 8,
     backgroundColor: "#FFF",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 24,
     borderWidth: 1,
     borderColor: "#D1D9E0",
     shadowColor: "#000",
@@ -206,12 +208,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.04,
     shadowRadius: 4,
     elevation: 2,
+    alignSelf: "center",
   },
   badgeText: {
     fontFamily: "Montserrat_600SemiBold",
-    fontSize: 13,
+    fontSize: 14,
     color: "#2C3E50",
     letterSpacing: 0.3,
+    textAlign: "center",
   },
   loaderFooter: {
     position: "absolute",
@@ -230,10 +234,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     textAlign: "center",
     flexWrap: "wrap",
-    flexShrink: 0,
   },
   trackBar: {
-    width: 140,
+    width: 160,
     height: 4,
     backgroundColor: "#D1D9E0",
     borderRadius: 2,
@@ -241,7 +244,7 @@ const styles = StyleSheet.create({
     position: "relative",
   },
   fillBar: {
-    width: 80,
+    width: 90,
     height: "100%",
     backgroundColor: "#67D4A8",
     borderRadius: 2,

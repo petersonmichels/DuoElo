@@ -58,17 +58,20 @@ const LANGUAGE_TO_COUNTRY_CODE: Record<string, string> = {
   ja: "JP",
 };
 
-const getLegalUrlLangParam = (lang: string): string => {
-  const langMap: Record<string, string> = {
-    "pt-BR": "pt",
-    "pt-PT": "pt",
-    en: "en",
-    es: "es",
-    fr: "fr",
-    de: "de",
-    ja: "ja",
-  };
-  return langMap[lang] || "en";
+// 🟢 ITEM #08: URLs Oficiais em Português e Inglês
+const TERMS_URL_PT = "https://duoelo.lu/termos";
+const TERMS_URL_EN = "https://duoelo.lu/terms";
+
+const PRIVACY_URL_PT = "https://duoelo.lu/privacidade";
+const PRIVACY_URL_EN = "https://duoelo.lu/privacy";
+
+// Helper dinâmico para selecionar a URL com base no idioma
+const getLocalizedUrl = (urlPt: string, urlEn: string, lang: string) => {
+  const normalizedLang = lang?.toLowerCase() || "pt-br";
+  if (normalizedLang.startsWith("pt")) {
+    return urlPt;
+  }
+  return urlEn;
 };
 
 export default function ProfileScreen({ navigation }: any) {
@@ -532,7 +535,6 @@ export default function ProfileScreen({ navigation }: any) {
     );
   };
 
-  // 🟢 ERRO 5: DISPATCH DE DISMATCH SÍNCRONO NO BANCO DO PARCEIRO
   const handleDeleteAccount = () => {
     showCustomAlert(
       t("delete_account_title", userLang) || "Excluir Conta Permanentemente?",
@@ -568,7 +570,6 @@ export default function ProfileScreen({ navigation }: any) {
             );
           } catch (auditErr) {}
 
-          // 🛡️ DESVINCULA E NOTIFICA O PARCEIRO IMEDIATAMENTE
           if (userData?.partnerId) {
             try {
               const partnerSnap = await getDoc(doc(db, "users", userData.partnerId));
@@ -754,7 +755,6 @@ export default function ProfileScreen({ navigation }: any) {
     }
   };
 
-  // 🟢 ERRO 3: E-MAIL DE SUPORTE ATUALIZADO PARA help@duoelo.lu
   const handleSupport = () => {
     Linking.openURL("mailto:help@duoelo.lu?subject=Suporte%20DuoElo%20App");
   };
@@ -1075,11 +1075,12 @@ export default function ProfileScreen({ navigation }: any) {
               <FontAwesome5 name="chevron-right" size={14} color="#D1D9E0" />
             </TouchableOpacity>
 
+            {/* 🟢 ITEM #08: Link dos Termos de Uso dinâmico por idioma */}
             <TouchableOpacity
               style={styles.menuOption}
               onPress={() => {
-                const legalLang = getLegalUrlLangParam(userLang);
-                openUrl(`https://duoelo.lu/termos?lang=${legalLang}`);
+                const targetUrl = getLocalizedUrl(TERMS_URL_PT, TERMS_URL_EN, userLang);
+                openUrl(targetUrl);
               }}
             >
               <View style={styles.menuOptionLeft}>
@@ -1091,11 +1092,12 @@ export default function ProfileScreen({ navigation }: any) {
               <FontAwesome5 name="external-link-alt" size={12} color="#D1D9E0" />
             </TouchableOpacity>
 
+            {/* 🟢 ITEM #08: Link da Política de Privacidade dinâmico por idioma */}
             <TouchableOpacity
               style={styles.menuOption}
               onPress={() => {
-                const legalLang = getLegalUrlLangParam(userLang);
-                openUrl(`https://duoelo.lu/privacidade?lang=${legalLang}`);
+                const targetUrl = getLocalizedUrl(PRIVACY_URL_PT, PRIVACY_URL_EN, userLang);
+                openUrl(targetUrl);
               }}
             >
               <View style={styles.menuOptionLeft}>
